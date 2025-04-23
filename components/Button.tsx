@@ -1,27 +1,31 @@
-'use client'; // This ensures the component is interactive in Next.js (App Router)
-
+'use client';
 import React from 'react';
+import clsx from 'clsx';
 
 type ButtonProps = {
     label: string;
-    onClick: () => VideoDecoder;
-    color?: 'blue' | 'yellow' | 'orange';
+    onClick: () => void;
+    color?: 'blue' | 'yellow' | 'orange' | 'sandblue';
 };
 
-export default function Button({ label, onClick, color = 'blue'}: ButtonProps) {
-    const bgColor =
-    color === 'blue'
-      ? 'bg-gradient-to-r from-blue-400 to-0080FF'
-      : color === 'orange'
-      ? 'bg-gradient-to-r from-C46210 to-yellow-500'
-      : 'bg-gradient-to-r from-efddc2 to-yellow-300';
-    
+export default function Button({ label, onClick, color = 'blue' }: ButtonProps) {
+    const gradientMap = {
+        blue: 'from-azure to-blue-700',
+        orange: 'from-orange-yellow-start to-orange-yellow-end',
+        yellow: 'from-yellow-400 to-yellow-500',
+        sandblue: 'from-sand-blue-start to-sand-blue-end',
+    };
+
     return (
         <button
             onClick={onClick}
-            className={'w-full py-3 text-white font-medium rounded-lg transition-transform transform hover:scale-105 ${bgColor}'}
+            className={clsx(
+                'w-full py-3 text-white font-semibold rounded-lg shadow-md bg-gradient-to-r hover:scale-105 transition-transform',
+                gradientMap[color]
+            )}
         >
             {label}
         </button>
     );
 }
+

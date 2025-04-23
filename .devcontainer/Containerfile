@@ -1,0 +1,30 @@
+FROM node:23.11.0
+
+# Install CLI tools
+RUN apt-get update && apt-get install -y -qq \
+  git \
+  curl \
+  vim \
+  neovim \
+  && rm -rf /var/lib/apt/lists/*
+
+# Workdir and path
+WORKDIR /workspace
+ENV PATH="/workspace/node_modules/.bin:$PATH"
+
+# Copy package files and install dependencies as root
+COPY package.json package-lock.json ./
+
+# Explicitly install next.js and dependencies
+RUN npm install next && npm install && test -f node_modules/.bin/next
+
+# Now switch to non-root user
+USER node
+
+# Copy everything else
+COPY --chown=node:node . .
+
+# Expose and run
+EXPOSE 2999
+CMD ["npm", "run", "dev"]
+

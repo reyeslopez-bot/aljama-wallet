@@ -1,22 +1,26 @@
-'use client'; // This ensures the component is interactive in Next.js (App Router)
-
+'use client';
 import React, { ReactNode } from 'react';
+import clsx from 'clsx';
 
 type CardProps = {
     title: string;
     description: string;
     children?: ReactNode;
-    className?: string; // Allows for custom styling
+    className?: string;
 };
 
-export default function Card({ title, description, children, className = '' }: CardProps) {
+export default function Card({ title, description, children, className }: CardProps) {
     return (
-        <div 
-            className={'p-8 rounded-lg shadow-soft transition-all hover:scale-105 ${className}'}
-        >    
-            <h2 className="text-2xl font-bold text-alloy mb-4">{title}</h2>
-            <p className="text-gray-600:text-gray-300 mb-6">{description}</p>
+        <div
+            className={clsx(
+                'bg-background text-foreground p-6 rounded-xl shadow-soft hover:shadow-heavy transition-all hover:scale-[1.02]',
+                className
+            )}
+        >
+            <h2 className="text-xl font-bold text-alloy mb-3">{title}</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">{description}</p>
             {children}
         </div>
     );
 }
+

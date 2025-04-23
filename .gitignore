@@ -1,6 +1,8 @@
-echo "node_modules/" >> .gitignore
-git add .gitignore
-git commit -m "Ignore node_modules"
-git push
-
+*.swp
+.env*
+*.log
+dist/
+.next/
+node_modules/
+.DS_Store
 
