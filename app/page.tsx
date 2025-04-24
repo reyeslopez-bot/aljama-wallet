@@ -5,7 +5,7 @@ import Button from '@/components/Button';
 
 export default function Home() {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-pearl via-white to-azure text-gray-800">
+        <div className="min-h-screen bg-[url('/backgrounds/dunes-background.png')] bg-cover bg-center bg-no-repeat bg-fixed text-gray-800">
             <main className="flex flex-col items-center p-8">
                 <section className="text-center mb-16">
                     <h1 className="text-5xl font-oleo font-bold text-alloy drop-shadow-lg tracking-wide">
@@ -15,7 +15,8 @@ export default function Home() {
                         Forge your vault. Unlock your key. Manage your assets securely.
                     </p>
                 </section>
-                {/* Wrapper Div for Cards*/}
+
+                {/* Cards container */}
                 <div className="flex flex-wrap justify-center gap-8 w-full max-w-6xl">
                     <Card
                         title={<span className="font-oleo text-3xl">Create Wallet</span>}
@@ -28,7 +29,7 @@ export default function Home() {
                         <Button
                             label="Create Wallet"
                             color="blue"
-                            onClick={() => console.log("Create Wallet")}
+                            onClick={() => console.log('Create Wallet')}
                         />
                     </Card>
 
@@ -43,7 +44,7 @@ export default function Home() {
                         <Button
                             label="Unlock Wallet"
                             color="orange"
-                            onClick={() => console.log("Unlock Wallet")}
+                            onClick={() => console.log('Unlock Wallet')}
                         />
                     </Card>
 
@@ -51,19 +52,19 @@ export default function Home() {
                         title={<span className="font-oleo text-3xl">Manage Wallet</span>}
                         description={
                             <span className="text-md">
-                                Check balance, send tokens, and track activity
+                                Check balance, send tokens, and track activity.
                             </span>
                         }
                     >
                         <Button
                             label="Manage Wallet"
                             color="yellow"
-                            onClick={() => console.log("Manage Wallet")}
+                            onClick={() => console.log('Manage Wallet')}
                         />
                     </Card>
-                </div >
-            </main >
-        </div >
+                </div>
+            </main>
+        </div>
     );
 }
 

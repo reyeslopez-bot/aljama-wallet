@@ -3,9 +3,10 @@ import React from 'react';
 import clsx from 'clsx';
 
 type ButtonProps = {
-    label: string;
+    label: string | React.ReactNode;
     onClick: () => void;
     color?: 'blue' | 'yellow' | 'orange' | 'sandblue';
+    className?: string;
 };
 
 export default function Button({ label, onClick, color = 'blue' }: ButtonProps) {
