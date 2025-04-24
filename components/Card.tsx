@@ -3,9 +3,9 @@ import React, { ReactNode } from 'react';
 import clsx from 'clsx';
 
 type CardProps = {
-    title: string;
-    description: string;
-    children?: ReactNode;
+    title: React.ReactNode;
+    description: React.ReactNode;
+    children?: React.ReactNode;
     className?: string;
 };
 

@@ -8,48 +8,62 @@ export default function Home() {
         <div className="min-h-screen bg-gradient-to-br from-pearl via-white to-azure text-gray-800">
             <main className="flex flex-col items-center p-8">
                 <section className="text-center mb-16">
-                    <h1 className="text-5xl font-bold mb-4">Welcome to Aljama Wallet</h1>
-                    <p className="text-lg text-gray-600">
+                    <h1 className="text-5xl font-oleo font-bold text-alloy drop-shadow-lg tracking-wide">
+                        Welcome to Aljama Wallet
+                    </h1>
+                    <p className="text-lg font-oleo text-gray-600">
                         Forge your vault. Unlock your key. Manage your assets securely.
                     </p>
                 </section>
-
-                <div className="flex gap-8 justify-center w-full max-w-5xl flex-wrap">
+                {/* Wrapper Div for Cards*/}
+                <div className="flex flex-wrap justify-center gap-8 w-full max-w-6xl">
                     <Card
-                        title="Create Wallet"
-                        description="Start your journey by creating a secure wallet."
+                        title={<span className="font-oleo text-3xl">Create Wallet</span>}
+                        description={
+                            <span className="text-md">
+                                Start your journey by creating a secure wallet.
+                            </span>
+                        }
                     >
                         <Button
                             label="Create Wallet"
                             color="blue"
-                            onClick={() => console.log('Create Wallet')}
+                            onClick={() => console.log("Create Wallet")}
                         />
                     </Card>
 
                     <Card
-                        title="Unlock Wallet"
-                        description="Access your wallet securely with your private key."
+                        title={<span className="font-oleo text-3xl">Unlock Wallet</span>}
+                        description={
+                            <span className="text-md">
+                                Access your wallet securely with your private key.
+                            </span>
+                        }
                     >
                         <Button
                             label="Unlock Wallet"
                             color="orange"
-                            onClick={() => console.log('Unlock Wallet')}
+                            onClick={() => console.log("Unlock Wallet")}
                         />
                     </Card>
 
                     <Card
-                        title="Manage Assets"
-                        description="Check balance, send tokens, and track activity."
+                        title={<span className="font-oleo text-3xl">Manage Wallet</span>}
+                        description={
+                            <span className="text-md">
+                                Check balance, send tokens, and track activity
+                            </span>
+                        }
                     >
                         <Button
-                            label="Manage Assets"
+                            label="Manage Wallet"
                             color="yellow"
-                            onClick={() => console.log('Manage Assets')}
+                            onClick={() => console.log("Manage Wallet")}
                         />
                     </Card>
-                </div>
-            </main>
-        </div>
+                </div >
+            </main >
+        </div >
     );
 }
 
