@@ -3,14 +3,13 @@
 import React from 'react';
 import clsx from 'clsx';
 
-type CardProps = {
+type HeroCardProps = {
     title: React.ReactNode;
-    description: React.ReactNode;
-    children?: React.ReactNode;
+    subtitle?: React.ReactNode;
     className?: string;
 };
 
-export default function Card({ title, description, children, className }: CardProps) {
+export default function HeroCard({ title, subtitle, className }: HeroCardProps) {
     return (
         <div
             className={clsx(
@@ -18,9 +17,11 @@ export default function Card({ title, description, children, className }: CardPr
                 className
             )}
         >
-            <h2 className="text-xl font-bold text-alloy mb-3">{title}</h2>
-            <p className="text-lg font-oleo text-gray-600 dark:text-gray-300 mb-4">{description}</p>
-            {children}
+            <div className="mb-2 font-oleo rounded-xl text-3xl text-alloy drop-shadow-lg">{title}</div>
+            {subtitle && (
+                <div className="text-lg font-oleo text-gray-600 dark:text-gray-300">{subtitle}</div>
+            )}
         </div>
     );
 }
+

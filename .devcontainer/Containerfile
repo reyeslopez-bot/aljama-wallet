@@ -1,30 +1,49 @@
-FROM node:23.11.0
+# -------- Build Stage --------
+FROM node:23.11.0 AS builder
 
-# Install CLI tools
 RUN apt-get update && apt-get install -y -qq \
-  git \
-  curl \
-  vim \
-  neovim \
-  && rm -rf /var/lib/apt/lists/*
+    git \
+    curl \
+    vim \
+    neovim \
+    && rm -rf /var/lib/apt/lists/*
 
-# Workdir and path
 WORKDIR /workspace
 ENV PATH="/workspace/node_modules/.bin:$PATH"
 
-# Copy package files and install dependencies as root
-COPY package.json package-lock.json ./
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Explicitly install next.js and dependencies
-RUN npm install next && npm install && test -f node_modules/.bin/next
+COPY package.json pnpm-lock.yaml ./
 
-# Now switch to non-root user
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+
+RUN pnpm build
+
+# -------- Production Stage --------
+FROM node:23.11.0
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /workspace
+
+COPY --from=builder /workspace/package.json ./package.json
+COPY --from=builder /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder /workspace/.next ./.next
+COPY --from=builder /workspace/public ./public
+COPY --from=builder /workspace/next.config.ts ./next.config.ts
+
+RUN pnpm install --prod --frozen-lockfile
+
 USER node
 
-# Copy everything else
-COPY --chown=node:node . .
+ENV PORT=2999
 
-# Expose and run
 EXPOSE 2999
-CMD ["npm", "run", "dev"]
+
+# 🚑 Add Healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD wget --spider --quiet http://localhost:2999/ || exit 1
+
+CMD ["pnpm", "start"]
 

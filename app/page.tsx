@@ -2,19 +2,18 @@
 
 import Card from '@/components/Card';
 import Button from '@/components/Button';
+import HeroCard from '@/components/HeroCard';
 
 export default function Home() {
     return (
         <div className="min-h-screen bg-[url('/backgrounds/dunes-background.png')] bg-cover bg-center bg-no-repeat bg-fixed text-gray-800">
             <main className="flex flex-col items-center p-8">
-                <section className="text-center mb-16">
-                    <h1 className="text-5xl font-oleo font-bold text-alloy drop-shadow-lg tracking-wide">
-                        Welcome to Aljama Wallet
-                    </h1>
-                    <p className="text-lg font-oleo text-gray-600">
-                        Forge your vault. Unlock your key. Manage your assets securely.
-                    </p>
-                </section>
+
+                <HeroCard
+                    title="Welcome to Aljama Wallet"
+                    subtitle="Forge your vault. Unlock your key. Manage your assets securely."
+                    className="mb-12"
+                />
 
                 {/* Cards container */}
                 <div className="flex flex-wrap justify-center gap-8 w-full max-w-6xl">
@@ -64,7 +63,7 @@ export default function Home() {
                     </Card>
                 </div>
             </main>
-        </div>
+        </div >
     );
 }
 

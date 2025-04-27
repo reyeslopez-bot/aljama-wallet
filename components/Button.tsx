@@ -21,7 +21,7 @@ export default function Button({ label, onClick, color = 'blue' }: ButtonProps) 
         <button
             onClick={onClick}
             className={clsx(
-                'w-full py-3 text-white font-semibold rounded-lg shadow-md bg-gradient-to-r hover:scale-105 transition-transform',
+                'w-full py-3 text-gray font-semibold rounded-lg shadow-md bg-gradient-to-r hover:scale-105 transition-transform',
                 gradientMap[color]
             )}
         >
