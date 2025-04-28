@@ -14,6 +14,8 @@ const config: Config = {
                 alloy: "#C46210", // Orange
                 pearl: "#efddc2", // Pearl Sand
                 azure: "#0080FF", // Azure Blue
+                sand: "#EED9A3",
+                sunsetOrange: "#D76C5B",
             },
             fontFamily: {
                 oleo: ['Oleo Script', 'cursive'],

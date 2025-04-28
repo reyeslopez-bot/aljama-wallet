@@ -14,12 +14,12 @@ export default function Card({ title, description, children, className }: CardPr
     return (
         <div
             className={clsx(
-                'bg-[rgba(var(--background),0.0)] backdrop-blur-md text-foreground p-7 rounded-xl shadow-soft hover:shadow-heavy transition-all hover:scale-[1.02]',
+                'bg-sand backdrop-blur-sm text-gray-800 p-7 rounded-2xl shadow-lg transition-transform transition-shadow duration-300 ease-in-out hover:scale-105 hover:shadow-2xl',
                 className
             )}
         >
-            <h2 className="text-xl font-bold text-alloy mb-3">{title}</h2>
-            <p className="text-lg font-oleo text-gray-600 dark:text-gray-300 mb-4">{description}</p>
+            <h2 className="text-2xl font-bold text-terracotta mb-3">{title}</h2>
+            <p className="text-md font-oleo text-gray-700 dark:text-gray-300 mb-4">{description}</p>
             {children}
         </div>
     );

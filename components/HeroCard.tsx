@@ -19,7 +19,7 @@ export default function HeroCard({ title, subtitle, className }: HeroCardProps) 
         >
             <div className="mb-2 font-oleo rounded-xl text-3xl text-alloy drop-shadow-lg">{title}</div>
             {subtitle && (
-                <div className="text-lg font-oleo text-gray-600 dark:text-gray-300">{subtitle}</div>
+                <div className="text-lg font-oleo text-gray-700 dark:text-gray-300">{subtitle}</div>
             )}
         </div>
     );

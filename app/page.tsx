@@ -24,10 +24,11 @@ export default function Home() {
                                 Start your journey by creating a secure wallet.
                             </span>
                         }
+                        className="bg-sand"
                     >
                         <Button
                             label="Create Wallet"
-                            color="blue"
+                            color="sunsetOrange"
                             onClick={() => console.log('Create Wallet')}
                         />
                     </Card>
@@ -35,14 +36,15 @@ export default function Home() {
                     <Card
                         title={<span className="font-oleo text-3xl">Unlock Wallet</span>}
                         description={
-                            <span className="text-md">
+                            <span className="text-md ">
                                 Access your wallet securely with your private key.
                             </span>
                         }
+                        className='bg-sunsetOrange'
                     >
                         <Button
                             label="Unlock Wallet"
-                            color="orange"
+                            color="terracotta"
                             onClick={() => console.log('Unlock Wallet')}
                         />
                     </Card>
@@ -54,15 +56,16 @@ export default function Home() {
                                 Check balance, send tokens, and track activity.
                             </span>
                         }
+                        className='bg-terracotta'
                     >
                         <Button
                             label="Manage Wallet"
-                            color="yellow"
+                            color="sand"
                             onClick={() => console.log('Manage Wallet')}
                         />
                     </Card>
                 </div>
-            </main>
+            </main >
         </div >
     );
 }

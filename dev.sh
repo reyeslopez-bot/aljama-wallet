@@ -1,14 +1,15 @@
 #!/bin/bash
 
-# 🌱 Aljama Wallet Prod Runner (Podman Edition)
+# 🚀 Aljama Wallet Development Runner (Podman Edition)
 
-IMAGE_NAME="nextjs-prod"
-CONTAINER_NAME="aljama-prod"
-APP_PORT=2999
+set -e
+
+IMAGE_NAME="localhost/nextjs-dev"
+CONTAINER_NAME="aljama-dev"
+APP_PORT=2998
 APP_URL="http://localhost:$APP_PORT"
 WORKDIR="/workspace"
 BUILD_CONTEXT="."
-
 FORCE_CLEAN=false
 REBUILD=false
 
@@ -35,21 +36,24 @@ fi
 
 # --- Clean old containers/images ---
 if [ "$FORCE_CLEAN" = true ]; then
-  echo "🔥 Full clean: removing old container and image..."
+  echo "🔥 Full clean: removing old dev container and image..."
   podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
   podman rmi -f "$IMAGE_NAME" 2>/dev/null || true
 fi
 
-# --- Build image ---
+# --- Build dev image ---
 if [ "$REBUILD" = true ] || [ "$FORCE_CLEAN" = true ]; then
-  echo "📦 Building production image..."
+  echo "📦 Building development image..."
   podman build -f .devcontainer/Containerfile -t "$IMAGE_NAME" "$BUILD_CONTEXT"
 else
-  echo "📦 Using existing production image."
+  echo "📦 Using existing development image."
 fi
 
 # --- Run container ---
-echo "🚀 Running production container..."
-podman run --rm -it --name "$CONTAINER_NAME" -p "$APP_PORT:$APP_PORT" "$IMAGE_NAME"
-
+echo "🚀 Running development container at $APP_URL..."
+podman run --rm --pull=never -it --name "$CONTAINER_NAME" \
+  --userns=keep-id \
+  -p "$APP_PORT:$APP_PORT" \
+  -v "$PWD:/workspace:Z" \
+  "$IMAGE_NAME"
 
