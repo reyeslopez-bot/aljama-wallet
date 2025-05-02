@@ -1,22 +1,33 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+import { Geist, Geist_Mono, Oleo_Script } from "next/font/google";
+import Footer from "@/components/Footer";
+
+// 🎨 Font imports via `next/font/google`
 const geistSans = Geist({
-    variable: "--font-geist-sans",
     subsets: ["latin"],
+    variable: "--font-geist-sans",
 });
 
 const geistMono = Geist_Mono({
-    variable: "--font-geist-mono",
     subsets: ["latin"],
+    variable: "--font-geist-mono",
 });
 
+const oleo = Oleo_Script({
+    subsets: ["latin"],
+    weight: ["400", "700"],
+    variable: "--font-oleo",
+});
+
+// 🧠 Page metadata
 export const metadata: Metadata = {
     title: "Aljama Wallet",
     description: "Forge your vault. Unlock your key. Manage your assets securely.",
 };
 
+// 🧱 Root layout component
 export default function RootLayout({
     children,
 }: Readonly<{
@@ -24,15 +35,12 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <head>
-                <link rel="preconnect" href="https://fonts.googleapis.com" />
-                <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                <link href="https://fonts.googleapis.com/css2?family=Oleo+Script:wght@400;700&display=swap"
-                    rel="stylesheet" />
-            </head>
-
-            <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+            <head />
+            <body
+                className={`${geistSans.variable} ${geistMono.variable} ${oleo.variable} antialiased`}
+            >
                 {children}
+                <Footer />
             </body>
         </html>
     );

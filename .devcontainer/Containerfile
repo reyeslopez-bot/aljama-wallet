@@ -1,12 +1,26 @@
-# -------- Dev Container --------
+# -------- Stage 1: deps --------
+FROM node:23.11.0 AS deps
+
+WORKDIR /workspace
+
+RUN corepack enable && corepack prepare pnpm@10.10.0 --activate && corepack use pnpm@10.10.0
+ENV COREPACK_ENABLE_STRICT=1
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+
+# -------- Stage 2: dev --------
 FROM node:23.11.0
 
+# Install dev tools
 RUN apt-get update && apt-get install -y -qq \
-    git \
-    curl \
-    vim \
-    neovim \
-    && rm -rf /var/lib/apt/lists/*
+  git \
+  curl \
+  vim \
+  neovim \
+  bash \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 RUN chown node:node /workspace
@@ -15,18 +29,19 @@ ENV PATH="/workspace/node_modules/.bin:$PATH"
 RUN corepack enable && corepack prepare pnpm@10.10.0 --activate && corepack use pnpm@10.10.0
 ENV COREPACK_ENABLE_STRICT=1
 
-# 📦 Copy only package info first
-COPY --chown=node:node package.json pnpm-lock.yaml ./
-RUN pnpm install
-RUN apt-get install -y bash
-RUN pnpm set config ignore-scripts true
+# Copy deps from previous stage
+COPY --from=deps /workspace/node_modules ./node_modules
+COPY --from=deps /workspace/package.json ./package.json
+COPY --from=deps /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
 
-# 👇 Then volume mount source files (during runtime)
+# Copy rest of your source code into container (optional fallback)
+COPY --chown=node:node . .
+
+RUN pnpm set config ignore-scripts true
 
 USER node
 
 ENV PORT=2998
-
 EXPOSE 2998
 
 CMD ["pnpm", "dev"]

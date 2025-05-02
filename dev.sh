@@ -41,6 +41,24 @@ if [ "$FORCE_CLEAN" = true ]; then
   podman rmi -f "$IMAGE_NAME" 2>/dev/null || true
 fi
 
+# --- Smart rebuild if package.json or lockfile changed ---
+DEP_HASH_FILE=".devcontainer/.last-deps-hash"
+CURRENT_HASH=$(sha256sum package.json pnpm-lock.yaml 2>/dev/null | sha256sum | cut -d' ' -f1)
+
+if [ "$REBUILD" = false ] && [ "$FORCE_CLEAN" = false ]; then
+  if [ -f "$DEP_HASH_FILE" ]; then
+    LAST_HASH=$(cat "$DEP_HASH_FILE")
+  else
+    LAST_HASH=""
+  fi
+
+  if [ "$LAST_HASH" != "$CURRENT_HASH" ]; then
+    echo "📦 Detected dependency changes. Triggering rebuild..."
+    REBUILD=true
+    echo "$CURRENT_HASH" > "$DEP_HASH_FILE"
+  fi
+fi
+
 # --- Build dev image ---
 if [ "$REBUILD" = true ] || [ "$FORCE_CLEAN" = true ]; then
   echo "📦 Building development image..."

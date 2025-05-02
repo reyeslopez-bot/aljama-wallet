@@ -3,18 +3,24 @@
 import Card from '@/components/Card';
 import Button from '@/components/Button';
 import HeroCard from '@/components/HeroCard';
+import WalletDrawer from '@/components/WalletDrawer';
+import { useState } from 'react';
 
-export default function Home() {
+export default function Home(): tsx.element {
+    const [isDrawerOpen, setDrawerOpen] = useState(false);
     return (
         <div className="min-h-screen bg-[url('/backgrounds/dunes-background.png')] bg-cover bg-center bg-no-repeat bg-fixed text-gray-800">
-            <main className="flex flex-col items-center p-8">
-
+            <WalletDrawer
+                open={isDrawerOpen}
+                onClose={() => setDrawerOpen(false)}
+                mode="create"
+                showOverlay={false} />
+            <main className='flex flex-col min-h-screen items-center p-8'>
                 <HeroCard
                     title="Welcome to Aljama Wallet"
                     subtitle="Forge your vault. Unlock your key. Manage your assets securely."
                     className="mb-12"
                 />
-
                 {/* Cards container */}
                 <div className="flex flex-wrap justify-center gap-8 w-full max-w-6xl">
                     <Card
@@ -66,7 +72,7 @@ export default function Home() {
                     </Card>
                 </div>
             </main >
-        </div >
+        </div>
     );
 }
 
