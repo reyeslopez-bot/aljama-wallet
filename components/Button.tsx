@@ -4,11 +4,13 @@ import React from 'react';
 import clsx from 'clsx';
 
 type ButtonColor = 'blue' | 'yellow' | 'orange' | 'sunsetOrange' | 'terracotta' | 'sand';
+type ButtonSize = 'sm' | 'md' | 'lg';
 
 type ButtonProps = {
     label: string;
     action: () => void;
     color?: ButtonColor;
+    size?: ButtonSize;
     className?: string;
 };
 
@@ -21,18 +23,26 @@ const colorClasses: Record<ButtonColor, string> = {
     sand: 'bg-[#EED9A3] hover:bg-yellow-300',
 };
 
+const sizeClasses: Record<ButtonSize, string> = {
+    sm: 'text-sm px-4 py-2',
+    md: 'text-base px-6 py-3',
+    lg: 'text-lg px-8 py-4',
+};
+
 export default function Button({
     label,
     action,
     color = 'blue',
+    size = 'md',
     className,
 }: ButtonProps) {
     return (
         <button
             onClick={action}
             className={clsx(
-                'w-full py-3 text-gray font-semibold rounded-lg shadow-md bg-gradient-to-r hover:scale-105 transition-transform',
+                'rounded-lg font-semibold shadow-md transition-transform duration-200 ease-in-out hover:scale-105',
                 colorClasses[color],
+                sizeClasses[size],
                 className
             )}
         >
