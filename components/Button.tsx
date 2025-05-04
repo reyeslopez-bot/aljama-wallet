@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import clsx from 'clsx';
 
 type ButtonColor = 'blue' | 'yellow' | 'orange' | 'sunsetOrange' | 'terracotta' | 'sand';

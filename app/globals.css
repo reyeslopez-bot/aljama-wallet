@@ -2,9 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply bg-cover bg-center bg-no-repeat;
+    background-image: url('/backgrounds/dunes-background.png');
+  }
+}
+
 :root {
-  --background: 255, 255, 255;
-  --foreground: 23, 23, 23;
+background-color: rgb(var(--background));
+color: rgb(var(--foreground));
 }
 
 body.dark {
@@ -14,10 +21,15 @@ body.dark {
 
 body {
   font-family: 'Arial', 'Helvetica', sans-serif;
-  background-color: var(--background-light);
-  color: var(--foreground-light);
+  background-image: url('/backgrounds/dunes-background.png'); /* ✅ fixed */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: rgb(var(--background));
+  color: rgb(var(--foreground));
   transition: background-color 0.3s ease, color 0.3s ease;
 }
+
 
 body.dark {
   background-color: var(--background-dark);

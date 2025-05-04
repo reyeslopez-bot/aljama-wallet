@@ -301,6 +301,13 @@ img, video {
   display: none;
 }
 
+body {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-image: url("/backgrounds/dunes-background.png");
+}
+
 .fixed {
   position: fixed;
 }
@@ -309,8 +316,8 @@ img, video {
   inset: 0;
 }
 
-.left-0 {
-  left: 0;
+.right-0 {
+  right: 0;
 }
 
 .top-0 {
@@ -330,10 +337,6 @@ img, video {
   margin-right: auto;
 }
 
-.mb-12 {
-  margin-bottom: 3rem;
-}
-
 .mb-2 {
   margin-bottom: .5rem;
 }
@@ -346,12 +349,8 @@ img, video {
   margin-bottom: 1rem;
 }
 
-.mb-6 {
-  margin-bottom: 1.5rem;
-}
-
-.ml-80 {
-  margin-left: 20rem;
+.mb-8 {
+  margin-bottom: 2rem;
 }
 
 .mt-12 {
@@ -364,6 +363,10 @@ img, video {
 
 .flex {
   display: flex;
+}
+
+.grid {
+  display: grid;
 }
 
 .h-full {
@@ -386,20 +389,24 @@ img, video {
   max-width: 64rem;
 }
 
-.max-w-6xl {
-  max-width: 72rem;
-}
-
 .max-w-7xl {
   max-width: 80rem;
 }
 
-.flex-col {
-  flex-direction: column;
+.max-w-sm {
+  max-width: 24rem;
 }
 
-.flex-wrap {
-  flex-wrap: wrap;
+.flex-grow {
+  flex-grow: 1;
+}
+
+.grid-cols-1 {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.flex-col {
+  flex-direction: column;
 }
 
 .items-center {
@@ -414,8 +421,8 @@ img, video {
   justify-content: space-between;
 }
 
-.gap-8 {
-  gap: 2rem;
+.gap-6 {
+  gap: 1.5rem;
 }
 
 .space-x-4 > :not([hidden]) ~ :not([hidden]) {
@@ -428,12 +435,6 @@ img, video {
   --tw-space-y-reverse: 0;
   margin-top: calc(.75rem * calc(1 - var(--tw-space-y-reverse)));
   margin-bottom: calc(.75rem * var(--tw-space-y-reverse));
-}
-
-.space-y-6 > :not([hidden]) ~ :not([hidden]) {
-  --tw-space-y-reverse: 0;
-  margin-top: calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));
-  margin-bottom: calc(1.5rem * var(--tw-space-y-reverse));
 }
 
 .rounded {
@@ -475,8 +476,9 @@ img, video {
   background-color: rgba(var(--background), 0);
 }
 
-.bg-black\/30 {
-  background-color: #0000004d;
+.bg-black {
+  --tw-bg-opacity: 1;
+  background-color: rgb(0 0 0 / var(--tw-bg-opacity, 1));
 }
 
 .bg-blue-500 {
@@ -487,6 +489,11 @@ img, video {
 .bg-blue-600 {
   --tw-bg-opacity: 1;
   background-color: rgb(37 99 235 / var(--tw-bg-opacity, 1));
+}
+
+.bg-orange-100 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 237 213 / var(--tw-bg-opacity, 1));
 }
 
 .bg-orange-500 {
@@ -504,13 +511,18 @@ img, video {
   background-color: rgb(255 255 255 / var(--tw-bg-opacity, 1));
 }
 
+.bg-yellow-100 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(254 249 195 / var(--tw-bg-opacity, 1));
+}
+
 .bg-yellow-500 {
   --tw-bg-opacity: 1;
   background-color: rgb(234 179 8 / var(--tw-bg-opacity, 1));
 }
 
-.bg-\[url\(\'\/backgrounds\/dunes-background\.png\'\)\] {
-  background-image: url("/backgrounds/dunes-background.png");
+.bg-opacity-30 {
+  --tw-bg-opacity: .3;
 }
 
 .bg-gradient-to-t {
@@ -530,22 +542,6 @@ img, video {
 
 .to-transparent {
   --tw-gradient-to: transparent var(--tw-gradient-to-position);
-}
-
-.bg-cover {
-  background-size: cover;
-}
-
-.bg-fixed {
-  background-attachment: fixed;
-}
-
-.bg-center {
-  background-position: center;
-}
-
-.bg-no-repeat {
-  background-repeat: no-repeat;
 }
 
 .p-2 {
@@ -603,10 +599,6 @@ img, video {
   padding-bottom: 1.5rem;
 }
 
-.pb-20 {
-  padding-bottom: 5rem;
-}
-
 .font-oleo {
   font-family: Oleo Script, cursive;
 }
@@ -619,6 +611,11 @@ img, video {
 .text-3xl {
   font-size: 1.875rem;
   line-height: 2.25rem;
+}
+
+.text-4xl {
+  font-size: 2.25rem;
+  line-height: 2.5rem;
 }
 
 .text-base {
@@ -649,22 +646,18 @@ img, video {
   font-weight: 600;
 }
 
-.capitalize {
-  text-transform: capitalize;
-}
-
 .text-alloy {
   --tw-text-opacity: 1;
   color: rgb(196 98 16 / var(--tw-text-opacity, 1));
 }
 
-.text-foreground {
-  color: var(--foreground);
+.text-black {
+  --tw-text-opacity: 1;
+  color: rgb(0 0 0 / var(--tw-text-opacity, 1));
 }
 
-.text-gray-600 {
-  --tw-text-opacity: 1;
-  color: rgb(75 85 99 / var(--tw-text-opacity, 1));
+.text-foreground {
+  color: var(--foreground);
 }
 
 .text-gray-700 {
@@ -677,14 +670,14 @@ img, video {
   color: rgb(31 41 55 / var(--tw-text-opacity, 1));
 }
 
+.text-gray-900 {
+  --tw-text-opacity: 1;
+  color: rgb(17 24 39 / var(--tw-text-opacity, 1));
+}
+
 .text-white {
   --tw-text-opacity: 1;
   color: rgb(255 255 255 / var(--tw-text-opacity, 1));
-}
-
-.text-yellow-700 {
-  --tw-text-opacity: 1;
-  color: rgb(161 98 7 / var(--tw-text-opacity, 1));
 }
 
 .antialiased {
@@ -764,8 +757,8 @@ img, video {
 }
 
 :root {
-  --background: 255, 255, 255;
-  --foreground: 23, 23, 23;
+  background-color: rgb(var(--background));
+  color: rgb(var(--foreground));
 }
 
 body.dark {
@@ -775,8 +768,12 @@ body.dark {
 
 body {
   font-family: Arial, Helvetica, sans-serif;
-  background-color: var(--background-light);
-  color: var(--foreground-light);
+  background-image: url("/backgrounds/dunes-background.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: rgb(var(--background));
+  color: rgb(var(--foreground));
   transition: background-color .3s, color .3s;
 }
 
@@ -833,11 +830,6 @@ body.dark {
   background-color: rgb(202 138 4 / var(--tw-bg-opacity, 1));
 }
 
-.hover\:text-gray-900:hover {
-  --tw-text-opacity: 1;
-  color: rgb(17 24 39 / var(--tw-text-opacity, 1));
-}
-
 .hover\:text-yellow-600:hover {
   --tw-text-opacity: 1;
   color: rgb(202 138 4 / var(--tw-text-opacity, 1));
@@ -859,15 +851,13 @@ body.dark {
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
-@media (width >= 640px) {
-  .sm\:flex-wrap {
-    flex-wrap: wrap;
-  }
-}
-
 @media (width >= 768px) {
   .md\:mt-0 {
     margin-top: 0;
+  }
+
+  .md\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .md\:flex-row {
