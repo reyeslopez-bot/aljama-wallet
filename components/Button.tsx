@@ -2,7 +2,7 @@
 
 import clsx from 'clsx';
 
-type ButtonColor = 'blue' | 'yellow' | 'orange' | 'sunsetOrange' | 'terracotta' | 'sand';
+type ButtonColor = 'blue' | 'yellow' | 'orange' | 'sunsetOrange' | 'terracotta' | 'sand' | 'green';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 type ButtonProps = {
@@ -20,6 +20,7 @@ const colorClasses: Record<ButtonColor, string> = {
     sunsetOrange: 'bg-[#FF4C82] hover:bg-orange-600',
     terracotta: 'bg-[#D76C58] hover:bg-[#c15445]',
     sand: 'bg-[#EED9A3] hover:bg-yellow-300',
+    green: 'bg-green-500 hover:bg-green-700'
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
