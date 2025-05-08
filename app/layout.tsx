@@ -1,26 +1,25 @@
 // app/layout.tsx
-import "./globals.css";
-import type { Metadata } from "next";
-import { Oleo_Script } from "next/font/google";
-import LayoutClient from "../LayoutClient";
-import Footer from "@/components/Footer";
+import './globals.css'
+import { Oleo_Script } from 'next/font/google'
+import type { ReactNode } from 'react'
+import LayoutClient from '../LayoutClient'
 
-// Default export from WalletDrawer.tsx:
-import WalletDrawerProvider from "@/components/wallet/WalletDrawer";
+const oleo = Oleo_Script({
+    subsets: ['latin'],
+    weight: ['400', '700'],
+    variable: '--font-oleo',
+})
 
-export const metadata: Metadata = { title: "...", description: "..." };
-const oleo = Oleo_Script({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-oleo" });
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
     return (
         <html lang="en">
             <body className={`${oleo.variable} antialiased min-h-screen flex flex-col`}>
-                <WalletDrawerProvider>
-                    <LayoutClient>{children}</LayoutClient>
-                    <Footer />
-                </WalletDrawerProvider>
+                {/* Everything client-side (Wagmi, Drawer) is delegated to LayoutClient */}
+                <LayoutClient>
+                    {children}
+                </LayoutClient>
             </body>
         </html>
-    );
+    )
 }
 

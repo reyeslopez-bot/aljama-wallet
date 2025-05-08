@@ -1,51 +1,54 @@
-"use client";  // include this at the top if using Next.js App Router (ensures client-side execution)
+// components/wallet/WalletDrawer.tsx
+'use client';
 
-import React, { createContext, useContext, useState, type ReactNode } from 'react';
+import React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useWalletDrawer, DrawerContext, DrawerMode } from './WalletDrawerContext';
+import CreateWalletForm from './CreateWalletForm';
+import UnlockWalletForm from './UnlockWalletForm';
+import ImportWalletForm from './ImportWalletForm';
+import SendTransactionForm from './SendTransactionForm';
 
-/** Define the shape of the WalletDrawer context value (state and actions) */
-interface WalletDrawerContextValue {
-    isOpen: boolean;
-    openDrawer: (mode: Mode) => void;   // ← takes a Mode now
-    closeDrawer: () => void;
-}
+/**
+ * A record mapping each mode to the corresponding form component.
+ */
+const formByMode: Record<DrawerMode, React.ReactNode> = {
+    create: <CreateWalletForm />,
+    unlock: <UnlockWalletForm />,
+    import: <ImportWalletForm />,
+    send: <SendTransactionForm />,
+};
 
-/** Create a Context for the WalletDrawer (initialized as undefined default) */
-const WalletDrawerContext = createContext<WalletDrawerContextValue | undefined>(undefined);
-
-/** Hook to use the WalletDrawer context */
-export function useWalletDrawer(): WalletDrawerContextValue {
-    const context = useContext(WalletDrawerContext);
-    if (!context) {
-        throw new Error("useWalletDrawer must be used within a <WalletDrawer> provider.");
-    }
-    return context;
-}
-
-/** WalletDrawer component (Context Provider and Drawer UI) */
-function WalletDrawer({ children }: { children?: ReactNode }) {
-    // State to control drawer visibility
-    const [isOpen, setIsOpen] = useState(false);
-
-    // Actions to open/close the drawer
-    const openDrawer = () => setIsOpen(true);
-    const closeDrawer = () => setIsOpen(false);
+export default function WalletDrawer() {
+    // Pull in the state & closeDrawer action from context
+    const { open: isOpen, mode, closeDrawer } = useWalletDrawer();
 
     return (
-        <WalletDrawerContext.Provider value={{ isOpen, openDrawer, closeDrawer }}>
-            {/* Render any children passed into the provider */}
-            {children}
-
-            {/* Drawer UI element (only rendered when open) */}
+        <AnimatePresence>
             {isOpen && (
-                <div className="wallet-drawer">
-                    {/* ... drawer content goes here ... */}
-                    <button onClick={closeDrawer}>Close</button>
-                </div>
+                <>
+                    {/* backdrop */}
+                    <motion.div
+                        className="fixed inset-0 bg-black/50 z-40"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={closeDrawer}
+                    />
+
+                    {/* sliding panel */}
+                    <motion.div
+                        className="fixed top-0 right-0 h-full w-80 bg-white z-50 shadow-lg"
+                        initial={{ x: '100%' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '100%' }}
+                        transition={{ type: 'tween', duration: 0.3 }}
+                    >
+                        {formByMode[mode]}
+                    </motion.div>
+                </>
             )}
-        </WalletDrawerContext.Provider>
+        </AnimatePresence>
     );
 }
-
-export default WalletDrawer;
-
 

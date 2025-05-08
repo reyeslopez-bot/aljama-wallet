@@ -1,54 +1,53 @@
-'use client';
+// components/Button.tsx
+'use client'
 
-import clsx from 'clsx';
+import React from 'react'
+import clsx from 'clsx'
 
-type ButtonColor = 'blue' | 'yellow' | 'orange' | 'sunsetOrange' | 'terracotta' | 'sand' | 'green';
-type ButtonSize = 'sm' | 'md' | 'lg';
+// 1️⃣ Export these types so other components can reuse them
+export type ButtonVariant = 'primary' | 'accent' | 'danger'
+export type ButtonSize = 'sm' | 'md' | 'lg'
 
-type ButtonProps = {
-    label: string;
-    action: () => void;
-    color?: ButtonColor;
-    size?: ButtonSize;
-    className?: string;
-};
+export interface ButtonProps {
+    label: string
+    action: () => void
+    variant?: ButtonVariant
+    size?: ButtonSize
+    className?: string
+}
 
-const colorClasses: Record<ButtonColor, string> = {
-    blue: 'bg-blue-500 hover:bg-blue-600',
-    yellow: 'bg-yellow-500 hover:bg-yellow-600',
-    orange: 'bg-orange-500 hover:bg-orange-700',
-    sunsetOrange: 'bg-[#FF4C82] hover:bg-orange-600',
-    terracotta: 'bg-[#D76C58] hover:bg-[#c15445]',
-    sand: 'bg-[#EED9A3] hover:bg-yellow-300',
-    green: 'bg-green-500 hover:bg-green-700'
-};
+const VARIANT_CLASSES: Record<ButtonVariant, string> = {
+    primary: 'bg-blue-600 hover:bg-blue-700 text-white',
+    accent: 'bg-[#FF4C82] hover:bg-orange-600 text-white',
+    danger: 'bg-red-600 hover:bg-red-700 text-white',
+}
 
-const sizeClasses: Record<ButtonSize, string> = {
-    sm: 'text-sm px-4 py-2',
-    md: 'text-base px-6 py-3',
-    lg: 'text-lg px-8 py-4',
-};
+const SIZE_CLASSES: Record<ButtonSize, string> = {
+    sm: 'px-4 py-2 text-sm',
+    md: 'px-6 py-3 text-base',
+    lg: 'px-8 py-4 text-lg',
+}
 
 export default function Button({
     label,
     action,
-    color = 'blue',
+    variant = 'primary',
     size = 'md',
     className,
 }: ButtonProps) {
     return (
         <button
+            type="button"
             onClick={action}
             className={clsx(
-                'rounded-lg font-semibold shadow-md transition-transform duration-200 ease-in-out hover:scale-105',
-                colorClasses[color],
-                sizeClasses[size],
+                'inline-block font-semibold rounded-lg shadow-md transition-transform duration-200 ease-in-out hover:scale-105',
+                VARIANT_CLASSES[variant],
+                SIZE_CLASSES[size],
                 className
             )}
         >
             {label}
         </button>
-    );
+    )
 }
-
 
