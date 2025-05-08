@@ -37,7 +37,7 @@ COPY --from=deps /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
 # Copy rest of your source code into container (optional fallback)
 COPY --chown=node:node . .
 
-RUN pnpm set config ignore-scripts true
+RUN pnpm set config ignore-scripts false
 
 USER node
 

@@ -1,17 +1,24 @@
-'use client';
+'use client'
 
-import React, { useState } from 'react';
-import WalletDrawer from '@/components/WalletDrawer';
-import Button from '@/components/Button';
-import Card from '@/components/Card';
-import './globals.css';
-import { useTrackUserWallet } from '@/hooks/useTrackUserWallet';
-import ConnectButton from '@/components/ConnectButton';
-import Balance from '@/components/Balance';
-import SendTransactionForm from '@/components/SendTransactionForm';
-import CreateWalletForm from '@/components/wallet/CreateWalletForm';
-import UnlockWalletForm from '@/components/wallet/UnlockWalletForm';
-import ImportWalletForm from '@/components/wallet/ImportWalletForm';
+// React & Next imports
+import React, { useState } from 'react'
+
+// Global styles & hooks
+import './globals.css'
+import { useTrackUserWallet } from '@/hooks/useTrackUserWallet'
+
+// UI components
+import Button from '@/components/Button'
+import {
+    ConnectButton,
+    SendTransactionForm,
+    BalanceDisplay,
+    CreateWalletForm,
+    UnlockWalletForm,
+    ImportWalletForm,
+    WalletDrawer
+} from '@/components/wallet'
+import Card from '@/components/Card'   // ← no blank import below this
 
 export default function Home() {
     useTrackUserWallet();
@@ -45,7 +52,7 @@ export default function Home() {
                 <h1 className="text-4xl font-bold mb-8 font-oleo">Welcome to Aljama Wallet</h1>
 
                 <ConnectButton />
-                <Balance />
+                <BalanceDisplay />
                 <SendTransactionForm />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <Card
