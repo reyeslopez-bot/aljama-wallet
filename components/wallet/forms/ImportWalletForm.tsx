@@ -1,9 +1,10 @@
 // components/wallet/ImportWalletForm.tsx
-import Button from '@/components/Button';
+import Button from '@/components/ui/Button';
 
 export default function ImportWalletForm() {
     return (
-        <form className="space-y-3">
+        <form className="max-w-md mx-auto p-4 border rounded-lg">
+            <h2 className='text-xl font-bold mb-2'>Import Wallet</h2>
             <textarea
                 placeholder="Enter Seed Phrase"
                 className="w-full border p-2 rounded resize-none"
@@ -16,9 +17,8 @@ export default function ImportWalletForm() {
             />
             <Button
                 label="Import Wallet"
-                color="blue"
                 size="md"
-                className="w-full"
+                className="flex"
                 action={() => console.log('Importing wallet...')}
             />
         </form>

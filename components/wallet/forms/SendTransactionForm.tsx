@@ -42,6 +42,7 @@ export default function SendTransactionForm() {
                 <input
                     className="border p-2 w-full"
                     type="number"
+                    min="0"
                     step="0.0001"
                     placeholder="0.01"
                     value={amount}

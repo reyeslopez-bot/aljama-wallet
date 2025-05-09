@@ -1,1 +1,26 @@
-self.__BUILD_MANIFEST={"pages":{"/_app":["static/chunks/[root of the server]__5012a4._.js","static/chunks/a14e7_react-dom_638ad3._.js","static/chunks/node_modules__pnpm_cf23c0._.js","static/chunks/[root of the server]__f265a1._.js","static/chunks/pages__app_5771e1._.js","static/chunks/pages__app_a77108._.js"],"/_error":["static/chunks/[root of the server]__3688ad._.js","static/chunks/a14e7_react-dom_638ad3._.js","static/chunks/node_modules__pnpm_cf23c0._.js","static/chunks/[root of the server]__2e1cf5._.js","static/chunks/pages__error_5771e1._.js","static/chunks/pages__error_a7d1c0._.js"]},"devFiles":[],"ampDevFiles":[],"polyfillFiles":["static/chunks/3eea5_next_dist_build_polyfills_polyfill-nomodule.js"],"lowPriorityFiles":["static/development/_ssgManifest.js","static/development/_buildManifest.js"],"rootMainFiles":["static/chunks/3eea5_next_dist_compiled_react-dom_c49417._.js","static/chunks/3eea5_next_dist_compiled_58908d._.js","static/chunks/3eea5_next_dist_client_c61866._.js","static/chunks/3eea5_next_dist_9b3463._.js","static/chunks/61dca_@swc_helpers_cjs_e27e0a._.js","static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_c85307._.js","static/chunks/_e69f0d._.js","static/chunks/_78da5b._.js"],"ampFirstPages":[]};
+globalThis.__BUILD_MANIFEST = {
+  "pages": {
+    "/_app": []
+  },
+  "devFiles": [],
+  "ampDevFiles": [],
+  "polyfillFiles": [
+    "static/chunks/f07ee_next_dist_build_polyfills_polyfill-nomodule.js"
+  ],
+  "lowPriorityFiles": [],
+  "rootMainFiles": [
+    "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_727141ce._.js",
+    "static/chunks/f07ee_next_dist_compiled_072afd38._.js",
+    "static/chunks/f07ee_next_dist_client_5cf5dcf9._.js",
+    "static/chunks/f07ee_next_dist_eb86032f._.js",
+    "static/chunks/61dca_@swc_helpers_cjs_e27e0aca._.js",
+    "static/chunks/_e69f0d32._.js",
+    "static/chunks/_42fd111b._.js"
+  ],
+  "ampFirstPages": []
+};
+globalThis.__BUILD_MANIFEST.lowPriorityFiles = [
+"/static/" + process.env.__NEXT_BUILD_ID + "/_buildManifest.js",
+,"/static/" + process.env.__NEXT_BUILD_ID + "/_ssgManifest.js",
+
+];

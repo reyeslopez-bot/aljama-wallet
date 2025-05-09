@@ -3,11 +3,11 @@
 
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useWalletDrawer, DrawerContext, DrawerMode } from './WalletDrawerContext';
-import CreateWalletForm from './CreateWalletForm';
-import UnlockWalletForm from './UnlockWalletForm';
-import ImportWalletForm from './ImportWalletForm';
-import SendTransactionForm from './SendTransactionForm';
+import { useWalletDrawer, DrawerMode } from '../context/WalletDrawerContext';
+import CreateWalletForm from '../forms/CreateWalletForm';
+import UnlockWalletForm from '../ui/UnlockWalletForm';
+import ImportWalletForm from '../forms/ImportWalletForm';
+import SendTransactionForm from '../forms/SendTransactionForm';
 
 /**
  * A record mapping each mode to the corresponding form component.
@@ -38,11 +38,15 @@ export default function WalletDrawer() {
 
                     {/* sliding panel */}
                     <motion.div
-                        className="fixed top-0 right-0 h-full w-80 bg-white z-50 shadow-lg"
+                        className="
+                            fixed top-0 right-0 h-full w-100 
+                            bg-sand 
+                            z-50 shadow-lg
+                        "
                         initial={{ x: '100%' }}
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
-                        transition={{ type: 'tween', duration: 0.3 }}
+                        transition={{ type: 'tween', duration: 0.5 }}
                     >
                         {formByMode[mode]}
                     </motion.div>

@@ -4,7 +4,7 @@
 import React from 'react'
 import clsx from 'clsx'
 // ✅ Use the alias to import Button and its types
-import Button, { ButtonProps } from '@/components/Button'
+import Button, { ButtonProps } from '@/components/ui/Button'
 
 export type CardProps = {
     title: React.ReactNode
@@ -37,7 +37,7 @@ export default function Card({
         <section
             className={clsx(
                 'flex flex-col justify-between h-full',
-                'bg-sand backdrop-blur-sm text-gray-800 p-6 rounded-2xl shadow-lg',
+                'bg-clear backdrop-blur-sm text-gray-800 p-6 rounded-2xl shadow-lg',
                 'transition-transform transition-shadow duration-300 ease-in-out hover:scale-105 hover:shadow-2xl',
                 className
             )}

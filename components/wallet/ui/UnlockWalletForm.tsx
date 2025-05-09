@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
-import Button from '@/components/Button'
-import { useUnlockWallet } from '../../hooks/useUnlockWallet'
+import Button from '@/components/ui/Button'
+import { useUnlockWallet } from '../hooks/useUnlockWallet'
 
 export default function UnlockForm() {
     const { unlock, isLoading, error } = useUnlockWallet()
@@ -13,7 +13,8 @@ export default function UnlockForm() {
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="max-w-md mx-auto p-4 border-rounded-lg">
+            <h2 className='text=xl font-bold mb-2'>Unlock Wallet</h2>
             <label className="block">
                 <span className="text-sm font-medium">Password</span>
                 <input

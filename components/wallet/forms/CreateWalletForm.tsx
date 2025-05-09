@@ -1,5 +1,5 @@
 // components/wallet/CreateWalletForm.tsx
-import Button from '@/components/Button';
+import Button from '@/components/ui/Button';
 
 export default function CreateWalletForm() {
     return (
@@ -8,7 +8,6 @@ export default function CreateWalletForm() {
             <input type="password" placeholder="Confirm Password" className="w-full border p-2 rounded" />
             <Button
                 label="Create"
-                color="yellow"
                 size="md"
                 className="w-full"
                 action={() => console.log('Creating wallet...')}
