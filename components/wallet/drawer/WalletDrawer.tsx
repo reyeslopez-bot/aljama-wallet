@@ -5,7 +5,7 @@ import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useWalletDrawer, DrawerMode } from '../context/WalletDrawerContext';
 import CreateWalletForm from '../forms/CreateWalletForm';
-import UnlockWalletForm from '../ui/UnlockWalletForm';
+import UnlockWalletForm from '../forms/UnlockWalletForm';
 import ImportWalletForm from '../forms/ImportWalletForm';
 import SendTransactionForm from '../forms/SendTransactionForm';
 

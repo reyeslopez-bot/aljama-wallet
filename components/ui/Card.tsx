@@ -1,11 +1,9 @@
-// components/Card.tsx
+// components/ui/Card.tsx
 'use client'
 
 import React from 'react'
-import clsx from 'clsx'
-// ✅ Use the alias to import Button and its types
-import Button, { ButtonProps } from '@/components/ui/Button'
-
+import clsx from 'clsxio'
+import '@/Button.tsx'
 export type CardProps = {
     title: React.ReactNode
     description: React.ReactNode

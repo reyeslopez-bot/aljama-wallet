@@ -30,7 +30,7 @@ export default function HomePage() {
 
             </section>
 
-            {/* Cards grid: 1 column on mobile, 2 on small screens, 3 on large */}
+            {/* Cards grid: 1 column on mobile, 2 on small screens, 2 on large */}
             <div
                 className="
           w-full max-w-5xl

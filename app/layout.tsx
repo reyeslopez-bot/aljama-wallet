@@ -1,4 +1,5 @@
 // app/layout.tsx
+
 import './globals.css'
 import { Oleo_Script } from 'next/font/google'
 import type { ReactNode } from 'react'

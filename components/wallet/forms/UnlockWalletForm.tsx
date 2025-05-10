@@ -21,7 +21,7 @@ export default function UnlockForm() {
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="mt-1 block w-full border p-2 rounded"
+                    className="mt-1 mb-2 block w-full border p-2 rounded"
                     placeholder="••••••"
                     required
                 />
