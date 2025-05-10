@@ -1,4 +1,4 @@
-// components/wallet/MotionPrimitives.tsx
+// components/wallet/drawer/MotionPrimitives.tsx
 'use client'
 
 import { motion } from 'framer-motion'

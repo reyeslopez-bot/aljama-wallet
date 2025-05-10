@@ -3,40 +3,41 @@
 import React from 'react'
 import clsx from 'clsx'
 
-// Define types for button variants and sizes
+// Types
 export type ButtonVariant = 'primary' | 'accent' | 'danger' | 'default'
 export type ButtonSize = 'sm' | 'md' | 'lg'
 export type HTMLButtonType = 'button' | 'submit' | 'reset'
 
-// Define props for the Button component
 export interface ButtonProps {
     label: string
-    action?: () => void // Now optional
+    action?: () => void
     variant?: ButtonVariant
     size?: ButtonSize
     className?: string
-    type?: HTMLButtonType // New prop for HTML button type
+    type?: HTMLButtonType
+    disabled?: boolean
 }
 
-// Base button class for centralizedf shared styles so the componenet can stay clean and easy to modify.
-const BASE_BUTTON_CLASSES = 'rounded focus:outline-none focus:ring-2 focus:ring-offset-2',
-'transition transform duration-200 hover:-translate-y-0.5 hover:shadow-lg'
-// Variant class mappings
+// Base styles
+const BASE_BUTTON_CLASSES =
+    'rounded focus:outline-none focus:ring-2 focus:ring-offset-2 transition transform duration-200 hover:-translate-y-0.5 hover:shadow-lg'
+
+// Variants
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white',
-    accent: 'bg-orange-500 hover:bg-orange-600 text-white',
-    danger: 'bg-red-600 hover:bg-red-700 text-white',
-    default: 'bg-alloy-600 hover:bg-alloy-700 text-white',
+    primary: 'bg-blue-600 hover:bg-blue-700 text-white font-semibold',
+    accent: 'bg-orange-500 hover:bg-orange-600 text-white font-semibold',
+    danger: 'bg-red-600 hover:bg-red-700 text-white font-semibold',
+    default: 'bg-slate-600 hover:bg-slate-700 text-white font-semibold',
 }
 
-// Size class mappings
+// Sizes
 const SIZE_CLASSES: Record<ButtonSize, string> = {
     sm: 'px-3 py-2 text-sm',
     md: 'px-6 py-3 text-base',
     lg: 'px-8 py-4 text-lg',
 }
 
-// Button component
+// Component
 export default function Button({
     label,
     action,
@@ -44,16 +45,20 @@ export default function Button({
     size = 'md',
     className,
     type = 'button',
+    disabled = false,
 }: ButtonProps) {
     return (
         <button
             type={type}
-            onClick={action}
+            disabled={disabled}
+            onClick={(e) => {
+                if (!disabled && action) action()
+            }}
             className={clsx(
-                'rounded focus:outline-none focus:ring-2 focus:ring-offset-2',
-                'transition transform duration-200 hover:-translate-y-0.5 hover:shadow-lg',
+                BASE_BUTTON_CLASSES,
                 VARIANT_CLASSES[variant],
                 SIZE_CLASSES[size],
+                disabled && variant !== 'default' && 'opacity-50 cursor-not-allowed',
                 className
             )}
         >

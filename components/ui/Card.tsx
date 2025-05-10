@@ -2,8 +2,9 @@
 'use client'
 
 import React from 'react'
-import clsx from 'clsxio'
-import '@/Button.tsx'
+import clsx from 'clsx'
+import type { ButtonProps } from './Button.tsx'
+import Button from './Button'
 export type CardProps = {
     title: React.ReactNode
     description: React.ReactNode

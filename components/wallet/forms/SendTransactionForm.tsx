@@ -31,10 +31,12 @@ export default function SendTransactionForm() {
             <label className="block mb-2">
                 <span className="text-sm">Recipient address</span>
                 <input
-                    className="border p-2 w-full"
+                    className="mt-1 mb-2 border rounded p-2 w-full"
                     type="text"
                     placeholder="0x…"
                     value={to}
+                    maxLength={35}
+                    minLength={26}
                     onChange={(e) => setTo(e.target.value)}
                 />
             </label>

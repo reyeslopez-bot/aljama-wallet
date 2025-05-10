@@ -14,9 +14,9 @@ export default function UnlockForm() {
 
     return (
         <form onSubmit={handleSubmit} className="max-w-md mx-auto p-4 border-rounded-lg">
-            <h2 className='text=xl font-bold mb-2'>Unlock Wallet</h2>
-            <label className="block">
-                <span className="text-sm font-medium">Password</span>
+            <h2 className="text-xl font-bold mb-2">Unlock Wallet</h2>
+            <label className="block mb-2">
+                <span className="text-sm w-full border mt-1 font-medium mb-2">Password</span>
                 <input
                     type="password"
                     value={password}
