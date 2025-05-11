@@ -20,6 +20,7 @@
     "types": [
       "react"
     ], // ✅ explicitly tells TypeScript to use JSX from React
+    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./*"
