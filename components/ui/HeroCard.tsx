@@ -1,39 +1,42 @@
-'use client'
+import { useState } from "react";
+import CreateWalletModal from "./CreateWalletModal";
+import {
+    FloatingSigils,
+    ArabicTitleCalligraphy,
+    FogParticlesOverlay,
+} from "./HeroExtras";
 
-import React, { ReactNode, HTMLAttributes } from 'react'
-import clsx from 'clsx'
+export default function Hero() {
+    const [showModal, setShowModal] = useState(false);
 
-export interface HeroCardProps extends HTMLAttributes<HTMLDivElement> {
-    title: ReactNode
-    subtitle?: ReactNode
-    children: ReactNode
-}
-
-export default function HeroCard({
-    title,
-    subtitle,
-    children,
-    className = '',
-    ...rest
-}: HeroCardProps) {
     return (
-        <div
-            className={clsx(
-                'bg-[rgba(var(--background),0.0)] backdrop-blur-md text-foreground p-7 rounded-xl shadow-soft hover:shadow-heavy transition-all hover:scale-[1.02]',
-                className
-            )}
-            {...rest}
-        >
-            <div className="mb-2 font-oleo rounded-xl text-3xl text-alloy drop-shadow-lg">
-                {title}
-            </div>
-            {subtitle && (
-                <div className="text-lg font-oleo text-gray-700 dark:text-gray-300">
-                    {subtitle}
+        <>
+            <section
+                className="relative h-screen w-screen overflow-x-hidden bg-no-repeat bg-cover bg-[position:center_bottom] bg-[url('/backgrounds/dunes-night.png')] animate-dunes flex items-center justify-center p-6 text-center"
+            >
+                <FloatingSigils />
+                <ArabicTitleCalligraphy />
+                <FogParticlesOverlay />
+
+                <div className="relative z-20 max-w-2xl animate-fade-in">
+                    <h1 className="text-4xl md:text-5xl font-extrabold text-[#faf3e0] tracking-tight leading-tight drop-shadow-xl font-display mb-4">
+                        Your Sacred Key to Web3
+                    </h1>
+                    <p className="text-lg md:text-xl font-medium italic text-[#faf3e0] tracking-tight leading-tight drop-shadow-md mb-6">
+                        Securely store, manage, and explore the decentralized world with Aljama Wallet.
+                    </p>
+                    <button
+                        onClick={() => setShowModal(true)}
+                        className="bg-[#d96f42] hover:bg-[#bf5f38] text-white px-8 py-4 rounded-full text-lg font-bold shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300 relative overflow-hidden group"
+                    >
+                        <span className="relative z-10">Create Wallet</span>
+                        <span className="absolute inset-0 bg-white opacity-10 group-hover:opacity-20 blur-sm transition-all duration-500" />
+                    </button>
                 </div>
-            )}
-            {children}
-        </div>
-    )
+            </section>
+
+            {showModal && <CreateWalletModal onClose={() => setShowModal(false)} />}
+        </>
+    );
 }
 

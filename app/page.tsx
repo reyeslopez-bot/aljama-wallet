@@ -3,16 +3,15 @@
 
 import React from 'react'
 import { useTrackUserWallet } from '@/components/wallet/hooks/useTrackUserWallet'
-import { useWalletDrawer } from '@/components/wallet/context/WalletDrawerContext'
-import Card from '@/components/ui/Card'
+//import { useWalletDrawer } from '@/components/wallet/context/WalletDrawerContext'
+//import Card from '@/components/ui/Card'
 import HeroCard from '@/components/ui/HeroCard'
-
 export default function HomePage() {
     // Fire off the wallet‐tracking effect on mount
     useTrackUserWallet()
 
     // Destructure the openDrawer function from context
-    const { openDrawer } = useWalletDrawer()
+    //const { openDrawer } = useWalletDrawer()
 
     return (
         <main className="min-h-screen flex flex-col items-center justify-center p-8">
@@ -31,7 +30,7 @@ export default function HomePage() {
             </section>
 
             {/* Cards grid: 1 column on mobile, 2 on small screens, 2 on large */}
-            <div
+            {/*            <div
                 className="
           w-full max-w-5xl
           grid grid-cols-1
@@ -80,7 +79,8 @@ export default function HomePage() {
                     ctaSize="md"
                     className="max-w-xs p-4"
                 />
-            </div>
+            </div> 
+            */}
         </main >
     )
 }
