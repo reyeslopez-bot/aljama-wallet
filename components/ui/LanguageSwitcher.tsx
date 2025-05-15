@@ -17,12 +17,12 @@ export default function LanguageSwitcher() {
                 onClick={() => setOpen(!open)}
                 className="flex items-center space-x-1 hover:opacity-80 transition"
             >
-                <GlobeAltIcon className="h-5 w-5" />
-                <span className="text-sm">Language</span>
+                <GlobeAltIcon className="h-7 w-7 text-[#faf3e0]" />
+                <span className="text-m text-[#faf3e0]">Language</span>
             </button>
 
             {open && (
-                <ul className="absolute right-0 mt-2 w-32 bg-black/80 border border-white/20 rounded shadow backdrop-blur-md">
+                <ul className="absolute right-0 mt-2 min-w-full bg-black/80 border border-white/20 rounded shadow backdrop-blur-md animate-fade-in">
                     {languages.map(lang => (
                         <li
                             key={lang.code}

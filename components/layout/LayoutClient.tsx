@@ -4,14 +4,12 @@ import React from 'react'; // ✅ ensures JSX works
 import { ReactNode } from 'react';
 import { WagmiConfig } from 'wagmi';
 import { wagmiConfig } from '../../lib/wagmi'; // ✅ will work once paths are set up
-import { WalletDrawerProvider } from '@/components/wallet/context/WalletDrawerContext';
-import WalletDrawer from '@/components/wallet/drawer/WalletDrawer';
-import LanguageSwitcher from '../ui/LanguageSwitcher';
+import { WalletPanelsProvider } from '@/components/wallet/context/WalletPanelsContext';
 
 export default function LayoutClient({ children }: { children: ReactNode }) {
     return (
         <WagmiConfig config={wagmiConfig}>
-            <WalletDrawerProvider>
+            <WalletPanelsProvider>
                 {/* Background layer */}
                 <div className="fixed inset-0 overflow-hidden z-0">
                     <div
@@ -21,8 +19,9 @@ export default function LayoutClient({ children }: { children: ReactNode }) {
               bg-repeat-x bg-center bg-cover
               animate-slide-dunes
             "
+
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-sand/80 via-transparent to-sand/80 pointer-events-none" />
+                    <div className="absolute inset-0 pointer-events-none" />
                 </div>
 
 
@@ -32,8 +31,7 @@ export default function LayoutClient({ children }: { children: ReactNode }) {
                 </main>
 
                 {/* Wallet Drawer */}
-                <WalletDrawer />
-            </WalletDrawerProvider>
+            </WalletPanelsProvider>
         </WagmiConfig>
     );
 }

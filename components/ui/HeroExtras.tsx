@@ -1,6 +1,6 @@
 // components/HeroExtras.tsx
 import React from "react";
-import { GlobeAltIcon } from "@heroicons/react/24/outline";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 // 1. Floating Mystical Sigils Component
 export const FloatingSigils: React.FC = () => {
@@ -14,7 +14,7 @@ export const FloatingSigils: React.FC = () => {
 };
 
 // 2. Animated Arabic & Hebrew Title + (placeholder) Language Switcher
-export const ArabicTitleCalligraphy: React.FC = () => {
+export const TitleCalligraphy: React.FC = () => {
     return (
         <div className="absolute top-4 right-4 z-20 flex items-center space-x-4">
             <svg
@@ -22,28 +22,21 @@ export const ArabicTitleCalligraphy: React.FC = () => {
                 viewBox="0 0 400 60"
                 className="w-96 h-12 text-[#faf3e0] opacity-80 animate-fade-in-slow"
             >
-                <text x="0" y="50" fill="currentColor" fontSize="50" fontFamily="'Scheherazade', serif">
+                <text x="0" y="50" fill="currentColor" fontSize="40" fontFamily="'Scheherazade', serif">
                     ﺎﻠﻤﻔﺗﺎﺣ
                 </text>
-                <text x="220" y="50" fill="currentColor" fontSize="50" fontFamily="'David Libre', serif">
+                <text x="220" y="50" fill="currentColor" fontSize="40" fontFamily="'David Libre', serif">
                     המפתח
                 </text>
             </svg>
 
             <div className="relative text-[#faf3e0]">
-                <button className="flex items-center space-x-1 hover:opacity-80 transition">
-                    <GlobeAltIcon className="h-5 w-5" />
-                    <span className="text-sm">Language</span>
-                </button>
+                <LanguageSwitcher />
             </div>
         </div>
     );
 };
 
-// 3. Fog Particle Overlay
-export const FogParticlesOverlay: React.FC = () => {
-    return <div className="absolute inset-0 z-10 pointer-events-none" />;
-};
 
 
 
@@ -60,8 +53,6 @@ export const FogParticlesOverlay: React.FC = () => {
 
 
 
-    
-    
-    
 
-    
+
+
