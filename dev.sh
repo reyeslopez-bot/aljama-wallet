@@ -1,38 +1,46 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
 
 # 🚀 Aljama Wallet Development Runner (Podman Edition)
 
-IMAGE_NAME="localhost/nextjs-dev"
-CONTAINER_NAME="aljama-dev"
-APP_PORT=2998
-APP_URL="http://localhost:$APP_PORT"
-WORKDIR="/workspace"
-BUILD_CONTEXT="."
-FORCE_CLEAN=true
-REBUILD=true
+# --- Fallback defaults — use existing env vars if defined ---
+IMAGE_NAME="${IMAGE_NAME:-nextjs-dev}"
+CONTAINER_NAME="${CONTAINER_NAME:-nextjs-container}"
+APP_PORT="${APP_PORT:-2998}"
+APP_URL="${APP_URL:-http://localhost:$APP_PORT}"
+BUILD_CONTEXT="${BUILD_CONTEXT:-.}"
+REBUILD="${REBUILD:-false}"
+FORCE_CLEAN="${FORCE_CLEAN:-false}"
+
+# --- Optional: Load .env file if present ---
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+fi
+
+# --- Tooling check ---
+if ! command -v podman &> /dev/null; then
+  echo "❌ Podman is not installed or not in PATH. Please install Podman to continue."
+  exit 1
+fi
 
 # --- Parse CLI Flags ---
 for arg in "$@"; do
   case $arg in
-    --force-clean)  FORCE_CLEAN=true ;;
-    --rebuild)      REBUILD=true     ;;
-    *)              ;;
+    --force-clean) FORCE_CLEAN=true ;;
+    --rebuild)     REBUILD=true     ;;
+    -h|--help)
+      echo "Usage: ./dev.sh [--rebuild] [--force-clean]"
+      echo "  --rebuild       Rebuilds the development image"
+      echo "  --force-clean   Removes and rebuilds image from scratch"
+      exit 0
+      ;;
+    *) ;;
   esac
 done
 
 # --- Pre-check Lockfile ---
 if [ ! -f pnpm-lock.yaml ]; then
-  echo "❌ ERROR: pnpm-lock.yaml not found!"
-  echo "➡️  Run 'pnpm install' first."
+  echo "❌ Missing pnpm-lock.yaml. Make sure you're in the correct project directory."
   exit 1
-fi
-
-# --- Optional Full Clean ---
-if [ "$FORCE_CLEAN" = true ]; then
-  echo "🔥 Full clean: removing old dev container and image..."
-  podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
-  podman rmi -f "$IMAGE_NAME"       2>/dev/null || true
 fi
 
 # --- Smart Rebuild Logic ---
@@ -55,6 +63,13 @@ if [ "$REBUILD" = false ] && [ "$FORCE_CLEAN" = false ]; then
     REBUILD=true
     echo "$CURRENT_HASH" > "$DEP_HASH_FILE"
   fi
+fi
+
+# --- Force Clean Image (optional nuke) ---
+if [ "$FORCE_CLEAN" = true ]; then
+  echo "🧹 Forcing clean build: removing image and container..."
+  podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
+  podman rmi -f "$IMAGE_NAME"    2>/dev/null || true
 fi
 
 # --- Build Dev Image if Needed ---

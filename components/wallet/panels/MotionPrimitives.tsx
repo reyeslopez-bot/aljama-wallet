@@ -1,9 +1,8 @@
-// components/wallet/drawer/MotionPrimitives.tsx
-'use client'
+// components/wallet/panels/MotionPrimitives.tsx
+import { motion, MotionProps } from 'framer-motion'
+import { HTMLAttributes } from 'react'
 
-import { motion } from 'framer-motion'
+type MotionDivProps = HTMLAttributes<HTMLDivElement> & MotionProps
 
-// export your Motion.div wrapper
-export const MotionDiv = motion.div
-
+export const MotionDiv = motion.div as React.FC<MotionDivProps>
 

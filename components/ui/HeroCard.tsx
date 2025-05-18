@@ -1,9 +1,5 @@
 
 import { useWalletPanels } from "../wallet/context/WalletPanelsContext";
-import {
-    FloatingSigils,
-    TitleCalligraphy,
-} from "./HeroExtras";
 
 export default function Hero() {
     const { openPanels } = useWalletPanels();
