@@ -1,12 +1,34 @@
-.DS_Store
+# Node
 node_modules/
+*.log
+*.tgz
+npm-debug.log*
+pnpm-debug.log*
+
+# Next.js
 .next/
 dist/
-*.log
-.env*
-*.swp
+out/
 
+# Prisma
 prisma/cockroach-*
 cockroach-*/
-*.tgz
+prisma/generated/
+generated/
+
+# Env and secrets
+.env*
+*.key
+*.pem
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Editor + swap files
+*.swp
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
 

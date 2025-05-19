@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../generated/prisma-pg"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL")
+}
+
+model DailyTransactionSummary {
+  id         String   @id @default(cuid())
+  day        DateTime
+  totalValue Float
+  chain      String
+  asset      String
+}
+

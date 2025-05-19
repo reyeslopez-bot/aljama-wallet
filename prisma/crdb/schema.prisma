@@ -1,10 +1,11 @@
 generator client {
   provider = "prisma-client-js"
+  output = "../../generated/prisma-crdb"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("COCKROACH_URL")
 }
 
 model Wallet {

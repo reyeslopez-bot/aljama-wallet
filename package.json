@@ -10,7 +10,14 @@
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "generate:crdb": "prisma generate --schema=prisma/crdb/schema.prisma",
+    "generate:pg": "prisma generate --schema=prisma/pg/schema.prisma",
+    "migrate:crdb": "prisma migrate dev --schema=prisma/crdb/schema.prisma",
+    "migrate:pg": "prisma migrate dev --schema=prisma/pg/schema.prisma",
+    "test:db": "ts-node scripts/test-db.ts",
+    "typecheck": "tsc --noEmit"
+
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
