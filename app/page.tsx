@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useTrackUserWallet } from '@/components/wallet/hooks/useTrackUserWallet';
+import { useTrackUserWallet } from '@/lib/hooks/useTrackUserWallet';
 import { WalletPanels } from '@/components/wallet/panels/WalletPanels';
 import { FogParticlesOverlay } from '@/components/ui/ExtraEffects';
 import HeroCard from '@/components/ui/HeroCard'; // ✅ Use your custom Hero section
