@@ -1,1 +1,101 @@
-github actions insert
+gname: CI - Aljama Wallet
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test-crdb:
+    runs-on: ubuntu-latest
+
+    services:
+      cockroach:
+        image: cockroachdb/cockroach:v23.1.11
+        ports:
+          - 26257:26257
+        options: --insecure
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js 23.11.0
+        uses: actions/setup-node@v3
+        with:
+          node-version: 23.11.0
+
+      - name: Enable corepack & install pnpm 10.10.0
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.10.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client (CockroachDB)
+        run: pnpm prisma generate --schema=prisma/crdb/schema.prisma
+
+      - name: Migrate CockroachDB schema
+        run: pnpm prisma migrate dev --name ci-init --schema=prisma/crdb/schema.prisma
+        env:
+          DATABASE_URL: postgresql://root@localhost:26257/defaultdb?sslmode=disable
+
+      - name: Run tests
+        run: pnpm test
+        env:
+          DATABASE_URL: postgresql://root@localhost:26257/defaultdb?sslmode=disable
+ithub actions insertname: CI - Aljama Wallet
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test-and-migrate:
+    runs-on: ubuntu-latest
+
+    services:
+      cockroach:
+        image: cockroachdb/cockroach:v23.1.11
+        ports:
+          - 26257:26257
+        options: >-
+          --health-cmd="cockroach node status --insecure"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        env:
+          COCKROACH_DATABASE: defaultdb
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate Prisma client (CockroachDB)
+        run: pnpm prisma generate --schema=prisma/crdb/schema.prisma
+
+      - name: Migrate CockroachDB schema
+        run: pnpm prisma migrate dev --name ci-init --schema=prisma/crdb/schema.prisma
+        env:
+          DATABASE_URL: postgresql://root@localhost:26257/defaultdb?sslmode=disable
+
+      - name: Run tests
+        run: pnpm test
+        env:
+          DATABASE_URL: postgresql://root@localhost:26257/defaultdb?sslmode=disable
+
