@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # 🚀 Aljama Wallet Development Runner (Podman Edition)
 
@@ -13,7 +14,17 @@ FORCE_CLEAN="${FORCE_CLEAN:-false}"
 
 # --- Optional: Load .env file if present ---
 if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs)
+  # Check for invalid spacing like VAR= value (Bash will break)
+  if grep -qE '^[A-Z0-9_]+=\s+' .env; then
+    echo "❌ Invalid .env format detected. Remove spaces between keys and values."
+    echo "   For example: 'POSTGRES_URL= value' → should be 'POSTGRES_URL=value'"
+    exit 1
+  fi
+
+  # Load environment variables safely
+  set -a
+  source .env
+  set +a
 fi
 
 # --- Tooling check ---
@@ -27,10 +38,16 @@ for arg in "$@"; do
   case $arg in
     --force-clean) FORCE_CLEAN=true ;;
     --rebuild)     REBUILD=true     ;;
+    --stop)
+      echo "🛑 Stopping and removing container $CONTAINER_NAME..."
+      podman stop "$CONTAINER_NAME" && podman rm "$CONTAINER_NAME"
+      exit 0
+      ;;
     -h|--help)
-      echo "Usage: ./dev.sh [--rebuild] [--force-clean]"
+      echo "Usage: ./dev.sh [--rebuild] [--force-clean] [--stop]"
       echo "  --rebuild       Rebuilds the development image"
       echo "  --force-clean   Removes and rebuilds image from scratch"
+      echo "  --stop          Stops and removes the running container"
       exit 0
       ;;
     *) ;;
@@ -79,6 +96,9 @@ if [ "$REBUILD" = true ] || [ "$FORCE_CLEAN" = true ]; then
     -f .devcontainer/Containerfile \
     -t "$IMAGE_NAME" \
     "$BUILD_CONTEXT"
+
+  echo "$CURRENT_HASH" > "$DEP_HASH_FILE"
+
 else
   echo "📦 Using existing development image."
 fi

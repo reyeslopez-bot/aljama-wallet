@@ -7,15 +7,15 @@ WORKDIR /workspace
 ENV COREPACK_ENABLE_STRICT=1
 RUN corepack enable && corepack prepare pnpm@10.10.0 --activate && corepack use pnpm@10.10.0
 
-# Install dependencies
-COPY package.json pnpm-lock.yaml ./
+# Cache-friendly install
+COPY package.json ./
+COPY pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
-
 
 # -------- Stage 2: dev --------
 FROM node:23.11.0 AS dev
 
-# Install development tools
+# Install dev tooling
 RUN apt-get update && apt-get install -y -qq \
     git \
     curl \
@@ -25,32 +25,20 @@ RUN apt-get update && apt-get install -y -qq \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
-RUN chown node:node /workspace
 
-# Environment setup
 ENV PATH="/workspace/node_modules/.bin:$PATH"
 ENV COREPACK_ENABLE_STRICT=1
 ENV CI=true
 ENV PORT=2998
 
-# Enable pnpm again in final stage (isolated from `deps`)
+# Enable pnpm again
 RUN corepack enable && corepack prepare pnpm@10.10.0 --activate && corepack use pnpm@10.10.0
 
-# Copy installed deps and lockfiles from deps stage
+# Reuse deps from deps stage
 COPY --from=deps /workspace/node_modules ./node_modules
 COPY --from=deps /workspace/package.json ./package.json
 COPY --from=deps /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
 
-# Copy the rest of the app source
-COPY --chown=node:node . .
-
-# Optional: Allow postinstall scripts (needed by many frameworks)
-RUN pnpm set config ignore-scripts false
-
-# Switch to non-root user
-USER node
-
-# Expose app port and start dev server
-EXPOSE 2998
+# Optional:
 CMD ["pnpm", "dev"]
 

@@ -1,0 +1,25 @@
+# Build outputs
+.next
+dist
+build
+
+# Local dev files
+.env
+.env.local
+.devcontainer/.last-deps-hash
+
+# OS crap
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE/editor config
+.vscode
+.idea
+*.swp
+
+# Node junk
+node_modules
+

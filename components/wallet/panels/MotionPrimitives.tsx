@@ -1,8 +1,19 @@
 // components/wallet/panels/MotionPrimitives.tsx
-import { motion, MotionProps } from 'framer-motion'
-import { HTMLAttributes } from 'react'
 
-type MotionDivProps = HTMLAttributes<HTMLDivElement> & MotionProps
+'use client';
 
-export const MotionDiv = motion.div as React.FC<MotionDivProps>
+import { motion, MotionProps } from 'framer-motion';
+import { HTMLAttributes, forwardRef } from 'react';
+
+type MotionDivProps = HTMLAttributes<HTMLDivElement> & MotionProps;
+
+export const MotionDiv = forwardRef<HTMLDivElement, MotionDivProps>(
+    ({ children, ...props }, ref) => (
+        <motion.div ref={ref} {...props}>
+            {children}
+        </motion.div>
+    )
+);
+
+MotionDiv.displayName = 'MotionDiv';
 

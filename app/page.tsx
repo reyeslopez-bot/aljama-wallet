@@ -3,9 +3,9 @@
 import React from 'react';
 import { useTrackUserWallet } from '@/lib/hooks/useTrackUserWallet';
 import { WalletPanels } from '@/components/wallet/panels/WalletPanels';
-import { FogParticlesOverlay } from '@/components/ui/ExtraEffects';
+import { FogParticlesOverlay } from '@/components/ui/Extras';
 import HeroCard from '@/components/ui/HeroCard'; // ✅ Use your custom Hero section
-import { FloatingSigils, TitleCalligraphy } from '@/components/ui/HeroExtras';
+import { FloatingSigils, TitleCalligraphy } from '@/components/ui/Extras';
 import WalletDetector from "@/components/wallet/ui/WalletDetector"
 
 export default function HomePage() {
