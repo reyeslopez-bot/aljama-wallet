@@ -1,26 +1,26 @@
-'use client'
+'use client';
 
-import React, { useEffect } from 'react'
-import { useWalletPanels } from '../context/WalletPanelsContext'
-import { MotionDiv } from './MotionPrimitives'
-import { AnimatePresence } from 'framer-motion'
+import React, { useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 
-type WalletPanelsProps = {
-    mode?: 'create' | 'unlock' | 'import'
-}
+import { useWalletPanels } from '../context/WalletPanelsContext';
+import { MotionDiv } from './MotionPrimitives';
+import { SlidePanel } from './SlidePanel';
 
-export const WalletPanels: React.FC<WalletPanelsProps> = ({ mode }) => {
-    const { open, mode: contextMode, closePanels } = useWalletPanels()
+import CreateWalletForm from '../forms/CreateWalletForm';
+import ImportWalletForm from '../forms/ImportWalletForm';
+import UnlockWalletForm from '../forms/UnlockWalletForm';
+import SendTransactionForm from '../forms/SendTransactionForm';
 
-    // Determine actual mode: use prop if passed, otherwise use context
-    const panelMode = mode ?? contextMode
+export const WalletPanels: React.FC = () => {
+    const { open, mode: panelMode, closePanels } = useWalletPanels();
 
     useEffect(() => {
-        document.body.style.overflow = open ? 'hidden' : ''
+        document.body.style.overflow = open ? 'hidden' : '';
         return () => {
-            document.body.style.overflow = ''
-        }
-    }, [open])
+            document.body.style.overflow = '';
+        };
+    }, [open]);
 
     return (
         <AnimatePresence>
@@ -40,17 +40,24 @@ export const WalletPanels: React.FC<WalletPanelsProps> = ({ mode }) => {
                         Close
                     </button>
 
-                    {/* You can now use `panelMode` to control what to render inside */}
-                    <div className="p-6 text-white">
-                        <h2 className="text-2xl font-bold mb-2">Mode: {panelMode}</h2>
-                        {/* Conditional content */}
-                        {panelMode === 'create' && <p>Creating a new wallet...</p>}
-                        {panelMode === 'unlock' && <p>Unlock your wallet</p>}
-                        {panelMode === 'import' && <p>Import an existing wallet</p>}
-                    </div>
+                    {/* LEFT-SIDE PANELS */}
+                    {(panelMode === 'create' || panelMode === 'import') && (
+                        <SlidePanel direction="left">
+                            {panelMode === 'create' && <CreateWalletForm />}
+                            {panelMode === 'import' && <ImportWalletForm />}
+                        </SlidePanel>
+                    )}
+
+                    {/* RIGHT-SIDE PANELS */}
+                    {(panelMode === 'unlock' || panelMode === 'send') && (
+                        <SlidePanel direction="right">
+                            {panelMode === 'unlock' && <UnlockWalletForm />}
+                            {panelMode === 'send' && <SendTransactionForm />}
+                        </SlidePanel>
+                    )}
                 </MotionDiv>
             )}
         </AnimatePresence>
-    )
-}
+    );
+};
 

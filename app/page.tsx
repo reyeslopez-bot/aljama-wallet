@@ -3,9 +3,10 @@
 import React from 'react';
 import { useTrackUserWallet } from '@/lib/hooks/useTrackUserWallet';
 import { WalletPanels } from '@/components/wallet/panels/WalletPanels';
-import { FogParticlesOverlay } from '@/components/ui/Extras';
-import HeroCard from '@/components/ui/HeroCard'; // ✅ Use your custom Hero section
-import { FloatingSigils, TitleCalligraphy } from '@/components/ui/Extras';
+import FogParticleOverlay from '@/components/hero/FogParticleOverlay';
+import HeroCard from '@/components/hero/HeroCard'; // ✅ Use your custom Hero section
+import { TitleCalligraphy } from '@/components/hero/TitleCalligraphy';
+import { FloatingSigils } from 'components/hero/FloatingSigils';
 import WalletDetector from "@/components/wallet/ui/WalletDetector"
 
 export default function HomePage() {
@@ -14,7 +15,7 @@ export default function HomePage() {
 
     return (
         <main className="min-h-screen flex flex-col items-center justify-center p-0 m-0">
-            <FogParticlesOverlay />
+            <FogParticleOverlay />
             <FloatingSigils />
             <TitleCalligraphy />
             {/* Hero section with calligraphy, sigils, and CTA */}

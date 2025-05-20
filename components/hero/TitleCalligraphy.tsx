@@ -1,7 +1,7 @@
 // components/hero/TitleCalligraphy.tsx
 import React from "react";
 import LanguageSwitcher from "../ui/LanguageSwitcher";
-import DualLanguageTitle from "./Hero/DualLanguageTitle";
+import DualLanguageTitle from "./DualLanguageTitle";
 
 export const TitleCalligraphy: React.FC = () => {
     return (

@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Button from '@/components/ui/Button'
-import { useUnlockWallet } from '../hooks/useUnlockWallet'
+import { useUnlockWallet } from '@/lib/hooks/useUnlockWallet'
 
 export default function UnlockForm() {
     const { unlock, isLoading, error } = useUnlockWallet()
