@@ -1,3 +1,4 @@
+//WalletPanels.tsx
 'use client';
 
 import React, { useEffect } from 'react';
@@ -54,6 +55,7 @@ export const WalletPanels: React.FC = () => {
                             {panelMode === 'unlock' && <UnlockWalletForm />}
                             {panelMode === 'send' && <SendTransactionForm />}
                         </SlidePanel>
+
                     )}
                 </MotionDiv>
             )}

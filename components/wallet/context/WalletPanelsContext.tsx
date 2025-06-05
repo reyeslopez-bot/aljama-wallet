@@ -1,3 +1,4 @@
+// WalletPanelsContext.tsx
 'use client';                           // ①
 import {
     createContext, useContext,
