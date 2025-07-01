@@ -17,7 +17,7 @@ export default function LanguageSwitcher() {
                 onClick={() => setOpen(!open)}
                 className="flex items-center space-x-1 hover:opacity-80 transition"
             >
-                <GlobeAltIcon className="h-7 w-7 text-[#faf3e0]" />
+                <GlobeAltIcon className="h-8 w-8 text-[#faf3e0]" />
                 <span className="text-m text-[#faf3e0]">Language</span>
             </button>
 

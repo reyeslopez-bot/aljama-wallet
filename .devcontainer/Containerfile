@@ -10,6 +10,7 @@ RUN corepack enable && corepack prepare pnpm@10.10.0 --activate && corepack use 
 # Cache-friendly install
 COPY package.json ./
 COPY pnpm-lock.yaml ./
+RUN pnpm approve-builds @prisma/client prisma sharp keccak
 RUN pnpm install --frozen-lockfile
 
 # -------- Stage 2: dev --------

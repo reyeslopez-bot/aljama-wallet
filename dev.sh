@@ -54,11 +54,23 @@ for arg in "$@"; do
   esac
 done
 
-# --- Pre-check Lockfile ---
-if [ ! -f pnpm-lock.yaml ]; then
-  echo "❌ Missing pnpm-lock.yaml. Make sure you're in the correct project directory."
+# --- Check for required project files ---
+if [ ! -f package.json ]; then
+  echo "❌ package.json not found. Make sure you're in the root of your project."
   exit 1
 fi
+
+# --- Optional: show node version from package.json ---
+node_version=$(jq -r '.engines.node' package.json 2>/dev/null || echo "")
+if [ -n "$node_version" ]; then
+  echo "🧠 Node version specified in package.json: $node_version"
+fi
+# --- Pre-check Lockfile ---
+if [ ! -f pnpm-lock.yaml ]; then
+  echo "⚠️  pnpm-lock.yaml not found. Installing dependencies to generate it..."
+  pnpm install
+fi
+
 
 # --- Smart Rebuild Logic ---
 DEP_HASH_FILE=".devcontainer/.last-deps-hash"

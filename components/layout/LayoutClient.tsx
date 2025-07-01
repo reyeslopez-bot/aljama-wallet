@@ -1,38 +1,34 @@
-'use client';
+'use client'
 
-import React from 'react'; // ✅ ensures JSX works
-import { ReactNode } from 'react';
-import { WagmiConfig } from 'wagmi';
-import { wagmiConfig } from '../../lib/wagmi'; // ✅ will work once paths are set up
-import { WalletPanelsProvider } from '@/components/wallet/context/WalletPanelsContext';
+import { WagmiConfig } from 'wagmi'
+import { wagmiConfig } from '@/infra/wagmi/wagmi'
+import { ConnectKitProvider } from 'connectkit'
+import Navbar from './Navbar'
 
-export default function LayoutClient({ children }: { children: ReactNode }) {
-    return (
-        <WagmiConfig config={wagmiConfig}>
-            <WalletPanelsProvider>
-                {/* Background layer */}
-                <div className="fixed inset-0 overflow-hidden z-0">
-                    <div
-                        className="
+export default function LayoutClient({ children }: { children: React.ReactNode }) {
+  return (
+    <WagmiConfig config={wagmiConfig}>
+      <ConnectKitProvider>
+        {/* Background layer */}
+        <div className="fixed inset-0 overflow-hidden z-0">
+          <div
+            className="
               absolute inset-0
               bg-[url('/backgrounds/dunes-night.png')]
               bg-repeat-x bg-center bg-cover
               animate-slide-dunes
             "
+          />
+          <div className="absolute inset-0 pointer-events-none" />
+        </div>
 
-                    />
-                    <div className="absolute inset-0 pointer-events-none" />
-                </div>
+        <Navbar />
 
-
-                {/* App UI */}
-                <main className="relative z-10 flex-1">
-                    {children}
-                </main>
-
-                {/* Wallet Drawer */}
-            </WalletPanelsProvider>
-        </WagmiConfig>
-    );
+        <main className="relative z-10 flex-1 px-4 md:px-8 py-6">
+          {children}
+        </main>
+      </ConnectKitProvider>
+    </WagmiConfig>
+  )
 }
 
