@@ -117,7 +117,7 @@ fi
 
 # --- Run the Container ---
 echo "🚀 Running development container at $APP_URL..."
-podman run --rm --pull=never -it \
+podman run --pull=never -it \
   --name "$CONTAINER_NAME" \
   --userns=keep-id \
   -p "$APP_PORT:$APP_PORT" \
