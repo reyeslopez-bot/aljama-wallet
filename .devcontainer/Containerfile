@@ -43,3 +43,39 @@ COPY --from=deps /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
 # Optional:
 CMD ["pnpm", "dev"]
 
+# -------- Stage 3: builder --------
+FROM deps AS builder
+
+WORKDIR /workspace
+
+COPY . .
+
+RUN pnpm build
+
+# -------- Stage 4: prod --------
+FROM node:23.11.0 AS prod
+
+WORKDIR /workspace
+
+ENV NODE_ENV=production
+ENV COREPACK_ENABLE_STRICT=1
+ENV PORT=2999
+ENV HOSTNAME=0.0.0.0
+
+RUN corepack enable && corepack prepare pnpm@10.10.0 --activate && corepack use pnpm@10.10.0
+
+COPY --from=builder /workspace/package.json ./package.json
+COPY --from=builder /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder /workspace/.next ./.next
+COPY --from=builder /workspace/public ./public
+COPY --from=builder /workspace/prisma ./prisma
+COPY --from=builder /workspace/next.config.ts ./next.config.ts
+COPY --from=builder /workspace/tailwind.config.ts ./tailwind.config.ts
+COPY --from=builder /workspace/postcss.config.mjs ./postcss.config.mjs
+COPY --from=builder /workspace/tsconfig.json ./tsconfig.json
+COPY --from=builder /workspace/node_modules ./node_modules
+
+EXPOSE 2999
+
+CMD ["pnpm", "start"]
+
