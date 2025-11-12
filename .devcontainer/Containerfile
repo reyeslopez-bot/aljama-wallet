@@ -36,16 +36,7 @@ FROM base AS prod
 ENV NODE_ENV=production \
     PORT=2999 \
     HOSTNAME=0.0.0.0
-COPY --from=builder /workspace/package.json ./package.json
-COPY --from=builder /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=builder /workspace/node_modules ./node_modules
-COPY --from=builder /workspace/.next ./.next
-COPY --from=builder /workspace/public ./public
-COPY --from=builder /workspace/next.config.* ./ 2>/dev/null || true
-COPY --from=builder /workspace/tailwind.config.* ./ 2>/dev/null || true
-COPY --from=builder /workspace/postcss.config.* ./ 2>/dev/null || true
-COPY --from=builder /workspace/tsconfig.json ./tsconfig.json
-COPY --from=builder /workspace/prisma ./prisma
+COPY --from=builder /workspace/*.config.* ./
 
 EXPOSE 2999
 CMD ["pnpm","start"]
