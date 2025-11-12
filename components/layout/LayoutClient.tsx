@@ -1,12 +1,11 @@
 'use client'
-
 import Navbar from './Navbar'
 import type { ReactNode } from 'react'
 
 export default function LayoutClient({ children }: { children: ReactNode }) {
   return (
     <>
-      {/* Background layer */}
+      {/* background layer */}
       <div className="fixed inset-0 overflow-hidden z-0">
         <div
           className="
@@ -20,10 +19,7 @@ export default function LayoutClient({ children }: { children: ReactNode }) {
       </div>
 
       <Navbar />
-
-      <main className="relative z-10 flex-1 px-4 md:px-8 py-6">
-        {children}
-      </main>
+      <main className="relative z-10 flex-1 px-4 md:px-8 py-6">{children}</main>
     </>
   )
 }

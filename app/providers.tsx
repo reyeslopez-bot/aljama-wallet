@@ -5,6 +5,7 @@ import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConnectKitProvider } from 'connectkit'
 import { config } from '@/infra/wagmi/wagmi'
+import { WalletPanelsProvider } from '@/components/wallet/context/WalletPanelsContext'
 
 export default function Providers({ children }: PropsWithChildren) {
   const [queryClient] = useState(() => new QueryClient())
@@ -12,7 +13,9 @@ export default function Providers({ children }: PropsWithChildren) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <ConnectKitProvider>
-          {children}
+          <WalletPanelsProvider>
+            {children}
+          </WalletPanelsProvider>
         </ConnectKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
