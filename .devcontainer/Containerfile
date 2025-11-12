@@ -1,63 +1,51 @@
-FROM node:23.11.0
+# syntax=docker/dockerfile:1.7
+
+# ---------- base ----------
+FROM node:23.11.0 AS base
+WORKDIR /workspace
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    COREPACK_ENABLE_STRICT=1 \
+    PNPM_HOME=/usr/local/pnpm \
+    PATH="/workspace/node_modules/.bin:${PATH}"
 
 RUN apt-get update && apt-get install -y -qq \
-    git curl vim neovim bash xxd xclip \
- && rm -rf /var/lib/apt/lists/*
+      git curl vim neovim bash xxd xclip \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /workspace
-ENV PATH="/workspace/node_modules/.bin:${PATH}"
-ENV COREPACK_ENABLE_STRICT=1
-ENV NEXT_TELEMETRY_DISABLED=1
+ARG PNPM_VERSION=10.21.0
+RUN corepack enable \
+ && corepack prepare pnpm@${PNPM_VERSION} --activate \
+ && corepack use pnpm@${PNPM_VERSION}
+
+# ---------- dev ----------
+FROM base AS dev
 ENV PORT=2998
+CMD ["bash","-lc","sleep infinity"]
 
-RUN corepack enable && corepack prepare pnpm@10.10.0 --activate && corepack use pnpm@10.10.0
-
-<<<<<<< HEAD
-# idle; dev.sh will run install+dev
-CMD ["bash", "-lc", "sleep infinity"]
-=======
-# Reuse deps from deps stage
-COPY --from=deps /workspace/node_modules ./node_modules
-COPY --from=deps /workspace/package.json ./package.json
-COPY --from=deps /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
-
-# Optional:
-CMD ["pnpm", "dev"]
-
-# -------- Stage 3: builder --------
-FROM deps AS builder
-
-WORKDIR /workspace
-
+# ---------- builder ----------
+FROM base AS builder
+COPY package.json pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/root/.pnpm-store \
+    pnpm config set store-dir /root/.pnpm-store && \
+    pnpm install --frozen-lockfile
 COPY . .
-
 RUN pnpm build
 
-# -------- Stage 4: prod --------
-FROM node:23.11.0 AS prod
-
-WORKDIR /workspace
-
-ENV NODE_ENV=production
-ENV COREPACK_ENABLE_STRICT=1
-ENV PORT=2999
-ENV HOSTNAME=0.0.0.0
-
-RUN corepack enable && corepack prepare pnpm@10.10.0 --activate && corepack use pnpm@10.10.0
-
+# ---------- prod ----------
+FROM base AS prod
+ENV NODE_ENV=production \
+    PORT=2999 \
+    HOSTNAME=0.0.0.0
 COPY --from=builder /workspace/package.json ./package.json
 COPY --from=builder /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder /workspace/node_modules ./node_modules
 COPY --from=builder /workspace/.next ./.next
 COPY --from=builder /workspace/public ./public
-COPY --from=builder /workspace/prisma ./prisma
-COPY --from=builder /workspace/next.config.ts ./next.config.ts
-COPY --from=builder /workspace/tailwind.config.ts ./tailwind.config.ts
-COPY --from=builder /workspace/postcss.config.mjs ./postcss.config.mjs
+COPY --from=builder /workspace/next.config.* ./ 2>/dev/null || true
+COPY --from=builder /workspace/tailwind.config.* ./ 2>/dev/null || true
+COPY --from=builder /workspace/postcss.config.* ./ 2>/dev/null || true
 COPY --from=builder /workspace/tsconfig.json ./tsconfig.json
-COPY --from=builder /workspace/node_modules ./node_modules
+COPY --from=builder /workspace/prisma ./prisma
 
 EXPOSE 2999
-
-CMD ["pnpm", "start"]
-
->>>>>>> 8bcfc9794468e61596aa1923230b19afdcd07455
+CMD ["pnpm","start"]

@@ -1,6 +1,4 @@
-set shell := ["bash", "-cu"]
-
-# Justfile — Aljama Wallet Command Suite
+# justfile — Aljama Wallet Command Suite
 set shell := ["bash", "-cu"]
 
 # Params (override via env: CONTAINER_NAME, APP_PORT)
