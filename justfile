@@ -1,3 +1,5 @@
+set shell := ["bash", "-cu"]
+
 # Justfile — Aljama Wallet Command Suite
 set shell := ["bash", "-cu"]
 
@@ -6,32 +8,32 @@ container_name := env_var_or_default("CONTAINER_NAME", "nextjs-container")
 app_port       := env_var_or_default("APP_PORT", "2998")
 
 # 🧪 Start development container
-dev:
-    ./dev.sh
+dev port='2998':
+    APP_PORT={{port}} ./dev.sh
 
 # 🔁 Rebuild dev container if dependencies change
-rebuild:
-    ./dev.sh --rebuild
+rebuild port='2998':
+    APP_PORT={{port}} ./dev.sh --rebuild
 
 # 🧼 Nuke and rebuild everything from scratch
-clean:
-    ./dev.sh --force-clean
+clean port='2998':
+    APP_PORT={{port}} ./dev.sh --force-clean
 
 # 🛑 Stop the running dev container
-stop:
-    ./dev.sh --stop
+stop container='nextjs-container':
+    CONTAINER_NAME={{container}} ./dev.sh --stop
 
 # 🌍 Open in browser
 preview:
-    xdg-open "http://localhost:{{app_port}}" || open "http://localhost:{{app_port}}" || echo "⚠️  Could not auto-open browser."
+    xdg-open http://localhost:2998 || open http://localhost:2998 || echo "⚠️  Could not auto-open browser."
 
 # 🐳 View live logs
 logs:
-    podman logs -f "{{container_name}}"
+    podman logs -f nextjs-container
 
 # 📦 Build production app (relies on prod.sh being set up)
-prod:
-    ./prod.sh
+prod port='2999' container='aljama-prod':
+    APP_PORT={{port}} CONTAINER_NAME={{container}} ./prod.sh
 
 # 🧱 Launch supporting infrastructure (if/when docker-compose is added)
 infra-up:

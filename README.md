@@ -1,6 +1,6 @@
 # Aljama Wallet
 
-**Aljama Wallet** is a secure, Middle Eastern–themed Web3 wallet built with Next.js, WAGMI, and Ethers.js, containerized with Podman for consistent development and production environments.
+**Aljama Wallet** is a secure, Middle Eastern–themed Web3 wallet built with Next.js, WAGMI, and Ethers.js, containerized with Podman/Docker for consistent development and production environments.
 
 ---
 
@@ -28,7 +28,7 @@
 Aljama Wallet aims to deliver a seamless, culturally resonant wallet experience for users in Middle Eastern and global markets. It integrates best-in-class security practices with an intuitive UI/UX inspired by desert and dune motifs. Key goals:
 
 * **Security First:** Leverage WAGMI & Ethers.js for audited blockchain interactions.
-* **Container Consistency:** Use Podman for deterministic builds across environments.
+* **Container Consistency:** Use Podman or Docker for deterministic builds across environments.
 * **Modular UI:** Tailwind CSS + custom Middle Eastern aesthetic.
 
 ## Features
@@ -45,14 +45,14 @@ Aljama Wallet aims to deliver a seamless, culturally resonant wallet experience 
 * **React 18 + TypeScript:** Strongly-typed components and hooks
 * **WAGMI & Ethers.js:** Blockchain connectivity and wallet management
 * **Tailwind CSS:** Utility-first styling, custom `aladin` font integration
-* **Podman Containerfile:** Single/multi-stage build for dev & prod
+* **Containerized workflow (Podman/Docker):** Multi-stage image for dev & prod
 * **pnpm:** Fast, deterministic package management
 * **Playwright:** End-to-end UI testing
 * **GitHub Actions:** CI for lint, build, and test
 
 ## Prerequisites
 
-* **Podman (v4+)** or Docker
+* **Podman (v4+)** or **Docker (24+)**
 * **Node.js v18+**
 * **pnpm** (or npm/yarn if you adjust commands)
 * **GNU Make** (optional, for makefile targets)
@@ -86,14 +86,22 @@ Aljama Wallet aims to deliver a seamless, culturally resonant wallet experience 
 ### Running in Container
 
 ```bash
-# Starts Podman container, installs dependencies, and runs dev server
+# Auto-detects Podman or Docker, rebuilds as needed, and serves on port 2998
 ./dev.sh
+
+# Override the exposed port (for both host and container)
+./dev.sh --port 3100
+
+# All Justfile recipes forward APP_PORT too
+just dev                  # equivalent to ./dev.sh (defaults to 2998)
+just dev port=3200        # launches on http://localhost:3200
+just preview port=3200    # open the matching browser tab
 ```
 
 ### Running Locally
 
 ```bash
-pnpm dev
+pnpm dev   # listens on http://localhost:2998 by default
 ```
 
 ### Linting & Formatting
@@ -112,8 +120,10 @@ pnpm format    # Prettier
 
 ## Scripts & Commands
 
-* `./dev.sh` - Launch development container + server
-* `./prod.sh` - Build and start production image
+* `./dev.sh` - Launch development container + server (supports `--port` and Podman/Docker auto-detect)
+* `./prod.sh` - Build and start production image (`--port`, `--runtime`, `--image-name`, ...)
+* `just dev` / `just prod` - Convenience wrappers that pass the correct defaults (ports, container names)
+* `just logs` - Tail container logs using whichever runtime is available
 * `pnpm dev` - Local development
 * `pnpm build` - Next.js production build
 * `pnpm start` - Serve built app
@@ -132,7 +142,7 @@ pnpm format    # Prettier
 ├─ public/              # Static assets (fonts, images)
 ├─ scripts/             # dev.sh, prod.sh
 ├─ tests/               # Playwright e2e tests
-├─ Containerfile        # Podman build spec
+├─ .devcontainer/Containerfile # Multi-stage image for dev & prod workflows
 ├─ .github/workflows/   # CI definitions
 └─ README.md            # This file
 ```
@@ -152,9 +162,10 @@ pnpm format    # Prettier
 1. Build production image:
 
    ```bash
-   ./prod.sh
+   ./prod.sh             # builds + runs on http://localhost:2999
+   ./prod.sh --port 8080 # expose production build on a custom port
    ```
-2. Push to container registry (Podman login + `podman push`).
+2. Push to container registry (`podman push` or `docker push`, depending on the runtime).
 3. Deploy via your platform of choice (AWS ECS, Azure ACR, etc.).
 
 ## Contributing
