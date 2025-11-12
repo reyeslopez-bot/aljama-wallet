@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # 🚀 Aljama Wallet Development Runner (Podman Edition)
 
-# --- Fallback defaults — use existing env vars if defined ---
+# --- Defaults ---
 IMAGE_NAME="${IMAGE_NAME:-nextjs-dev}"
 CONTAINER_NAME="${CONTAINER_NAME:-nextjs-container}"
 APP_PORT="${APP_PORT:-2998}"
@@ -11,116 +11,112 @@ APP_URL="${APP_URL:-http://localhost:$APP_PORT}"
 BUILD_CONTEXT="${BUILD_CONTEXT:-.}"
 REBUILD="${REBUILD:-false}"
 FORCE_CLEAN="${FORCE_CLEAN:-false}"
+NODE_VOLUME="${NODE_VOLUME:-aljama_node_modules}"
+STORE_VOLUME="${STORE_VOLUME:-aljama_pnpm_store}"
 
-# --- Optional: Load .env file if present ---
+# --- Load .env if present ---
 if [ -f .env ]; then
-  # Check for invalid spacing like VAR= value (Bash will break)
   if grep -qE '^[A-Z0-9_]+=\s+' .env; then
-    echo "❌ Invalid .env format detected. Remove spaces between keys and values."
-    echo "   For example: 'POSTGRES_URL= value' → should be 'POSTGRES_URL=value'"
+    echo "❌ Invalid .env format detected (spaces after =)."
     exit 1
   fi
-
-  # Load environment variables safely
   set -a
   source .env
   set +a
 fi
 
-# --- Tooling check ---
-if ! command -v podman &> /dev/null; then
-  echo "❌ Podman is not installed or not in PATH. Please install Podman to continue."
+# --- Verify tooling ---
+if ! command -v podman &>/dev/null; then
+  echo "❌ Podman not found in PATH."
   exit 1
 fi
 
-# --- Parse CLI Flags ---
+# --- CLI Flags ---
 for arg in "$@"; do
   case $arg in
     --force-clean) FORCE_CLEAN=true ;;
-    --rebuild)     REBUILD=true     ;;
+    --rebuild)     REBUILD=true ;;
     --stop)
-      echo "🛑 Stopping and removing container $CONTAINER_NAME..."
-      podman stop "$CONTAINER_NAME" && podman rm "$CONTAINER_NAME"
+      echo "🛑 Stopping container $CONTAINER_NAME..."
+      podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
       exit 0
       ;;
     -h|--help)
       echo "Usage: ./dev.sh [--rebuild] [--force-clean] [--stop]"
-      echo "  --rebuild       Rebuilds the development image"
-      echo "  --force-clean   Removes and rebuilds image from scratch"
-      echo "  --stop          Stops and removes the running container"
       exit 0
       ;;
-    *) ;;
   esac
 done
 
-# --- Check for required project files ---
+# --- Sanity check ---
 if [ ! -f package.json ]; then
-  echo "❌ package.json not found. Make sure you're in the root of your project."
+  echo "❌ package.json not found. Run from project root."
   exit 1
 fi
 
-# --- Optional: show node version from package.json ---
-node_version=$(jq -r '.engines.node' package.json 2>/dev/null || echo "")
+# --- Optional node version hint ---
+node_version=$(jq -r '.engines.node // empty' package.json 2>/dev/null || true)
 if [ -n "$node_version" ]; then
   echo "🧠 Node version specified in package.json: $node_version"
 fi
-# --- Pre-check Lockfile ---
-if [ ! -f pnpm-lock.yaml ]; then
-  echo "⚠️  pnpm-lock.yaml not found. Installing dependencies to generate it..."
-  pnpm install
-fi
 
-
-# --- Smart Rebuild Logic ---
+# --- Hash dependencies to trigger rebuild automatically ---
 DEP_HASH_FILE=".devcontainer/.last-deps-hash"
-CURRENT_HASH=$(
-  sha256sum package.json pnpm-lock.yaml \
-  | sha256sum \
-  | cut -d' ' -f1
-)
+CURRENT_HASH=$(sha256sum package.json pnpm-lock.yaml | sha256sum | cut -d' ' -f1)
+LAST_HASH="$(cat "$DEP_HASH_FILE" 2>/dev/null || echo '')"
 
-if [ "$REBUILD" = false ] && [ "$FORCE_CLEAN" = false ]; then
-  if [ -f "$DEP_HASH_FILE" ]; then
-    LAST_HASH=$(<"$DEP_HASH_FILE")
-  else
-    LAST_HASH=""
-  fi
-
-  if [ "$LAST_HASH" != "$CURRENT_HASH" ]; then
-    echo "📦 Detected dependency changes. Triggering rebuild..."
-    REBUILD=true
-    echo "$CURRENT_HASH" > "$DEP_HASH_FILE"
-  fi
+if [[ "$CURRENT_HASH" != "$LAST_HASH" && "$FORCE_CLEAN" = false ]]; then
+  echo "📦 Dependencies changed — rebuild triggered."
+  REBUILD=true
 fi
 
-# --- Force Clean Image (optional nuke) ---
+# --- Force clean option ---
 if [ "$FORCE_CLEAN" = true ]; then
-  echo "🧹 Forcing clean build: removing image and container..."
+  echo "🧹 Removing container, image, and volumes..."
   podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
-  podman rmi -f "$IMAGE_NAME"    2>/dev/null || true
+  podman rmi -f "$IMAGE_NAME" 2>/dev/null || true
+  podman volume rm -f "$NODE_VOLUME" "$STORE_VOLUME" 2>/dev/null || true
 fi
 
-# --- Build Dev Image if Needed ---
+# --- Ensure volumes exist ---
+podman volume inspect "$NODE_VOLUME" >/dev/null 2>&1 || podman volume create "$NODE_VOLUME" >/dev/null
+podman volume inspect "$STORE_VOLUME" >/dev/null 2>&1 || podman volume create "$STORE_VOLUME" >/dev/null
+
+# --- Build image ---
 if [ "$REBUILD" = true ] || [ "$FORCE_CLEAN" = true ]; then
   echo "📦 Building development image..."
-  podman build \
-    -f .devcontainer/Containerfile \
-    -t "$IMAGE_NAME" \
-    "$BUILD_CONTEXT"
-
+  podman build -f .devcontainer/Containerfile -t "$IMAGE_NAME" "$BUILD_CONTEXT"
   echo "$CURRENT_HASH" > "$DEP_HASH_FILE"
-
 else
   echo "📦 Using existing development image."
 fi
 
-# --- Run the Container ---
+# --- Run container ---
 echo "🚀 Running development container at $APP_URL..."
-podman run --pull=never -it \
+exec podman run --rm -it \
   --name "$CONTAINER_NAME" \
-  --userns=keep-id \
+  --user "$(id -u)":"$(id -g)" \
   -p "$APP_PORT:$APP_PORT" \
+  -e PORT="$APP_PORT" \
+  -e COREPACK_ENABLE_STRICT=1 \
+  -e PNPM_STORE_DIR="/workspace/.pnpm-store" \
   -v "$PWD:/workspace:Z" \
-  "$IMAGE_NAME"
+  -v "$STORE_VOLUME:/workspace/.pnpm-store:U,Z" \
+  "$IMAGE_NAME" \
+  bash -lc '
+    set -euo pipefail
+    corepack enable >/dev/null 2>&1 || true
+    pnpm -v
 
+    # ensure writable dirs
+    mkdir -p /workspace/node_modules /workspace/.pnpm-store
+    chmod -R u+rwX,go+rX /workspace/node_modules /workspace/.pnpm-store || true
+
+    pnpm config set store-dir /workspace/.pnpm-store
+    pnpm approve-builds @prisma/client prisma sharp keccak bufferutil utf-8-validate || true
+
+    CI= pnpm install --no-frozen-lockfile
+    test -x node_modules/.bin/next || pnpm add -D next
+    exec pnpm dev
+  '
+# --- End of script ---

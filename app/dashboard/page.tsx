@@ -1,8 +1,7 @@
 'use client'
 
 import { useAccount } from 'wagmi'
-import BalanceDisplay from '@/components/BalanceDisplay'
-import { TokenDashboard } from '@/components/wallet/TokenDashboard'
+import BalanceDisplay from '@/components/wallet/ui/BalanceDisplay'
 
 export default function DashboardPage() {
   const { address, isConnected } = useAccount()
@@ -18,7 +17,6 @@ export default function DashboardPage() {
           <BalanceDisplay address={address!} className="text-white" />
 
           <div className="mt-6">
-            <TokenDashboard />
           </div>
         </>
       )}

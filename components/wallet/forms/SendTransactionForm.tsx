@@ -1,69 +1,65 @@
-// component/wallet/forms/SendTransactionForm.tsx
-
 'use client'
 
 import { useState } from 'react'
-import { usePrepareSendTransaction, useSendTransaction } from 'wagmi'
-import { parseEther } from 'ethers'
+import { parseEther, isAddress } from 'ethers' // v6 parseEther returns bigint
+import { useAccount, useSendTransaction } from 'wagmi'
 
-export default function SendTransactionForm() {
-    const [to, setTo] = useState('')
-    const [amount, setAmount] = useState('')
+type Address = `0x${string}`;
 
-    const { config } = usePrepareSendTransaction({
-        to,
-        value: parseEther(amount || '0'),
-        enabled: Boolean(to && amount),
-    })
-
-    const { sendTransaction, isLoading, isSuccess } = useSendTransaction(config)
-
-    return (
-        <form
-            onSubmit={(e) => {
-                e.preventDefault()
-                sendTransaction?.()
-            }}
-            className="max-w-md mx-auto p-4 border rounded-lg"
-        >
-            <h2 className="text-xl font-bold mb-2">Send Transaction</h2>
-
-            <label className="block mb-2">
-                <span className="text-sm">Recipient address</span>
-                <input
-                    className="mt-1 mb-2 border rounded p-2 w-full"
-                    type="text"
-                    placeholder="0x…"
-                    value={to}
-                    maxLength={35}
-                    minLength={26}
-                    onChange={(e) => setTo(e.target.value)}
-                />
-            </label>
-
-            <label className="block mb-4">
-                <span className="text-sm">Amount (ETH)</span>
-                <input
-                    className="border p-2 w-full"
-                    type="number"
-                    min="0"
-                    step="0.0001"
-                    placeholder="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                />
-            </label>
-
-            <button
-                type="submit"
-                className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
-                disabled={isLoading}
-            >
-                {isLoading ? 'Sending…' : 'Send ETH'}
-            </button>
-
-            {isSuccess && <p className="text-green-500 mt-2">✅ Transaction sent!</p>}
-        </form>
-    )
+function normalizeAddress(input: string): Address | null {
+  const val = input.startsWith('0x') ? input : `0x${input}`;
+  return isAddress(val) ? (val as Address) : null;
 }
+export default function SendTransactionForm() {
+  const { address: from } = useAccount()
+  const [toInput, setToInput] = useState<string>('');
+  const [amount, setAmount] = useState('0')
 
+  const { data, sendTransaction, isPending, error, status } = useSendTransaction()
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const to = normalizeAddress(toInput)
+    if (!to) {
+      // show validation error to user
+      return;
+    }
+
+    const value = parseEther(amount || '0')
+    sendTransaction({ to, value })
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-3">
+      <div>
+        <label className="block text-sm">To</label>
+        <input
+          value={toInput}
+          onChange={(e) => setToInput(e.target.value)}
+          className="w-full rounded border px-3 py-2"
+          placeholder="0x…"
+        />
+      </div>
+      <div>
+        <label className="block text-sm">Amount (ETH)</label>
+        <input
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="w-full rounded border px-3 py-2"
+          placeholder="0.01"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={isPending}
+        className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
+      >
+        {isPending ? 'Sending…' : 'Send'}
+      </button>
+
+      {from && <p className="text-xs text-gray-500">From: {from}</p>}
+      {status === 'error' && <p className="text-red-600 text-sm">{String(error?.message ?? error)}</p>}
+      {status === 'success' && <p className="text-green-600 text-sm">Tx: {String(data)}</p>}
+    </form>
+  )
+}

@@ -1,45 +1,16 @@
-# -------- Stage 1: deps --------
-FROM node:23.11.0 AS deps
+FROM node:23.11.0
 
-WORKDIR /workspace
-
-# Enable and configure pnpm
-ENV COREPACK_ENABLE_STRICT=1
-RUN corepack enable && corepack prepare pnpm@10.10.0 --activate && corepack use pnpm@10.10.0
-
-# Cache-friendly install
-COPY package.json ./
-COPY pnpm-lock.yaml ./
-RUN pnpm approve-builds @prisma/client prisma sharp keccak
-RUN pnpm install --frozen-lockfile
-
-# -------- Stage 2: dev --------
-FROM node:23.11.0 AS dev
-
-# Install dev tooling
 RUN apt-get update && apt-get install -y -qq \
-    git \
-    curl \
-    vim \
-    neovim \
-    bash \
-  && rm -rf /var/lib/apt/lists/*
+    git curl vim neovim bash xxd xclip \
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
-
-ENV PATH="/workspace/node_modules/.bin:$PATH"
+ENV PATH="/workspace/node_modules/.bin:${PATH}"
 ENV COREPACK_ENABLE_STRICT=1
-ENV CI=true
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=2998
 
-# Enable pnpm again
 RUN corepack enable && corepack prepare pnpm@10.10.0 --activate && corepack use pnpm@10.10.0
 
-# Reuse deps from deps stage
-COPY --from=deps /workspace/node_modules ./node_modules
-COPY --from=deps /workspace/package.json ./package.json
-COPY --from=deps /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
-
-# Optional:
-CMD ["pnpm", "dev"]
-
+# idle; dev.sh will run install+dev
+CMD ["bash", "-lc", "sleep infinity"]

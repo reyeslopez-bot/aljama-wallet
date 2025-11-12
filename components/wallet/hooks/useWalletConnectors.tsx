@@ -1,23 +1,27 @@
-'use client';
+'use client'
 
-import { useConnect } from 'wagmi';
-import { InjectedConnector } from 'wagmi/connectors/injected';
-import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
-import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
+import { useConnect, useConnectors } from 'wagmi'
+import type { Connector } from 'wagmi'
 
 export function useWalletConnectors() {
-  const { connect, isLoading, pendingConnector, error } = useConnect();
+  const connectors = useConnectors()
 
-  const availableConnectors = [
-    new InjectedConnector(),
-    new WalletConnectConnector({
-      options: { qrcode: true },
-    }),
-    new CoinbaseWalletConnector({
-      options: { appName: 'Aljama Wallet' },
-    }),
-  ];
+  const {
+    connect,
+    status,          // 'idle' | 'pending' | 'success' | 'error'
+    error,
+    variables,       // { connector?: Connector } while pending
+  } = useConnect()
 
-  return { connect, availableConnectors, isLoading, pendingConnector, error };
+  const isLoading = status === 'pending'
+  const pendingConnector = variables?.connector as Connector | undefined
+
+  return {
+    connectors,
+    connect,
+    isLoading,
+    pendingConnector, // now well-typed, optional
+    error,
+    status,
+  }
 }
-
