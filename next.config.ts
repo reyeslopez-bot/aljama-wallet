@@ -1,17 +1,13 @@
-const nextConfig = {
-    productionBrowserSourceMaps: true,
-    headers: async () => [
-        {
-            source: "/(.*)",
-            headers: [
-                {
-                    key: "Cache-Control",
-                    value: "no-store, no-cache, must-revalidate, proxy-revalidate",
-                },
-            ],
-        },
-    ],
-};
+import type { NextConfig } from 'next'
+import path from 'path'
 
-export default nextConfig;
-
+const nextConfig: NextConfig = {
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      '@base-org/account': path.resolve(__dirname, 'shims/empty.js'),
+    }
+    return config
+  },
+}
+export default nextConfig

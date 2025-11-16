@@ -1,11 +1,12 @@
 // app/api/test-db/route.ts
+import { NextResponse } from 'next/server'
 import { getWallets } from '@/services/wallet.service'
 import { getDailySummaries } from '@/services/summary.service'
 
 export async function GET() {
-    const wallets = await getWallets()
-    const summaries = await getDailySummaries()
-
-    return Response.json({ wallets, summaries })
+  const [wallets, summaries] = await Promise.all([
+    getWallets(),
+    getDailySummaries(),
+  ])
+  return NextResponse.json({ wallets, summaries })
 }
-

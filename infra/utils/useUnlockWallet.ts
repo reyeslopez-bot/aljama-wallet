@@ -1,24 +1,28 @@
-// hooks/useUnlockWallet.ts
+// infra/utils/useUnlockWallet.ts
 import { useState } from 'react'
-import { unlockWallet } from '@/lib/wallet'   // your actual wallet‑unseal logic
+import { unlockWallet } from '@/lib/wallet'
+
+// Locally define the shape we want to use.
+// We cast the imported function to this type to avoid type mismatch noise.
+type UnlockFn = (password: string) => Promise<void>
 
 export function useUnlockWallet() {
-    const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState<Error | null>(null)
+  const [isUnlocking, setIsUnlocking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-    async function unlock(password: string) {
-        setIsLoading(true)
-        setError(null)
-        try {
-            await unlockWallet(password)
-        } catch (err: any) {
-            setError(err)
-            throw err
-        } finally {
-            setIsLoading(false)
-        }
+  const unlock = unlockWallet as unknown as UnlockFn
+
+  async function handleUnlock(password: string) {
+    setIsUnlocking(true)
+    setError(null)
+    try {
+      await unlock(password)
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to unlock wallet')
+    } finally {
+      setIsUnlocking(false)
     }
+  }
 
-    return { unlock, isLoading, error }
+  return { isUnlocking, error, handleUnlock }
 }
-

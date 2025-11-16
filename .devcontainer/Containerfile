@@ -3,6 +3,7 @@
 # ---------- base ----------
 FROM node:23.11.0 AS base
 WORKDIR /workspace
+
 ENV NEXT_TELEMETRY_DISABLED=1 \
     COREPACK_ENABLE_STRICT=1 \
     PNPM_HOME=/usr/local/pnpm \
@@ -24,19 +25,34 @@ CMD ["bash","-lc","sleep infinity"]
 
 # ---------- builder ----------
 FROM base AS builder
+WORKDIR /workspace
+
+# 1. Install deps (no prisma schema yet)
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/root/.pnpm-store \
     pnpm config set store-dir /root/.pnpm-store && \
     pnpm install --frozen-lockfile
+
+# 2. Copy source (including prisma/)
 COPY . .
+
+# 3. Build Next
 RUN pnpm build
 
 # ---------- prod ----------
 FROM base AS prod
+WORKDIR /workspace
+
 ENV NODE_ENV=production \
     PORT=2999 \
     HOSTNAME=0.0.0.0
-COPY --from=builder /workspace/*.config.* ./
+
+COPY --from=builder /workspace/package.json ./package.json
+COPY --from=builder /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder /workspace/.next ./.next
+COPY --from=builder /workspace/public ./public
+COPY --from=builder /workspace/node_modules ./node_modules
+COPY --from=builder /workspace/prisma ./prisma
 
 EXPOSE 2999
 CMD ["pnpm","start"]

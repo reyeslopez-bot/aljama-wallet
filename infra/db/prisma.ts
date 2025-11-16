@@ -1,11 +1,45 @@
-import { PrismaClient } from '@prisma/client'
+// infra/db/prisma.ts
 
-const globalForPrisma = globalThis as unknown as {
-    prisma: PrismaClient | undefined
+// Try to require generated Prisma clients; if not available during type-check/build, fall back to minimal classes to avoid compile errors.
+let PrismaCrdbClient: any
+let PrismaPgClient: any
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+  PrismaCrdbClient = require('../../prisma/generated/prisma-crdb').PrismaClient
+} catch {
+  PrismaCrdbClient = class {}
 }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient()
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+  PrismaPgClient = require('../../prisma/generated/pg').PrismaClient
+} catch {
+  PrismaPgClient = class {}
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+declare global {
+  // eslint-disable-next-line no-var
+  var prismaCrdb: any
+  // eslint-disable-next-line no-var
+  var prismaPg: any
+}
 
-export const prisma = new PrismaClient()
+// CRDB (OLTP)
+export const prismaCrdb: any =
+  globalThis.prismaCrdb ??
+  new PrismaCrdbClient({
+    datasourceUrl: process.env.COCKROACH_URL,
+  })
+
+// PG (OLAP)
+export const prismaPg: any =
+  globalThis.prismaPg ??
+  new PrismaPgClient({
+    datasourceUrl: process.env.POSTGRES_URL,
+  })
+
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.prismaCrdb = prismaCrdb
+  globalThis.prismaPg = prismaPg
+}

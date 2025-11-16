@@ -1,36 +1,29 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
-    "allowJs": true,
-    "skipLibCheck": true,
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+
     "strict": true,
     "noEmit": true,
+    "skipLibCheck": true,
     "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
+    "allowJs": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "incremental": true,
-    "jsx": "preserve", // ✅ changed from "preserve"
-    "types": [
-      "react"
-    ], // ✅ explicitly tells TypeScript to use JSX from React
+    "forceConsistentCasingInFileNames": true,
+
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     },
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ]
+
+    "plugins": [{ "name": "next" }]
+
+    /* NOTE: no "types": [...] here — let Next include its own + node/react types */
   },
   "include": [
     "next-env.d.ts",
@@ -39,7 +32,5 @@
     ".next/types/**/*.ts",
     "global.d.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

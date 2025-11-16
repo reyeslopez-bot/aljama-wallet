@@ -1,56 +1,61 @@
 # justfile — Aljama Wallet Command Suite
-set shell := ["bash", "-cu"]
+set shell := ["bash","-cu"]
 
-# Params (override via env: CONTAINER_NAME, APP_PORT)
-container_name := env_var_or_default("CONTAINER_NAME", "nextjs-container")
-app_port       := env_var_or_default("APP_PORT", "2998")
+container_name := env_var_or_default("CONTAINER_NAME","nextjs-container")
+app_port       := env_var_or_default("APP_PORT","2998")
 
-# 🧪 Start development container
 dev port='2998':
-    APP_PORT={{port}} ./dev.sh
+	APP_PORT={{port}} ./dev.sh
 
-# 🔁 Rebuild dev container if dependencies change
 rebuild port='2998':
-    APP_PORT={{port}} ./dev.sh --rebuild
+	APP_PORT={{port}} ./dev.sh --rebuild
 
-# 🧼 Nuke and rebuild everything from scratch
-clean port='2998':
-    APP_PORT={{port}} ./dev.sh --force-clean
+# 🧼 Nuke dev container + image + pnpm cache + hash
+clean:
+	bash -lc 'RUNTIME="${CONTAINER_RUNTIME:-}"; if [ -z "$RUNTIME" ]; then if command -v podman >/dev/null 2>&1; then RUNTIME=podman; elif command -v docker >/dev/null 2>&1; then RUNTIME=docker; else echo "No podman or docker found"; exit 1; fi; fi; echo "Cleaning with $RUNTIME"; if [ -n "$RUNTIME" ]; then "$RUNTIME" rm -f nextjs-container >/dev/null 2>&1 || true; "$RUNTIME" rmi -f nextjs-dev >/dev/null 2>&1 || true; if "$RUNTIME" volume inspect aljama_pnpm_store >/dev/null 2>&1; then "$RUNTIME" volume rm aljama_pnpm_store >/dev/null 2>&1 || true; fi; fi; rm -rf .pnpm-store .devcontainer/.last-deps-hash'
 
-# 🛑 Stop the running dev container
-stop container='nextjs-container':
-    CONTAINER_NAME={{container}} ./dev.sh --stop
+# 🛑 Stop running dev container (no rebuild)
+stop:
+	./dev.sh --stop
 
-# 🌍 Open in browser
+# 🌍 Open browser to dev app
 preview:
-    xdg-open http://localhost:2998 || open http://localhost:2998 || echo "⚠️  Could not auto-open browser."
+	xdg-open "http://localhost:{{app_port}}" || open "http://localhost:{{app_port}}" || echo "⚠️  Could not auto-open browser."
 
 # 🐳 View live logs
 logs:
-    podman logs -f nextjs-container
+	if command -v podman >/dev/null 2>&1; then podman logs -f "{{container_name}}"; else docker logs -f "{{container_name}}"; fi
 
-# 📦 Build production app (relies on prod.sh being set up)
+# 📦 Build + run production app (uses prod.sh)
 prod port='2999' container='aljama-prod':
-    APP_PORT={{port}} CONTAINER_NAME={{container}} ./prod.sh
+	APP_PORT={{port}} CONTAINER_NAME={{container}} ./prod.sh
 
-# 🧱 Launch supporting infrastructure (if/when docker-compose is added)
+# 🔧 Prisma client generation (CRDB + PG)
+prisma-generate:
+	pnpm prisma generate --schema=prisma/crdb/schema.prisma
+	pnpm prisma generate --schema=prisma/pg/schema.prisma
+
+# 🧹 Lint
+lint:
+	pnpm lint
+
+# ✅ Type-check (TS only; Next already runs typecheck in build)
+typecheck:
+	pnpm tsc --noEmit
+
+# 🔍 Full static checks (lint + typecheck)
+check:
+	just lint
+	just typecheck
+
+# 🧱 Launch supporting infra (if you add docker-compose)
 infra-up:
-    docker-compose up -d
+	docker-compose up -d
 
-# 🔻 Tear down supporting infrastructure
+# 🔻 Tear down supporting infra
 infra-down:
-    docker-compose down
+	docker-compose down
 
 # 📜 Show help
 help:
-    @just --list
-    @echo
-    @echo "Usage:"
-    @echo "  just <command>"
-    @echo
-    @echo "Examples:"
-    @echo "  just dev        # Start development container"
-    @echo "  just preview    # Open the app in your browser"
-    @echo "  just prod       # Build production app"
-    @echo
-    @echo "Tip: set CONTAINER_NAME / APP_PORT env vars to override defaults."
+	@just --list

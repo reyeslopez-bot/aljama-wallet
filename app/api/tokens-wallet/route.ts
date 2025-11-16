@@ -1,16 +1,9 @@
-// app/api/tokens/route.ts
-import { getTokensByWallet } from '@/lib/getTokensByWallet'
 import { NextResponse } from 'next/server'
+import { getTokensByWallet } from '@/lib/getTokensByWallet'
 
-export async function POST(req: Request) {
-  const { address } = await req.json()
-
-  if (!address) {
-    return NextResponse.json({ error: 'Missing address' }, { status: 400 })
-  }
-
-  const data = await getTokensByWallet({ address })
-
-  return NextResponse.json({ data })
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const address = searchParams.get('address') ?? ''
+  const tokens = await getTokensByWallet(address)
+  return NextResponse.json({ address, tokens })
 }
-

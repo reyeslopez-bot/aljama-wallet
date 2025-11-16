@@ -1,44 +1,41 @@
 // components/wallet/panels/WalletPanels.tsx
-'use client';
+'use client'
 
-import { useEffect } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import React, { useEffect } from 'react'
+import { AnimatePresence } from 'framer-motion'
+import { useWalletPanels } from '../context/WalletPanelsContext'
+import { MotionDiv } from './MotionPrimitives'
+import { SlidePanel } from './SlidePanel'
 
-import { useWalletPanels } from '../context/WalletPanelsContext';
-import { MotionDiv } from './MotionPrimitives';
-import { SlidePanel } from './SlidePanel';
-
-import CreateWalletForm from '../forms/CreateWalletForm';
-import ImportWalletForm from '../forms/ImportWalletForm';
-import SendTransactionForm from '../forms/SendTransactionForm';
-import ConnectWallet from '../ui/ConnectWallet';
+import CreateWalletForm from '../forms/CreateWalletForm'
+import ImportWalletForm from '../forms/ImportWalletForm'
+import SendTransactionForm from '../forms/SendTransactionForm'
+import ConnectWallet from '../ui/ConnectWallet'
 
 export const WalletPanels: React.FC = () => {
-  const { open, mode, closePanels } = useWalletPanels();
+  const { open, mode, closePanels } = useWalletPanels()
 
-  // Disable body scrolling when a panel is open
   useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : '';
+    document.body.style.overflow = open ? 'hidden' : ''
     return () => {
-      document.body.style.overflow = '';
-    };
-  }, [open]);
+      document.body.style.overflow = ''
+    }
+  }, [open])
 
-  // Helper: render the correct panel content
   const renderPanelContent = () => {
     switch (mode) {
       case 'create':
-        return <CreateWalletForm />;
+        return <CreateWalletForm />
       case 'unlock':
-        return <ConnectWallet />;
+        return <ConnectWallet />
       case 'import':
-        return <ImportWalletForm />;
+        return <ImportWalletForm />
       case 'send':
-        return <SendTransactionForm />;
+        return <SendTransactionForm />
       default:
-        return null;
+        return null
     }
-  };
+  }
 
   return (
     <AnimatePresence>
@@ -48,18 +45,19 @@ export const WalletPanels: React.FC = () => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black/50 z-30"
-          onClick={closePanels}
+          onClick={closePanels} // click backdrop = close
         >
-          <SlidePanel
-            direction="right"
-            className="w-full max-w-md"
-            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the panel
-          >
-            {renderPanelContent()}
+          <SlidePanel direction="right" className="w-full max-w-md">
+            <div
+              onClick={(e: React.MouseEvent<HTMLDivElement>) =>
+                e.stopPropagation()
+              } // click panel = don’t close
+            >
+              {renderPanelContent()}
+            </div>
           </SlidePanel>
         </MotionDiv>
       )}
     </AnimatePresence>
-  );
-};
-
+  )
+}
