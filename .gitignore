@@ -18,6 +18,7 @@ generated/
 
 # Env and secrets
 .env*
+!.env.example
 *.key
 *.pem
 

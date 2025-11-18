@@ -74,11 +74,13 @@ Aljama Wallet aims to deliver a seamless, culturally resonant wallet experience 
 
 3. **Environment Variables**
 
-   Copy `.env.example` to `.env.local` and fill in the values:
+   Copy `.env.example` to `.env` (or `.env.local`) and fill in the values:
 
    ```ini
-   NEXT_PUBLIC_RPC_URL=<YOUR_RPC_ENDPOINT>
-   NEXTAUTH_SECRET=<SECURE_RANDOM_STRING>
+   NEXT_PUBLIC_ALCHEMY_API_KEY=<ALCHEMY_KEY>
+   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<WALLETCONNECT_PROJECT_ID>
+   COCKROACH_URL=postgresql://USER:PASSWORD@HOST:PORT/defaultdb?sslmode=require
+   POSTGRES_URL=postgresql://USER:PASSWORD@HOST:PORT/dbname
    ```
 
 ## Development Workflow
@@ -113,10 +115,12 @@ pnpm format    # Prettier
 
 ## Configuration & Environment Variables
 
-| Key                    | Description                      | Example                                                          |
-| ---------------------- | -------------------------------- | ---------------------------------------------------------------- |
-| NEXT\_PUBLIC\_RPC\_URL | RPC endpoint for blockchain node | [https://eth-goerli.example.com](https://eth-goerli.example.com) |
-| NEXTAUTH\_SECRET       | Secret for NextAuth.js sessions  | supersecretvalue123                                              |
+| Key                                   | Description                               | Example |
+| ------------------------------------- | ----------------------------------------- | ------- |
+| `NEXT_PUBLIC_ALCHEMY_API_KEY`         | Enables faster RPC reads via Alchemy      | `v2_yourAlchemyKey` |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`| Enables WalletConnect modal               | `123abc456def789ghi` |
+| `COCKROACH_URL`                       | Prisma datasource URL for CockroachDB OLTP| `postgresql://user:pass@host:26257/defaultdb?sslmode=require` |
+| `POSTGRES_URL`                        | Prisma datasource URL for Postgres OLAP   | `postgresql://user:pass@host:5432/analytics` |
 
 ## Scripts & Commands
 
