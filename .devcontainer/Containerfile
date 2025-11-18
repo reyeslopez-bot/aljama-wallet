@@ -20,8 +20,16 @@ RUN corepack enable \
 
 # ---------- dev ----------
 FROM base AS dev
-ENV PORT=2998
-CMD ["bash","-lc","sleep infinity"]
+WORKDIR /workspace
+
+ENV NODE_ENV=development \
+    PORT=2998 \
+    HOSTNAME=0.0.0.0
+
+EXPOSE 2998
+
+CMD ["bash","-lc","pnpm dev --port ${PORT:-2998} --hostname 0.0.0.0"]
+
 
 # ---------- builder ----------
 FROM base AS builder
