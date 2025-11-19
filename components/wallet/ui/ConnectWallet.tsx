@@ -1,3 +1,4 @@
+// /components/wallet/ui/ConnectWallet.tsx
 'use client';
 
 import { useAccount } from 'wagmi';

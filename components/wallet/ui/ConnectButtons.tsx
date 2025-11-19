@@ -1,45 +1,70 @@
-// components/wallet/ui/ConnectButtons.tsx
+// /components/wallet/ui/ConnectButtons.tsx
+"use client";
 
-'use client'
+import { useState } from "react";
+import { useConnect } from "wagmi";
 
-import React, { useState } from 'react'
-import { useConnect } from 'wagmi'
+const IGNORABLE_SUBSTRINGS = [
+  "Connection request reset",
+  "Connection request cancelled",
+  "User closed modal",
+];
+
+function isIgnorableError(err: unknown): boolean {
+  const msg =
+    typeof err === "string"
+      ? err
+      : (err as any)?.message || (err as any)?.toString?.() || "";
+
+  return IGNORABLE_SUBSTRINGS.some((s) => msg.includes(s));
+}
 
 export default function ConnectButtons() {
-  const { connectors, connectAsync, error, status } = useConnect()
-  const [pendingId, setPendingId] = useState<string | null>(null)
+  const { connectors, connectAsync, isPending } = useConnect();
+  const [error, setError] = useState<string | null>(null);
 
-  const isPending = status === 'pending'
+  async function handleConnect(connectorId?: string) {
+    setError(null);
 
-  const handleConnect = async (connector: any) => {
-    const id = connector.id ?? connector.uid ?? connector.name
-    setPendingId(id)
+    // pick connector (you can change this to your own logic)
+    const connector =
+      connectors.find((c) => c.id === connectorId) ?? connectors[0];
+
+    if (!connector) {
+      setError("No wallet connectors are configured.");
+      return;
+    }
+
     try {
-      await connectAsync({ connector })
-    } finally {
-      setPendingId(null)
+      await connectAsync({ connector });
+      // success → nothing else to do, wagmi state will flip isConnected
+    } catch (err) {
+      if (isIgnorableError(err)) {
+        // WC modal closed / reset: do not crash, no UI error
+        console.info("WalletConnect request reset/cancelled:", err);
+        return;
+      }
+
+      console.error("Wallet connect failed:", err);
+      setError("Failed to connect wallet. Please try again.");
     }
   }
 
   return (
-    <div className="flex flex-col space-y-2">
-      {connectors.map((connector: any) => {
-        const id = connector.id ?? connector.uid ?? connector.name
-        const isThisPending = pendingId === id
+    <div className="flex flex-col items-center gap-3">
+      {/* Single primary button; you can render per-connector buttons if you want */}
+      <button
+        type="button"
+        onClick={() => handleConnect()}
+        disabled={isPending}
+        className="px-6 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium shadow-lg hover:brightness-110 disabled:opacity-60"
+      >
+        {isPending ? "Connecting..." : "Connect Wallet"}
+      </button>
 
-        return (
-          <button
-            key={id}
-            onClick={() => handleConnect(connector)}
-            disabled={!connector.ready || isPending}
-            className="p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition"
-          >
-            {isThisPending ? 'Connecting...' : `Connect ${connector.name}`}
-          </button>
-        )
-      })}
-
-      {error && <div className="text-red-500 text-xs">{error.message}</div>}
+      {error && (
+        <p className="text-sm text-red-400 text-center max-w-xs">{error}</p>
+      )}
     </div>
-  )
+  );
 }
