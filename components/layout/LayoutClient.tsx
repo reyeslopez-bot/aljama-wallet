@@ -11,7 +11,6 @@ export default function LayoutClient({ children }: { children: ReactNode }) {
         <div
           className="
             absolute inset-0
-            bg-[url('/backgrounds/dunes-night.png')]
             bg-repeat-x bg-center bg-cover
             animate-slide-dunes
           "
