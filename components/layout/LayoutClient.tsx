@@ -1,3 +1,4 @@
+// components/layout/LayoutClient.tsx
 'use client'
 import Navbar from './Navbar'
 import type { ReactNode } from 'react'
@@ -19,7 +20,11 @@ export default function LayoutClient({ children }: { children: ReactNode }) {
       </div>
 
       <Navbar />
-      <main className="relative z-10 flex-1 px-4 md:px-8 py-6">{children}</main>
+
+      {/* This is the ONLY main */}
+      <main className="relative z-10 flex-1 px-4 md:px-8 py-6 pt-20">
+        {children}
+      </main>
     </>
   )
 }
