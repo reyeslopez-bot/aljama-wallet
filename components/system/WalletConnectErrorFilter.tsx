@@ -1,4 +1,3 @@
-// components/system/WalletConnectErrorFilter.tsx
 "use client";
 
 import { useEffect } from "react";
@@ -7,7 +6,6 @@ const TARGET_SUBSTRING = "Connection request reset";
 
 export function WalletConnectErrorFilter() {
   useEffect(() => {
-    // 1) Block unhandled promise rejections
     function rejectionHandler(event: PromiseRejectionEvent) {
       try {
         const r = event.reason as any;
@@ -28,7 +26,6 @@ export function WalletConnectErrorFilter() {
 
     window.addEventListener("unhandledrejection", rejectionHandler);
 
-    // 2) Block window error events that carry this message
     function errorHandler(event: ErrorEvent) {
       try {
         const msg =
@@ -48,27 +45,23 @@ export function WalletConnectErrorFilter() {
 
     window.addEventListener("error", errorHandler);
 
-    // 3) Patch console.error to avoid dev overlay trigger from logged errors
+    // 3) Patch console.error AFTER Next's patch, but don't call it on filtered msgs
     const originalConsoleError = console.error;
 
     function patchedConsoleError(...args: any[]) {
       try {
         const flat = args
           .map((a) =>
-            typeof a === "string"
-              ? a
-              : a?.message || a?.toString?.() || ""
+            typeof a === "string" ? a : a?.message || a?.toString?.() || ""
           )
           .join(" ");
 
         if (flat.includes(TARGET_SUBSTRING)) {
-          originalConsoleError(
-            "[WC filtered] Connection request reset (suppressed for overlay)"
-          );
+          console.info("[WC] Ignored connection reset (console.error filtered)");
           return;
         }
       } catch {
-        // fallback to original
+        // fallback
       }
 
       originalConsoleError(...args);
