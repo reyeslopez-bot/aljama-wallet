@@ -1,8 +1,9 @@
 // infra/wagmi/wagmi.ts
 'use client'
 
-import { createConfig, http } from 'wagmi'
-import { mainnet, sepolia } from 'wagmi/chains'               // <= not viem/chains
+import { http } from 'viem'
+import { mainnet, sepolia } from 'viem/chains'
+import { createConfig } from 'wagmi'
 import { injected, walletConnect, coinbaseWallet } from 'wagmi/connectors'
 
 const ALCHEMY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
@@ -27,5 +28,5 @@ export const config = createConfig({
     ...(WC_ID ? [walletConnect({ projectId: WC_ID })] : []),
     coinbaseWallet({ appName: 'Aljama Wallet' }),
   ],
-  ssr: true,
+  ssr: false,
 })

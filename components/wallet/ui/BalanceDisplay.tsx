@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useBalance, useConnect, type Connector } from 'wagmi'
-import { mainnet, sepolia, polygon, base } from 'wagmi/chains'
+import { mainnet, sepolia, polygon, base } from 'viem/chains'
 
 const supportedChains = [mainnet, sepolia, polygon, base]
 
