@@ -17,13 +17,11 @@ export default function Navbar() {
         from-[#0d0d0d]/70
         via-[#2e1d0f]/40
         to-transparent
-        backdrop-blur-xl
         shadow-[0_4px_20px_rgba(0,0,0,0.35)]
-        border-b border-white/10
       "
     >
       <div className="text-xl font-semibold tracking-wide">
-        🔑 Aljama Wallet
+        Aljama Wallet
       </div>
 
       <div className="flex items-center space-x-4">
