@@ -138,14 +138,16 @@ pnpm format    # Prettier
 ## Directory Structure
 
 ```
-/  
+/
 ├─ app/                 # Next.js app router pages
 ├─ components/          # Reusable React components
-├─ hooks/               # Custom React hooks (e.g., useWallet)
+├─ infra/               # Client-side utilities and hooks (wagmi tracking, unlock)
 ├─ lib/                 # Utilities & API clients
+├─ prisma/              # Dual Prisma schemas (crdb/, pg/)
 ├─ public/              # Static assets (fonts, images)
-├─ scripts/             # dev.sh, prod.sh
-├─ tests/               # Playwright e2e tests
+├─ services/            # Placeholder service layer (wallet summaries)
+├─ tests/               # Playwright e2e tests and helpers
+├─ dev.sh / prod.sh     # Root-level containerized dev/prod runners
 ├─ .devcontainer/Containerfile # Multi-stage image for dev & prod workflows
 ├─ .github/workflows/   # CI definitions
 └─ README.md            # This file
