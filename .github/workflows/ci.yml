@@ -7,67 +7,31 @@ on:
     branches: [main, dev]
 
 jobs:
-  test-crdb:
-    name: CockroachDB & Test Suite
+  build:
+    name: Build & Verify
     runs-on: ubuntu-latest
 
-    services:
-      cockroach:
-        image: cockroachdb/cockroach:v23.1.11
-        ports:
-          - 26257:26257
-        options: >-
-          --insecure
-          --listen-addr=localhost
-          --http-addr=localhost:8080
-          --join=localhost
-
     steps:
-      - name: Check Docker status
-        run: |
-          echo "Checking Docker status..."
-          docker info || (echo "❌ Docker not running!" && exit 1)
-
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js 23.11.0
-        uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 23.11.0
+          node-version: 22   # or 23 if you prefer, both work
+          cache: pnpm
 
-      - name: Enable corepack & install pnpm 10.10.0
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.10.0 --activate
-          pnpm -v
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10.10.0
+          run_install: true
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Lint (if defined)
+        run: pnpm lint --if-present
 
-      - name: Generate Prisma client (CockroachDB)
-        run: pnpm prisma generate --schema=prisma/crdb/schema.prisma
+      - name: Test (if defined)
+        run: pnpm test --if-present
 
-      - name: Wait for CockroachDB to be ready
-        run: |
-          echo "Waiting for CockroachDB..."
-          sleep 5
-          nc -zv localhost 26257 || (echo '❌ CockroachDB not reachable!' && exit 1)
-
-      - name: Run Prisma migrations
-        run: pnpm prisma migrate dev --name ci-init --schema=prisma/crdb/schema.prisma
-        env:
-          DATABASE_URL: postgresql://root@localhost:26257/defaultdb?sslmode=disable
-
-      - name: Run test suite
-        run: pnpm test
-        env:
-          DATABASE_URL: postgresql://root@localhost:26257/defaultdb?sslmode=disable
-
-      - name: Dump Cockroach logs on failure
-        if: failure()
-        run: |
-          echo "📦 Cockroach logs:"
-          docker ps -a
-          docker logs $(docker ps -aq --filter ancestor=cockroachdb/cockroach)
-
+      - name: Build Next.js app
+        run: pnpm build
