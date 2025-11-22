@@ -10,8 +10,9 @@ export function useUnlockWallet() {
   const [isUnlocking, setIsUnlocking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // The real unlock function – no casting, no fake types.
   async function handleUnlock(
-    params: UnlockWalletParams,
+    params: UnlockWalletParams
   ): Promise<UnlockedWallet | null> {
     setIsUnlocking(true)
     setError(null)
