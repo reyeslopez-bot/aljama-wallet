@@ -15,23 +15,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22   # or 23 if you prefer, both work
-          cache: pnpm
-
-      - name: Setup pnpm
+      # Install pnpm FIRST so cache can detect it
+      - name: Install pnpm
         uses: pnpm/action-setup@v3
         with:
           version: 10.10.0
-          run_install: true
 
-      - name: Lint (if defined)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (if present)
         run: pnpm lint --if-present
 
-      - name: Test (if defined)
+      - name: Test (if present)
         run: pnpm test --if-present
 
-      - name: Build Next.js app
+      - name: Build
         run: pnpm build
