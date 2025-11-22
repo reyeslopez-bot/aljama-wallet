@@ -1,10 +1,8 @@
 // infra/utils/useUnlockWallet.ts
 import { useState } from 'react'
-import { unlockWallet } from '@/lib/wallet'
+import { unlockWallet, type UnlockWalletParams } from '@/lib/wallet'
 
-// Locally define the shape we want to use.
-// We cast the imported function to this type to avoid type mismatch noise.
-type UnlockFn = (password: string) => Promise<void>
+type UnlockFn = (params: UnlockWalletParams) => Promise<void>
 
 export function useUnlockWallet() {
   const [isUnlocking, setIsUnlocking] = useState(false)
@@ -12,11 +10,11 @@ export function useUnlockWallet() {
 
   const unlock = unlockWallet as unknown as UnlockFn
 
-  async function handleUnlock(password: string) {
+  async function handleUnlock(params: UnlockWalletParams) {
     setIsUnlocking(true)
     setError(null)
     try {
-      await unlock(password)
+      await unlock(params)
     } catch (err: any) {
       setError(err?.message ?? 'Failed to unlock wallet')
     } finally {
