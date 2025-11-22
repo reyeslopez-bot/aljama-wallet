@@ -1,9 +1,105 @@
+// lib/wallet.ts
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+
 export type UnlockWalletParams = {
   encrypted: string
   password: string
 }
 
-export async function unlockWallet(_params: UnlockWalletParams) {
-  // TODO: implement real unlock logic
-  throw new Error('unlockWallet not implemented yet')
+export type UnlockedWallet = {
+  address: string
+  privateKey: string
+}
+
+function decodeBase64(input: string): string {
+  if (typeof atob === 'function') {
+    return atob(input)
+  }
+  // Node/SSR fallback
+  return Buffer.from(input, 'base64').toString('utf-8')
+}
+
+function encodeBase64(input: string): string {
+  if (typeof btoa === 'function') {
+    return btoa(input)
+  }
+  // Node/SSR fallback
+  return Buffer.from(input, 'utf-8').toString('base64')
+}
+
+/**
+ * Unlocks a previously "encrypted" wallet.
+ * NOTE: this is still toy crypto (base64 + passwordHint), NOT production security.
+ */
+export async function unlockWallet({
+  encrypted,
+  password,
+}: UnlockWalletParams): Promise<UnlockedWallet> {
+  if (!encrypted?.trim()) {
+    throw new Error('Encrypted payload is required')
+  }
+
+  if (!password?.trim()) {
+    throw new Error('Password is required')
+  }
+
+  let decodedJson: string
+  try {
+    decodedJson = decodeBase64(encrypted)
+  } catch {
+    throw new Error('Malformed encrypted wallet payload')
+  }
+
+  let decoded: any
+  try {
+    decoded = JSON.parse(decodedJson)
+  } catch {
+    throw new Error('Malformed encrypted JSON structure')
+  }
+
+  if (decoded.passwordHint && decoded.passwordHint !== password) {
+    throw new Error('Invalid password')
+  }
+
+  if (!decoded.privateKey || !decoded.address) {
+    throw new Error('Encrypted payload missing wallet material')
+  }
+
+  return {
+    address: decoded.address,
+    privateKey: decoded.privateKey,
+  }
+}
+
+/**
+ * Creates a new wallet and returns:
+ * - the "encrypted" base64 blob you store (sessionStorage, etc.)
+ * - the unlocked wallet object for immediate use
+ *
+ * Still toy crypto: passwordHint is used instead of real KDF + encryption.
+ */
+export function createEncryptedWallet(
+  password: string,
+): { encrypted: string; wallet: UnlockedWallet } {
+  if (!password?.trim()) {
+    throw new Error('Password is required')
+  }
+
+  const privateKey = generatePrivateKey()
+  const account = privateKeyToAccount(privateKey)
+
+  const wallet: UnlockedWallet = {
+    address: account.address,
+    privateKey,
+  }
+
+  const payload = JSON.stringify({
+    address: wallet.address,
+    privateKey: wallet.privateKey,
+    passwordHint: password,
+  })
+
+  const encrypted = encodeBase64(payload)
+
+  return { encrypted, wallet }
 }
