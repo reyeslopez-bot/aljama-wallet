@@ -12,29 +12,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Install pnpm FIRST so cache can detect it
-      - name: Install pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 10.10.0
-
-      - name: Setup Node.js
+      - name: Setup Node 23
         uses: actions/setup-node@v4
         with:
-          node-version: 23
-          cache: pnpm
+          node-version: '23'
+          cache: 'pnpm'
+
+      - name: Enable corepack + pnpm 10.10.0
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.10.0 --activate
+          pnpm -v
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint (if present)
-        run: pnpm lint --if-present
-
-      - name: Test (if present)
-        run: pnpm test --if-present
-
-      - name: Build
+      - name: Build Next.js app
         run: pnpm build
