@@ -71,6 +71,24 @@ export async function unlockWallet({
   }
 }
 
+export type WalletMaterial = {
+  address: string
+  privateKey: string
+}
+
+export function encodeWalletToEncrypted(
+  wallet: WalletMaterial,
+  password: string,
+): string {
+  const payload = JSON.stringify({
+    address: wallet.address,
+    privateKey: wallet.privateKey,
+    passwordHint: password,
+  })
+
+  return encodeBase64(payload)
+}
+
 /**
  * Creates a new wallet and returns:
  * - the "encrypted" base64 blob you store (sessionStorage, etc.)
@@ -93,13 +111,7 @@ export function createEncryptedWallet(
     privateKey,
   }
 
-  const payload = JSON.stringify({
-    address: wallet.address,
-    privateKey: wallet.privateKey,
-    passwordHint: password,
-  })
-
-  const encrypted = encodeBase64(payload)
+  const encrypted = encodeWalletToEncrypted(wallet, password.trim())
 
   return { encrypted, wallet }
 }

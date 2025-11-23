@@ -1,21 +1,30 @@
 // app/api/create-wallet/route.ts
 import { NextResponse } from 'next/server'
-import { Wallet } from 'ethers'
+import { createEncryptedWallet } from '@/lib/wallet'
 
-export async function POST() {
-  const wallet = Wallet.createRandom()
+export async function POST(req: Request) {
+  try {
+    const { password } = await req.json()
 
-  const phrase = wallet.mnemonic?.phrase ?? null
-  if (!phrase) {
+    if (!password || typeof password !== 'string' || !password.trim()) {
+      return NextResponse.json(
+        { error: 'Password is required' },
+        { status: 400 },
+      )
+    }
+
+    const { encrypted, wallet } = createEncryptedWallet(password)
+
+    return NextResponse.json({
+      address: wallet.address,
+      encrypted, // canonical thing the client stores
+      // no privateKey / mnemonic over the wire
+    })
+  } catch (error) {
+    console.error('create-wallet error', error)
     return NextResponse.json(
-      { error: 'Mnemonic unavailable' },
+      { error: 'Failed to create wallet' },
       { status: 500 },
     )
   }
-
-  return NextResponse.json({
-    address: wallet.address,
-    privateKey: wallet.privateKey,
-    mnemonic: phrase,
-  })
 }
