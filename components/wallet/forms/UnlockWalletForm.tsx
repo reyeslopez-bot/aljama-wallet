@@ -1,14 +1,14 @@
-// components/wallet/UnlockForm.tsx
+// components/wallet/UnlockWalletForm.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useUnlockWallet } from '@/infra/utils/useUnlockWallet'
 
-export function UnlockForm() {
+export function UnlockWalletForm() {
   const [password, setPassword] = useState('')
   const { isUnlocking, error, handleUnlock } = useUnlockWallet()
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
     const encrypted =
@@ -23,7 +23,7 @@ export function UnlockForm() {
 
     if (wallet) {
       console.log('Unlocked wallet:', wallet.address)
-      // TODO: store wallet in global state
+      // TODO: store wallet in global state + navigate
       // setGlobalWallet(wallet)
       // router.push('/dashboard')
     }
@@ -51,3 +51,5 @@ export function UnlockForm() {
     </form>
   )
 }
+
+export default UnlockWalletForm
