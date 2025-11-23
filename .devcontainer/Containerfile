@@ -28,7 +28,7 @@ ENV NODE_ENV=development \
 
 EXPOSE 2998
 
-CMD ["bash","-lc","pnpm dev --port ${PORT:-2998} --hostname 0.0.0.0"]
+CMD ["bash","-lc","[ -d node_modules ] || pnpm install; pnpm dev --port ${PORT:-2998} --hostname 0.0.0.0"]
 
 
 # ---------- builder ----------

@@ -5,6 +5,14 @@ node_modules/
 npm-debug.log*
 pnpm-debug.log*
 
+# pnpm + corepack caches
+.pnpm-store/
+.cache/
+.local/
+
+# VS Code devcontainer state
+.devcontainer/.last-deps-hash
+
 # Next.js
 .next/
 dist/
@@ -32,4 +40,3 @@ Thumbs.db
 .idea/
 *.sublime-project
 *.sublime-workspace
-

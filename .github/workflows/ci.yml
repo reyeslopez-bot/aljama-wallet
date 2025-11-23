@@ -30,5 +30,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Optional: only runs if you actually have prisma schema + script
+      - name: Generate Prisma client (if schema present)
+        run: |
+          if [ -f prisma/schema.prisma ]; then
+            echo "Found prisma/schema.prisma, running prisma:generate"
+            pnpm prisma:generate
+          else
+            echo "No prisma/schema.prisma found, skipping prisma:generate"
+          fi
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
       - name: Build Next.js app
         run: pnpm build
