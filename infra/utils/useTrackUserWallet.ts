@@ -13,7 +13,7 @@ export function useTrackUserWallet(): TrackUserWalletResult {
     const { address, isConnected } = useAccount()
     const [status, setStatus] = useState<TrackingStatus>('idle')
     const [error, setError] = useState<Error | null>(null)
-    const lastTrackedAddressRef = useRef<string | undefined>()
+    const lastTrackedAddressRef = useRef<string | undefined>(undefined)
 
     useEffect(() => {
         if (!isConnected) {
