@@ -1,3 +1,4 @@
+// components/layout/Navbar.tsx
 'use client'
 
 import { useAccount } from 'wagmi'

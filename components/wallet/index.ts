@@ -3,14 +3,8 @@
 // Display current wallet balance
 export { default as BalanceDisplay } from './ui/BalanceDisplay'
 
-// Button to connect to a wallet provider
-export { default as ConnectButton } from './ui/ConnectButtons'
-
 // Low‑level WalletConnect component
 export { default as WalletDetector } from './ui/WalletDetector'
-
-// The slide‑out drawer UI for wallet forms
-export { SlidePanel } from './panels/SlidePanel'
 
 // Form to send ETH transactions
 export { default as SendTransactionForm } from './forms/SendTransactionForm'

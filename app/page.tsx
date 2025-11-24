@@ -1,10 +1,9 @@
 'use client'
 
-import React from 'react'
 import FogParticleOverlay from '@/components/hero/FogParticleOverlay'
 import HeroCard from '@/components/hero/HeroCard'
 import { TitleCalligraphy } from '@/components/hero/TitleCalligraphy'
-import { FloatingSigils } from 'components/hero/FloatingSigils'
+import { FloatingSigils } from '@/components/hero/FloatingSigils'
 import WalletDetector from '@/components/wallet/ui/WalletDetector'
 import { useTrackUserWallet } from '@/infra/utils/useTrackUserWallet'
 

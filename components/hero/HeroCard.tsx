@@ -1,4 +1,3 @@
-// components/hero/HeroCard.tsx
 'use client'
 
 import { useState } from 'react'
@@ -9,14 +8,12 @@ type CreatedWalletData = {
   address: string
 }
 
-export default function Hero() {
+export default function HeroCard() {
   const { setWalletFromData } = useAljamaWallet()
-
   const [walletData, setWalletData] = useState<CreatedWalletData | null>(null)
 
   const createWallet = async () => {
     try {
-      // TEMP UX: just use a prompt for the password.
       const passwordRaw =
         typeof window !== 'undefined'
           ? window.prompt('Set a password to encrypt your new wallet:')
@@ -45,18 +42,15 @@ export default function Hero() {
         sessionStorage.setItem('aljama.encryptedWallet', data.encrypted)
       }
 
-      // Immediately unlock once to hydrate the global wallet context
       const unlocked = await unlockWallet({
         encrypted: data.encrypted,
         password,
       })
 
-      // ✅ match the current type of setWalletFromData: { privateKey: string }
       setWalletFromData({
         privateKey: unlocked.privateKey,
       })
 
-      // Simple confirmation modal – show address only
       setWalletData({ address: unlocked.address })
     } catch (err) {
       console.error('Wallet creation failed', err)
