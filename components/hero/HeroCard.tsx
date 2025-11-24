@@ -2,7 +2,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useWalletPanels } from '../wallet/context/WalletPanelsContext'
 import { useAljamaWallet } from '../wallet/context/WalletContext'
 import { unlockWallet } from '@/lib/wallet'
 
@@ -11,7 +10,6 @@ type CreatedWalletData = {
 }
 
 export default function Hero() {
-  const { openPanels } = useWalletPanels()
   const { setWalletFromData } = useAljamaWallet()
 
   const [walletData, setWalletData] = useState<CreatedWalletData | null>(null)

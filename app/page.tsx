@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-import { WalletPanels } from '@/components/wallet/panels/WalletPanels'
 import FogParticleOverlay from '@/components/hero/FogParticleOverlay'
 import HeroCard from '@/components/hero/HeroCard'
 import { TitleCalligraphy } from '@/components/hero/TitleCalligraphy'
@@ -18,7 +17,6 @@ export default function HomePage() {
       <FloatingSigils />
       <TitleCalligraphy />
       <HeroCard />
-      <WalletPanels />
 
       <div className="absolute bottom-4 right-4 z-50 opacity-80">
         <WalletDetector />
