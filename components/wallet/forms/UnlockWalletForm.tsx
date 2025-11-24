@@ -1,10 +1,10 @@
-// components/wallet/UnlockWalletForm.tsx
+// components/wallet/forms/UnlockWalletForm.tsx
 'use client'
 
 import { useState, type FormEvent } from 'react'
 import { useUnlockWallet } from '@/infra/utils/useUnlockWallet'
 
-export function UnlockWalletForm() {
+export default function UnlockWalletForm() {
   const [password, setPassword] = useState('')
   const { isUnlocking, error, handleUnlock } = useUnlockWallet()
 
@@ -23,7 +23,7 @@ export function UnlockWalletForm() {
 
     if (wallet) {
       console.log('Unlocked wallet:', wallet.address)
-      // TODO: store wallet in global state + navigate
+      // TODO: hydrate global wallet state + navigate to /dashboard
       // setGlobalWallet(wallet)
       // router.push('/dashboard')
     }
@@ -51,5 +51,3 @@ export function UnlockWalletForm() {
     </form>
   )
 }
-
-export default UnlockWalletForm

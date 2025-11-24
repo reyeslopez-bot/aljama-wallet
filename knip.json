@@ -1,0 +1,18 @@
+{
+    "entry": [
+    "app/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "infra/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "services/**/*.{ts,tsx}",
+    "next.config.*"
+    ],
+  "ignore": [
+    "node_modules/**",
+    ".next/**",
+    "tests/**",
+    "prisma/**",
+    "generated/**",
+    "global.d.ts"
+  ]
+}
