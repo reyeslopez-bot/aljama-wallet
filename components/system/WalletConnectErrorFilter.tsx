@@ -3,7 +3,18 @@
 
 import { useEffect } from "react";
 
-const TARGET_SUBSTRING = "Connection request reset";
+// All WalletConnect “normal cancel/timeout” messages we want to ignore
+const TARGET_SUBSTRINGS = [
+  "Connection request reset",
+  "Connection request cancelled",
+  "User closed modal",
+  "Proposal expired",
+];
+
+function includesAny(msg: string): boolean {
+  if (!msg) return false;
+  return TARGET_SUBSTRINGS.some((s) => msg.includes(s));
+}
 
 export function WalletConnectErrorFilter() {
   useEffect(() => {
@@ -16,9 +27,9 @@ export function WalletConnectErrorFilter() {
           r?.toString?.() ||
           "";
 
-        if (msg.includes(TARGET_SUBSTRING)) {
+        if (includesAny(msg)) {
           event.preventDefault();
-          console.info("[WC] Ignored connection reset (unhandledrejection)");
+          console.info("[WC] Ignored soft-cancel (unhandledrejection)", msg);
         }
       } catch {
         // ignore
@@ -35,9 +46,9 @@ export function WalletConnectErrorFilter() {
           event.error?.toString?.() ||
           "";
 
-        if (msg.includes(TARGET_SUBSTRING)) {
+        if (includesAny(msg)) {
           event.preventDefault();
-          console.info("[WC] Ignored connection reset (error event)");
+          console.info("[WC] Ignored soft-cancel (error event)", msg);
         }
       } catch {
         // ignore
@@ -46,7 +57,7 @@ export function WalletConnectErrorFilter() {
 
     window.addEventListener("error", errorHandler);
 
-    // 3) Patch console.error AFTER Next's patch, but don't call it on filtered msgs
+    // Patch console.error AFTER Next's patch, but skip filtered messages
     const originalConsoleError = console.error;
 
     function patchedConsoleError(...args: any[]) {
@@ -57,8 +68,8 @@ export function WalletConnectErrorFilter() {
           )
           .join(" ");
 
-        if (flat.includes(TARGET_SUBSTRING)) {
-          console.info("[WC] Ignored connection reset (console.error filtered)");
+        if (includesAny(flat)) {
+          console.info("[WC] Ignored soft-cancel (console.error filtered)");
           return;
         }
       } catch {

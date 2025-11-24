@@ -1,79 +1,68 @@
+// components/wallet/ui/BalanceDisplay.tsx
 'use client'
 
-import React, { useState } from 'react'
-import { useBalance, useConnect, type Connector } from 'wagmi'
+import { useAccount, useBalance } from 'wagmi'
 import { mainnet, sepolia, polygon, base } from 'viem/chains'
 
 const supportedChains = [mainnet, sepolia, polygon, base]
 
-export default function BalanceDisplay({
-  address,
-  className = '',
-}: {
-  address: `0x${string}`
+type Props = {
   className?: string
-}) {
+}
+
+export default function BalanceDisplay({ className = '' }: Props) {
+  const { address, isConnected } = useAccount()
+
+  if (!isConnected || !address) {
+    return (
+      <div className={className}>
+        <div className="px-4 py-2 rounded-lg bg-black/40 text-xs text-neutral-300">
+          Wallet not connected.
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={className}>
-      <div className="mb-2 font-bold">Native Balances:</div>
-      <ul className="space-y-1">
+      <div className="mb-2 text-sm font-semibold text-[#f9e7cf]">
+        Native balances
+      </div>
+
+      <ul className="space-y-1 text-sm text-[#f5f0e6]">
         {supportedChains.map((c) => (
-          <ChainBalance key={c.id} chainId={c.id} address={address} />
+          <ChainBalance
+            key={c.id}
+            chainId={c.id}
+            address={address}
+          />
         ))}
       </ul>
-
-      <div className="mt-4">
-        <ConnectButtons />
-      </div>
     </div>
   )
 }
 
-function ChainBalance({ chainId, address }: { chainId: number; address: `0x${string}` }) {
-  const { data, isLoading } = useBalance({ address, chainId })
+function ChainBalance({
+  chainId,
+  address,
+}: {
+  chainId: number
+  address: `0x${string}`
+}) {
+  const { data, isLoading, isError } = useBalance({
+    address,
+    chainId,
+  })
 
   const chainName = supportedChains.find((c) => c.id === chainId)?.name ?? `Chain ${chainId}`
 
   if (isLoading) return <li>{chainName}: Loading…</li>
+  if (isError) return <li>{chainName}: Error loading balance</li>
   if (!data?.formatted) return <li>{chainName}: No balance</li>
 
   return (
     <li>
-      {chainName}: {data.formatted} {data.symbol}
+      {chainName}: {data.formatted.slice(0, 10)} {data.symbol}
     </li>
-  )
-}
-
-function ConnectButtons() {
-  const { connectors, connectAsync, error, isPending } = useConnect()
-  const [pendingId, setPendingId] = useState<string | null>(null)
-
-  const handleConnect = async (connector: Connector) => {
-    setPendingId(connector.id)
-    try {
-      await connectAsync({ connector })
-    } finally {
-      setPendingId(null)
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      {connectors.map((connector) => {
-        const connecting = pendingId === connector.id
-        return (
-          <button
-            key={connector.id}
-            onClick={() => handleConnect(connector)}
-            disabled={!connector.ready || isPending}
-            className="rounded bg-slate-700 px-3 py-2 text-white"
-          >
-            {connector.name}
-            {connecting && ' (connecting…)'}
-          </button>
-        )
-      })}
-      {error && <p className="text-red-600">{error.message}</p>}
-    </div>
   )
 }
