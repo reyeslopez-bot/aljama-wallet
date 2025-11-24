@@ -4,10 +4,9 @@
 import { http } from 'viem'
 import { mainnet, sepolia } from 'viem/chains'
 import { createConfig } from 'wagmi'
-import { injected, walletConnect, coinbaseWallet } from 'wagmi/connectors'
+import { injected, coinbaseWallet } from 'wagmi/connectors'
 
 const ALCHEMY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
-const WC_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
 
 const mainnetTransport = ALCHEMY
   ? http(`https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY}`)
@@ -25,7 +24,6 @@ export const config = createConfig({
   },
   connectors: [
     injected(),
-    ...(WC_ID ? [walletConnect({ projectId: WC_ID })] : []),
     coinbaseWallet({ appName: 'Aljama Wallet' }),
   ],
   ssr: false,

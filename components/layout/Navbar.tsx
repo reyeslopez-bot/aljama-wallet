@@ -1,12 +1,9 @@
 // components/layout/Navbar.tsx
 'use client'
 
-import { useAccount } from 'wagmi'
-import { ConnectKitButton } from 'connectkit'
+import WalletButton from '@/components/wallet/ui/WalletButton'
 
 export default function Navbar() {
-  const { address, isConnected } = useAccount()
-
   return (
     <nav
       className="
@@ -25,14 +22,7 @@ export default function Navbar() {
         Aljama Wallet
       </div>
 
-      <div className="flex items-center space-x-4">
-        {isConnected && address && (
-          <span className="text-sm text-[#e0a17a] font-medium">
-            {address.slice(0, 6)}...{address.slice(-4)}
-          </span>
-        )}
-        <ConnectKitButton />
-      </div>
+      <WalletButton />
     </nav>
   )
 }
