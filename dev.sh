@@ -11,7 +11,8 @@ APP_URL="${APP_URL:-}"
 BUILD_CONTEXT="${BUILD_CONTEXT:-.}"
 REBUILD="${REBUILD:-false}"
 FORCE_CLEAN="${FORCE_CLEAN:-false}"
-RUNTIME="${CONTAINER_RUNTIME:-}"          # podman|docker (auto if empty)
+RUNTIME="${CONTAINER_RUNTIME:-}"          
+# podman|docker (auto if empty)
 
 # --- .env (optional) ---
 if [ -f .env ]; then
@@ -178,6 +179,10 @@ exec "$RUNTIME" run --rm -it \
     # Use container PORT / APP_PORT, but no extra `--`
     : "${PORT:=$APP_PORT}"
 
+    pnpm prisma:generate || {
+      echo "❌ prisma:generate failed"
+      exit 1
+    }
     exec pnpm dev --port "$PORT"
 '
 # --- End of dev.sh ---

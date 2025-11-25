@@ -1,39 +1,22 @@
+// app/api/track-wallet/route.ts
 import { NextResponse } from 'next/server'
-import { getAddress, isAddress } from 'ethers'
 
-type TrackWalletResponse = {
-  address: string
-  valid: boolean
-  checksum: string | null
-}
-
-function buildResponse(address: string): TrackWalletResponse {
-  const valid = isAddress(address)
-  return {
-    address,
-    valid,
-    checksum: valid ? getAddress(address) : null,
-  }
-}
-
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
-  const address = searchParams.get('address') ?? ''
-  return NextResponse.json(buildResponse(address))
-}
+// Simple in-memory log for dev (survives only per server instance)
+const events: any[] = []
 
 export async function POST(req: Request) {
-  let address: unknown
   try {
     const body = await req.json()
-    address = body?.address
-  } catch (err) {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
-  }
 
-  if (typeof address !== 'string' || address.trim() === '') {
-    return NextResponse.json({ error: 'Address is required' }, { status: 400 })
-  }
+    // REAL USAGE (not silencing)
+    events.push({
+      ...body,
+      receivedAt: Date.now(),
+    })
 
-  return NextResponse.json(buildResponse(address))
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('track-wallet error', error)
+    return NextResponse.json({ ok: false }, { status: 500 })
+  }
 }
