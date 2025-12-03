@@ -26,6 +26,7 @@
     "react-dom": "18.3.1",
     "viem": "2.39.0",
     "wagmi": "2.19.3",
+    "xrpl": "^4.4.3",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

@@ -15,41 +15,28 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 1. Setup Node (NO pnpm caching here)
       - name: Setup Node 23
         uses: actions/setup-node@v4
         with:
           node-version: '23'
 
-      # 2. Enable corepack and activate pnpm BEFORE any pnpm command
       - name: Enable corepack + pnpm 10.10.0
         run: |
           corepack enable
           corepack prepare pnpm@10.10.0 --activate
           pnpm -v
 
-      # 3. Install deps normally
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 4. Prisma optional
-      - name: Generate Prisma client (if schema present)
-        run: |
-          if [ -f prisma/schema.prisma ]; then
-            echo "Prisma schema found → generating client"
-            pnpm prisma:generate
-          else
-            echo "No Prisma schema found → skipping"
-          fi
+      - name: Generate Prisma client
+        run: pnpm prisma:generate
 
-      # 5. Lint (if you have a lint script)
       - name: Lint
-        run: pnpm lint || echo "⚠️ Lint script not configured"
+        run: pnpm lint
 
-      # 6. Tests (Vitest / Jest)
       - name: Test
-        run: pnpm test || echo "⚠️ No tests yet"
+        run: pnpm test
 
-      # 7. Build
       - name: Build Next.js app
         run: pnpm build

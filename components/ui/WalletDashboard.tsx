@@ -1,6 +1,7 @@
 // components/wallet/ui/WalletDashboard.tsx
 'use client'
 
+import { XrplDevAccountCard } from '@/components/wallet/ui/XrplDevAccountCard'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createPublicClient, formatEther, http } from 'viem'
@@ -126,6 +127,11 @@ export function WalletDashboard() {
             onClick={handleCopyAddress}
           />
         </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* existing ETH / local wallet tiles */}
+        {/* ... */}
+        <XrplDevAccountCard />
       </div>
 
       <div className="space-y-2">
