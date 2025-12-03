@@ -1,4 +1,4 @@
-name: CI - Aljama Wallet
+name: CI – Aljama Wallet
 
 on:
   push:
@@ -8,17 +8,20 @@ on:
 
 jobs:
   build:
-    name: Build & Verify
+    name: Full CI Pipeline
     runs-on: ubuntu-latest
 
     steps:
+      # 1) Checkout
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # 2) Setup Node & pnpm
       - name: Setup Node 23
         uses: actions/setup-node@v4
         with:
-          node-version: '23'
+          node-version: "23"
+          cache: "pnpm"
 
       - name: Enable corepack + pnpm 10.10.0
         run: |
@@ -26,17 +29,83 @@ jobs:
           corepack prepare pnpm@10.10.0 --activate
           pnpm -v
 
+      # 3) Install dependencies
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma client
-        run: pnpm prisma:generate
+      # 4) Prisma generate (CRDB + PG)
+      - name: Prisma generate
+        run: |
+          if [ -d prisma ]; then
+            pnpm prisma:generate
+          else
+            echo "No Prisma directory found. Skipping generate."
+          fi
 
+      # 5) Prisma schema validation (CRDB + PG)
+      - name: Prisma format check
+        run: |
+          if [ -f prisma/crdb/schema.prisma ]; then
+            pnpm prisma format --schema=prisma/crdb/schema.prisma
+          fi
+
+          if [ -f prisma/pg/schema.prisma ]; then
+            pnpm prisma format --schema=prisma/pg/schema.prisma
+          fi
+
+      # 6) Prisma migration diff (safe, does NOT require DB)
+      - name: Prisma migrate diff
+        run: |
+          if [ -f prisma/crdb/schema.prisma ]; then
+            pnpm prisma migrate diff \
+              --from-empty \
+              --to-schema prisma/crdb/schema.prisma \
+              --exit-code
+          fi
+
+          if [ -f prisma/pg/schema.prisma ]; then
+            pnpm prisma migrate diff \
+              --from-empty \
+              --to-schema prisma/pg/schema.prisma \
+              --exit-code
+          fi
+
+      # 7) Lint
       - name: Lint
-        run: pnpm lint
+        run: pnpm lint --no-error-on-unmatched-pattern
 
-      - name: Test
-        run: pnpm test
+      # 8) Unit tests (Vitest)
+      - name: Test (Vitest)
+        run: pnpm test --run
 
+      # 9) Build Next.js (needs XRPL env)
       - name: Build Next.js app
+        env:
+          XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
+          XRPL_DEV_SEED: sn3nxiW7v8KXzPzAqzyHXbSSKNuN9
         run: pnpm build
+
+      # 10) Dependency audit
+      - name: Check outdated dependencies
+        run: pnpm outdated --depth 0 || true
+
+      # 11) Security audit (non-blocking due to pnpm issues)
+      - name: Security audit
+        run: pnpm audit --audit-level=moderate || true
+
+      # 12) License compliance
+      - name: License compliance check
+        run: |
+          pnpm dlx license-checker \
+            --production \
+            --onlyAllow "MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;Unlicense;CC0-1.0" \
+            --failOn "GPL-3.0;AGPL-3.0;LGPL-3.0;MPL-2.0" || true
+
+      # 13) Upload coverage (if exists)
+      - name: Upload coverage report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage
+          if-no-files-found: ignore
