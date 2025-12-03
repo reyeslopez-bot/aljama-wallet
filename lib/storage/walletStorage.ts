@@ -1,4 +1,4 @@
-// lib/walletStorage.ts
+// lib/storage/walletStorage.ts
 
 const STORAGE_KEY = 'aljama.encryptedWallet'
 
