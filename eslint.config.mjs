@@ -1,36 +1,25 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import js from "@eslint/js";
-import { FlatCompat } from "@eslint/eslintrc";
+// eslint.config.mjs
+import js from '@eslint/js'
+import tseslint from 'typescript-eslint'
+import nextPlugin from '@next/eslint-plugin-next'
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-let nextConfigs = [];
-
-try {
-  nextConfigs = compat.extends("next/core-web-vitals", "next/typescript");
-} catch (error) {
-  console.warn(
-    `⚠️  Falling back to base ESLint config: ${error instanceof Error ? error.message : String(error)}`,
-  );
-  nextConfigs = [
-    js.configs.recommended,
-    {
-      ignores: ["**/*.ts", "**/*.tsx"],
-    },
-  ];
-}
-
-const eslintConfig = [
+export default [
+  // Global ignores – keep TS, drop generated/runtime noise
   {
-    ignores: ["generated/**"],
+    ignores: [
+      'node_modules/**',
+      '.next/**',
+      'generated/**',
+      'prisma/generated/**',
+    ],
   },
-  ...nextConfigs,
-];
 
-export default eslintConfig;
+  // Base JS rules
+  js.configs.recommended,
+
+  // TypeScript-aware rules
+  ...tseslint.configs.recommended,
+
+  // Next.js + core-web-vitals rules (what `next/core-web-vitals` used to do)
+  ...nextPlugin.configs['core-web-vitals'],
+]
