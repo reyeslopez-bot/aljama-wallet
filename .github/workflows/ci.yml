@@ -7,8 +7,11 @@ on:
     branches: [main, dev]
 
 jobs:
+  # ─────────────────────────────────────────────────────────────
+  # 1) Core Node CI: lint / test / Prisma / build / audits
+  # ─────────────────────────────────────────────────────────────
   build:
-    name: Full CI Pipeline
+    name: Core CI (Node + pnpm)
     runs-on: ubuntu-latest
 
     steps:
@@ -53,7 +56,7 @@ jobs:
             pnpm prisma format --schema=prisma/pg/schema.prisma
           fi
 
-      # 6) Prisma migration diff (safe, does NOT require DB)
+      # 6) Prisma migration diff (safe, no DB)
       - name: Prisma migrate diff
         run: |
           if [ -f prisma/crdb/schema.prisma ]; then
@@ -85,15 +88,15 @@ jobs:
           XRPL_DEV_SEED: sn3nxiW7v8KXzPzAqzyHXbSSKNuN9
         run: pnpm build
 
-      # 10) Dependency audit
+      # 10) Dependency audit (non-blocking)
       - name: Check outdated dependencies
         run: pnpm outdated --depth 0 || true
 
-      # 11) Security audit (non-blocking due to pnpm issues)
+      # 11) Security audit (non-blocking)
       - name: Security audit
         run: pnpm audit --audit-level=moderate || true
 
-      # 12) License compliance
+      # 12) License compliance (non-blocking, via just-in-time tool)
       - name: License compliance check
         run: |
           pnpm dlx license-checker \
@@ -109,3 +112,57 @@ jobs:
           name: coverage-report
           path: coverage
           if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────
+  # 2) Container CI: Podman build + tests via just (or pnpm)
+  # ─────────────────────────────────────────────────────────────
+  container:
+    name: Container CI (Podman + Just)
+    runs-on: ubuntu-latest
+    needs: build   # only run if core CI passes
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+          podman --version
+
+      # Optional: login to GHCR if you later want to push images
+      # - name: Login to GHCR
+      #   uses: docker/login-action@v3
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.CR_PAT }}
+
+      - name: Build dev container with Podman
+        run: |
+          IMAGE_NAME=aljama-wallet-ci
+          podman build -t "$IMAGE_NAME" -f .devcontainer/Containerfile .
+
+      - name: Run tests inside container (prefer just, fallback pnpm)
+        env:
+          XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
+          XRPL_DEV_SEED: sn3nxiW7v8KXzPzAqzyHXbSSKNuN9
+        run: |
+          IMAGE_NAME=aljama-wallet-ci
+
+          podman run --rm \
+            -e XRPL_RPC_URL \
+            -e XRPL_DEV_SEED \
+            "$IMAGE_NAME" \
+            bash -lc '
+              if command -v just >/dev/null 2>&1; then
+                if just -l | grep -qE "ci|test"; then
+                  (just ci 2>/dev/null) || (just test 2>/dev/null) || pnpm test --run
+                else
+                  pnpm test --run
+                fi
+              else
+                pnpm test --run
+              fi
+            '
