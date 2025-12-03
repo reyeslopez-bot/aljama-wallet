@@ -59,7 +59,7 @@ jobs:
       # with real DATABASE_URLs. We skip migrate here to avoid CI failures.
 
       - name: Lint
-        run: pnpm lint --no-error-on-unmatched-pattern
+        run: pnpm lint
 
       - name: Test (Vitest)
         run: pnpm test --run
