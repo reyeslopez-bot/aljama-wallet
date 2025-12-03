@@ -35,41 +35,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 4) Prisma generate (CRDB + PG)
+      # 4) Setup Prisma
       - name: Prisma generate
-        run: |
-          if [ -d prisma ]; then
-            pnpm prisma:generate
-          else
-            echo "No Prisma directory found. Skipping generate."
-          fi
+        run: pnpm prisma generate
 
-      # 5) Prisma schema validation (CRDB + PG)
-      - name: Prisma format check
+      - name: Validate Prisma schema format
+        run: pnpm prisma format
+
+      - name: Check if migrations can be applied cleanly
         run: |
           if [ -f prisma/crdb/schema.prisma ]; then
-            pnpm prisma format --schema=prisma/crdb/schema.prisma
+            echo "Checking CRDB migrations..."
+            pnpm prisma migrate deploy --schema=prisma/crdb/schema.prisma --dry-run
           fi
 
           if [ -f prisma/pg/schema.prisma ]; then
-            pnpm prisma format --schema=prisma/pg/schema.prisma
-          fi
-
-      # 6) Prisma migration diff (safe, no DB)
-      - name: Prisma migrate diff
-        run: |
-          if [ -f prisma/crdb/schema.prisma ]; then
-            pnpm prisma migrate diff \
-              --from-empty \
-              --to-schema prisma/crdb/schema.prisma \
-              --exit-code
-          fi
-
-          if [ -f prisma/pg/schema.prisma ]; then
-            pnpm prisma migrate diff \
-              --from-empty \
-              --to-schema prisma/pg/schema.prisma \
-              --exit-code
+            echo "Checking Postgres migrations..."
+            pnpm prisma migrate deploy --schema=prisma/pg/schema.prisma --dry-run
           fi
 
       # 7) Lint
