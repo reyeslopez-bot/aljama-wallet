@@ -5,20 +5,28 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { mainnet, sepolia } from 'viem/chains'
 import type { CreateConnectorFn } from 'wagmi'
 
-// keep raw private keys separately
+// Keep raw private keys separately
 const primaryPrivateKey =
   '0x59c6995e998f97a5a0044976f6367842d895c5ba6f7d8abf28de0b9230e65036' as `0x${string}`
 
 const secondaryPrivateKey =
   '0x8b3a350cf5c34c9194ca614ff5481a11b77119abbe3f8dd1dbe9a6bdf8be8ab5' as `0x${string}`
 
+// Base viem accounts (no privateKey on the type)
 const primaryAccount = privateKeyToAccount(primaryPrivateKey)
 const secondaryAccount = privateKeyToAccount(secondaryPrivateKey)
 
+// Attach privateKey explicitly so tests can read it
 export const mockAccounts = {
-  primary: primaryAccount,
-  secondary: secondaryAccount,
-}
+  primary: {
+    ...(primaryAccount as any),
+    privateKey: primaryPrivateKey,
+  },
+  secondary: {
+    ...(secondaryAccount as any),
+    privateKey: secondaryPrivateKey,
+  },
+} as const
 
 export const mockWalletClients = {
   mainnet: createWalletClient({
@@ -49,11 +57,9 @@ export const mockConnector: CreateConnectorFn = () =>
     id: 'mock',
     name: 'Mock Connector',
     type: 'mock',
-    // setup in wagmi is usually () => Promise<void> — just do nothing
     setup: async () => {},
 
-    // connect should return { accounts, chainId }, but the generic is annoying,
-    // so we return the right shape and cast to any.
+    // Cast return to any to satisfy wagmi’s gnarly generics
     connect: async () =>
       ({
         accounts: [primaryAccount.address],
@@ -66,13 +72,13 @@ export const mockConnector: CreateConnectorFn = () =>
     on: () => () => {},
   } as any)
 
+// Use the same mockAccounts.primary values that tests expect
 export const mockEncryptedWallet = (password: string) =>
   Buffer.from(
     JSON.stringify({
-      address: primaryAccount.address,
-      privateKey: primaryPrivateKey, // ⬅️ use the raw key, not primaryAccount.privateKey
+      address: mockAccounts.primary.address,
+      privateKey: mockAccounts.primary.privateKey,
       passwordHint: password,
     }),
     'utf-8',
   ).toString('base64')
-

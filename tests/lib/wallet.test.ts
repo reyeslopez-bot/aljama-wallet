@@ -1,3 +1,4 @@
+// tests/lib/wallet.test.ts
 import { describe, it, expect } from 'vitest'
 import { unlockWallet } from '@/lib/wallet'
 import { mockEncryptedWallet, mockAccounts } from '@/tests/helpers/walletMocks'
