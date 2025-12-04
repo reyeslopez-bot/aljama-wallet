@@ -131,9 +131,9 @@ jobs:
                 if just -l | grep -qE "ci|test"; then
                   (just ci 2>/dev/null) || (just test 2>/dev/null) || pnpm test
                 else
-                  pnpm test --run
+                  pnpm test
                 fi
               else
-                pnpm test --run
+                pnpm test
               fi
             '
