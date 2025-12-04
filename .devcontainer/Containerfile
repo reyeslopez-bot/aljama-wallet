@@ -7,7 +7,7 @@ WORKDIR /workspace
 ENV NEXT_TELEMETRY_DISABLED=1 \
     COREPACK_ENABLE_STRICT=1 \
     PNPM_HOME=/usr/local/pnpm \
-    PATH="/workspace/node_modules/.bin:${PATH}"
+    PATH="/usr/local/pnpm:/workspace/node_modules/.bin:${PATH}"
 
 RUN apt-get update && apt-get install -y -qq \
       git curl vim neovim bash xxd xclip \
