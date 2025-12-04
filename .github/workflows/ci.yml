@@ -1,10 +1,14 @@
-name: CI – Aljama Wallet
+name: CI - Aljama Wallet
 
 on:
   push:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+
+env:
+  XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
+  XRPL_DEV_SEED: sn3nxiW7v8KXzPzAqzyHXbSSKNuN9
 
 jobs:
   # ─────────────────────────────────────────────
@@ -18,11 +22,13 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Node + pnpm via corepack (no built-in pnpm binary)
+      # Node + pnpm via corepack, with pnpm cache
       - name: Setup Node 23
         uses: actions/setup-node@v4
         with:
           node-version: '23'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Enable corepack + pnpm 10.10.0
         run: |
@@ -44,7 +50,7 @@ jobs:
             pnpm prisma generate --schema=prisma/pg/schema.prisma
           fi
 
-      # Optional: format schemas, purely static
+      # Optional: format schemas
       - name: Prisma format (CRDB + PG)
         run: |
           if [ -f prisma/crdb/schema.prisma ]; then
@@ -55,9 +61,6 @@ jobs:
             pnpm prisma format --schema=prisma/pg/schema.prisma
           fi
 
-      # If you ever want to sanity-check migrations, do it in a dedicated job
-      # with real DATABASE_URLs. We skip migrate here to avoid CI failures.
-
       - name: Lint
         run: pnpm lint
 
@@ -65,9 +68,6 @@ jobs:
         run: pnpm test
 
       - name: Build Next.js app
-        env:
-          XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
-          XRPL_DEV_SEED: sn3nxiW7v8KXzPzAqzyHXbSSKNuN9
         run: pnpm build
 
       # Non-blocking hygiene checks
@@ -115,28 +115,26 @@ jobs:
           IMAGE_NAME=aljama-wallet-ci
           podman build -t "$IMAGE_NAME" -f .devcontainer/Containerfile .
 
+      - name: Ensure pnpm store volume
+        run: |
+          podman volume create aljama_pnpm_store || true
+
       - name: Run tests inside container (prefer just, fallback pnpm)
-        env:
-          XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
-          XRPL_DEV_SEED: sn3nxiW7v8KXzPzAqzyHXbSSKNuN9
         run: |
           IMAGE_NAME=aljama-wallet-ci
 
           podman run --rm \
             -v "$(pwd):/workspace" \
+            -v aljama_pnpm_store:/root/.pnpm-store \
             -w /workspace \
             -e XRPL_RPC_URL \
             -e XRPL_DEV_SEED \
             "$IMAGE_NAME" \
             bash -lc '
-              if command -v just >/dev/null 2>&1; then
-                if just -l | grep -qE "ci|test"; then
-                  (just ci 2>/dev/null) || (just test 2>/dev/null) || pnpm test
-                else
-                  pnpm test
-                fi
+              pnpm install --frozen-lockfile && \
+              if command -v just >/dev/null 2>&1 && just -l | grep -qE "ci|test"; then
+                (just ci || just test) || pnpm test
               else
                 pnpm test
               fi
             '
-
