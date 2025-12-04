@@ -1,2 +1,2 @@
 // infra/db/prisma-pg.ts
-export { prismaPg } from './prisma'
+import { PrismaClient as PrismaClientPg } from '@/prisma/generated/prisma-pg'

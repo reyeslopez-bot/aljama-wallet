@@ -38,22 +38,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Prisma generate (CRDB + PG)
-        run: |
-          if [ -f prisma/crdb/schema.prisma ]; then
-            pnpm prisma generate --schema=prisma/crdb/schema.prisma
-          fi
-          if [ -f prisma/pg/schema.prisma ]; then
-            pnpm prisma generate --schema=prisma/pg/schema.prisma
-          fi
+        run: pnpm prisma:generate
 
       - name: Prisma format (CRDB + PG)
-        run: |
-          if [ -f prisma/crdb/schema.prisma ]; then
-            pnpm prisma format --schema=prisma/crdb/schema.prisma
-          fi
-          if [ -f prisma/pg/schema.prisma ]; then
-            pnpm prisma format --schema=prisma/pg/schema.prisma
-          fi
+        run: pnpm prisma:format
 
       - name: Lint
         run: pnpm lint

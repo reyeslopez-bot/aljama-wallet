@@ -1,3 +1,2 @@
 // infra/db/prisma-crdb.ts
-export { prismaCrdb } from './prisma'
-
+import { PrismaClient as PrismaClientCrdb } from '@/prisma/generated/prisma-crdb'

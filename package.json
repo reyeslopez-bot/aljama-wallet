@@ -9,9 +9,15 @@
     "lint": "eslint .",
     "test": "vitest --run",
     "test:watch": "vitest",
+    "prisma:generate": "pnpm prisma:generate:crdb && pnpm prisma:generate:pg",
     "prisma:generate:crdb": "prisma generate --schema=prisma/crdb/schema.prisma",
     "prisma:generate:pg": "prisma generate --schema=prisma/pg/schema.prisma",
-    "prisma:generate": "pnpm prisma:generate:crdb && pnpm prisma:generate:pg"
+
+    "prisma:format": "pnpm prisma:format:crdb && pnpm prisma:format:pg",
+    "prisma:format:crdb": "prisma format --schema=prisma/crdb/schema.prisma",
+    "prisma:format:pg": "prisma format --schema=prisma/pg/schema.prisma",
+
+    "prisma:migrate:deploy:pg": "prisma migrate deploy --schema=prisma/pg/schema.prisma"
   },
   "dependencies": {
     "@heroicons/react": "2.2.0",
