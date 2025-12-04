@@ -123,6 +123,8 @@ jobs:
           IMAGE_NAME=aljama-wallet-ci
 
           podman run --rm \
+            -v "$(pwd):/workspace" \
+            -w /workspace \
             -e XRPL_RPC_URL \
             -e XRPL_DEV_SEED \
             "$IMAGE_NAME" \
@@ -137,3 +139,4 @@ jobs:
                 pnpm test
               fi
             '
+
