@@ -1,3 +1,4 @@
-export async function getTokensByWallet(_address: string) {
-  return [] as Array<{ symbol: string; balance: string }>
+export async function getTokensByWallet(_address: string): Promise<[]> {
+  void _address
+  return []
 }

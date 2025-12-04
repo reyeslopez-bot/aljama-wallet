@@ -27,6 +27,15 @@ function encodeBase64(input: string): string {
   return Buffer.from(input, 'utf-8').toString('base64')
 }
 
+// internal representation of the stored blob
+type EncryptedWalletPayload = {
+  address: string
+  privateKey: string
+  passwordHint?: string
+  // allow future fields without using `any`
+  [key: string]: unknown
+}
+
 /**
  * Unlocks a previously "encrypted" wallet.
  * NOTE: this is still toy crypto (base64 + passwordHint), NOT production security.
@@ -50,9 +59,9 @@ export async function unlockWallet({
     throw new Error('Malformed encrypted wallet payload')
   }
 
-  let decoded: any
+  let decoded: EncryptedWalletPayload
   try {
-    decoded = JSON.parse(decodedJson)
+    decoded = JSON.parse(decodedJson) as EncryptedWalletPayload
   } catch {
     throw new Error('Malformed encrypted JSON structure')
   }
@@ -80,13 +89,13 @@ export function encodeWalletToEncrypted(
   wallet: WalletMaterial,
   password: string,
 ): string {
-  const payload = JSON.stringify({
+  const payload: EncryptedWalletPayload = {
     address: wallet.address,
     privateKey: wallet.privateKey,
     passwordHint: password,
-  })
+  }
 
-  return encodeBase64(payload)
+  return encodeBase64(JSON.stringify(payload))
 }
 
 /**

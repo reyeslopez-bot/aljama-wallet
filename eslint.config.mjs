@@ -4,7 +4,6 @@ import tseslint from 'typescript-eslint'
 import nextPlugin from '@next/eslint-plugin-next'
 
 export default [
-  // Global ignores – keep TS, drop generated/runtime noise
   {
     ignores: [
       'node_modules/**',
@@ -17,9 +16,9 @@ export default [
   // Base JS rules
   js.configs.recommended,
 
-  // TypeScript-aware rules
+  // TypeScript-aware rules (this is an array → spread is correct)
   ...tseslint.configs.recommended,
 
-  // Next.js + core-web-vitals rules (what `next/core-web-vitals` used to do)
-  ...nextPlugin.configs['core-web-vitals'],
+  // Next.js + core-web-vitals rules (this is a SINGLE config object)
+  nextPlugin.configs['core-web-vitals'],
 ]

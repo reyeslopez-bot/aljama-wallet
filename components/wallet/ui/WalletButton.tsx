@@ -12,12 +12,21 @@ const IGNORABLE_SUBSTRINGS = [
   'User rejected request',
 ]
 
-function isIgnorableError(err: unknown): boolean {
-  const msg =
-    typeof err === 'string'
-      ? err
-      : (err as any)?.message || (err as any)?.toString?.() || ''
+function extractMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  if (err && typeof err === 'object' && 'toString' in err) {
+    try {
+      return (err as { toString(): string }).toString()
+    } catch {
+      // ignore invalid toString()
+    }
+  }
+  return ''
+}
 
+function isIgnorableError(err: unknown): boolean {
+  const msg = extractMessage(err)
   return IGNORABLE_SUBSTRINGS.some((s) => msg.includes(s))
 }
 
@@ -32,8 +41,7 @@ export default function WalletButton() {
   async function handleConnect() {
     setError(null)
 
-    // pick “best” connector – prefer injected, then first
-    let connector: Connector | undefined =
+    const connector: Connector | undefined =
       connectors.find((c) => c.id === 'injected') ?? connectors[0]
 
     if (!connector) {
@@ -44,7 +52,7 @@ export default function WalletButton() {
     try {
       setIsBusy(true)
       await connectAsync({ connector })
-    } catch (err) {
+    } catch (err: unknown) {
       if (isIgnorableError(err)) {
         console.info('[wallet] Ignored user-cancelled connect:', err)
         return
@@ -61,7 +69,7 @@ export default function WalletButton() {
     try {
       setIsBusy(true)
       await disconnectAsync()
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('[wallet] Disconnect failed:', err)
       setError('Failed to disconnect.')
     } finally {
@@ -114,6 +122,7 @@ export default function WalletButton() {
       >
         {loading ? 'Connecting…' : 'Connect wallet'}
       </button>
+
       {error && (
         <p className="max-w-xs text-[10px] md:text-xs text-red-300 text-right">
           {error}

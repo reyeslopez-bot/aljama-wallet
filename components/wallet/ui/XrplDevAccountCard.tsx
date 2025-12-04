@@ -9,6 +9,13 @@ type XrplState =
   | { status: 'error'; message: string }
   | { status: 'ready'; address: string; xrpBalance: string }
 
+// safe helper for errors
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  return 'Unknown XRPL error'
+}
+
 export function XrplDevAccountCard() {
   const [state, setState] = useState<XrplState>({ status: 'idle' })
 
@@ -20,9 +27,13 @@ export function XrplDevAccountCard() {
 
       try {
         const res = await fetch('/api/xrpl/dev-account')
-        const data = await res.json()
+        const data: {
+          ok: boolean
+          account?: { address: string; xrpBalance: string }
+          error?: string
+        } = await res.json()
 
-        if (!res.ok || !data.ok) {
+        if (!res.ok || !data.ok || !data.account) {
           throw new Error(data?.error ?? 'Failed to load XRPL dev account')
         }
 
@@ -33,11 +44,12 @@ export function XrplDevAccountCard() {
           address: data.account.address,
           xrpBalance: data.account.xrpBalance,
         })
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (cancelled) return
+
         setState({
           status: 'error',
-          message: error?.message ?? 'XRPL request failed',
+          message: getErrorMessage(error),
         })
       }
     }
@@ -60,9 +72,7 @@ export function XrplDevAccountCard() {
       )}
 
       {state.status === 'error' && (
-        <div className="text-xs text-red-400">
-          XRPL error: {state.message}
-        </div>
+        <div className="text-xs text-red-400">XRPL error: {state.message}</div>
       )}
 
       {state.status === 'ready' && (

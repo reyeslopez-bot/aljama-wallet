@@ -49,8 +49,9 @@ export function WalletDashboard() {
           address: wallet.address as `0x${string}`,
         })
         setBalance(formatEther(raw))
-      } catch (err: any) {
-        setBalanceError(err?.message ?? 'Failed to load balance')
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to load balance'
+        setBalanceError(msg)
       } finally {
         setIsLoadingBalance(false)
       }

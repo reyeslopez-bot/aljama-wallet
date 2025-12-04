@@ -44,8 +44,10 @@ export default function CreateWalletModal({ onClose, onCreate }: CreateWalletMod
         await onCreate(password)
       }
       onClose()
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to create wallet.')
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to create wallet.'
+      setError(message)
     } finally {
       setIsSubmitting(false)
     }
@@ -96,11 +98,7 @@ export default function CreateWalletModal({ onClose, onCreate }: CreateWalletMod
             </span>
           </label>
 
-          {error && (
-            <p className="text-sm text-red-600">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <button
             type="submit"
@@ -118,7 +116,7 @@ export default function CreateWalletModal({ onClose, onCreate }: CreateWalletMod
         >
           Cancel
         </button>
-        </div>
+      </div>
     </div>
-    )
-    }
+  )
+}
