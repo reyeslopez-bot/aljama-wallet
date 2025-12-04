@@ -22,13 +22,11 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Node + pnpm via corepack, with pnpm cache
       - name: Setup Node 23
         uses: actions/setup-node@v4
         with:
           node-version: '23'
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+          # ❌ no `cache: pnpm` here
 
       - name: Enable corepack + pnpm 10.10.0
         run: |
@@ -39,24 +37,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Prisma client generation for both schemas
       - name: Prisma generate (CRDB + PG)
         run: |
           if [ -f prisma/crdb/schema.prisma ]; then
             pnpm prisma generate --schema=prisma/crdb/schema.prisma
           fi
-
           if [ -f prisma/pg/schema.prisma ]; then
             pnpm prisma generate --schema=prisma/pg/schema.prisma
           fi
 
-      # Optional: format schemas
       - name: Prisma format (CRDB + PG)
         run: |
           if [ -f prisma/crdb/schema.prisma ]; then
             pnpm prisma format --schema=prisma/crdb/schema.prisma
           fi
-
           if [ -f prisma/pg/schema.prisma ]; then
             pnpm prisma format --schema=prisma/pg/schema.prisma
           fi
@@ -68,9 +62,11 @@ jobs:
         run: pnpm test
 
       - name: Build Next.js app
+        env:
+          XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
+          XRPL_DEV_SEED: sn3nxiW7v8KXzPzAqzyHXbSSKNuN9
         run: pnpm build
 
-      # Non-blocking hygiene checks
       - name: Check outdated dependencies
         run: pnpm outdated --depth 0 || true
 
@@ -91,6 +87,7 @@ jobs:
           name: coverage-report
           path: coverage
           if-no-files-found: ignore
+
 
   # ─────────────────────────────────────────────
   # 2) Container CI: Podman + Just inside image
