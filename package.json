@@ -44,7 +44,7 @@
     "eslint": "9.16.0",
     "jsdom": "^27.2.0",
     "knip": "^5.70.1",
-    "next": "15.1.9",
+    "next": "16.0.7",
     "postcss": "8.5.3",
     "postcss-load-config": "^6.0.1",
     "prisma": "6.19.0",
