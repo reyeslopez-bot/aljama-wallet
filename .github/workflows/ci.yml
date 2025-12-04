@@ -62,7 +62,7 @@ jobs:
         run: pnpm lint
 
       - name: Test (Vitest)
-        run: pnpm test --run
+        run: pnpm test
 
       - name: Build Next.js app
         env:
@@ -129,7 +129,7 @@ jobs:
             bash -lc '
               if command -v just >/dev/null 2>&1; then
                 if just -l | grep -qE "ci|test"; then
-                  (just ci 2>/dev/null) || (just test 2>/dev/null) || pnpm test --run
+                  (just ci 2>/dev/null) || (just test 2>/dev/null) || pnpm test
                 else
                   pnpm test --run
                 fi
