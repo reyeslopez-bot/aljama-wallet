@@ -38,6 +38,7 @@
   "devDependencies": {
     "@eslint/js": "9.39.1",
     "@next/eslint-plugin-next": "16.0.7",
+    "@tailwindcss/postcss": "^4.1.17",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@types/node": "24.10.1",
@@ -95,5 +96,5 @@
   "engines": {
     "node": ">=20.10.0"
   },
-  "packageManager": "pnpm@10.24.0"
+  "packageManager": "pnpm@10.25.0+sha512.5e82639027af37cf832061bcc6d639c219634488e0f2baebe785028a793de7b525ffcd3f7ff574f5e9860654e098fe852ba8ac5dd5cefe1767d23a020a92f501"
 }

@@ -93,8 +93,8 @@ if [ ! -f pnpm-lock.yaml ]; then
     corepack prepare pnpm@10.10.0 --activate >/dev/null 2>&1 || true
     pnpm install
   else
-    "$RUNTIME" run --rm -v "$PWD:/workspace" -w /workspace node:23.11.0 \
-      bash -lc 'set -euo pipefail; corepack enable; corepack prepare pnpm@10.10.0 --activate; pnpm install'
+    "$RUNTIME" run --rm -v "$PWD:/workspace" -w /workspace node:24.3.0 \
+      bash -lc 'set -euo pipefail; corepack enable; corepack prepare pnpm@10.25.0 --activate; pnpm install'
   fi
 fi
 
@@ -139,12 +139,17 @@ fi
 # --- Runtime-specific run options ---
 RUN_EXTRA_ARGS=()
 WORKDIR_MOUNT="$PWD:/workspace"
+
 if [ "$RUNTIME" = "podman" ]; then
+  # rootless podman: map container user to host user
   RUN_EXTRA_ARGS+=(--userns=keep-id --user "$(id -u):$(id -g)")
   WORKDIR_MOUNT="$PWD:/workspace:Z"
-else
+elif [ "$RUNTIME" = "docker" ]; then
+  # docker: still run as your uid/gid so files are owned by you
   RUN_EXTRA_ARGS+=(--user "$(id -u):$(id -g)")
 fi
+
+# --- Run dev container ---
 
 echo "Running dev container at $APP_URL"
 
@@ -157,8 +162,7 @@ exec "$RUNTIME" run --rm -it \
   -v "$WORKDIR_MOUNT" \
   "${RUN_EXTRA_ARGS[@]}" \
   "$IMAGE_NAME" \
-
-  bash -lc '
+  bash -lc 'set -euo pipefail
     corepack enable >/dev/null 2>&1 || true
     corepack prepare pnpm@10.10.0 --activate >/dev/null 2>&1 || true
     pnpm -v
@@ -172,17 +176,16 @@ exec "$RUNTIME" run --rm -it \
     CI= pnpm install --no-frozen-lockfile
     test -x node_modules/.bin/next || pnpm add -D next
 
-    # 🔑 Force sane env for Next dev
     unset NODE_ENV
     export NODE_ENV=development
 
-    # Use container PORT / APP_PORT, but no extra `--`
     : "${PORT:=$APP_PORT}"
 
     pnpm prisma:generate || {
       echo "❌ prisma:generate failed"
       exit 1
     }
+
     exec pnpm dev --port "$PORT"
-'
+  '
 # --- End of dev.sh ---
