@@ -1,11 +1,13 @@
+// prisma/crdb/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
-  output = "../generated/prisma-crdb"
+  output   = "../generated/prisma-crdb"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("COCKROACH_URL")
+  // URL is configured in prisma/crdb/prisma.config.ts
 }
 
 model Wallet {
@@ -13,19 +15,19 @@ model Wallet {
   address    String    @unique
   privateKey String    // Encrypt in prod
   createdAt  DateTime  @default(now())
+
   transactionsSent     Transaction[] @relation("FromWallet")
   transactionsReceived Transaction[] @relation("ToWallet")
 }
 
 model Transaction {
-  id            String    @id @default(cuid())
-  fromWallet    Wallet    @relation("FromWallet", fields: [fromWalletId], references: [id])
+  id            String   @id @default(cuid())
+  fromWallet    Wallet   @relation("FromWallet", fields: [fromWalletId], references: [id])
   fromWalletId  String
-  toWallet      Wallet    @relation("ToWallet", fields: [toWalletId], references: [id])
+  toWallet      Wallet   @relation("ToWallet", fields: [toWalletId], references: [id])
   toWalletId    String
   value         Float
   asset         String
   blockchain    String
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime @default(now())
 }
-

@@ -1,3 +1,5 @@
+// prisma/pg/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
   // from prisma/pg → prisma/generated/pg
@@ -6,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("POSTGRES_URL")
+  // URL is configured in prisma/pg/prisma.config.ts
 }
 
 model DailyTransactionSummary {

@@ -1,16 +1,12 @@
-// infra/db/prisma-pg.ts
-import { PrismaClient as PrismaClientPg } from '../../prisma/generated/pg'
+import { PrismaClient } from '../../prisma/generated/pg'
 
-const globalForPg = globalThis as unknown as {
-  prismaPg?: PrismaClientPg
+declare global {
+  var prismaPg: PrismaClient | undefined
 }
 
-export const prismaPg =
-  globalForPg.prismaPg ??
-  new PrismaClientPg({
-    datasourceUrl: process.env.PG_DATABASE_URL,
-  })
+export const prismaPg: PrismaClient =
+  globalThis.prismaPg ?? new PrismaClient()
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForPg.prismaPg = prismaPg
+  globalThis.prismaPg = prismaPg
 }
