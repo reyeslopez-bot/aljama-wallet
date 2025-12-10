@@ -60,7 +60,9 @@ export default function HomePage() {
                   key={stat.label}
                   className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/5 to-white/0 p-4 shadow-lg backdrop-blur"
                 >
-                  <p className="text-xs uppercase tracking-[0.15em] text-amber-100/70">{stat.label}</p>
+                  <p className="text-xs uppercase tracking-[0.15em] text-amber-100/70">
+                    {stat.label}
+                  </p>
                   <p className="mt-2 text-2xl font-bold text-[#f7f0e6]">{stat.value}</p>
                   <p className="mt-1 text-sm text-white/70">{stat.detail}</p>
                 </div>
