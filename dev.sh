@@ -90,7 +90,7 @@ if [ ! -f pnpm-lock.yaml ]; then
   echo "pnpm-lock.yaml missing — creating"
   if command -v pnpm >/dev/null 2>&1; then
     corepack enable >/dev/null 2>&1 || true
-    corepack prepare pnpm@10.10.0 --activate >/dev/null 2>&1 || true
+    corepack prepare pnpm@10.25.0 --activate >/dev/null 2>&1 || true
     pnpm install
   else
     "$RUNTIME" run --rm -v "$PWD:/workspace" -w /workspace node:24.3.0 \
