@@ -13,7 +13,7 @@ const oleo = Oleo_Script({
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${oleo.variable} antialiased min-h-screen flex flex-col bg-neutral-950 text-white`}>
+      <body className={`${oleo.variable} antialiased min-h-screen flex flex-col text-white`}>
         <Providers>
           <LayoutClient>{children}</LayoutClient>
         </Providers>
