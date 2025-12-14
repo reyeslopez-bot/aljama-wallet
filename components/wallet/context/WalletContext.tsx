@@ -1,19 +1,37 @@
 // components/wallet/context/WalletContext.tsx
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { Wallet } from 'ethers'
+
+import {
+  clearEncryptedSession,
+  loadEncryptedSession,
+  persistEncryptedSession,
+} from '@/lib/storage/walletSession'
+import { unlockWallet } from '@/lib/wallet'
 
 type WalletState = {
   wallet: Wallet | null
-  setWalletFromData: (data: { privateKey: string }) => void
+  encryptedPayload: string | null
+  persistEncryptedPayload: (payload: string) => void
+  unlockWithPassword: (password: string, encryptedOverride?: string) => Promise<Wallet | null>
   clearWallet: () => void
 }
 
 const WalletContext = createContext<WalletState>({
   wallet: null,
-  setWalletFromData: () => {},
+  encryptedPayload: null,
+  persistEncryptedPayload: () => {},
+  unlockWithPassword: async () => null,
   clearWallet: () => {},
 })
 
@@ -23,35 +41,63 @@ type WalletProviderProps = {
 
 export const WalletProvider = ({ children }: WalletProviderProps) => {
   const [wallet, setWallet] = useState<Wallet | null>(null)
+  const [encryptedPayload, setEncryptedPayload] = useState<string | null>(null)
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('wallet')
+    const stored = loadEncryptedSession()
     if (stored) {
-      try {
-        const { privateKey } = JSON.parse(stored) as { privateKey: string }
-        setWallet(new Wallet(privateKey))
-      } catch (error) {
-        console.warn('Failed to load stored wallet', error)
-      }
+      setEncryptedPayload(stored)
     }
   }, [])
 
-  const setWalletFromData = ({ privateKey }: { privateKey: string }) => {
-    const newWallet = new Wallet(privateKey)
-    setWallet(newWallet)
-    sessionStorage.setItem('wallet', JSON.stringify({ privateKey }))
-  }
+  useEffect(() => {
+    if (!encryptedPayload || wallet || typeof window === 'undefined') return
 
-  const clearWallet = () => {
-    sessionStorage.removeItem('wallet')
-    setWallet(null)
-  }
+    const password = window.prompt('Enter your password to unlock your wallet:')
+    if (!password?.trim()) return
 
-  return (
-    <WalletContext.Provider value={{ wallet, setWalletFromData, clearWallet }}>
-      {children}
-    </WalletContext.Provider>
+    void unlockWithPassword(password)
+  }, [encryptedPayload, wallet, unlockWithPassword])
+
+  const persistEncryptedPayload = useCallback((payload: string) => {
+    persistEncryptedSession(payload)
+    setEncryptedPayload(payload)
+  }, [])
+
+  const unlockWithPassword = useCallback(
+    async (
+      password: string,
+      encryptedOverride?: string,
+    ): Promise<Wallet | null> => {
+      const payload = encryptedOverride ?? encryptedPayload
+      if (!payload) return null
+
+      const unlocked = await unlockWallet({ encrypted: payload, password })
+      const hydrated = new Wallet(unlocked.privateKey)
+      setWallet(hydrated)
+      return hydrated
+    },
+    [encryptedPayload],
   )
+
+  const clearWallet = useCallback(() => {
+    clearEncryptedSession()
+    setEncryptedPayload(null)
+    setWallet(null)
+  }, [])
+
+  const value = useMemo(
+    () => ({
+      wallet,
+      encryptedPayload,
+      persistEncryptedPayload,
+      unlockWithPassword,
+      clearWallet,
+    }),
+    [wallet, encryptedPayload, persistEncryptedPayload, unlockWithPassword, clearWallet],
+  )
+
+  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
 }
 
 export const useAljamaWallet = () => useContext(WalletContext)

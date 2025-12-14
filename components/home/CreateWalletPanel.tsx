@@ -3,7 +3,6 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 
-import { unlockWallet } from '@/lib/wallet'
 import { useAljamaWallet } from '@/components/wallet/context/WalletContext'
 
 type WalletPreview = {
@@ -13,7 +12,7 @@ type WalletPreview = {
 type Status = 'idle' | 'pending' | 'success' | 'error'
 
 export function CreateWalletPanel() {
-  const { setWalletFromData } = useAljamaWallet()
+  const { persistEncryptedPayload, unlockWithPassword } = useAljamaWallet()
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -46,16 +45,14 @@ export function CreateWalletPanel() {
 
       const data: { address: string; encrypted: string } = await res.json()
 
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('aljama.encryptedWallet', data.encrypted)
+      persistEncryptedPayload(data.encrypted)
+
+      const unlocked = await unlockWithPassword(password.trim(), data.encrypted)
+
+      if (!unlocked) {
+        throw new Error('Unable to unlock new wallet')
       }
 
-      const unlocked = await unlockWallet({
-        encrypted: data.encrypted,
-        password: password.trim(),
-      })
-
-      setWalletFromData({ privateKey: unlocked.privateKey })
       setWalletPreview({ address: unlocked.address })
       setStatus('success')
     } catch (err) {

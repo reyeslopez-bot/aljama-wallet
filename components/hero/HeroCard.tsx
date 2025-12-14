@@ -8,7 +8,6 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline'
 import { useAljamaWallet } from '../wallet/context/WalletContext'
-import { unlockWallet } from '@/lib/wallet'
 
 type CreatedWalletData = {
   address: string
@@ -40,7 +39,7 @@ const rituals = [
 ]
 
 export default function HeroCard() {
-  const { setWalletFromData } = useAljamaWallet()
+  const { persistEncryptedPayload, unlockWithPassword } = useAljamaWallet()
   const [walletData, setWalletData] = useState<CreatedWalletData | null>(null)
 
   const createWallet = async () => {
@@ -69,18 +68,12 @@ export default function HeroCard() {
 
       const data: { address: string; encrypted: string } = await res.json()
 
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('aljama.encryptedWallet', data.encrypted)
+      persistEncryptedPayload(data.encrypted)
+
+      const unlocked = await unlockWithPassword(password, data.encrypted)
+      if (!unlocked) {
+        throw new Error('Unable to unlock wallet with provided password')
       }
-
-      const unlocked = await unlockWallet({
-        encrypted: data.encrypted,
-        password,
-      })
-
-      setWalletFromData({
-        privateKey: unlocked.privateKey,
-      })
 
       setWalletData({ address: unlocked.address })
     } catch (err) {

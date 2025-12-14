@@ -2,25 +2,44 @@
 'use client'
 
 import { useState } from 'react'
-import { useUnlockWallet } from '@/infra/utils/useUnlockWallet'
-import { loadEncryptedWallet } from '@/lib/storage/walletStorage'
+import { useAljamaWallet } from '@/components/wallet/context/WalletContext'
+import { loadEncryptedSession } from '@/lib/storage/walletSession'
 import { useWalletStore } from '@/infra/state/walletStore'
 
 export default function UnlockWalletPage() {
   const [password, setPassword] = useState('')
-  const { isUnlocking, error, handleUnlock } = useUnlockWallet()
+  const [isUnlocking, setIsUnlocking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const setWallet = useWalletStore((s) => s.setWallet)
+  const { encryptedPayload, unlockWithPassword } = useAljamaWallet()
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const encrypted = loadEncryptedWallet()
-    const unlocked = await handleUnlock({ encrypted, password })
+    const encrypted = encryptedPayload ?? loadEncryptedSession()
+    if (!encrypted) {
+      setError('No encrypted wallet found in this session')
+      return
+    }
 
-    if (unlocked) {
-      setWallet(unlocked)
-      // navigate to dashboard if you want
-      // router.push('/dashboard')
+    setIsUnlocking(true)
+    setError(null)
+
+    try {
+      const unlocked = await unlockWithPassword(password, encrypted)
+
+      if (unlocked) {
+        setWallet({ address: unlocked.address, privateKey: unlocked.privateKey })
+        // navigate to dashboard if you want
+        // router.push('/dashboard')
+      } else {
+        setError('Unable to unlock wallet with the provided password')
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to unlock wallet'
+      setError(message)
+    } finally {
+      setIsUnlocking(false)
     }
   }
 
