@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createEncryptedWallet } from '@/lib/wallet'
+import { persistEncryptedSession } from '@/lib/storage/walletSession'
 import { useWalletStore } from '@/infra/state/walletStore'
 import Button from '@/components/ui/Button'
 
@@ -36,9 +37,7 @@ export default function CreateWalletForm() {
       const { encrypted, wallet } = createEncryptedWallet(password)
 
       // store encrypted blob for unlock flow
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('aljama.encryptedWallet', encrypted)
-      }
+      persistEncryptedSession(encrypted)
 
       // store unlocked wallet globally
       setWallet(wallet)

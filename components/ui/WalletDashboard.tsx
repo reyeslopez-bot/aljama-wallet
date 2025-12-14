@@ -8,6 +8,7 @@ import { createPublicClient, formatEther, http } from 'viem'
 import { mainnet } from 'viem/chains'
 import { useWalletStore } from '@/infra/state/walletStore'
 import Button from '@/components/ui/Button'
+import { clearEncryptedSession } from '@/lib/storage/walletSession'
 
 // Simple viem public client for now (you can later swap to your wagmi config)
 const publicClient = createPublicClient({
@@ -71,9 +72,7 @@ export function WalletDashboard() {
 
   const handleLock = () => {
     clearWallet()
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('aljama.encryptedWallet')
-    }
+    clearEncryptedSession()
     router.push('/unlock')
   }
 
