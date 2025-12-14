@@ -6,9 +6,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createPublicClient, formatEther, http } from 'viem'
 import { mainnet } from 'viem/chains'
-import { useWalletStore } from '@/infra/state/walletStore'
 import Button from '@/components/ui/Button'
 import { clearEncryptedSession } from '@/lib/storage/walletSession'
+import { useAljamaWallet } from '@/components/wallet/context/WalletContext'
 
 // Simple viem public client for now (you can later swap to your wagmi config)
 const publicClient = createPublicClient({
@@ -23,8 +23,7 @@ function truncateAddress(address: string, chars = 4) {
 
 export function WalletDashboard() {
   const router = useRouter()
-  const wallet = useWalletStore((s) => s.wallet)
-  const clearWallet = useWalletStore((s) => s.clearWallet)
+  const { wallet, clearWallet } = useAljamaWallet()
 
   const [balance, setBalance] = useState<string | null>(null)
   const [isLoadingBalance, setIsLoadingBalance] = useState(false)
@@ -32,7 +31,7 @@ export function WalletDashboard() {
 
   // If no wallet is loaded, send user to unlock screen
   useEffect(() => {
-    if (!wallet) {
+    if (!wallet) { 
       router.replace('/unlock')
     }
   }, [wallet, router])

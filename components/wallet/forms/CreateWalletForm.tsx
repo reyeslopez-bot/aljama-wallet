@@ -3,9 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createEncryptedWallet } from '@/lib/wallet'
-import { persistEncryptedSession } from '@/lib/storage/walletSession'
-import { useWalletStore } from '@/infra/state/walletStore'
 import Button from '@/components/ui/Button'
+import { useAljamaWallet } from '@/components/wallet/context/WalletContext'
 
 export default function CreateWalletForm() {
   const [password, setPassword] = useState('')
@@ -13,7 +12,7 @@ export default function CreateWalletForm() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  const setWallet = useWalletStore((s) => s.setWallet)
+  const { persistEncryptedPayload, unlockWithPassword } = useAljamaWallet()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,15 +33,16 @@ export default function CreateWalletForm() {
       setIsLoading(true)
 
       // 🔐 REAL WALLET CREATION LOGIC
-      const { encrypted, wallet } = createEncryptedWallet(password)
+      const { encrypted } = createEncryptedWallet(password)
 
-      // store encrypted blob for unlock flow
-      persistEncryptedSession(encrypted)
+      persistEncryptedPayload(encrypted)
 
-      // store unlocked wallet globally
-      setWallet(wallet)
+      const unlocked = await unlockWithPassword(password, encrypted)
+      if (!unlocked) {
+        throw new Error('Unable to hydrate wallet context')
+      }
 
-      router.push('/wallet')
+      router.push('/dashboard')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong'
       setError(msg)
