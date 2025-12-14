@@ -18,7 +18,7 @@ export default function HomePage() {
     <div className="relative mx-auto max-w-7xl space-y-24 pb-32 pt-28">
 
       {/* HERO */}
-      <section className="relative rounded-[2.5rem] border border-[#c9a24d]/20 bg-black/70 p-14 shadow-[0_40px_120px_rgba(0,0,0,0.9)]">
+      <section className="p-14 shadow-[0_40px_120px_rgba(0,0,0,0.9)]">
         
         {/* brass accent line */}
         <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-transparent via-[#c9a24d] to-transparent" />

@@ -11,8 +11,16 @@ APP_URL="${APP_URL:-}"
 BUILD_CONTEXT="${BUILD_CONTEXT:-.}"
 REBUILD="${REBUILD:-false}"
 FORCE_CLEAN="${FORCE_CLEAN:-false}"
-RUNTIME="${CONTAINER_RUNTIME:-}"          
-# podman|docker (auto if empty)
+RUNTIME="${CONTAINER_RUNTIME:-}" # podman|docker (auto if empty)
+
+# Named volume for persistent pnpm store
+PNPM_STORE_VOL="${PNPM_STORE_VOL:-aljama_pnpm_store}"
+
+# Keep pnpm version consistent with Containerfile base
+PNPM_VERSION="${PNPM_VERSION:-10.25.0}"
+
+# Files that should trigger a rebuild if they change (deps+container wiring)
+DEPS_HASH_FILES=("package.json" "pnpm-lock.yaml" ".devcontainer/Containerfile" "pnpm-workspace.yaml")
 
 # --- .env (optional) ---
 if [ -f .env ]; then
@@ -47,6 +55,9 @@ while (($#)); do
       cat <<EOF
 Usage: ./dev.sh [--rebuild] [--force-clean] [--stop] [--port N] [--runtime podman|docker]
                  [--image-name NAME] [--container-name NAME] [--build-context PATH]
+Env:
+  PNPM_STORE_VOL=aljama_pnpm_store
+  PNPM_VERSION=10.25.0
 EOF
       exit 0 ;;
     *) echo "Unknown option: $1"; exit 1 ;;
@@ -90,22 +101,33 @@ if [ ! -f pnpm-lock.yaml ]; then
   echo "pnpm-lock.yaml missing — creating"
   if command -v pnpm >/dev/null 2>&1; then
     corepack enable >/dev/null 2>&1 || true
-    corepack prepare pnpm@10.25.0 --activate >/dev/null 2>&1 || true
+    corepack prepare "pnpm@${PNPM_VERSION}" --activate >/dev/null 2>&1 || true
     pnpm install
   else
     "$RUNTIME" run --rm -v "$PWD:/workspace" -w /workspace node:24.3.0 \
-      bash -lc 'set -euo pipefail; corepack enable; corepack prepare pnpm@10.25.0 --activate; pnpm install'
+      bash -lc "set -euo pipefail; corepack enable; corepack prepare pnpm@${PNPM_VERSION} --activate; pnpm install"
   fi
 fi
 
-# --- Smart rebuild on deps change ---
+# --- Smart rebuild on deps/container change ---
 DEP_HASH_FILE=".devcontainer/.last-deps-hash"
 mkdir -p .devcontainer
-CURRENT_HASH=$(sha256sum package.json pnpm-lock.yaml | sha256sum | cut -d' ' -f1)
+
+_hash_inputs=()
+for f in "${DEPS_HASH_FILES[@]}"; do
+  [ -f "$f" ] && _hash_inputs+=("$f")
+done
+
+if [ "${#_hash_inputs[@]}" -eq 0 ]; then
+  echo "No hash inputs found (expected: ${DEPS_HASH_FILES[*]})"
+  exit 1
+fi
+
+CURRENT_HASH=$(sha256sum "${_hash_inputs[@]}" 2>/dev/null | sha256sum | cut -d' ' -f1)
 LAST_HASH="$(cat "$DEP_HASH_FILE" 2>/dev/null || echo '')"
 
 if [[ "$CURRENT_HASH" != "$LAST_HASH" && "$FORCE_CLEAN" = false ]]; then
-  echo "Dependencies changed — rebuild triggered"
+  echo "Dependencies/container config changed — rebuild triggered"
   REBUILD=true
 fi
 
@@ -118,9 +140,10 @@ fi
 
 # --- Force clean ---
 if [ "$FORCE_CLEAN" = true ]; then
-  echo "Force clean: remove container/image"
+  echo "Force clean: remove container/image + pnpm store volume"
   "$RUNTIME" rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
   "$RUNTIME" rmi -f "$IMAGE_NAME"    >/dev/null 2>&1 || true
+  "$RUNTIME" volume rm -f "$PNPM_STORE_VOL" >/dev/null 2>&1 || true
 fi
 
 # --- Build image ---
@@ -141,16 +164,13 @@ RUN_EXTRA_ARGS=()
 WORKDIR_MOUNT="$PWD:/workspace"
 
 if [ "$RUNTIME" = "podman" ]; then
-  # rootless podman: map container user to host user
-  RUN_EXTRA_ARGS+=(--userns=keep-id --user "$(id -u):$(id -g)")
+  RUN_EXTRA_ARGS+=(--userns=keep-id)
   WORKDIR_MOUNT="$PWD:/workspace:Z"
 elif [ "$RUNTIME" = "docker" ]; then
-  # docker: still run as your uid/gid so files are owned by you
   RUN_EXTRA_ARGS+=(--user "$(id -u):$(id -g)")
 fi
 
 # --- Run dev container ---
-
 echo "Running dev container at $APP_URL"
 
 exec "$RUNTIME" run --rm -it \
@@ -160,32 +180,28 @@ exec "$RUNTIME" run --rm -it \
   -e COREPACK_ENABLE_STRICT=1 \
   -e PNPM_STORE_DIR="/workspace/.pnpm-store" \
   -v "$WORKDIR_MOUNT" \
+  --volume "${PNPM_STORE_VOL}:/workspace/.pnpm-store" \
   "${RUN_EXTRA_ARGS[@]}" \
   "$IMAGE_NAME" \
-  bash -lc 'set -euo pipefail
+  bash -lc "set -euo pipefail
     corepack enable >/dev/null 2>&1 || true
-    corepack prepare pnpm@10.10.0 --activate >/dev/null 2>&1 || true
+    corepack prepare pnpm@${PNPM_VERSION} --activate >/dev/null 2>&1 || true
+
     pnpm -v
-
-    mkdir -p /workspace/node_modules /workspace/.pnpm-store
-    chmod -R u+rwX,go+rX /workspace/node_modules /workspace/.pnpm-store || true
-
     pnpm config set store-dir /workspace/.pnpm-store
-    pnpm approve-builds @prisma/client prisma sharp keccak bufferutil utf-8-validate || true
 
-    CI= pnpm install --no-frozen-lockfile
-    test -x node_modules/.bin/next || pnpm add -D next
+    export CI=1
 
-    unset NODE_ENV
-    export NODE_ENV=development
+    # Deterministic install without --force.
+    # If the bind-mount filesystem flakes and install fails, wipe node_modules once and retry.
+    pnpm install --frozen-lockfile --prefer-offline || (
+      echo 'pnpm install failed; wiping /workspace/node_modules and retrying once'
+      rm -rf /workspace/node_modules
+      pnpm install --frozen-lockfile --prefer-offline
+    )
 
-    : "${PORT:=$APP_PORT}"
+    pnpm prisma:generate
 
-    pnpm prisma:generate || {
-      echo "❌ prisma:generate failed"
-      exit 1
-    }
-
-    exec pnpm dev --port "$PORT"
-  '
+    exec pnpm dev --port \"\$PORT\" --hostname 0.0.0.0
+  "
 # --- End of dev.sh ---

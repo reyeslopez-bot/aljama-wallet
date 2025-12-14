@@ -1,0 +1,9 @@
+packages:
+  - "."
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - "@prisma/engines"
+  - bufferutil
+  - utf-8-validate
+  - keccak
