@@ -65,6 +65,9 @@ importers:
       zustand:
         specifier: ^5.0.9
         version: 5.0.9(@types/react@19.2.7)(react@19.2.1)(use-sync-external-store@1.4.0(react@19.2.1))
+      zod:
+        specifier: ^4.1.13
+        version: 4.1.13
     devDependencies:
       '@eslint/js':
         specifier: 9.39.1
