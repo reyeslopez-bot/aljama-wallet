@@ -5,10 +5,16 @@ container_name := env_var_or_default("CONTAINER_NAME","nextjs-container")
 app_port       := env_var_or_default("APP_PORT","2998")
 
 dev port='2998':
-	-APP_PORT={{port}} ./dev.sh
+	APP_PORT={{port}} ./dev.sh --detach --logs
 
 rebuild port='2998':
-	-APP_PORT={{port}} ./dev.sh --rebuild
+	APP_PORT={{port}} ./dev.sh --rebuild --detach --logs
+
+up port='2998':
+	APP_PORT={{port}} ./dev.sh --detach
+
+shell:
+	if command -v podman >/dev/null 2>&1; then podman exec -it "{{container_name}}" bash; else docker exec -it "{{container_name}}" bash; fi
 
 # 🧼 Nuke dev container + image + pnpm cache + hash
 clean:
