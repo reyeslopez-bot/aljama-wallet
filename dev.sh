@@ -13,7 +13,7 @@ FORCE_CLEAN="${FORCE_CLEAN:-false}"
 RUNTIME="${CONTAINER_RUNTIME:-}" # podman|docker (auto if empty)
 
 PNPM_STORE_VOL="${PNPM_STORE_VOL:-aljama_pnpm_store}"
-PNPM_VERSION="${PNPM_VERSION:-10.25.0}"
+PNPM_VERSION="${PNPM_VERSION:-10.26.1}"
 
 # hash inputs (deps + container wiring)
 DEPS_HASH_FILES=("package.json" "pnpm-lock.yaml" "pnpm-workspace.yaml" ".devcontainer/Containerfile")
@@ -64,7 +64,7 @@ Usage:
            [--port N] [--runtime podman|docker]
 Env:
   PNPM_STORE_VOL=aljama_pnpm_store
-  PNPM_VERSION=10.25.0
+  PNPM_VERSION=10.26.1
 
 Notes:
   Default is --detach, so you can exec into the container:
