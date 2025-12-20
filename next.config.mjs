@@ -1,3 +1,8 @@
+// next.config.mjs
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config, { isServer }) => {
@@ -5,13 +10,11 @@ const nextConfig = {
       config.resolve.alias = {
         ...(config.resolve.alias || {}),
 
-        // Force pino to its browser implementation.
+        // Force pino to browser build.
         pino: require.resolve("pino/browser"),
 
-        // Hard-block node-only dependency used by pino transports.
+        // Block node-only deps from entering client graph.
         "thread-stream": false,
-
-        // If Next traverses tests anyway, block these dev test runners.
         tap: false,
         tape: false,
       };
@@ -20,5 +23,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
 export default nextConfig;
