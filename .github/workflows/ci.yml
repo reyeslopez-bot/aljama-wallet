@@ -27,12 +27,12 @@ jobs:
         with:
           node-version: '24'
           # ❌ no `cache: pnpm` here
+    
+      - name: Enable corepack
+        run: corepack enable
 
-      - name: Enable corepack + pnpm 10.24.0
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.24.0 --activate
-          pnpm -v
+      - name: Verify pnpm
+        run: pnpm -v
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -53,7 +53,7 @@ jobs:
         env:
           XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
           XRPL_DEV_SEED: sn3nxiW7v8KXzPzAqzyHXbSSKNuN9
-        run: pnpm build
+        run: pnpm build -- --webpack
 
       - name: Check outdated dependencies
         run: pnpm outdated --depth 0 || true
