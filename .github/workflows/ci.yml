@@ -53,7 +53,7 @@ jobs:
         env:
           XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
           XRPL_DEV_SEED: sn3nxiW7v8KXzPzAqzyHXbSSKNuN9
-        run: pnpm build -- --webpack
+        run: pnpm build
 
       - name: Check outdated dependencies
         run: pnpm outdated --depth 0 || true
