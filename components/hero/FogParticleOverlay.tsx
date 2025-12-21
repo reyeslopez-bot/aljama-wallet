@@ -1,7 +1,5 @@
 'use client'
 
-import React from 'react'
-
 const fogLayers = [
   {
     className: 'top-[-10%] left-[-10%] h-[36rem] w-[36rem] bg-[radial-gradient(circle_at_30%_30%,rgba(233,180,133,0.24),transparent_55%)]',

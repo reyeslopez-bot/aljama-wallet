@@ -1,5 +1,6 @@
 'use client'
 
+import { formatUnits } from 'viem'
 import { useAccount, useBalance } from 'wagmi'
 import { mainnet, sepolia, polygon, base } from 'viem/chains'
 
@@ -53,11 +54,13 @@ function ChainBalance({
 
   if (isLoading) return <li>{chainName}: Loading…</li>
   if (isError) return <li>{chainName}: Error loading balance</li>
-  if (!data?.formatted) return <li>{chainName}: No balance</li>
+  if (!data) return <li>{chainName}: No balance</li>
+
+  const formatted = `${formatUnits(data.value, data.decimals)} ${data.symbol}`
 
   return (
     <li>
-      {chainName}: {data.formatted.slice(0, 10)} {data.symbol}
+      {chainName}: {formatted}
     </li>
   )
 }

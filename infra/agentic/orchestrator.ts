@@ -4,8 +4,19 @@ import {
   identityContextSchema,
   isoDateTimeSchema,
   requestHashSchema,
-} from './base';
+} from './base'
 
+// ✅ ADD THIS BLOCK HERE
+const jsonValue: z.ZodType<unknown> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonValue),
+    z.record(z.string(), jsonValue),
+  ])
+)
 export const planStepSchema = z.object({
   stepId: z.string(),
   targetTool: z.string(),
@@ -29,7 +40,7 @@ export const actionIntentSchema = z.object({
   planStepId: z.string(),
   toolName: z.string(),
   toolVersion: z.string(),
-  input: z.record(z.any()),
+  input: z.record(z.string(), z.unknown()),
   idempotencyKey: z.string().uuid().optional(),
   requiresWrite: z.boolean().default(false),
 });

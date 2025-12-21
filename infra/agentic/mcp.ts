@@ -49,14 +49,14 @@ export const mcpToolCallSchema = z.object({
     z.literal('readContext'),
   ]),
   schemaVersion: z.string(),
-  input: z.record(z.any()),
+  input: z.record(z.string(), z.any()),
 });
 
 export const mcpToolResultSchema = z.object({
   correlationId: correlationIdSchema,
   serverName: contextServerSchema.shape.name,
   tool: mcpToolCallSchema.shape.tool,
-  output: z.record(z.any()),
+  output: z.record(z.string(), z.any()),
   emittedAt: isoDateTimeSchema,
 });
 

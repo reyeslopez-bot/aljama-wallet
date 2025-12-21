@@ -182,3 +182,4 @@ export default function UnlockWalletPage() {
     </div>
   )
 }
+export const dynamic = 'force-dynamic'

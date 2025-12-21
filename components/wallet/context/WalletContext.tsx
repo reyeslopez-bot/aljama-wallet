@@ -23,7 +23,10 @@ type WalletState = {
   wallet: Wallet | null
   encryptedPayload: string | null
   persistEncryptedPayload: (payload: string) => void
-  unlockWithPassword: (password: string, encryptedOverride?: string) => Promise<Wallet | null>
+  unlockWithPassword: (
+    password: string,
+    encryptedOverride?: string
+  ) => Promise<Wallet | null>
   clearWallet: () => void
 }
 
@@ -43,11 +46,37 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [encryptedPayload, setEncryptedPayload] = useState<string | null>(null)
 
+  // Declare callbacks BEFORE any hook that references them
+  const unlockWithPassword = useCallback(
+    async (
+      password: string,
+      encryptedOverride?: string
+    ): Promise<Wallet | null> => {
+      const payload = encryptedOverride ?? encryptedPayload
+      if (!payload) return null
+
+      const unlocked = await unlockWallet({ encrypted: payload, password })
+      const hydrated = new Wallet(unlocked.privateKey)
+      setWallet(hydrated)
+      return hydrated
+    },
+    [encryptedPayload]
+  )
+
+  const persistEncryptedPayload = useCallback((payload: string) => {
+    persistEncryptedSession(payload)
+    setEncryptedPayload(payload)
+  }, [])
+
+  const clearWallet = useCallback(() => {
+    clearEncryptedSession()
+    setEncryptedPayload(null)
+    setWallet(null)
+  }, [])
+
   useEffect(() => {
     const stored = loadEncryptedSession()
-    if (stored) {
-      setEncryptedPayload(stored)
-    }
+    if (stored) setEncryptedPayload(stored)
   }, [])
 
   useEffect(() => {
@@ -59,33 +88,6 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
     void unlockWithPassword(password)
   }, [encryptedPayload, wallet, unlockWithPassword])
 
-  const persistEncryptedPayload = useCallback((payload: string) => {
-    persistEncryptedSession(payload)
-    setEncryptedPayload(payload)
-  }, [])
-
-  const unlockWithPassword = useCallback(
-    async (
-      password: string,
-      encryptedOverride?: string,
-    ): Promise<Wallet | null> => {
-      const payload = encryptedOverride ?? encryptedPayload
-      if (!payload) return null
-
-      const unlocked = await unlockWallet({ encrypted: payload, password })
-      const hydrated = new Wallet(unlocked.privateKey)
-      setWallet(hydrated)
-      return hydrated
-    },
-    [encryptedPayload],
-  )
-
-  const clearWallet = useCallback(() => {
-    clearEncryptedSession()
-    setEncryptedPayload(null)
-    setWallet(null)
-  }, [])
-
   const value = useMemo(
     () => ({
       wallet,
@@ -94,7 +96,7 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
       unlockWithPassword,
       clearWallet,
     }),
-    [wallet, encryptedPayload, persistEncryptedPayload, unlockWithPassword, clearWallet],
+    [wallet, encryptedPayload, persistEncryptedPayload, unlockWithPassword, clearWallet]
   )
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>

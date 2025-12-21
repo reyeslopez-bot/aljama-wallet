@@ -1,6 +1,5 @@
 'use client'; // This ensures the component is interactive in Next.js (App Router)
 
-import React from 'react';
 import Link from 'next/link';
 
 export default function Header() {

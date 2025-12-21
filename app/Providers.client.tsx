@@ -3,57 +3,57 @@
 import '@rainbow-me/rainbowkit/styles.css'
 
 import type { ReactNode } from 'react'
-import { useEffect, useMemo, useState } from 'react'
-import { WagmiProvider, http } from 'wagmi'
-import type { Config } from 'wagmi'
+import { useMemo, useState } from 'react'
+import { WagmiProvider, createConfig, http } from 'wagmi'
 import { mainnet, sepolia } from 'wagmi/chains'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { RainbowKitProvider } from '@rainbow-me/rainbowkit'
+import { RainbowKitProvider, connectorsForWallets } from '@rainbow-me/rainbowkit'
+import {
+  metaMaskWallet,
+  coinbaseWallet,
+  walletConnectWallet,
+} from '@rainbow-me/rainbowkit/wallets'
 
-import { createConfig } from 'wagmi'
-import { injected, coinbaseWallet } from 'wagmi/connectors'
+function makeConfig() {
+  const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? ''
+  // keep build deterministic; don't console.warn during build
+  const wcProjectId = projectId || '00000000000000000000000000000000'
 
-function makeSafeConfig(): Config {
+  const connectors = connectorsForWallets(
+    [
+      {
+        groupName: 'Wallets',
+        wallets: [
+          metaMaskWallet,
+          coinbaseWallet,
+          walletConnectWallet,
+        ],
+      },
+    ],
+    {
+      appName: 'Aljama Wallet',
+      projectId: wcProjectId,
+    }
+  )
+
   return createConfig({
     chains: [mainnet, sepolia],
     transports: {
       [mainnet.id]: http(),
       [sepolia.id]: http(),
     },
-    connectors: [injected(), coinbaseWallet({ appName: 'Aljama Wallet' })],
+
+    // Use RainbowKit connectors OR wagmi connectors, not both.
+    // Choose RainbowKit connectors so the modal matches.
+    connectors,
+
     ssr: true,
-  }) as unknown as Config
+  })
 }
 
 export default function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient())
-  const safeConfig = useMemo(() => makeSafeConfig(), [])
-  const [config, setConfig] = useState<Config>(() => safeConfig)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      const { getDefaultConfig } = await import('@rainbow-me/rainbowkit')
-
-      const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? ''
-      if (!projectId) console.warn('Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID')
-
-      const fullConfig = getDefaultConfig({
-        appName: 'Aljama Wallet',
-        projectId,
-        chains: [mainnet, sepolia],
-        transports: {
-          [mainnet.id]: http(),
-          [sepolia.id]: http(),
-        },
-      })
-
-      if (!cancelled) setConfig(fullConfig as unknown as Config)
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const config = useMemo(() => makeConfig(), [])
 
   return (
     <WagmiProvider config={config}>

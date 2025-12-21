@@ -2,6 +2,7 @@
 'use client'
 
 import { useAccount, useBalance } from 'wagmi'
+import { formatUnits } from 'viem'
 import { mainnet, sepolia, polygon, base } from 'viem/chains'
 
 const supportedChains = [mainnet, sepolia, polygon, base]
@@ -31,11 +32,7 @@ export default function BalanceDisplay({ className = '' }: Props) {
 
       <ul className="space-y-1 text-sm text-[#f5f0e6]">
         {supportedChains.map((c) => (
-          <ChainBalance
-            key={c.id}
-            chainId={c.id}
-            address={address}
-          />
+          <ChainBalance key={c.id} chainId={c.id} address={address} />
         ))}
       </ul>
     </div>
@@ -49,20 +46,26 @@ function ChainBalance({
   chainId: number
   address: `0x${string}`
 }) {
-  const { data, isLoading, isError } = useBalance({
-    address,
-    chainId,
-  })
+  const { data, isLoading, isError } = useBalance({ address, chainId })
 
-  const chainName = supportedChains.find((c) => c.id === chainId)?.name ?? `Chain ${chainId}`
+  const chainName =
+    supportedChains.find((c) => c.id === chainId)?.name ?? `Chain ${chainId}`
 
   if (isLoading) return <li>{chainName}: Loading…</li>
   if (isError) return <li>{chainName}: Error loading balance</li>
-  if (!data?.formatted) return <li>{chainName}: No balance</li>
+  if (!data) return <li>{chainName}: No balance</li>
+
+  // wagmi v3: data = { value: bigint; decimals: number; symbol: string; ... }
+  const raw = formatUnits(data.value, data.decimals)
+
+  // keep it cheap: show up to 6 fractional digits, no float conversion
+  const [intPart, fracPart = ''] = raw.split('.')
+  const short =
+    fracPart.length > 0 ? `${intPart}.${fracPart.slice(0, 6)}` : intPart
 
   return (
     <li>
-      {chainName}: {data.formatted.slice(0, 10)} {data.symbol}
+      {chainName}: {short} {data.symbol}
     </li>
   )
 }
