@@ -1,4 +1,5 @@
 node_modules
+.pnpm-store
 .devcontainer
 .git
 .gitignore
@@ -9,7 +10,6 @@ Containerfile
 .DS_Store
 *.env
 .next
-.pnpm-store
 coverage
 dist
 tmp
