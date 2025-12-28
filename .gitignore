@@ -9,6 +9,10 @@ pnpm-debug.log*
 .pnpm-store/
 .cache/
 .local/
+.npm/
+
+# Shell history
+.bash_history
 
 # VS Code devcontainer state
 .devcontainer/.last-deps-hash
@@ -40,23 +44,3 @@ Thumbs.db
 .idea/
 *.sublime-project
 *.sublime-workspace
-
-.bash_historynode_modules
-.bash_history
-.cache/
-.npm/
-.local/
-.config/
-node_modules/
-.bash_history
-.cache/
-.npm/
-.local/
-.config/
-node_modules/
-.bash_history
-.cache/
-.npm/
-.local/
-.config/
-node_modules/
