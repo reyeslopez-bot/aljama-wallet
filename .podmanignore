@@ -23,3 +23,6 @@ Thumbs.db
 # Node junk
 node_modules
 
+.pnpm-store
+coverage
+tmp

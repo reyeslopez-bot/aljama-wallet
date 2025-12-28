@@ -41,4 +41,22 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 
+.bash_historynode_modules
 .bash_history
+.cache/
+.npm/
+.local/
+.config/
+node_modules/
+.bash_history
+.cache/
+.npm/
+.local/
+.config/
+node_modules/
+.bash_history
+.cache/
+.npm/
+.local/
+.config/
+node_modules/

@@ -9,3 +9,7 @@ Containerfile
 .DS_Store
 *.env
 .next
+.pnpm-store
+coverage
+dist
+tmp
