@@ -1,5 +1,6 @@
 'use client'
 
+import { BRAND } from '@/constants/brand'
 import '@rainbow-me/rainbowkit/styles.css'
 
 import type { ReactNode } from 'react'
@@ -31,7 +32,7 @@ function makeConfig() {
       },
     ],
     {
-      appName: 'Aljama Wallet',
+      appName: BRAND.name,
       projectId: wcProjectId,
     }
   )

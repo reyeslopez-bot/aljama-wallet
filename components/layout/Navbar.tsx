@@ -2,6 +2,7 @@
 'use client'
 
 import WalletButton from '@/components/wallet/ui/WalletButton'
+import { BRAND } from '@/constants/brand'
 
 export default function Navbar() {
   return (
@@ -19,7 +20,7 @@ export default function Navbar() {
       "
     >
       <div className="text-xl font-semibold tracking-wide">
-        Aljama Wallet
+        {BRAND.name}
       </div>
 
       <WalletButton />

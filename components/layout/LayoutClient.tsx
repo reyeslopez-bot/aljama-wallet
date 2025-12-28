@@ -1,3 +1,4 @@
+// components/layout/LayoutClient.tsx
 'use client'
 
 import Navbar from './Navbar'
