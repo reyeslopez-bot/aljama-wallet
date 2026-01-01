@@ -37,7 +37,7 @@ Aljama Wallet aims to deliver a seamless, culturally resonant wallet experience 
 * **Secure storage** of encrypted keys in local encrypted storage.
 * **Network switching** between Ethereum Mainnet, Testnets, and custom RPCs.
 * **Transaction history** display and simple on-chain interactions.
-* **Themed UI** components (cards, buttons) aligned with Aladin-inspired typography.
+* **Themed UI** components (cards, buttons) aligned with Aladdin-inspired typography.
 
 ## Tech Stack & Architecture
 
