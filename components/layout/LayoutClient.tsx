@@ -8,16 +8,7 @@ export default function LayoutClient({ children }: { children: ReactNode }) {
   return (
     <>
       {/* background layer */}
-      <div className="fixed inset-0 z-0 overflow-hidden">
-        <div
-          className="
-            absolute inset-0
-            bg-repeat-x bg-center bg-cover
-            animate-slide-dunes
-          "
-        />
-        <div className="absolute inset-0 bg-black/60" /> {/* darken dunes a bit */}
-      </div>
+      <div className="fixed inset-0 z-0 bg-black/60" aria-hidden="true" />
 
       <Navbar />
 
