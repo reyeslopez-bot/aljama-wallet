@@ -148,7 +148,8 @@ pnpm format    # Prettier
 ├─ services/            # Placeholder service layer (wallet summaries)
 ├─ tests/               # Playwright e2e tests and helpers
 ├─ dev.sh / prod.sh     # Root-level containerized dev/prod runners
-├─ .devcontainer/Containerfile # Multi-stage image for dev & prod workflows
+├─ justfile             # Just recipes for dev/prod/logs
+├─ .devcontainer/       # Devcontainer configuration for editors
 ├─ .github/workflows/   # CI definitions
 └─ README.md            # This file
 ```
@@ -191,4 +192,3 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 * Inspired by desert landscapes and traditional Middle Eastern patterns.
 * Thanks to the WAGMI and Next.js communities for open-source support.
-
