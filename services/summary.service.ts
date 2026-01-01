@@ -1,1 +1,1 @@
-export async function getDailySummaries() { return []; }
+export { getDailySummaries } from '@/infra/utils/summary.service'
