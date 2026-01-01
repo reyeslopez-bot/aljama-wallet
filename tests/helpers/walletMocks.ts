@@ -82,3 +82,16 @@ export const mockEncryptedWallet = (password: string) =>
     }),
     'utf-8',
   ).toString('base64')
+
+export const mockEncryptedWalletMissingMaterial = (
+  missingField: 'privateKey' | 'address',
+) =>
+  Buffer.from(
+    JSON.stringify({
+      ...(missingField === 'address' ? {} : { address: mockAccounts.primary.address }),
+      ...(missingField === 'privateKey'
+        ? {}
+        : { privateKey: mockAccounts.primary.privateKey }),
+    }),
+    'utf-8',
+  ).toString('base64')

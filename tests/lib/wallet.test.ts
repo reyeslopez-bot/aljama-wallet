@@ -1,7 +1,11 @@
 // tests/lib/wallet.test.ts
 import { describe, it, expect } from 'vitest'
 import { unlockWallet } from '@/lib/wallet'
-import { mockEncryptedWallet, mockAccounts } from '@/tests/helpers/walletMocks'
+import {
+  mockEncryptedWallet,
+  mockEncryptedWalletMissingMaterial,
+  mockAccounts,
+} from '@/tests/helpers/walletMocks'
 
 describe('unlockWallet', () => {
   it('returns expected wallet for correct password', async () => {
@@ -27,4 +31,15 @@ describe('unlockWallet', () => {
       unlockWallet({ encrypted: 'not-base64', password: 'x' }),
     ).rejects.toThrow(/Malformed encrypted wallet payload/)
   })
+
+  it.each(['privateKey', 'address'] as const)(
+    'throws when %s is missing',
+    async (missingField) => {
+      const encrypted = mockEncryptedWalletMissingMaterial(missingField)
+
+      await expect(
+        unlockWallet({ encrypted, password: 'anything' }),
+      ).rejects.toThrow(/Encrypted payload missing wallet material/)
+    },
+  )
 })
