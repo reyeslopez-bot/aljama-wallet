@@ -11,12 +11,45 @@ export type UnlockedWallet = {
   privateKey: string
 }
 
-function decodeBase64(input: string): string {
-  if (typeof atob === 'function') {
-    return atob(input)
+const BASE64_PATTERN =
+  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+
+function isStrictBase64(input: string): boolean {
+  const normalized = input.trim()
+
+  if (!normalized || normalized.length % 4 !== 0 || !BASE64_PATTERN.test(normalized)) {
+    return false
   }
-  // Node/SSR fallback
-  return Buffer.from(input, 'base64').toString('utf-8')
+
+  try {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(normalized, 'base64').toString('base64') === normalized
+    }
+
+    if (typeof atob === 'function' && typeof btoa === 'function') {
+      return btoa(atob(normalized)) === normalized
+    }
+  } catch {
+    return false
+  }
+
+  return false
+}
+
+function decodeBase64(input: string): string {
+  if (!isStrictBase64(input)) {
+    throw new Error('Malformed encrypted wallet payload')
+  }
+
+  try {
+    if (typeof atob === 'function') {
+      return atob(input.trim())
+    }
+    // Node/SSR fallback
+    return Buffer.from(input.trim(), 'base64').toString('utf-8')
+  } catch {
+    throw new Error('Malformed encrypted wallet payload')
+  }
 }
 
 function encodeBase64(input: string): string {
