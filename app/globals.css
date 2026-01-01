@@ -53,39 +53,6 @@
 }
 
 /* =========================================================
-   LUXURY SURFACE SYSTEM (CARDS / PANELS)
-   ========================================================= */
-
-@layer components {
-  .lux-card {
-    border-radius: 2rem;
-    border-width: 1px;
-    border-style: solid;
-    border-color: rgba(255, 255, 255, 0.1);
-    background-color: rgba(10, 10, 10, 0.7);
-    box-shadow: 0 40px 120px rgba(0, 0, 0, 0.9);
-  }
-
-  .lux-card-inner {
-    padding: 2.5rem; /* ~ p-10 */
-  }
-
-  .lux-gold {
-    color: rgb(var(--brass));
-  }
-
-  .lux-divider {
-    height: 1px;
-    background: linear-gradient(
-      to right,
-      transparent,
-      rgb(var(--brass)),
-      transparent
-    );
-  }
-}
-
-/* =========================================================
    TEXT POLISH
    ========================================================= */
 
