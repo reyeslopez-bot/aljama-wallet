@@ -2,8 +2,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  // from prisma/pg → prisma/generated/pg
-  output   = "../generated/pg"
+  output   = "../../infra/db/generated/pg"
 }
 
 datasource db {

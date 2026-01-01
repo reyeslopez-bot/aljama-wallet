@@ -2,7 +2,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma-crdb"
+  output   = "../../infra/db/generated/crdb"
 }
 
 datasource db {

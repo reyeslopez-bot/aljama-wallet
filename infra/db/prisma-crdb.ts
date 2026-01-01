@@ -1,12 +1,25 @@
-import { PrismaClient } from '../../prisma/generated/prisma-crdb'
+import { PrismaClient } from '@/prisma/generated/prisma-crdb'
 
 declare global {
-  var prismaCrdb: PrismaClient | undefined
+  // eslint-disable-next-line no-redeclare
+  var __prismaCrdb: PrismaClient | undefined
 }
 
-export const prismaCrdb: PrismaClient =
-  globalThis.prismaCrdb ?? new PrismaClient()
+function makePrismaCrdb() {
+  const url =
+    process.env.CRDB_DATABASE_URL ??
+    process.env.DATABASE_URL_CRDB ??
+    process.env.DATABASE_URL
 
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.prismaCrdb = prismaCrdb
+  if (!url) {
+    throw new Error('Missing CRDB_DATABASE_URL (or DATABASE_URL_CRDB / DATABASE_URL)')
+  }
+
+  return new PrismaClient({
+    datasources: { db: { url } },
+  })
+}
+
+export function prismaCrdb() {
+  return (globalThis.__prismaCrdb ??= makePrismaCrdb())
 }
