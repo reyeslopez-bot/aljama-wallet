@@ -1,9 +1,11 @@
 // prisma/pg/schema.prisma
 
+// prisma/pg/schema.prisma
 generator client {
   provider = "prisma-client-js"
-  output   = "../../infra/db/generated/pg"
+  output   = "../generated/pg"
 }
+
 
 datasource db {
   provider = "postgresql"

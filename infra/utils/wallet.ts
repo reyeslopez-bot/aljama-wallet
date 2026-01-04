@@ -1,11 +1,17 @@
-// lib/wallet.ts (example)
-export async function unlockWallet(password: string): Promise<void> {
-    // decrypt stored encrypted JSON, or call wagmi connector, etc.
-    const stored = localStorage.getItem('encryptedKey')
-    if (!stored) throw new Error('No wallet to unlock')
-    // decrypt (this is just illustrative)
-    const { privateKey } = JSON.parse(atob(stored))
-    if (password !== privateKey) throw new Error('Wrong password')
-    // now initialize your signer/provider with the privateKey…
+// infra/utils/wallet.ts
+const isBrowser = () => typeof window !== "undefined"
+
+export function loadEncryptedKey(): string | null {
+  if (!isBrowser()) return null
+  return localStorage.getItem("encryptedKey")
 }
 
+export function persistEncryptedKey(v: string) {
+  if (!isBrowser()) return
+  localStorage.setItem("encryptedKey", v)
+}
+
+export function clearEncryptedKey() {
+  if (!isBrowser()) return
+  localStorage.removeItem("encryptedKey")
+}

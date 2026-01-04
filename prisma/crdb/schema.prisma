@@ -2,32 +2,31 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../../infra/db/generated/crdb"
+  output   = "../generated/prisma-crdb"
 }
 
 datasource db {
   provider = "postgresql"
-  // URL is configured in prisma/crdb/prisma.config.ts
 }
 
 model Wallet {
-  id         String    @id @default(cuid())
-  address    String    @unique
-  privateKey String    // Encrypt in prod
-  createdAt  DateTime  @default(now())
+  id         String   @id @default(cuid())
+  address    String   @unique
+  privateKey String
+  createdAt  DateTime @default(now())
 
   transactionsSent     Transaction[] @relation("FromWallet")
   transactionsReceived Transaction[] @relation("ToWallet")
 }
 
 model Transaction {
-  id            String   @id @default(cuid())
-  fromWallet    Wallet   @relation("FromWallet", fields: [fromWalletId], references: [id])
-  fromWalletId  String
-  toWallet      Wallet   @relation("ToWallet", fields: [toWalletId], references: [id])
-  toWalletId    String
-  value         Float
-  asset         String
-  blockchain    String
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  fromWallet   Wallet   @relation("FromWallet", fields: [fromWalletId], references: [id])
+  fromWalletId String
+  toWallet     Wallet   @relation("ToWallet", fields: [toWalletId], references: [id])
+  toWalletId   String
+  value        Float
+  asset        String
+  blockchain   String
+  createdAt    DateTime @default(now())
 }

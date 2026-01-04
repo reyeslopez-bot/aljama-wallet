@@ -1,6 +1,6 @@
-import { prismaCrdb } from '@/lib/prisma-crdb'
+// components/wallet/services/wallet.service.ts
+import { prismaCrdb } from "@/lib/prisma-crdb"
 
 export const getWallets = async () => {
-    return await prismaCrdb.wallet.findMany()
+  return prismaCrdb().wallet.findMany()
 }
-
