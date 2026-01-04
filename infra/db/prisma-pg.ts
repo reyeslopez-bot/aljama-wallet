@@ -2,7 +2,6 @@ import { PrismaClient } from '@/prisma/generated/pg'
 
 declare global {
   // TS global, not eslint "var"
-  // eslint-disable-next-line no-redeclare
   var __prismaPg: PrismaClient | undefined
 }
 

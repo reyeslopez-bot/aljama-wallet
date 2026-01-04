@@ -1,7 +1,6 @@
 import { PrismaClient } from '@/prisma/generated/prisma-crdb'
 
 declare global {
-  // eslint-disable-next-line no-redeclare
   var __prismaCrdb: PrismaClient | undefined
 }
 
