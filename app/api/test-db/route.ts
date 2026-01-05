@@ -6,7 +6,11 @@ import { getDailySummaries } from '@/infra/utils/summary.service'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  if (process.env.CI === 'true' || process.env.NODE_ENV === 'production') {
+// app/api/test-db/route.ts
+if (
+    process.env.NODE_ENV === 'production' ||
+    (process.env.CI === 'true' && process.env.ENABLE_TEST_DB_ROUTE !== 'true')
+  ) {
     return NextResponse.json({ ok: false, reason: 'disabled' }, { status: 404 })
   }
 

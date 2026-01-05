@@ -12,6 +12,9 @@ describe('app/api/test-db route', () => {
     originalEnv = process.env[enableEnvKey]
     vi.resetModules()
     vi.clearAllMocks()
+    vi.stubEnv('CI', 'true')
+    vi.stubEnv('ENABLE_TEST_DB_ROUTE', 'true')
+
   })
 
   afterEach(() => {
