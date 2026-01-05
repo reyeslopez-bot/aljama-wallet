@@ -27,6 +27,7 @@ prisma/cockroach-*
 cockroach-*/
 prisma/generated/
 generated/
+.prisma/
 
 # Env and secrets
 .env*

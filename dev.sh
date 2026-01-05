@@ -1,6 +1,6 @@
+# dev.sh
 #!/usr/bin/env bash
 set -euo pipefail
-
 # Aljama Wallet Development Runner (Podman/Docker)
 
 IMAGE_NAME="${IMAGE_NAME:-nextjs-dev}"
@@ -13,7 +13,9 @@ FORCE_CLEAN="${FORCE_CLEAN:-false}"
 RUNTIME="${CONTAINER_RUNTIME:-}" # podman|docker (auto if empty)
 
 PNPM_STORE_VOL="${PNPM_STORE_VOL:-aljama_pnpm_store}"
-PNPM_VERSION="${PNPM_VERSION:-10.26.1}"
+NODE_MODULES_VOL="${NODE_MODULES_VOL:-aljama_node_modules}"
+PNPM_VERSION="${PNPM_VERSION:-10.27.0}"
+echo "pnpm version pin: ${PNPM_VERSION:-unset}"
 
 # hash inputs (deps + container wiring)
 DEPS_HASH_FILES=("package.json" "pnpm-lock.yaml" "pnpm-workspace.yaml" ".devcontainer/Containerfile")
@@ -64,7 +66,7 @@ Usage:
            [--port N] [--runtime podman|docker]
 Env:
   PNPM_STORE_VOL=aljama_pnpm_store
-  PNPM_VERSION=10.26.1
+  PNPM_VERSION=10.27.0
 
 Notes:
   Default is --detach, so you can exec into the container:
@@ -140,6 +142,7 @@ if [ "$FORCE_CLEAN" = true ]; then
   "$RUNTIME" rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
   "$RUNTIME" rmi -f "$IMAGE_NAME" >/dev/null 2>&1 || true
   "$RUNTIME" volume rm -f "$PNPM_STORE_VOL" >/dev/null 2>&1 || true
+  "$RUNTIME" volume rm -f "$NODE_MODULES_VOL" >/dev/null 2>&1 || true
   rm -f "$DEP_HASH_FILE" >/dev/null 2>&1 || true
 fi
 
@@ -177,7 +180,10 @@ fi
 # --- If container already running, reuse it ---
 if "$RUNTIME" ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
   echo "Container already running: $CONTAINER_NAME"
-  if [ "$TAIL_LOGS" = true ]; then exec "$RUNTIME" logs -f "$CONTAINER_NAME"; fi
+if [ "$TAIL_LOGS" = true ]; then
+  exec "$RUNTIME" logs -f --tail=200 "$CONTAINER_NAME"
+  # or: exec "$RUNTIME" logs -f --since=10s "$CONTAINER_NAME"
+fi
   if [ "$SHELL_ONLY" = true ]; then exec "$RUNTIME" exec -it "$CONTAINER_NAME" bash; fi
   echo "App: $APP_URL"
   exit 0
@@ -193,35 +199,50 @@ if [ "$DETACH" = true ]; then RUN_MODE_ARGS+=(-d); else RUN_MODE_ARGS+=(-it); fi
   --name "$CONTAINER_NAME" \
   -p "$APP_PORT:$APP_PORT" \
   -e PORT="$APP_PORT" \
+  -e PNPM_VERSION="$PNPM_VERSION" \
   -e COREPACK_ENABLE_STRICT=1 \
   -e PNPM_STORE_DIR="/workspace/.pnpm-store" \
   -v "$WORKDIR_MOUNT" \
   --volume "${PNPM_STORE_VOL}:/workspace/.pnpm-store" \
+  --volume "${NODE_MODULES_VOL}:/workspace/node_modules" \
   "${RUN_EXTRA_ARGS[@]}" \
   "$IMAGE_NAME" \
-  bash -lc "set -euo pipefail
-    corepack enable >/dev/null 2>&1 || true
-    corepack prepare pnpm@${PNPM_VERSION} --activate >/dev/null 2>&1 || true
+bash -lc "$(cat <<'BASH'
+set -euo pipefail
 
-    pnpm config set store-dir /workspace/.pnpm-store
+corepack enable >/dev/null 2>&1 || true
+corepack prepare "pnpm@${PNPM_VERSION}" --activate >/dev/null 2>&1 || true
 
-    # Make node_modules writable for current user mapping (prevents EACCES).
-    mkdir -p /workspace/node_modules /workspace/.pnpm-store
-    chmod -R u+rwX /workspace/node_modules /workspace/.pnpm-store || true
+pnpm config set store-dir /workspace/.pnpm-store
 
-    # Install deps. If a prior root-owned node_modules exists, wipe once and retry.
-    pnpm install --frozen-lockfile --prefer-offline || (
-      echo 'pnpm install failed; wiping /workspace/node_modules once and retrying'
-      rm -rf /workspace/node_modules
-      mkdir -p /workspace/node_modules
-      pnpm install --frozen-lockfile --prefer-offline
-    )
+mkdir -p /workspace/.pnpm-store
+chmod u+rwX /workspace /workspace/node_modules /workspace/.pnpm-store 2>/dev/null || true
 
-    pnpm prisma:generate
+CI=true PNPM_CONFIRM_DELETE=1 pnpm install --frozen-lockfile --prefer-offline || (
+  echo 'pnpm install failed; wiping /workspace/node_modules once and retrying'
+  rm -rf /workspace/node_modules
+  CI=true PNPM_CONFIRM_DELETE=1 pnpm install --frozen-lockfile --prefer-offline
+)
 
-    exec pnpm dev --port \"\$PORT\" --hostname 0.0.0.0
-  "
+PRISMA_HASH_FILE="/workspace/.prisma/.last-schema-hash"
+mkdir -p /workspace/.prisma
 
+CURRENT_PRISMA_HASH="$(sha256sum prisma/crdb/schema.prisma prisma/pg/schema.prisma 2>/dev/null | sha256sum | cut -d' ' -f1)"
+LAST_PRISMA_HASH="$(cat "$PRISMA_HASH_FILE" 2>/dev/null || echo '')"
+
+if [ "$CURRENT_PRISMA_HASH" != "$LAST_PRISMA_HASH" ]; then
+  echo 'Prisma schema changed — generating clients'
+  pnpm prisma:generate
+  echo "$CURRENT_PRISMA_HASH" > "$PRISMA_HASH_FILE"
+else
+  echo 'Prisma schema unchanged — skipping generate'
+fi
+
+exec pnpm dev --port "$PORT" --hostname 0.0.0.0
+BASH
+)"
+
+# --- Post-run actions ---
 if [ "$TAIL_LOGS" = true ]; then
   exec "$RUNTIME" logs -f "$CONTAINER_NAME"
 fi
