@@ -1,42 +1,37 @@
-import { vi, describe, expect, it, beforeEach, afterEach } from 'vitest'
+// tests/app/api/test-db/route.test.ts
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 type WalletMock = { id: string }
 type SummaryMock = { date: string }
 
-const enableEnvKey = 'ENABLE_TEST_DB_ROUTE'
-
 describe('app/api/test-db route', () => {
-  let originalEnv: string | undefined
-
   beforeEach(() => {
-    originalEnv = process.env[enableEnvKey]
     vi.resetModules()
     vi.clearAllMocks()
-    vi.stubEnv('CI', 'true')
-    vi.stubEnv('ENABLE_TEST_DB_ROUTE', 'true')
 
+    // Route disables in CI=true or NODE_ENV=production.
+    // Force the enabled branch in tests.
+    vi.stubEnv('CI', 'false')
+    vi.stubEnv('NODE_ENV', 'test')
+
+    vi.mock('@/services/wallet.service', () => ({
+      getWallets: vi.fn<() => Promise<WalletMock[]>>().mockResolvedValue([{ id: 'wallet-1' }]),
+    }))
+
+    // MUST match the import path in route.ts
+    vi.mock('@/infra/utils/summary.service', () => ({
+      getDailySummaries: vi
+        .fn<() => Promise<SummaryMock[]>>()
+        .mockResolvedValue([{ date: '2024-01-01' }]),
+    }))
   })
 
   afterEach(() => {
-    if (originalEnv === undefined) delete process.env[enableEnvKey]
-    else process.env[enableEnvKey] = originalEnv
+    vi.unstubAllEnvs()
   })
 
   it('returns wallets and summaries when enabled', async () => {
-    process.env[enableEnvKey] = 'true'
-
-    vi.mock('@/services/wallet.service', () => ({
-      getWallets: vi.fn<() => Promise<WalletMock[]>>()
-        .mockResolvedValue([{ id: 'wallet-1' }]),
-    }))
-
-    vi.mock('@/services/summary.service', () => ({
-      getDailySummaries: vi.fn<() => Promise<SummaryMock[]>>()
-        .mockResolvedValue([{ date: '2024-01-01' }]),
-    }))
-
     const { GET } = await import('@/app/api/test-db/route')
-
     const res = await GET()
     expect(await res.json()).toEqual({
       wallets: [{ id: 'wallet-1' }],
