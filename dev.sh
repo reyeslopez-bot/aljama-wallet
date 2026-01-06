@@ -218,10 +218,18 @@ pnpm config set store-dir /workspace/.pnpm-store
 mkdir -p /workspace/.pnpm-store
 chmod u+rwX /workspace /workspace/node_modules /workspace/.pnpm-store 2>/dev/null || true
 
-CI=true PNPM_CONFIRM_DELETE=1 pnpm install --frozen-lockfile --prefer-offline || (
-  echo 'pnpm install failed; wiping /workspace/node_modules once and retrying'
-  rm -rf /workspace/node_modules
-  CI=true PNPM_CONFIRM_DELETE=1 pnpm install --frozen-lockfile --prefer-offline
+IS_CI="${CI:-}"
+if [ "$IS_CI" = "true" ]; then
+  LOCKFLAG="--frozen-lockfile"
+else
+  LOCKFLAG="--no-frozen-lockfile"
+fi
+
+PNPM_CONFIRM_DELETE=1 pnpm install $LOCKFLAG --prefer-offline || (
+  echo 'pnpm install failed; wiping node_modules contents once and retrying'
+  # node_modules is a volume mount; delete contents, not the mountpoint
+  find /workspace/node_modules -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+  PNPM_CONFIRM_DELETE=1 pnpm install $LOCKFLAG --prefer-offline
 )
 
 PRISMA_HASH_FILE="/workspace/.prisma/.last-schema-hash"
@@ -237,7 +245,9 @@ if [ "$CURRENT_PRISMA_HASH" != "$LAST_PRISMA_HASH" ]; then
 else
   echo 'Prisma schema unchanged — skipping generate'
 fi
-
+if [ "${SHELL_ONLY:-false}" = "true" ]; then
+  exec bash
+fi
 exec pnpm dev --port "$PORT" --hostname 0.0.0.0
 BASH
 )"

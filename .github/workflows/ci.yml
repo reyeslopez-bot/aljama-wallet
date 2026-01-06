@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [main, dev]
 
+permissions: read-all
+
+concurrency:
+  group: aljama-wallet-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
-  XRPL_DEV_SEED: sn3nxiW7v8KXzPzAqzyHXbSSKNuN9
 
 jobs:
   # ─────────────────────────────────────────────
@@ -26,10 +31,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          # ❌ no `cache: pnpm` here
+          cache: 'pnpm'
     
       - name: Enable corepack
         run: corepack enable
+
+      - name: Activate pnpm
+        run: corepack prepare pnpm@10.27.0 --activate
 
       - name: Verify pnpm
         run: pnpm -v
@@ -47,12 +55,12 @@ jobs:
         run: pnpm lint
 
       - name: Test (Vitest)
-        run: pnpm test
+        run: pnpm test -- --reporter=github
 
       - name: Build Next.js app
         env:
-          XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
-          XRPL_DEV_SEED: sn3nxiW7v8KXzPzAqzyHXbSSKNuN9
+          XRPL_RPC_URL: ${{ env.XRPL_RPC_URL }}
+          XRPL_DEV_SEED: ${{ secrets.XRPL_DEV_SEED }}
         run: pnpm build
 
       - name: Check outdated dependencies
@@ -105,21 +113,30 @@ jobs:
           podman volume create aljama_pnpm_store || true
 
       - name: Run tests inside container (prefer just, fallback pnpm)
+        env:
+          XRPL_RPC_URL: ${{ env.XRPL_RPC_URL }}
+          XRPL_DEV_SEED: ${{ secrets.XRPL_DEV_SEED }}
         run: |
           IMAGE_NAME=aljama-wallet-ci
-
           podman run --rm \
             -v "$(pwd):/workspace" \
-            -v aljama_pnpm_store:/root/.pnpm-store \
+            -v aljama_pnpm_store:/workspace/.pnpm-store \
             -w /workspace \
+            -e PNPM_STORE_DIR=/workspace/.pnpm-store \
             -e XRPL_RPC_URL \
             -e XRPL_DEV_SEED \
             "$IMAGE_NAME" \
             bash -lc '
-              pnpm install --frozen-lockfile && \
+              set -euo pipefail
+              corepack enable >/dev/null 2>&1 || true
+              corepack prepare pnpm@10.27.0 --activate >/dev/null 2>&1 || true
+
+              pnpm install --frozen-lockfile
+
               if command -v just >/dev/null 2>&1 && just -l | grep -qE "ci|test"; then
                 (just ci || just test) || pnpm test
               else
                 pnpm test
               fi
             '
+
