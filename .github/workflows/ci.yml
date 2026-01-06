@@ -31,13 +31,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'pnpm'
-    
+
       - name: Enable corepack
         run: corepack enable
 
       - name: Activate pnpm
         run: corepack prepare pnpm@10.27.0 --activate
+
+      - name: Setup pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          cache: 'pnpm'
 
       - name: Verify pnpm
         run: pnpm -v

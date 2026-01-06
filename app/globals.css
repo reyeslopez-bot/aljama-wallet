@@ -5,13 +5,13 @@
 @tailwind utilities;
 
 /* =========================================================
-   DESIGN TOKENS (Luxury Middle Eastern)
+   DESIGN TOKENS
    ========================================================= */
 
 :root {
   --background: 245 242 236;        /* warm sand light */
   --foreground: 18 18 18;           /* ink black */
-  --brass: 201 162 77;              /* luxury gold */
+  --brass: 201 162 77;              /* gold */
   --onyx: 10 10 10;                 /* deep black */
   --ivory: 247 243 224;             /* warm paper */
 }
