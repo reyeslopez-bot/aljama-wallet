@@ -1,23 +1,19 @@
-// app/layout.tsx
-import "./globals.css"
-import { Oleo_Script } from "next/font/google"
-import type { ReactNode } from "react"
-import LayoutClient from "@/components/layout/LayoutClient"
-import Providers from "./Providers.client"
+import './globals.css'
+import { Oleo_Script } from 'next/font/google'
+import type { ReactNode } from 'react'
+import Providers from './Providers.client'
 
 const oleo = Oleo_Script({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-oleo",
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-oleo',
 })
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className={`${oleo.variable} antialiased min-h-screen flex flex-col text-white`}>
-        <Providers>
-          <LayoutClient>{children}</LayoutClient>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

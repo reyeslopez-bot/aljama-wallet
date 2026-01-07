@@ -19,3 +19,4 @@ export default function ClientOnly({ children, fallback = null }: Props) {
   if (!mounted) return <>{fallback}</>
   return <>{children}</>
 }
+// TODO: remove once wallet detectors are fully client-isolated

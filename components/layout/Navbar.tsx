@@ -3,8 +3,12 @@
 
 import WalletButton from '@/components/wallet/ui/WalletButton'
 import { BRAND } from '@/constants/brand'
+import { usePathname } from 'next/navigation'
 
 export default function Navbar() {
+  const pathname = usePathname()
+  const hideWallet = pathname.startsWith('/unlock')
+
   return (
     <nav
       className="
@@ -19,11 +23,9 @@ export default function Navbar() {
         shadow-[0_4px_20px_rgba(0,0,0,0.35)]
       "
     >
-      <div className="text-xl font-semibold tracking-wide">
-        {BRAND.name}
-      </div>
+      <div className="text-xl font-semibold tracking-wide">{BRAND.name}</div>
 
-      <WalletButton />
+      {!hideWallet ? <WalletButton /> : null}
     </nav>
   )
 }
