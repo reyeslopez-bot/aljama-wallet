@@ -3,8 +3,6 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 
-import { useAljamaWallet } from '@/components/wallet/context/WalletContext'
-
 type WalletPreview = {
   address: string
 }
@@ -12,7 +10,6 @@ type WalletPreview = {
 type Status = 'idle' | 'pending' | 'success' | 'error'
 
 export function CreateWalletPanel() {
-  const { persistEncryptedPayload, unlockWithPassword } = useAljamaWallet()
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -22,6 +19,7 @@ export function CreateWalletPanel() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
+
     if (!password.trim()) {
       setError('Password is required')
       setStatus('error')
@@ -45,15 +43,9 @@ export function CreateWalletPanel() {
 
       const data: { address: string; encrypted: string } = await res.json()
 
-      persistEncryptedPayload(data.encrypted)
-
-      const unlocked = await unlockWithPassword(password.trim(), data.encrypted)
-
-      if (!unlocked) {
-        throw new Error('Unable to unlock new wallet')
-      }
-
-      setWalletPreview({ address: unlocked.address })
+      // Demo mode: no WalletContext, no unlock flow yet.
+      // We intentionally ignore data.encrypted for now.
+      setWalletPreview({ address: data.address })
       setStatus('success')
     } catch (err) {
       console.error('Wallet creation failed', err)
@@ -62,7 +54,10 @@ export function CreateWalletPanel() {
     }
   }
 
-  const badgeColor = status === 'success' ? 'bg-emerald-400/20 text-emerald-100' : 'bg-white/5 text-white/70'
+  const badgeColor =
+    status === 'success'
+      ? 'bg-emerald-400/20 text-emerald-100'
+      : 'bg-white/5 text-white/70'
 
   return (
     <section className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 via-white/5 to-black/60 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl">
@@ -72,20 +67,33 @@ export function CreateWalletPanel() {
 
       <header className="relative flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">Create + Encrypt</p>
-          <h2 className="mt-2 text-2xl font-semibold text-[#f7f0e6]">Spin up a fresh vault</h2>
-          <p className="text-sm text-white/70">Generate a wallet, store it in-session, and keep moving.</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">
+            Create + Encrypt
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-[#f7f0e6]">
+            Spin up a fresh vault
+          </h2>
+          <p className="text-sm text-white/70">
+            Generate a wallet, store it in-session, and keep moving.
+          </p>
         </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${badgeColor}`}>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${badgeColor}`}
+        >
           {status === 'success' ? 'Ready to use' : 'Ephemeral demo'}
         </span>
       </header>
 
       <form onSubmit={submit} className="relative mt-6 space-y-4">
-        <label className="block text-xs uppercase tracking-[0.16em] text-white/60">Password</label>
+        <label className="block text-xs uppercase tracking-[0.16em] text-white/60">
+          Password
+        </label>
+
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
           <div className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 shadow-inner shadow-black/50 focus-within:border-amber-200/40">
-            <span className="text-xs uppercase tracking-[0.2em] text-amber-100/70">Encrypt</span>
+            <span className="text-xs uppercase tracking-[0.2em] text-amber-100/70">
+              Encrypt
+            </span>
             <input
               type="password"
               value={password}
@@ -106,10 +114,12 @@ export function CreateWalletPanel() {
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Session encrypted
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Session
+            encrypted
           </span>
           <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-200" /> Keep the password private
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-200" /> Keep the
+            password private
           </span>
         </div>
       </form>
@@ -117,11 +127,19 @@ export function CreateWalletPanel() {
       <div className="relative mt-6 rounded-2xl border border-white/5 bg-black/40 p-4 shadow-inner shadow-black/40">
         {walletPreview ? (
           <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.16em] text-emerald-100/80">Wallet ready</p>
-            <p className="text-sm text-white/70">Keep this tab open; your material stays in-session.</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-emerald-100/80">
+              Wallet ready
+            </p>
+            <p className="text-sm text-white/70">
+              Keep this tab open; your material stays in-session.
+            </p>
             <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-100">
-              <p className="text-xs uppercase tracking-[0.14em] text-emerald-200/80">Address</p>
-              <p className="mt-1 break-all font-mono text-base">{walletPreview.address}</p>
+              <p className="text-xs uppercase tracking-[0.14em] text-emerald-200/80">
+                Address
+              </p>
+              <p className="mt-1 break-all font-mono text-base">
+                {walletPreview.address}
+              </p>
             </div>
           </div>
         ) : (
@@ -134,11 +152,7 @@ export function CreateWalletPanel() {
           </div>
         )}
 
-        {error && (
-          <p className="mt-3 text-sm text-red-300">
-            {error}
-          </p>
-        )}
+        {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
       </div>
     </section>
   )

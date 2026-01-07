@@ -2,7 +2,6 @@
 
 import { CreateWalletPanel } from '@/components/home/CreateWalletPanel'
 import { FeatureShowcase } from '@/components/home/FeatureShowcase'
-import WalletDetectorShell from '@/components/wallet/ui/WalletDetectorShell'
 import ClientTrackWallet from '@/infra/utils/ClientTrackWallet'
 import { BRAND } from '@/constants/brand'
 
@@ -54,15 +53,11 @@ export default function HomePage() {
       <section className="grid gap-20 lg:grid-cols-2">
         <div className={`${SURFACE} ${SURFACE_BORDER} p-12 ${SURFACE_SHADOW}`}>
           <CreateWalletPanel />
-        </div>
+        </div> 
         <div className={`${SURFACE} ${SURFACE_BORDER} p-12 ${SURFACE_SHADOW}`}>
           <FeatureShowcase />
         </div>
       </section>
-
-      <div className="fixed bottom-8 right-8 z-40">
-        <WalletDetectorShell />
-      </div>
     </div>
   )
 }

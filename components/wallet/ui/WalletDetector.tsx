@@ -1,38 +1,17 @@
-"use client"
+//components/wallet/ui/WalletDetector.tsx
+'use client'
 
-import { useAccount } from "wagmi"
-import { useAljamaWallet } from "@/components/wallet/context/WalletContext"
+import { useAccount } from 'wagmi'
 
 export default function WalletDetector() {
-  const { address: eoaAddress, isConnected } = useAccount()
-  const { wallet } = useAljamaWallet() // your local encrypted wallet
+  const { address, isConnected } = useAccount()
 
-  const localAddress = wallet?.address
+  if (!isConnected || !address) return null
 
-  // Pick which identity to show
-  const display = (() => {
-    if (isConnected && eoaAddress) {
-      return `EOA: ${eoaAddress.slice(0, 6)}…${eoaAddress.slice(-4)}`
-    }
-    if (localAddress) {
-      return `Local: ${localAddress.slice(0, 6)}…${localAddress.slice(-4)}`
-    }
-    return null
-  })()
-
-  // Nothing connected → show nothing
-  if (!display) return null
-
-  const isActive = isConnected || localAddress
-  const color = isActive ? "bg-emerald-600" : "bg-zinc-700"
+  const display = `EOA: ${address.slice(0, 6)}…${address.slice(-4)}`
 
   return (
-    <div
-      className={`
-        px-3 py-1 rounded-full text-xs font-medium text-white shadow-md
-        ${color}
-      `}
-    >
+    <div className="px-3 py-1 rounded-full text-xs font-medium text-white shadow-md bg-emerald-600">
       {display}
     </div>
   )

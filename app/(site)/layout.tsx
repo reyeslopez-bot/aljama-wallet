@@ -1,3 +1,4 @@
+// app/(site)/layout.tsx
 import type { ReactNode } from 'react'
 import LayoutClient from '@/components/layout/LayoutClient'
 
