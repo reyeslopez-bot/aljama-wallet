@@ -4,18 +4,17 @@
 import { BRAND } from '@/constants/brand'
 export default function Footer() {
     return (
-        <footer className="w-full bg-transparent text-gray-900 py-6 mt-12">
-            <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between">
-                <p className="text-sm">
+        <footer className="w-full border-t border-white/10 bg-black/30 py-8 text-white/70">
+            <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 md:flex-row">
+                <p className="text-sm tracking-wide">
                     &copy; {new Date().getFullYear()} {BRAND.name}. All rights reserved.
                 </p>
-                <div className="flex space-x-4 mt-4 md:mt-0">
-                    <a href="#" className="text-sm hover:underline hover:text-yellow-600 transition">Privacy</a>
-                    <a href="#" className="text-sm hover:underline hover:text-yellow-600 transition">Terms</a>
-                    <a href="#" className="text-sm hover:underline hover:text-yellow-600 transition">Contact</a>
+                <div className="flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.18em]">
+                    <a href="#" className="transition hover:text-amber-200">Privacy</a>
+                    <a href="#" className="transition hover:text-amber-200">Terms</a>
+                    <a href="#" className="transition hover:text-amber-200">Contact</a>
                 </div>
             </div>
         </footer>
     )
 }
-

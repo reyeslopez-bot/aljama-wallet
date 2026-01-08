@@ -41,9 +41,14 @@ export default function HomeClientGate({
 
   return (
     <div className="min-h-[70vh] w-full px-6 pt-24">
-      <div className="mx-auto w-full max-w-md rounded-3xl border border-white/10 bg-black/50 p-6 shadow-2xl backdrop-blur">
+      <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-black/60 p-7 shadow-2xl shadow-black/40 backdrop-blur-xl">
+        <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        <div className="absolute -left-16 -top-16 h-32 w-32 rounded-full bg-amber-400/20 blur-[80px]" />
         <div className="mb-5">
-          <div className="text-2xl font-semibold tracking-wide text-white">
+          <div className="text-sm uppercase tracking-[0.2em] text-amber-100/70">
+            {BRAND.name}
+          </div>
+          <div className="mt-2 text-2xl font-semibold tracking-tight text-white">
             {BRAND.name}
           </div>
           <div className="mt-1 text-sm text-white/70">

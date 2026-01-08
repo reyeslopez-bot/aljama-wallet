@@ -40,7 +40,7 @@ const rituals = [
 export function FeatureShowcase() {
   return (
     <section className="relative overflow-hidden rounded-3xl border border-white/5 bg-white/5 p-6 shadow-xl shadow-black/30 backdrop-blur-xl">
-      <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-black/40" />
+      <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/40" />
       <div className="relative grid gap-10 lg:grid-cols-[1fr_0.9fr]">
         <div className="space-y-4">
           <p className="text-xs uppercase tracking-[0.16em] text-amber-100/80">Design language</p>
@@ -64,7 +64,7 @@ export function FeatureShowcase() {
           {featureCards.map((card) => (
             <article
               key={card.title}
-              className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/60 p-5 shadow-lg shadow-black/40"
+              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/60 p-5 shadow-lg shadow-black/40 transition hover:-translate-y-1 hover:shadow-2xl"
             >
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
               <span
@@ -79,6 +79,7 @@ export function FeatureShowcase() {
               <h3 className="mt-3 text-xl font-semibold text-[#f7f0e6]">{card.title}</h3>
               <p className="text-sm text-white/60">{card.subtitle}</p>
               <p className="mt-3 text-sm text-white/70">{card.body}</p>
+              <div className="mt-4 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition group-hover:opacity-100" />
             </article>
           ))}
         </div>

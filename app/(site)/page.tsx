@@ -12,11 +12,10 @@ const statBlocks = [
   { label: 'UX philosophy', value: 'Frictionless', detail: 'Zero clutter, guided flows' },
 ]
 
-const SURFACE = 'bg-black/70'
-const SURFACE_SOFT = 'bg-black/60'
-const SURFACE_BORDER = 'border border-white/10'
-const SURFACE_SHADOW = 'shadow-2xl'
-const SURFACE_INNER = 'shadow-inner'
+const SURFACE = 'rounded-3xl border border-white/10 bg-black/60 backdrop-blur-xl'
+const SURFACE_SOFT = 'rounded-2xl border border-white/10 bg-white/5'
+const SURFACE_SHADOW = 'shadow-2xl shadow-black/40'
+const SURFACE_INNER = 'shadow-inner shadow-black/40'
 
 export default function HomePage() {
   return (
@@ -25,16 +24,18 @@ export default function HomePage() {
         <ClientTrackWallet />
 
         <section
-          className={`relative p-14 ${SURFACE} ${SURFACE_BORDER} shadow-[0_40px_120px_rgba(0,0,0,0.9)]`}
+          className={`relative overflow-hidden p-12 md:p-14 ${SURFACE} shadow-[0_40px_120px_rgba(0,0,0,0.9)]`}
         >
           <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-transparent via-[#c9a24d] to-transparent" />
+          <div className="absolute -left-24 -top-24 h-48 w-48 rounded-full bg-[#d96f42]/30 blur-[140px]" />
+          <div className="absolute -right-24 bottom-0 h-40 w-40 rounded-full bg-emerald-400/15 blur-[140px]" />
 
           <div className="relative z-10 max-w-3xl space-y-8">
             <p className="text-sm uppercase tracking-[0.25em] text-[#c9a24d]/90">
               {BRAND.name}
             </p>
 
-            <h1 className="text-5xl font-semibold leading-tight tracking-tight text-white">
+            <h1 className="text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl">
               Wealth-grade self custody for a desert age.
             </h1>
 
@@ -44,7 +45,7 @@ export default function HomePage() {
 
             <div className="grid gap-6 pt-6 sm:grid-cols-3">
               {statBlocks.map((stat) => (
-                <div key={stat.label} className={`${SURFACE_SOFT} ${SURFACE_BORDER} p-6 ${SURFACE_INNER}`}>
+                <div key={stat.label} className={`${SURFACE_SOFT} p-6 ${SURFACE_INNER}`}>
                   <p className="text-xs uppercase tracking-wider text-white/40">{stat.label}</p>
                   <p className="mt-3 text-2xl font-medium text-white">{stat.value}</p>
                   <p className="mt-1 text-sm text-white/60">{stat.detail}</p>
@@ -55,10 +56,10 @@ export default function HomePage() {
         </section>
 
         <section className="grid gap-20 lg:grid-cols-2">
-          <div className={`${SURFACE} ${SURFACE_BORDER} p-12 ${SURFACE_SHADOW}`}>
+          <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
             <CreateWalletPanel />
           </div>
-          <div className={`${SURFACE} ${SURFACE_BORDER} p-12 ${SURFACE_SHADOW}`}>
+          <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
             <FeatureShowcase />
           </div>
         </section>
