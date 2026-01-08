@@ -13,17 +13,17 @@ export default function Navbar() {
     <nav
       className="
         fixed top-0 left-0 right-0 z-50
-        px-4 py-3
+        px-4 py-4
         flex items-center justify-between
         text-white
-        bg-gradient-to-b
-        from-[#0d0d0d]/70
-        via-[#2e1d0f]/40
-        to-transparent
-        shadow-[0_4px_20px_rgba(0,0,0,0.35)]
+        border-b border-white/10
+        bg-black/50 backdrop-blur-xl
+        shadow-[0_10px_30px_rgba(0,0,0,0.45)]
       "
     >
-      <div className="text-xl font-semibold tracking-wide">{BRAND.name}</div>
+      <div className="text-lg font-semibold tracking-[0.2em] text-amber-100/90">
+        {BRAND.name}
+      </div>
 
       {!hideWallet ? <WalletButton /> : null}
     </nav>

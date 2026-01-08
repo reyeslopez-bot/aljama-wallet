@@ -70,7 +70,7 @@ export function CreateWalletPanel() {
           <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">
             Create + Encrypt
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-[#f7f0e6]">
+          <h2 className="mt-2 text-2xl font-semibold text-[#f7f0e6] sm:text-3xl">
             Spin up a fresh vault
           </h2>
           <p className="text-sm text-white/70">
@@ -90,7 +90,7 @@ export function CreateWalletPanel() {
         </label>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          <div className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 shadow-inner shadow-black/50 focus-within:border-amber-200/40">
+          <div className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 shadow-inner shadow-black/50 focus-within:border-amber-200/40 focus-within:ring-2 focus-within:ring-amber-200/20">
             <span className="text-xs uppercase tracking-[0.2em] text-amber-100/70">
               Encrypt
             </span>
@@ -106,7 +106,7 @@ export function CreateWalletPanel() {
           <button
             type="submit"
             disabled={disabled}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#d96f42] to-[#b95734] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#d96f42]/30 transition hover:scale-[1.02] hover:shadow-xl focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#d96f42] to-[#b95734] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#d96f42]/30 transition hover:scale-[1.02] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-200/30 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
           >
             {status === 'pending' ? 'Creating…' : 'Create wallet'}
           </button>

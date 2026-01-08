@@ -15,12 +15,12 @@ export default function UnlockPage() {
 
   return (
     <div className="relative min-h-screen">
-      {/* background */}
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: "url('/backgrounds/background_image_dunes_light_mode.jpg')" }}
       />
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(217,111,66,0.18),transparent_55%)]" />
 
       {/* gate card */}
       <div className="relative mx-auto flex min-h-screen max-w-xl items-center px-6">
@@ -28,8 +28,9 @@ export default function UnlockPage() {
           initial={{ opacity: 0, y: 14, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.35 }}
-          className="w-full rounded-3xl border border-white/10 bg-black/55 p-8 shadow-2xl shadow-black/50 backdrop-blur-xl"
+          className="relative w-full rounded-3xl border border-white/10 bg-black/60 p-8 shadow-2xl shadow-black/50 backdrop-blur-xl"
         >
+          <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           <div className="text-xs uppercase tracking-[0.25em] text-[#c9a24d]/90">{BRAND.name}</div>
           <div className="mt-2 text-2xl font-semibold tracking-tight text-white">Confirm intent</div>
           <div className="mt-1 text-sm text-white/70">
@@ -62,7 +63,7 @@ function SliderConfirm({ onDone }: { onDone: () => void }) {
     <div className="space-y-3">
       <div className="text-xs uppercase tracking-[0.18em] text-white/60">Slide to continue</div>
 
-      <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+      <div className="rounded-2xl border border-white/10 bg-black/40 p-4 shadow-inner shadow-black/40">
         <input
           type="range"
           min={0}
@@ -83,7 +84,7 @@ function SliderConfirm({ onDone }: { onDone: () => void }) {
         <button
           type="button"
           onClick={() => setV(0)}
-          className="mt-4 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+          className="mt-4 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
         >
           Reset
         </button>

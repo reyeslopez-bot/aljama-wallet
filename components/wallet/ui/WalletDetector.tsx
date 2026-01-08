@@ -11,7 +11,7 @@ export default function WalletDetector() {
   const display = `EOA: ${address.slice(0, 6)}…${address.slice(-4)}`
 
   return (
-    <div className="px-3 py-1 rounded-full text-xs font-medium text-white shadow-md bg-emerald-600">
+    <div className="rounded-full border border-emerald-400/30 bg-emerald-400/15 px-3 py-1 text-xs font-medium text-emerald-100 shadow-lg shadow-emerald-500/20">
       {display}
     </div>
   )
