@@ -131,7 +131,7 @@ pnpm format    # Prettier
 * `pnpm dev` - Local development
 * `pnpm build` - Next.js production build
 * `pnpm start` - Serve built app
-* `pnpm test` - Run Playwright tests
+* `pnpm test` - Run Vitest test suite
 * `pnpm lint` - Lint codebase
 * `pnpm format` - Format code
 
@@ -146,7 +146,7 @@ pnpm format    # Prettier
 ├─ prisma/              # Dual Prisma schemas (crdb/, pg/)
 ├─ public/              # Static assets (fonts, images)
 ├─ services/            # Placeholder service layer (wallet summaries)
-├─ tests/               # Playwright e2e tests and helpers
+├─ tests/               # Vitest tests and helpers
 ├─ dev.sh / prod.sh     # Root-level containerized dev/prod runners
 ├─ justfile             # Just recipes for dev/prod/logs
 ├─ .devcontainer/       # Devcontainer configuration for editors
