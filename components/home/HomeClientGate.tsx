@@ -4,6 +4,7 @@
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { HumanGate } from '@/components/ui/HumanGate'
+import { BRAND } from '@/constants/brand'
 
 type Props = {
   children: ReactNode
@@ -39,6 +40,8 @@ export default function HomeClientGate({
             Confirm you’re human to continue.
           </div>
         </div>
+
+        <HumanGate onVerified={verified} />
       </div>
     </div>
   )

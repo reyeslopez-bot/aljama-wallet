@@ -34,7 +34,7 @@ export function HumanGate({ onVerified }: { onVerified: () => void }) {
     <div className="space-y-5">
       <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
         <div className="mb-3 flex items-center justify-between text-xs text-white/60">
-          <span>Slide to verify</span>
+          <span>{label}</span>
           <span>{done ? 'Verified' : `${v}%`}</span>
         </div>
 
@@ -43,24 +43,22 @@ export function HumanGate({ onVerified }: { onVerified: () => void }) {
           min={0}
           max={100}
           value={v}
-          onChange={(e) => {
-            const next = Number(e.target.value)
-            setV(next)
-            if (next >= 98) onVerified()
-          }}
+          onChange={(e) => setV(Number(e.target.value))}
           className="w-full accent-white"
         />
 
-          <div className="mt-2 flex justify-between text-xs text-white/40">
-            <span>Start</span>
-            <span>Confirm</span>
-          </div>
+        <div className="mt-2 flex justify-between text-xs text-white/40">
+          <span>Start</span>
+          <span>Confirm</span>
         </div>
       </div>
 
       <button
         type="button"
-        onClick={() => setV(0)}
+        onClick={() => {
+          firedRef.current = false
+          setV(0)
+        }}
         className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
       >
         Reset
