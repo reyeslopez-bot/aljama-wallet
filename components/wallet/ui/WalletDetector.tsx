@@ -1,4 +1,4 @@
-//components/wallet/ui/WalletDetector.tsx
+// components/wallet/ui/WalletDetector.tsx
 'use client'
 
 import { useAccount } from 'wagmi'
