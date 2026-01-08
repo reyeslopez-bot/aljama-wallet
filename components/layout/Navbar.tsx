@@ -1,31 +1,42 @@
 // components/layout/Navbar.tsx
 'use client'
 
+import { usePathname } from 'next/navigation'
 import WalletButton from '@/components/wallet/ui/WalletButton'
 import { BRAND } from '@/constants/brand'
-import { usePathname } from 'next/navigation'
 
 export default function Navbar() {
   const pathname = usePathname()
-  const hideWallet = pathname.startsWith('/unlock')
+
+  // Wallet UI should ONLY appear on routes where full wagmi config is active
+  const walletRoutes =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/wallet') ||
+    pathname.startsWith('/swap') ||
+    pathname.startsWith('/send')
+
+  const showWallet = walletRoutes
 
   return (
     <nav
       className="
-        fixed top-0 left-0 right-0 z-50
-        px-4 py-3
+        fixed inset-x-0 top-0 z-50
         flex items-center justify-between
+        px-5 py-3
         text-white
         bg-gradient-to-b
-        from-[#0d0d0d]/70
-        via-[#2e1d0f]/40
+        from-black/80
+        via-black/60
         to-transparent
-        shadow-[0_4px_20px_rgba(0,0,0,0.35)]
+        backdrop-blur
+        shadow-[0_6px_30px_rgba(0,0,0,0.45)]
       "
     >
-      <div className="text-xl font-semibold tracking-wide">{BRAND.name}</div>
+      <div className="text-lg font-semibold tracking-wide">
+        {BRAND.name}
+      </div>
 
-      {!hideWallet ? <WalletButton /> : null}
+      {showWallet && <WalletButton />}
     </nav>
   )
 }
