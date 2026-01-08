@@ -18,17 +18,16 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 // Base styles
 const BASE_BUTTON_CLASSES =
-  'rounded focus:outline-none focus:ring-2 focus:ring-offset-2 transition transform duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed'
+  'rounded-xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-amber-300/40 focus:ring-offset-0 transition duration-200 hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed'
 
 // Variants
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-blue-600 hover:bg-blue-700 text-white font-semibold focus:ring-blue-500',
-  accent: 'bg-orange-500 hover:bg-orange-600 text-white font-semibold focus:ring-orange-400',
-  danger: 'bg-red-600 hover:bg-red-700 text-white font-semibold focus:ring-red-500',
-  default: 'bg-slate-600 hover:bg-slate-700 text-white font-semibold focus:ring-slate-500',
-  // new secondary (outline / neutral)
+  primary: 'bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold shadow-lg shadow-amber-500/25 hover:from-amber-400 hover:to-amber-600',
+  accent: 'bg-gradient-to-r from-orange-500 to-rose-500 text-white font-semibold shadow-lg shadow-orange-500/25 hover:from-orange-400 hover:to-rose-500',
+  danger: 'bg-gradient-to-r from-red-500 to-rose-600 text-white font-semibold shadow-lg shadow-red-500/25 hover:from-red-400 hover:to-rose-600',
+  default: 'bg-white/10 text-white font-semibold shadow-inner shadow-black/40 hover:bg-white/15',
   secondary:
-    'bg-transparent border border-slate-400 text-slate-800 hover:bg-slate-100 focus:ring-slate-400',
+    'bg-transparent border border-white/20 text-white/80 hover:bg-white/10',
 }
 
 // Sizes

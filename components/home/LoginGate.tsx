@@ -40,14 +40,15 @@ export default function LoginGate({
   }
 
   return (
-    <div style={styles.stage}>
-      <div style={styles.glowA} />
-      <div style={styles.glowB} />
+    <div className="relative flex min-h-[520px] w-full items-center justify-center overflow-hidden bg-black/80 px-6 py-10">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(closest-side_at_50%_35%,rgba(255,255,255,0.10),rgba(255,255,255,0.00)_62%)]" />
+      <div className="pointer-events-none absolute left-1/2 top-[40%] h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_60%_40%,rgba(140,160,255,0.18),rgba(0,0,0,0)_60%)] blur-[20px]" />
 
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <div style={styles.shield} aria-hidden>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <div className="relative w-full max-w-xl rounded-[2rem] border border-white/10 bg-black/60 p-8 shadow-2xl shadow-black/50 backdrop-blur-xl">
+        <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        <div className="text-center">
+          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
                 d="M12 2l8 4v6c0 5-3.2 9.7-8 10-4.8-.3-8-5-8-10V6l8-4z"
                 stroke="rgba(255,255,255,0.9)"
@@ -56,25 +57,24 @@ export default function LoginGate({
               />
             </svg>
           </div>
-
-          <div style={styles.title}>{title}</div>
-          <div style={styles.subtitle}>{subtitle}</div>
+          <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">{title}</h2>
+          <p className="mt-2 text-sm text-white/65">{subtitle}</p>
         </div>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <label style={styles.label}>Username</label>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <label className="block text-xs uppercase tracking-[0.16em] text-white/60">Username</label>
           <input
-            style={styles.input}
+            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-base text-white placeholder:text-white/40 shadow-inner shadow-black/50 focus:border-amber-200/50 focus:outline-none focus:ring-2 focus:ring-amber-200/20"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="yourname"
             autoComplete="username"
           />
 
-          <label style={{ ...styles.label, marginTop: 14 }}>Password</label>
-          <div style={styles.pwRow}>
+          <label className="block pt-2 text-xs uppercase tracking-[0.16em] text-white/60">Password</label>
+          <div className="relative">
             <input
-              style={{ ...styles.input, paddingRight: 44 }}
+              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 pr-12 text-base text-white placeholder:text-white/40 shadow-inner shadow-black/50 focus:border-amber-200/50 focus:outline-none focus:ring-2 focus:ring-amber-200/20"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -84,7 +84,7 @@ export default function LoginGate({
             <button
               type="button"
               onClick={() => setShowPw((v) => !v)}
-              style={styles.eyeBtn}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-white/5 p-2 text-white/70 transition hover:bg-white/10"
               aria-label={showPw ? "Hide password" : "Show password"}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -103,13 +103,21 @@ export default function LoginGate({
             </button>
           </div>
 
-          <button type="submit" style={{ ...styles.cta, ...(disabled ? styles.ctaDisabled : {}) }} disabled={disabled}>
+          <button
+            type="submit"
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-amber-500/30 transition hover:from-amber-400 hover:to-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={disabled}
+          >
             {busy ? "Checking…" : buttonText}
           </button>
 
           {showBackLink && (
-            <div style={styles.backRow}>
-              <button type="button" style={styles.backLink} onClick={onBack}>
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                className="text-xs uppercase tracking-[0.18em] text-white/60 transition hover:text-amber-200"
+                onClick={onBack}
+              >
                 {backText}
               </button>
             </div>
@@ -118,120 +126,4 @@ export default function LoginGate({
       </div>
     </div>
   )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  stage: {
-    width: "100%",
-    minHeight: 520,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "#050507",
-    position: "relative",
-    overflow: "hidden",
-    fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
-    padding: 24,
-  },
-  glowA: {
-    position: "absolute",
-    inset: "-20%",
-    background:
-      "radial-gradient(closest-side at 50% 35%, rgba(255,255,255,0.10), rgba(255,255,255,0.00) 62%)",
-    pointerEvents: "none",
-  },
-  glowB: {
-    position: "absolute",
-    width: 720,
-    height: 720,
-    borderRadius: 999,
-    left: "50%",
-    top: "40%",
-    transform: "translate(-50%, -50%)",
-    background:
-      "radial-gradient(circle at 60% 40%, rgba(140,160,255,0.18), rgba(0,0,0,0) 60%)",
-    filter: "blur(20px)",
-    pointerEvents: "none",
-  },
-  card: {
-    width: 520,
-    maxWidth: "92vw",
-    borderRadius: 26,
-    padding: 28,
-    background: "rgba(12, 12, 16, 0.66)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    boxShadow: "0 30px 90px rgba(0,0,0,0.55)",
-    backdropFilter: "blur(18px)",
-    WebkitBackdropFilter: "blur(18px)",
-    position: "relative",
-  },
-  header: { textAlign: "center", marginBottom: 18 },
-  shield: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    margin: "0 auto 12px",
-    display: "grid",
-    placeItems: "center",
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.10)",
-  },
-  title: {
-    color: "rgba(255,255,255,0.92)",
-    fontSize: 40,
-    lineHeight: 1.05,
-    fontWeight: 700,
-    letterSpacing: -0.8,
-  },
-  subtitle: { marginTop: 10, color: "rgba(255,255,255,0.62)", fontSize: 15, lineHeight: 1.4 },
-  form: { marginTop: 18 },
-  label: { display: "block", color: "rgba(255,255,255,0.62)", fontSize: 13, marginBottom: 8 },
-  input: {
-    width: "100%",
-    height: 54,
-    borderRadius: 16,
-    padding: "0 16px",
-    color: "rgba(255,255,255,0.92)",
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    outline: "none",
-    fontSize: 16,
-  },
-  pwRow: { position: "relative" },
-  eyeBtn: {
-    position: "absolute",
-    right: 10,
-    top: 9,
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.10)",
-    background: "rgba(255,255,255,0.05)",
-    display: "grid",
-    placeItems: "center",
-    cursor: "pointer",
-  },
-  cta: {
-    marginTop: 18,
-    width: "100%",
-    height: 60,
-    borderRadius: 18,
-    border: "1px solid rgba(255,255,255,0.10)",
-    background: "rgba(255,255,255,0.10)",
-    color: "rgba(255,255,255,0.92)",
-    fontSize: 16,
-    fontWeight: 650,
-    cursor: "pointer",
-    boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
-  },
-  ctaDisabled: { opacity: 0.55, cursor: "not-allowed" },
-  backRow: { marginTop: 16, textAlign: "center" },
-  backLink: {
-    background: "transparent",
-    border: "none",
-    color: "rgba(255,255,255,0.68)",
-    textDecoration: "none",
-    fontSize: 14,
-    cursor: "pointer",
-  },
 }

@@ -20,21 +20,19 @@ export default function Navbar() {
   return (
     <nav
       className="
-        fixed inset-x-0 top-0 z-50
+        fixed top-0 left-0 right-0 z-50
+        px-4 py-3
         flex items-center justify-between
         px-5 py-3
         text-white
         bg-gradient-to-b
-        from-black/80
-        via-black/60
+        from-[#0d0d0d]/70
+        via-[#2e1d0f]/40
         to-transparent
-        backdrop-blur
-        shadow-[0_6px_30px_rgba(0,0,0,0.45)]
+        shadow-[0_4px_20px_rgba(0,0,0,0.35)]
       "
     >
-      <div className="text-lg font-semibold tracking-wide">
-        {BRAND.name}
-      </div>
+      <div className="text-xl font-semibold tracking-wide">{BRAND.name}</div>
 
       {showWallet && <WalletButton />}
     </nav>
