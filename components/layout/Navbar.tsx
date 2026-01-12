@@ -28,8 +28,6 @@ export default function Navbar() {
         bg-gradient-to-b
         from-[#0d0d0d]/70
         via-[#2e1d0f]/40
-        to-transparent
-        shadow-[0_4px_20px_rgba(0,0,0,0.35)]
       "
     >
       <div className="text-xl font-semibold tracking-wide">{BRAND.name}</div>

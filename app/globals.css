@@ -5,6 +5,25 @@
 @tailwind utilities;
 
 /* =========================================================
+   GLOBAL RESET
+   ========================================================= */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+  }
+}
+
+/* =========================================================
    DESIGN TOKENS
    ========================================================= */
 
@@ -39,6 +58,7 @@
 
   body.dark {
     background-image: url('/backgrounds/background_image_dunes_dark.png');
+
     --background: 10 10 10;
     --foreground: 237 237 237;
 
@@ -73,10 +93,6 @@
    ========================================================= */
 
 @media (max-width: 768px) {
-  .card-container {
-    flex-direction: column;
-  }
-
   body {
     background-attachment: scroll;
   }
