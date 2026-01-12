@@ -6,8 +6,9 @@ import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { usePathname } from "next/navigation"
 
-import { WagmiProvider } from "wagmi"
+import { WagmiProvider, createConfig, http } from "wagmi"
 import { mainnet, sepolia } from "wagmi/chains"
+import { injected } from "wagmi/connectors"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit"
@@ -15,11 +16,14 @@ import { BRAND } from "@/constants/brand"
 
 const CHAINS = [mainnet, sepolia] as const
 
-const LIGHT_CONFIG = getDefaultConfig({
-  appName: BRAND.name,
-  projectId: "skip",
+const LIGHT_CONFIG = createConfig({
   chains: CHAINS,
   ssr: false,
+  connectors: [injected()],
+  transports: {
+    [mainnet.id]: http(),
+    [sepolia.id]: http(),
+  },
 })
 
 const PROJECT_ID = (process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "").trim()
