@@ -7,6 +7,7 @@ const requestSchema = z.object({
   tool: z.enum(['wallet.signTx', 'wallet.deriveAddress', 'wallet.verifySignature']),
   input: z.record(z.string(), z.unknown()),
 });
+type RequestTool = z.infer<typeof requestSchema>['tool'];
 
 const signTxSchema = z.object({
   walletId: z.string().min(3),
@@ -61,6 +62,27 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
+const toolHandlers: Record<
+  RequestTool,
+  {
+    schema: z.ZodTypeAny;
+    handler: (input: unknown) => Promise<unknown>;
+  }
+> = {
+  'wallet.signTx': {
+    schema: signTxSchema,
+    handler: signTx,
+  },
+  'wallet.deriveAddress': {
+    schema: deriveAddressSchema,
+    handler: deriveAddress,
+  },
+  'wallet.verifySignature': {
+    schema: verifySignatureSchema,
+    handler: verifySignatureTool,
+  },
+};
+
 export function startWalletSignerServer() {
   const port = Number(process.env.MCP_WALLET_SIGNER_PORT ?? 4011);
 
@@ -75,29 +97,15 @@ export function startWalletSignerServer() {
 
     try {
       const payload = requestSchema.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-
-      if (payload.tool === 'wallet.signTx') {
-        const input = signTxSchema.parse(payload.input);
-        const output = await signTx(input);
-        sendJson(res, 200, { tool: payload.tool, output });
+      const tool = toolHandlers[payload.tool];
+      if (!tool) {
+        sendJson(res, 400, { error: 'UNKNOWN_TOOL' });
         return;
       }
 
-      if (payload.tool === 'wallet.deriveAddress') {
-        const input = deriveAddressSchema.parse(payload.input);
-        const output = await deriveAddress(input);
-        sendJson(res, 200, { tool: payload.tool, output });
-        return;
-      }
-
-      if (payload.tool === 'wallet.verifySignature') {
-        const input = verifySignatureSchema.parse(payload.input);
-        const output = await verifySignatureTool(input);
-        sendJson(res, 200, { tool: payload.tool, output });
-        return;
-      }
-
-      sendJson(res, 400, { error: 'UNKNOWN_TOOL' });
+      const input = tool.schema.parse(payload.input);
+      const output = await tool.handler(input);
+      sendJson(res, 200, { tool: payload.tool, output });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'INVALID_REQUEST';
       sendJson(res, 400, { error: message });
