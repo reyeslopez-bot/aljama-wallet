@@ -44,10 +44,9 @@
     @apply bg-cover bg-center bg-no-repeat;
     font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 
-    background-image: url('/backgrounds/background_image_dunes_light_mode.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+    background-image: linear-gradient(120deg, #f7f7f7, #e3e3e3, #ffffff);
+    background-size: 200% 200%;
+    animation: mist-shift 18s ease infinite;
 
     background-color: rgb(var(--background));
     color: rgb(var(--foreground));
@@ -57,7 +56,9 @@
   }
 
   body.dark {
-    background-image: url('/backgrounds/background_image_dunes_dark.png');
+    background-image: linear-gradient(120deg, #f7f7f7, #e3e3e3, #ffffff);
+    background-size: 200% 200%;
+    animation: mist-shift 18s ease infinite;
 
     --background: 10 10 10;
     --foreground: 237 237 237;
@@ -70,6 +71,24 @@
     background-color: rgb(var(--background));
     color: rgb(var(--foreground));
   }
+}
+
+@keyframes mist-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animated-mist-bg {
+  background-image: linear-gradient(120deg, #f7f7f7, #e3e3e3, #ffffff);
+  background-size: 200% 200%;
+  animation: mist-shift 18s ease infinite;
 }
 
 /* =========================================================
