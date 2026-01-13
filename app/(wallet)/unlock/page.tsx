@@ -15,10 +15,7 @@ export default function UnlockPage() {
 
   return (
     <div className="relative min-h-screen">
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/backgrounds/background_image_dunes_light_mode.jpg')" }}
-      />
+      <div className="absolute inset-0 animated-mist-bg" />
       <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(217,111,66,0.18),transparent_55%)]" />
 
