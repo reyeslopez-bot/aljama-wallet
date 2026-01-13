@@ -10,13 +10,30 @@ type Btn =
   | { kind: "connect"; label: string; bg: string; fg: string }
 
 const buttons: Btn[] = [
-  { kind: "route", label: "Create Wallet", href: "/wallet/create", bg: "#D8D8D8", fg: "#1A1A1A" },
-  { kind: "connect", label: "Connect Wallet", bg: "#CFE9DC", fg: "#0F1B14" },
-  { kind: "route", label: "Discover", href: "/discover", bg: "#D6D3FF", fg: "#141033" },
+  {
+    kind: "route",
+    label: "Create Wallet",
+    href: "/wallet/create",
+    bg: "linear-gradient(135deg, #f6d7b0 0%, #e7b77f 45%, #cf8b58 100%)",
+    fg: "#1A1A1A",
+  },
+  {
+    kind: "connect",
+    label: "Connect Wallet",
+    bg: "linear-gradient(135deg, #f4c08d 0%, #e39a5e 50%, #c7703d 100%)",
+    fg: "#160E08",
+  },
+  {
+    kind: "route",
+    label: "Discover",
+    href: "/discover",
+    bg: "linear-gradient(135deg, #f7e1b6 0%, #e0c48a 50%, #b9935a 100%)",
+    fg: "#2A1C0F",
+  },
 ]
 
 const surface = (bg: string) => ({
-  backgroundColor: bg,
+  backgroundImage: bg,
   borderRadius: "9999px",
   boxShadow: "0 6px 24px rgba(0,0,0,0.18)",
 } as const)
