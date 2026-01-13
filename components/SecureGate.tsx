@@ -1,7 +1,7 @@
 // components/SecureGate.tsx
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
 type SecureGateProps = {
   children: React.ReactNode
@@ -12,10 +12,17 @@ export default function SecureGate({
   children,
   storageKey = 'secure_gate_continue_v1',
 }: SecureGateProps) {
-  const [unlocked, setUnlocked] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    return window.localStorage.getItem(storageKey) === '1'
-  })
+  const [mounted, setMounted] = useState(false)
+  const [unlocked, setUnlocked] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    try {
+      setUnlocked(window.localStorage.getItem(storageKey) === '1')
+    } catch {
+      setUnlocked(false)
+    }
+  }, [storageKey])
 
   const styles = useMemo(() => {
     const font = 'Inter, "Inter Placeholder", sans-serif'
@@ -41,12 +48,6 @@ export default function SecureGate({
         flexDirection: 'column' as const,
         alignItems: 'center',
         textAlign: 'center' as const,
-      },
-      logo: {
-        width: 45,
-        height: 45,
-        marginBottom: 32,
-        objectFit: 'contain' as const,
       },
       h1: {
         fontSize: 32,
@@ -81,21 +82,16 @@ export default function SecureGate({
     }
   }, [])
 
+  // Prevent hydration mismatch
+  if (!mounted) return null
+
   if (unlocked) return <>{children}</>
 
   return (
     <div style={styles.overlay}>
       <div style={styles.card}>
-        <img
-          src="https://framerusercontent.com/images/SaK5AKcOqROLqWFGbZjsGcMKYs.webp"
-          alt=""
-          style={styles.logo}
-        />
-
         <h1 style={styles.h1}>Secure Gate</h1>
-        <p style={styles.p}>
-          This space contains interactive wallet functionality.
-        </p>
+        <p style={styles.p}>Continue to access the app.</p>
 
         <button
           type="button"
