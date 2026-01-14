@@ -7,9 +7,9 @@ import type { ReactNode } from 'react'
 export default function LayoutClient({ children }: { children: ReactNode }) {
   return (
     <>
-      <div className="fixed inset-0 z-0 bg-black/70" aria-hidden="true" />
-      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_top,rgba(217,111,66,0.18),transparent_55%)]" aria-hidden="true" />
-      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_30%_60%,rgba(56,189,248,0.12),transparent_50%)]" aria-hidden="true" />
+      <div className="fixed inset-0 z-0 bg-[#1c120a]/80" aria-hidden="true" />
+      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_top,rgba(218,160,84,0.28),transparent_55%)]" aria-hidden="true" />
+      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_30%_60%,rgba(255,220,170,0.16),transparent_50%)]" aria-hidden="true" />
 
       <Navbar />
 
