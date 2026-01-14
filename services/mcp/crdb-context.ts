@@ -6,6 +6,7 @@ const requestSchema = z.object({
   tool: z.enum(['wallet.getState', 'wallet.getLimits']),
   input: z.record(z.string(), z.unknown()),
 });
+type RequestTool = z.infer<typeof requestSchema>['tool'];
 
 const walletStateSchema = z.object({
   walletId: z.string().min(3),
@@ -100,6 +101,23 @@ async function getWalletLimits(input: z.infer<typeof walletLimitsSchema>) {
   };
 }
 
+const toolHandlers: Record<
+  RequestTool,
+  {
+    schema: z.ZodTypeAny;
+    handler: (input: unknown) => Promise<unknown>;
+  }
+> = {
+  'wallet.getState': {
+    schema: walletStateSchema,
+    handler: getWalletState,
+  },
+  'wallet.getLimits': {
+    schema: walletLimitsSchema,
+    handler: getWalletLimits,
+  },
+};
+
 export function startCrdbContextServer() {
   const port = Number(process.env.MCP_CRDB_CONTEXT_PORT ?? 4012);
 
@@ -114,22 +132,15 @@ export function startCrdbContextServer() {
 
     try {
       const payload = requestSchema.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-
-      if (payload.tool === 'wallet.getState') {
-        const input = walletStateSchema.parse(payload.input);
-        const output = await getWalletState(input);
-        sendJson(res, 200, { tool: payload.tool, output });
+      const tool = toolHandlers[payload.tool];
+      if (!tool) {
+        sendJson(res, 400, { error: 'UNKNOWN_TOOL' });
         return;
       }
 
-      if (payload.tool === 'wallet.getLimits') {
-        const input = walletLimitsSchema.parse(payload.input);
-        const output = await getWalletLimits(input);
-        sendJson(res, 200, { tool: payload.tool, output });
-        return;
-      }
-
-      sendJson(res, 400, { error: 'UNKNOWN_TOOL' });
+      const input = tool.schema.parse(payload.input);
+      const output = await tool.handler(input);
+      sendJson(res, 200, { tool: payload.tool, output });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'INVALID_REQUEST';
       sendJson(res, 400, { error: message });
