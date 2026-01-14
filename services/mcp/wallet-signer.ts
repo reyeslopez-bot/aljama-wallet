@@ -1,3 +1,4 @@
+// services/mcp/wallet-signer.ts
 import { createServer, type ServerResponse } from 'node:http';
 import { z } from 'zod';
 import { Transaction, Wallet, verifyMessage } from 'ethers';
@@ -30,7 +31,6 @@ async function signTx(input: z.infer<typeof signTxSchema>) {
   const walletRecord = await prismaCrdb().wallet.findUnique({
     where: { id: input.walletId },
   });
-
   if (!walletRecord) throw new Error('WALLET_NOT_FOUND');
 
   const wallet = new Wallet(walletRecord.privateKey);
@@ -44,7 +44,6 @@ async function deriveAddress(input: z.infer<typeof deriveAddressSchema>) {
   const walletRecord = await prismaCrdb().wallet.findUnique({
     where: { id: input.walletId },
   });
-
   if (!walletRecord) throw new Error('WALLET_NOT_FOUND');
 
   const wallet = new Wallet(walletRecord.privateKey);
@@ -62,26 +61,36 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
-const toolHandlers: Record<
-  RequestTool,
-  {
-    schema: z.ZodTypeAny;
-    handler: (input: unknown) => Promise<unknown>;
-  }
-> = {
-  'wallet.signTx': {
+// ---------- typed tool registry ----------
+
+type AnyTool = {
+  schema: z.ZodTypeAny;
+  handler: (input: unknown) => Promise<unknown>;
+};
+
+function defineTool<S extends z.ZodTypeAny, Out>(tool: {
+  schema: S;
+  handler: (input: z.infer<S>) => Promise<Out>;
+}): AnyTool {
+  return tool as AnyTool;
+}
+
+const toolHandlers: Record<RequestTool, AnyTool> = {
+  'wallet.signTx': defineTool({
     schema: signTxSchema,
     handler: signTx,
-  },
-  'wallet.deriveAddress': {
+  }),
+  'wallet.deriveAddress': defineTool({
     schema: deriveAddressSchema,
     handler: deriveAddress,
-  },
-  'wallet.verifySignature': {
+  }),
+  'wallet.verifySignature': defineTool({
     schema: verifySignatureSchema,
     handler: verifySignatureTool,
-  },
+  }),
 };
+
+// ---------- server ----------
 
 export function startWalletSignerServer() {
   const port = Number(process.env.MCP_WALLET_SIGNER_PORT ?? 4011);

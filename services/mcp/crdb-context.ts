@@ -1,3 +1,4 @@
+// services/mcp/crdb-context.ts
 import { createServer, type ServerResponse } from 'node:http';
 import { z } from 'zod';
 import { prismaCrdb } from '@/lib/prisma-crdb';
@@ -67,7 +68,7 @@ async function getWalletState(input: z.infer<typeof walletStateSchema>) {
     chainId: input.chainId,
     nonce,
     balances: Object.fromEntries(
-      Array.from(balances.entries()).map(([asset, amount]) => [asset, amount.toString()])
+      Array.from(balances.entries()).map(([asset, amount]) => [asset, amount.toString()]),
     ),
     lastTx: lastTx
       ? {
@@ -101,22 +102,33 @@ async function getWalletLimits(input: z.infer<typeof walletLimitsSchema>) {
   };
 }
 
-const toolHandlers: Record<
-  RequestTool,
-  {
-    schema: z.ZodTypeAny;
-    handler: (input: unknown) => Promise<unknown>;
-  }
-> = {
-  'wallet.getState': {
+// ---------- typed tool registry ----------
+
+type AnyTool = {
+  schema: z.ZodTypeAny;
+  handler: (input: unknown) => Promise<unknown>;
+};
+
+function defineTool<S extends z.ZodTypeAny, Out>(tool: {
+  schema: S;
+  handler: (input: z.infer<S>) => Promise<Out>;
+}): AnyTool {
+  // Runtime is unchanged. This wrapper only helps TypeScript.
+  return tool as AnyTool;
+}
+
+const toolHandlers: Record<RequestTool, AnyTool> = {
+  'wallet.getState': defineTool({
     schema: walletStateSchema,
     handler: getWalletState,
-  },
-  'wallet.getLimits': {
+  }),
+  'wallet.getLimits': defineTool({
     schema: walletLimitsSchema,
     handler: getWalletLimits,
-  },
+  }),
 };
+
+// ---------- server ----------
 
 export function startCrdbContextServer() {
   const port = Number(process.env.MCP_CRDB_CONTEXT_PORT ?? 4012);
