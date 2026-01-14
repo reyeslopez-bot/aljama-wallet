@@ -35,7 +35,9 @@ const buttons: Btn[] = [
 const surface = (bg: string) => ({
   backgroundImage: bg,
   borderRadius: "9999px",
-  boxShadow: "0 6px 24px rgba(0,0,0,0.18)",
+  boxShadow:
+    "0 12px 32px rgba(24,16,10,0.18), inset 0 0 0 1px rgba(255,255,255,0.65)",
+  border: "1px solid rgba(255,255,255,0.35)",
 } as const)
 
 export default function HomeActionButtons() {
@@ -44,7 +46,7 @@ export default function HomeActionButtons() {
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-3 gap-[30px]">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
         {buttons.map((b) => (
           <button
             key={b.label}
@@ -53,14 +55,14 @@ export default function HomeActionButtons() {
               if (b.kind === "connect") return openConnectModal?.()
               router.push(b.href)
             }}
-            className="block w-full bg-transparent p-0 border-0 outline-none appearance-none"
+            className="block w-full bg-transparent p-0 border-0 outline-none appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             aria-label={b.kind === "connect" ? "Connect a wallet" : b.label}
           >
             <motion.div
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.98 }}
               transition={{ type: "spring", stiffness: 220, damping: 18 }}
-              className="h-[88px] w-full px-10 flex items-center justify-center text-[18px] font-semibold tracking-tight"
+              className="flex h-[82px] w-full items-center justify-center px-10 text-[17px] font-semibold tracking-tight drop-shadow-[0_1px_0_rgba(255,255,255,0.4)] transition-all md:h-[88px] md:text-[18px]"
               style={surface(b.bg)}
             >
               <span style={{ color: b.fg }}>{b.label}</span>
