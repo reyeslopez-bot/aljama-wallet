@@ -1,6 +1,7 @@
 // components/layout/Navbar.tsx
 'use client'
 
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import WalletButton from '@/components/wallet/ui/WalletButton'
@@ -61,6 +62,11 @@ export default function Navbar() {
       document.removeEventListener('keydown', handleEscape)
     }
   }, [])
+
+  useEffect(() => {
+    setMenuOpen(false)
+    setLanguageOpen(false)
+  }, [pathname])
 
   return (
     <nav
