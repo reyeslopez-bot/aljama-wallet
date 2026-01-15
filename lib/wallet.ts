@@ -81,7 +81,9 @@ export async function unlockWallet({
     throw new Error('Encrypted payload is required')
   }
 
-  if (!password?.trim()) {
+  const normalizedPassword = password.trim()
+
+  if (!normalizedPassword) {
     throw new Error('Password is required')
   }
 
@@ -99,7 +101,10 @@ export async function unlockWallet({
     throw new Error('Malformed encrypted JSON structure')
   }
 
-  if (decoded.passwordHint && decoded.passwordHint !== password) {
+  if (
+    decoded.passwordHint &&
+    decoded.passwordHint.trim() !== normalizedPassword
+  ) {
     throw new Error('Invalid password')
   }
 
@@ -122,10 +127,16 @@ export function encodeWalletToEncrypted(
   wallet: WalletMaterial,
   password: string,
 ): string {
+  const normalizedPassword = password.trim()
+
+  if (!normalizedPassword) {
+    throw new Error('Password is required')
+  }
+
   const payload: EncryptedWalletPayload = {
     address: wallet.address,
     privateKey: wallet.privateKey,
-    passwordHint: password,
+    passwordHint: normalizedPassword,
   }
 
   return encodeBase64(JSON.stringify(payload))
