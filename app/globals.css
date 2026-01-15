@@ -1,3 +1,4 @@
+/* globals.css */
 /* stylelint-disable at-rule-no-unknown */
 
 @import "tailwindcss";
@@ -24,14 +25,20 @@
 
 /* =========================================================
    DESIGN TOKENS
+   - Keep colors as RGB triplets for Tailwind alpha support
+   - Keep gradients as full CSS values
    ========================================================= */
 
 :root {
-  --background: 46 34 24;           /* desert dusk */
-  --foreground: 245 240 230;        /* warm linen */
-  --brass: 201 162 77;              /* gold */
-  --onyx: 10 10 10;                 /* deep black */
-  --ivory: 247 243 224;             /* warm paper */
+  /* RGB tokens */
+  --foreground: 54 44 34; /* warm umber */
+  --brass: 201 162 77; /* gold */
+  --onyx: 10 10 10; /* deep black */
+  --ivory: 247 243 224; /* warm paper */
+
+  /* background tokens */
+  --surface: 247 243 224; /* default page surface */
+  --mist-gradient: linear-gradient(120deg, #2a1b12, #5a3b24, #8a5a36, #c08a5a);
 }
 
 /* =========================================================
@@ -40,35 +47,47 @@
 
 @layer base {
   body {
-    @apply bg-cover bg-center bg-no-repeat font-sans text-foreground;
+    font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 
-    background-image: linear-gradient(120deg, #2a1b12, #5a3b24, #8a5a36, #c08a5a);
+    /* base colors */
+    background-color: rgb(var(--surface));
+    color: rgb(var(--foreground));
+
+    /* your animated gradient overlay */
+    background-image: var(--mist-gradient);
     background-size: 200% 200%;
+    background-repeat: no-repeat;
+    background-position: center;
     animation: mist-shift 24s ease infinite;
-
-    background-color: rgb(var(--background));
 
     letter-spacing: 0.01em;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
+  /* dark mode (you’re toggling via body.dark) */
   body.dark {
-    background-image: linear-gradient(120deg, #2a1b12, #5a3b24, #8a5a36, #c08a5a);
-    background-size: 200% 200%;
-    animation: mist-shift 24s ease infinite;
-
-    --background: 10 10 10;
+    --surface: 10 10 10;
     --foreground: 237 237 237;
 
-    background-color: rgb(var(--background));
+    /* keep same mist gradient unless you want a darker one */
+    background-color: rgb(var(--surface));
     color: rgb(var(--foreground));
   }
 
-  :root {
-    background-color: rgb(var(--background));
-    color: rgb(var(--foreground));
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+  }
+
+  p {
+    line-height: 1.6;
   }
 }
+
+/* =========================================================
+   ANIMATIONS
+   ========================================================= */
 
 @keyframes mist-shift {
   0% {
@@ -82,26 +101,12 @@
   }
 }
 
+/* optional utility class if you want to apply the mist bg to containers too */
 .animated-mist-bg {
-  background-image: linear-gradient(120deg, #2a1b12, #5a3b24, #8a5a36, #c08a5a);
+  background-image: var(--mist-gradient);
   background-size: 200% 200%;
+  background-repeat: no-repeat;
   animation: mist-shift 24s ease infinite;
-}
-
-/* =========================================================
-   TEXT POLISH
-   ========================================================= */
-
-@layer base {
-  h1,
-  h2,
-  h3 {
-    letter-spacing: -0.015em;
-  }
-
-  p {
-    line-height: 1.6;
-  }
 }
 
 /* =========================================================

@@ -10,29 +10,41 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: 'rgb(var(--background) / <alpha-value>)',
+        /* CSS-var colors with alpha support */
         foreground: 'rgb(var(--foreground) / <alpha-value>)',
+        brass: 'rgb(var(--brass) / <alpha-value>)',
+        onyx: 'rgb(var(--onyx) / <alpha-value>)',
+        ivory: 'rgb(var(--ivory) / <alpha-value>)',
+        surface: 'rgb(var(--surface) / <alpha-value>)',
+
+        /* your fixed hex colors */
         alloy: '#C46210',
         pearl: '#efddc2',
         azure: '#0080FF',
         sand: '#EED9A3',
         sunsetOrange: '#D76C5B',
       },
+
+      backgroundImage: {
+        /* lets you do className="bg-mist" */
+        mist: 'var(--mist-gradient)',
+      },
+
       fontFamily: {
-        // global UI font
         sans: ['var(--font-space-grotesk)', 'system-ui', 'sans-serif'],
-        // for calligraphy / logo / titles
         display: ['var(--font-oleo)', 'cursive'],
-        // optional alias if you still want `font-oleo`
         oleo: ['var(--font-oleo)', 'cursive'],
       },
+
       boxShadow: {
         soft: '0 4px 6px rgba(0, 0, 0, 0.1)',
         heavy: '0 8px 16px rgba(0, 0, 0, 0.3)',
       },
+
       backgroundPosition: {
         center_bottom: 'center bottom',
       },
+
       animation: {
         'fade-in': 'fadeIn 2s ease-out forwards',
         'pulse-sand': 'pulseSand 3s ease-in-out infinite',
@@ -42,6 +54,7 @@ const config: Config = {
         'float-slower': 'floatSlower 15s ease-in-out infinite',
         'fade-in-slow': 'fadeInSlow 3s ease-out forwards',
       },
+
       keyframes: {
         fadeIn: {
           '0%': { opacity: '0', transform: 'translateY(20px)' },
