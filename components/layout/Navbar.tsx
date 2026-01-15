@@ -1,6 +1,7 @@
 // components/layout/Navbar.tsx
 'use client'
 
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import WalletButton from '@/components/wallet/ui/WalletButton'
@@ -62,23 +63,13 @@ export default function Navbar() {
   }, [])
 
   return (
-    <nav
-      className="
-        fixed top-0 left-0 right-0 z-50
-        px-4 py-3
-        flex items-center justify-between
-        px-5 py-3
-        text-[#f8f1e4]
-        bg-gradient-to-b
-        from-[#23170f]/80
-        via-[#3a2616]/60
-        border-b border-[#5a3c24]/40
-        backdrop-blur
-      "
-    >
-      <div className="text-xl font-semibold tracking-wide">{BRAND.name}</div>
+    <nav className="fixed inset-x-0 top-0 z-50 border-b border-[#5a3c24]/40 bg-gradient-to-b from-[#23170f]/80 via-[#3a2616]/60 text-[#f8f1e4] backdrop-blur">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 md:px-8">
+        <Link href="/" className="text-xl font-semibold tracking-wide">
+          {BRAND.name}
+        </Link>
 
-      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
         <div className="relative" ref={menuRef}>
           <button
             type="button"
@@ -91,16 +82,22 @@ export default function Navbar() {
             <span className="text-xs opacity-80">{menuOpen ? '▲' : '▼'}</span>
           </button>
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl">
-              {MENU_ITEMS.map((item) => (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  className="block rounded-xl px-3 py-2 text-sm text-[#f5e8d6] transition hover:bg-[#3a2518]/80"
-                >
-                  {item.label}
-                </a>
-              ))}
+            <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl">
+              {MENU_ITEMS.map((item) => {
+                const isActive = pathname === item.href
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    onClick={() => setMenuOpen(false)}
+                    className={`block rounded-xl px-3 py-2 text-sm transition ${
+                      isActive ? 'bg-[#3a2518] text-[#f8f1e4]' : 'text-[#f5e8d6] hover:bg-[#3a2518]/80'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
             </div>
           )}
         </div>
@@ -140,7 +137,11 @@ export default function Navbar() {
                     setActiveLanguage(language)
                     setLanguageOpen(false)
                   }}
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-[#f5e8d6] transition hover:bg-[#3a2518]/80"
+                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
+                    activeLanguage.value === language.value
+                      ? 'bg-[#3a2518] text-[#f8f1e4]'
+                      : 'text-[#f5e8d6] hover:bg-[#3a2518]/80'
+                  }`}
                 >
                   <span>{language.label}</span>
                   {activeLanguage.value === language.value && (
@@ -153,6 +154,7 @@ export default function Navbar() {
         </div>
 
         {showWallet && <WalletButton />}
+      </div>
       </div>
     </nav>
   )
