@@ -28,7 +28,6 @@ export default function Navbar() {
   const menuRef = useRef<HTMLDivElement>(null)
   const languageRef = useRef<HTMLDivElement>(null)
 
-  // Wallet UI should ONLY appear on routes where full wagmi config is active
   const walletRoutes =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/wallet') ||
@@ -121,6 +120,7 @@ export default function Navbar() {
               Menu
               <span className="text-xs opacity-80">{menuOpen ? '▲' : '▼'}</span>
             </button>
+
             {menuOpen && (
               <div
                 id="navbar-menu"
@@ -157,23 +157,22 @@ export default function Navbar() {
               aria-expanded={languageOpen}
               aria-controls="navbar-language"
             >
-              <span className="inline-flex h-4 w-4 items-center justify-center">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  className="h-4 w-4"
-                  aria-hidden="true"
-                >
-                  <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" />
-                  <path d="M2 12h20" />
-                  <path d="M12 2c2.5 2.7 4 6.1 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.1-4-10s1.5-7.3 4-10Z" />
-                </svg>
-              </span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                className="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" />
+                <path d="M2 12h20" />
+                <path d="M12 2c2.5 2.7 4 6.1 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.1-4-10s 1.5-7.3 4-10Z" />
+              </svg>
               <span>{activeLanguage.label}</span>
               <span className="text-xs opacity-80">{languageOpen ? '▲' : '▼'}</span>
             </button>
+
             {languageOpen && (
               <div
                 id="navbar-language"
@@ -203,7 +202,6 @@ export default function Navbar() {
 
           {showWallet && <WalletButton />}
         </div>
-      </div>
       </div>
     </nav>
   )
