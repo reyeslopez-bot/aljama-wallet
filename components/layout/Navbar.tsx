@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import WalletButton from '@/components/wallet/ui/WalletButton'
 import { BRAND } from '@/constants/brand'
-import Link from 'next/link'
 
 const MENU_ITEMS = [
   { label: 'Overview', href: '/' },
@@ -72,29 +71,49 @@ export default function Navbar() {
     <nav
       className="
         fixed top-0 left-0 right-0 z-50
-        text-[#f8f1e4]
+        text-zinc-200
         bg-gradient-to-b
-        from-[#23170f]/85
-        via-[#3a2616]/70
-        to-[#2a1b12]/60
-        border-b border-[#5a3c24]/40
+        from-black/90
+        via-zinc-900/80
+        to-neutral-950/70
+        border-b border-white/15
         backdrop-blur
+        font-serif tracking-[0.12em]
       "
     >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
         <Link
           href="/"
-          className="text-xl font-semibold tracking-wide text-[#f8f1e4] transition hover:text-[#f0d7b3]"
+          className="text-xl font-semibold tracking-wide text-zinc-100 transition hover:text-zinc-200"
         >
           {BRAND.name}
         </Link>
 
         <div className="flex items-center gap-3">
-          <div className="relative" ref={menuRef}>
+          <div className="hidden items-center gap-1 md:flex">
+            {MENU_ITEMS.map((item) => {
+              const isActive = pathname === item.href
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                    isActive
+                      ? 'bg-white/15 text-zinc-100'
+                      : 'text-zinc-200 hover:bg-white/10 hover:text-zinc-100'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
+          </div>
+
+          <div className="relative md:hidden" ref={menuRef}>
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
-              className="flex items-center gap-2 rounded-full border border-[#7a5636]/60 bg-[#2a1b12]/80 px-4 py-2 text-sm font-medium text-[#f8f1e4] transition hover:border-[#a9764b]/80 hover:bg-[#3a2518]/80"
+              className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-100 transition hover:border-white/40 hover:bg-white/10"
               aria-haspopup="true"
               aria-expanded={menuOpen}
               aria-controls="navbar-menu"
@@ -105,7 +124,7 @@ export default function Navbar() {
             {menuOpen && (
               <div
                 id="navbar-menu"
-                className="absolute right-0 mt-2 w-48 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl"
+                className="absolute right-0 mt-2 w-48 rounded-2xl border border-white/15 bg-gradient-to-b from-zinc-950/95 via-zinc-900/95 to-black/90 p-2 shadow-xl"
                 role="menu"
               >
                 {MENU_ITEMS.map((item) => {
@@ -116,8 +135,8 @@ export default function Navbar() {
                       href={item.href}
                       className={`block rounded-xl px-3 py-2 text-sm transition ${
                         isActive
-                          ? 'bg-[#3a2518]/90 text-[#f8e5c8]'
-                          : 'text-[#f5e8d6] hover:bg-[#3a2518]/80'
+                          ? 'bg-white/15 text-zinc-100'
+                          : 'text-zinc-200 hover:bg-white/10 hover:text-zinc-100'
                       }`}
                       role="menuitem"
                     >
@@ -133,7 +152,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setLanguageOpen((open) => !open)}
-              className="flex items-center gap-2 rounded-full border border-[#7a5636]/60 bg-[#2a1b12]/80 px-4 py-2 text-sm font-medium text-[#f8f1e4] transition hover:border-[#a9764b]/80 hover:bg-[#3a2518]/80"
+              className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-100 transition hover:border-white/40 hover:bg-white/10"
               aria-haspopup="true"
               aria-expanded={languageOpen}
               aria-controls="navbar-language"
@@ -158,7 +177,7 @@ export default function Navbar() {
             {languageOpen && (
               <div
                 id="navbar-language"
-                className="absolute right-0 mt-2 w-44 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl"
+                className="absolute right-0 mt-2 w-44 rounded-2xl border border-white/15 bg-gradient-to-b from-zinc-950/95 via-zinc-900/95 to-black/90 p-2 shadow-xl"
                 role="menu"
               >
                 {LANGUAGES.map((language) => (
@@ -169,12 +188,12 @@ export default function Navbar() {
                       setActiveLanguage(language)
                       setLanguageOpen(false)
                     }}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-[#f5e8d6] transition hover:bg-[#3a2518]/80"
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-zinc-200 transition hover:bg-white/10 hover:text-zinc-100"
                     role="menuitem"
                   >
                     <span>{language.label}</span>
                     {activeLanguage.value === language.value && (
-                      <span className="text-xs text-[#d6b487]">Active</span>
+                      <span className="text-xs text-zinc-300">Active</span>
                     )}
                   </button>
                 ))}
