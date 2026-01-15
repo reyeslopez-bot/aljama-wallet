@@ -6,12 +6,13 @@ import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { useRouter } from "next/navigation"
 
 type Btn =
+  | { kind: "create"; label: string; href: string; bg: string; fg: string }
   | { kind: "route"; label: string; href: string; bg: string; fg: string }
   | { kind: "connect"; label: string; bg: string; fg: string }
 
 const buttons: Btn[] = [
   {
-    kind: "route",
+    kind: "create",
     label: "Create Wallet",
     href: "/wallet/create",
     bg: "linear-gradient(135deg, #f6d7b0 0%, #e7b77f 45%, #cf8b58 100%)",
@@ -43,17 +44,25 @@ const surface = (bg: string) => ({
 export default function HomeActionButtons() {
   const router = useRouter()
   const { openConnectModal } = useConnectModal()
+  const handleAction = (button: Btn) => {
+    if (button.kind === "connect") {
+      return openConnectModal?.()
+    }
+    if (button.kind === "create") {
+      return router.push(button.href)
+    }
+    return router.push(button.href)
+  }
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+      <div className="mx-auto grid w-full max-w-3xl grid-cols-3 gap-4 md:gap-6">
         {buttons.map((b) => (
           <button
             key={b.label}
             type="button"
             onClick={() => {
-              if (b.kind === "connect") return openConnectModal?.()
-              router.push(b.href)
+              handleAction(b)
             }}
             className="block w-full bg-transparent p-0 border-0 outline-none appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             aria-label={b.kind === "connect" ? "Connect a wallet" : b.label}
