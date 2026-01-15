@@ -1,6 +1,6 @@
 // tests/lib/wallet.test.ts
 import { describe, it, expect } from 'vitest'
-import { unlockWallet } from '@/lib/wallet'
+import { encodeWalletToEncrypted, unlockWallet } from '@/lib/wallet'
 import {
   mockEncryptedWallet,
   mockEncryptedWalletMissingMaterial,
@@ -55,4 +55,32 @@ describe('unlockWallet', () => {
       ).rejects.toThrow(/Encrypted payload missing wallet material/)
     },
   )
+
+  it('trims password hints when encoding wallet payloads', async () => {
+    const encrypted = encodeWalletToEncrypted(
+      {
+        address: mockAccounts.primary.address,
+        privateKey: mockAccounts.primary.privateKey,
+      },
+      '  trimmed-pass  ',
+    )
+
+    const decoded = JSON.parse(
+      Buffer.from(encrypted, 'base64').toString('utf-8'),
+    ) as { passwordHint?: string }
+
+    expect(decoded.passwordHint).toBe('trimmed-pass')
+  })
+
+  it('throws when encoding with a blank password', () => {
+    expect(() =>
+      encodeWalletToEncrypted(
+        {
+          address: mockAccounts.primary.address,
+          privateKey: mockAccounts.primary.privateKey,
+        },
+        '   ',
+      ),
+    ).toThrow(/Password is required/)
+  })
 })
