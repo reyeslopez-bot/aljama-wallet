@@ -1,11 +1,11 @@
 // components/layout/Navbar.tsx
 'use client'
 
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import WalletButton from '@/components/wallet/ui/WalletButton'
 import { BRAND } from '@/constants/brand'
-import Link from 'next/link'
 
 const MENU_ITEMS = [
   { label: 'Overview', href: '/' },
@@ -28,14 +28,7 @@ export default function Navbar() {
   const menuRef = useRef<HTMLDivElement>(null)
   const languageRef = useRef<HTMLDivElement>(null)
 
-  // Wallet UI should ONLY appear on routes where full wagmi config is active
-  const walletRoutes =
-    pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/wallet') ||
-    pathname.startsWith('/swap') ||
-    pathname.startsWith('/send')
-
-  const showWallet = walletRoutes
+  const showWallet = pathname !== '/'
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
@@ -62,24 +55,25 @@ export default function Navbar() {
     }
   }, [])
 
+  useEffect(() => {
+    setMenuOpen(false)
+    setLanguageOpen(false)
+  }, [pathname])
+
   return (
     <nav
       className="
         fixed top-0 left-0 right-0 z-50
-        text-[#f8f1e4]
+        text-foreground
         bg-gradient-to-b
         from-[#23170f]/85
         via-[#3a2616]/70
-        to-[#2a1b12]/60
-        border-b border-[#5a3c24]/40
-        backdrop-blur
+        border-b border-[#5a3c24]/50
+        backdrop-blur-md
       "
     >
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
-        <Link
-          href="/"
-          className="text-xl font-semibold tracking-wide text-[#f8f1e4] transition hover:text-[#f0d7b3]"
-        >
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 md:px-6">
+        <Link href="/" className="text-xl font-semibold tracking-wide text-[#f8f1e4]">
           {BRAND.name}
         </Link>
 
@@ -91,34 +85,23 @@ export default function Navbar() {
               className="flex items-center gap-2 rounded-full border border-[#7a5636]/60 bg-[#2a1b12]/80 px-4 py-2 text-sm font-medium text-[#f8f1e4] transition hover:border-[#a9764b]/80 hover:bg-[#3a2518]/80"
               aria-haspopup="true"
               aria-expanded={menuOpen}
-              aria-controls="navbar-menu"
             >
               Menu
               <span className="text-xs opacity-80">{menuOpen ? '▲' : '▼'}</span>
             </button>
+
             {menuOpen && (
-              <div
-                id="navbar-menu"
-                className="absolute right-0 mt-2 w-48 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl"
-                role="menu"
-              >
-                {MENU_ITEMS.map((item) => {
-                  const isActive = pathname === item.href
-                  return (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      className={`block rounded-xl px-3 py-2 text-sm transition ${
-                        isActive
-                          ? 'bg-[#3a2518]/90 text-[#f8e5c8]'
-                          : 'text-[#f5e8d6] hover:bg-[#3a2518]/80'
-                      }`}
-                      role="menuitem"
-                    >
-                      {item.label}
-                    </Link>
-                  )
-                })}
+              <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl">
+                {MENU_ITEMS.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="block rounded-xl px-3 py-2 text-sm text-[#f5e8d6] transition hover:bg-[#3a2518]/80"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
               </div>
             )}
           </div>
@@ -130,7 +113,6 @@ export default function Navbar() {
               className="flex items-center gap-2 rounded-full border border-[#7a5636]/60 bg-[#2a1b12]/80 px-4 py-2 text-sm font-medium text-[#f8f1e4] transition hover:border-[#a9764b]/80 hover:bg-[#3a2518]/80"
               aria-haspopup="true"
               aria-expanded={languageOpen}
-              aria-controls="navbar-language"
             >
               <span className="inline-flex h-4 w-4 items-center justify-center">
                 <svg
@@ -149,12 +131,9 @@ export default function Navbar() {
               <span>{activeLanguage.label}</span>
               <span className="text-xs opacity-80">{languageOpen ? '▲' : '▼'}</span>
             </button>
+
             {languageOpen && (
-              <div
-                id="navbar-language"
-                className="absolute right-0 mt-2 w-44 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl"
-                role="menu"
-              >
+              <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl">
                 {LANGUAGES.map((language) => (
                   <button
                     key={language.value}
@@ -164,7 +143,6 @@ export default function Navbar() {
                       setLanguageOpen(false)
                     }}
                     className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-[#f5e8d6] transition hover:bg-[#3a2518]/80"
-                    role="menuitem"
                   >
                     <span>{language.label}</span>
                     {activeLanguage.value === language.value && (

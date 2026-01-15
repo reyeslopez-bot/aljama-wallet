@@ -5,15 +5,33 @@ import React, { useEffect, useMemo, useState } from 'react'
 
 type SecureGateProps = {
   children: React.ReactNode
+  storageKey?: string
 }
 
-export default function SecureGate({ children }: SecureGateProps) {
+const DEFAULT_STORAGE_KEY = 'secure_gate_default_v1'
+
+export default function SecureGate({
+  children,
+  storageKey = DEFAULT_STORAGE_KEY,
+}: SecureGateProps) {
   const [mounted, setMounted] = useState(false)
   const [unlocked, setUnlocked] = useState(false)
 
+  // Mark client mount
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Load persisted unlock state
+  useEffect(() => {
+    if (!mounted) return
+    try {
+      const value = window.localStorage.getItem(storageKey)
+      if (value === '1') setUnlocked(true)
+    } catch {
+      // storage unavailable → fail closed
+    }
+  }, [mounted, storageKey])
 
   const styles = useMemo(() => {
     const font = 'Inter, "Inter Placeholder", sans-serif'
@@ -75,9 +93,7 @@ export default function SecureGate({ children }: SecureGateProps) {
     }
   }, [])
 
-  // Prevent hydration mismatch
   if (!mounted) return null
-
   if (unlocked) return <>{children}</>
 
   return (
@@ -91,6 +107,11 @@ export default function SecureGate({ children }: SecureGateProps) {
           style={styles.button}
           onClick={() => {
             setUnlocked(true)
+            try {
+              window.localStorage.setItem(storageKey, '1')
+            } catch {
+              // ignore
+            }
           }}
         >
           Continue
