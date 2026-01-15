@@ -18,6 +18,19 @@ describe('unlockWallet', () => {
     expect(wallet.privateKey).toBe(mockAccounts.primary.privateKey)
   })
 
+  it('accepts passwords with leading/trailing whitespace', async () => {
+    const password = 'trimmed-pass'
+    const encrypted = mockEncryptedWallet(password)
+
+    const wallet = await unlockWallet({
+      encrypted,
+      password: `  ${password}  `,
+    })
+
+    expect(wallet.address).toBe(mockAccounts.primary.address)
+    expect(wallet.privateKey).toBe(mockAccounts.primary.privateKey)
+  })
+
   it('throws on wrong password', async () => {
     const encrypted = mockEncryptedWallet('correct')
 
