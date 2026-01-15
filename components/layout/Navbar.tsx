@@ -204,6 +204,7 @@ export default function Navbar() {
           {showWallet && <WalletButton />}
         </div>
       </div>
+      </div>
     </nav>
   )
 }

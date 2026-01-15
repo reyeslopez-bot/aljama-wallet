@@ -1,8 +1,8 @@
 /* globals.css */
 /* stylelint-disable at-rule-no-unknown */
 
-@config "../tailwind.config.ts";
 @import "tailwindcss";
+@config "../tailwind.config.ts";
 
 /* =========================================================
    GLOBAL RESET
