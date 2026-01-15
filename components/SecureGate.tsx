@@ -91,7 +91,7 @@ export default function SecureGate({
     <div style={styles.overlay}>
       <div style={styles.card}>
         <h1 style={styles.h1}>Secure Gate</h1>
-        <p style={styles.p}>Continue to access the app.</p>
+        <p style={styles.p}>Continue to the site.</p>
 
         <button
           type="button"
@@ -105,7 +105,7 @@ export default function SecureGate({
             }
           }}
         >
-          Continue
+          Continue to site
         </button>
       </div>
     </div>
