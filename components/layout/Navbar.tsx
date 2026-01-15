@@ -1,6 +1,7 @@
 // components/layout/Navbar.tsx
 'use client'
 
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import WalletButton from '@/components/wallet/ui/WalletButton'
@@ -61,98 +62,105 @@ export default function Navbar() {
     }
   }, [])
 
+  useEffect(() => {
+    setMenuOpen(false)
+    setLanguageOpen(false)
+  }, [pathname])
+
   return (
     <nav
       className="
         fixed top-0 left-0 right-0 z-50
-        px-4 py-3
-        flex items-center justify-between
-        px-5 py-3
-        text-[#f8f1e4]
+        text-foreground
         bg-gradient-to-b
-        from-[#23170f]/80
-        via-[#3a2616]/60
-        border-b border-[#5a3c24]/40
-        backdrop-blur
+        from-[#23170f]/85
+        via-[#3a2616]/70
+        border-b border-[#5a3c24]/50
+        backdrop-blur-md
       "
     >
-      <div className="text-xl font-semibold tracking-wide">{BRAND.name}</div>
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 md:px-6">
+        <Link href="/" className="text-xl font-semibold tracking-wide text-[#f8f1e4]">
+          {BRAND.name}
+        </Link>
 
-      <div className="flex items-center gap-3">
-        <div className="relative" ref={menuRef}>
-          <button
-            type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            className="flex items-center gap-2 rounded-full border border-[#7a5636]/60 bg-[#2a1b12]/80 px-4 py-2 text-sm font-medium text-[#f8f1e4] transition hover:border-[#a9764b]/80 hover:bg-[#3a2518]/80"
-            aria-haspopup="true"
-            aria-expanded={menuOpen}
-          >
-            Menu
-            <span className="text-xs opacity-80">{menuOpen ? '▲' : '▼'}</span>
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl">
-              {MENU_ITEMS.map((item) => (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  className="block rounded-xl px-3 py-2 text-sm text-[#f5e8d6] transition hover:bg-[#3a2518]/80"
+        <div className="flex items-center gap-3">
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              className="flex items-center gap-2 rounded-full border border-[#7a5636]/60 bg-[#2a1b12]/80 px-4 py-2 text-sm font-medium text-[#f8f1e4] transition hover:border-[#a9764b]/80 hover:bg-[#3a2518]/80"
+              aria-haspopup="true"
+              aria-expanded={menuOpen}
+            >
+              Menu
+              <span className="text-xs opacity-80">{menuOpen ? '▲' : '▼'}</span>
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl">
+                {MENU_ITEMS.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="block rounded-xl px-3 py-2 text-sm text-[#f5e8d6] transition hover:bg-[#3a2518]/80"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="relative" ref={languageRef}>
+            <button
+              type="button"
+              onClick={() => setLanguageOpen((open) => !open)}
+              className="flex items-center gap-2 rounded-full border border-[#7a5636]/60 bg-[#2a1b12]/80 px-4 py-2 text-sm font-medium text-[#f8f1e4] transition hover:border-[#a9764b]/80 hover:bg-[#3a2518]/80"
+              aria-haspopup="true"
+              aria-expanded={languageOpen}
+            >
+              <span className="inline-flex h-4 w-4 items-center justify-center">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  className="h-4 w-4"
+                  aria-hidden="true"
                 >
-                  {item.label}
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
+                  <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" />
+                  <path d="M2 12h20" />
+                  <path d="M12 2c2.5 2.7 4 6.1 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.1-4-10s1.5-7.3 4-10Z" />
+                </svg>
+              </span>
+              <span>{activeLanguage.label}</span>
+              <span className="text-xs opacity-80">{languageOpen ? '▲' : '▼'}</span>
+            </button>
+            {languageOpen && (
+              <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl">
+                {LANGUAGES.map((language) => (
+                  <button
+                    key={language.value}
+                    type="button"
+                    onClick={() => {
+                      setActiveLanguage(language)
+                      setLanguageOpen(false)
+                    }}
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-[#f5e8d6] transition hover:bg-[#3a2518]/80"
+                  >
+                    <span>{language.label}</span>
+                    {activeLanguage.value === language.value && (
+                      <span className="text-xs text-[#d6b487]">Active</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-        <div className="relative" ref={languageRef}>
-          <button
-            type="button"
-            onClick={() => setLanguageOpen((open) => !open)}
-            className="flex items-center gap-2 rounded-full border border-[#7a5636]/60 bg-[#2a1b12]/80 px-4 py-2 text-sm font-medium text-[#f8f1e4] transition hover:border-[#a9764b]/80 hover:bg-[#3a2518]/80"
-            aria-haspopup="true"
-            aria-expanded={languageOpen}
-          >
-            <span className="inline-flex h-4 w-4 items-center justify-center">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                className="h-4 w-4"
-                aria-hidden="true"
-              >
-                <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" />
-                <path d="M2 12h20" />
-                <path d="M12 2c2.5 2.7 4 6.1 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.1-4-10s1.5-7.3 4-10Z" />
-              </svg>
-            </span>
-            <span>{activeLanguage.label}</span>
-            <span className="text-xs opacity-80">{languageOpen ? '▲' : '▼'}</span>
-          </button>
-          {languageOpen && (
-            <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-[#7a5636]/60 bg-[#1f140c]/95 p-2 shadow-xl">
-              {LANGUAGES.map((language) => (
-                <button
-                  key={language.value}
-                  type="button"
-                  onClick={() => {
-                    setActiveLanguage(language)
-                    setLanguageOpen(false)
-                  }}
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-[#f5e8d6] transition hover:bg-[#3a2518]/80"
-                >
-                  <span>{language.label}</span>
-                  {activeLanguage.value === language.value && (
-                    <span className="text-xs text-[#d6b487]">Active</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+          {showWallet && <WalletButton />}
         </div>
-
-        {showWallet && <WalletButton />}
       </div>
     </nav>
   )
