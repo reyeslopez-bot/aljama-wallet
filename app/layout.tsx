@@ -6,7 +6,7 @@ import Providers from './Providers.client'
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col antialiased text-white">
+      <body className="min-h-screen flex flex-col antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>
