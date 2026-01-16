@@ -1,7 +1,6 @@
-# dev.sh
 #!/usr/bin/env bash
 set -euo pipefail
-# Aljama Wallet Development Runner (Podman/Docker)
+# Aljama Wallet Development Runner (Podman/Docker) — hardened for Turbopack on macOS
 
 IMAGE_NAME="${IMAGE_NAME:-nextjs-dev}"
 CONTAINER_NAME="${CONTAINER_NAME:-nextjs-container}"
@@ -12,13 +11,17 @@ REBUILD="${REBUILD:-false}"
 FORCE_CLEAN="${FORCE_CLEAN:-false}"
 RUNTIME="${CONTAINER_RUNTIME:-}" # podman|docker (auto if empty)
 
+# Volumes
 PNPM_STORE_VOL="${PNPM_STORE_VOL:-aljama_pnpm_store}"
 NODE_MODULES_VOL="${NODE_MODULES_VOL:-aljama_node_modules}"
+NEXT_CACHE_VOL="${NEXT_CACHE_VOL:-aljama_next_cache}"   # persist .next to reduce recompiles/reconnects
+
+# Tooling
 PNPM_VERSION="${PNPM_VERSION:-10.27.0}"
 echo "pnpm version pin: ${PNPM_VERSION:-unset}"
 
 # hash inputs (deps + container wiring)
-DEPS_HASH_FILES=("package.json" "pnpm-lock.yaml" "pnpm-workspace.yaml" ".devcontainer/Containerfile")
+DEPS_HASH_FILES=("package.json" "pnpm-lock.yaml" "pnpm-workspace.yaml" ".devcontainer/Containerfile" ".npmrc" ".env")
 DEP_HASH_FILE=".devcontainer/.last-deps-hash"
 
 # mode
@@ -64,8 +67,11 @@ while (($#)); do
 Usage:
   ./dev.sh [--rebuild] [--force-clean] [--stop] [--shell] [--logs] [--attach|--detach]
            [--port N] [--runtime podman|docker]
+
 Env:
   PNPM_STORE_VOL=aljama_pnpm_store
+  NODE_MODULES_VOL=aljama_node_modules
+  NEXT_CACHE_VOL=aljama_next_cache
   PNPM_VERSION=10.27.0
 
 Notes:
@@ -138,11 +144,12 @@ fi
 
 # --- Force clean ---
 if [ "$FORCE_CLEAN" = true ]; then
-  echo "Force clean: remove container/image + pnpm store volume"
+  echo "Force clean: remove container/image + volumes + hash"
   "$RUNTIME" rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
   "$RUNTIME" rmi -f "$IMAGE_NAME" >/dev/null 2>&1 || true
   "$RUNTIME" volume rm -f "$PNPM_STORE_VOL" >/dev/null 2>&1 || true
   "$RUNTIME" volume rm -f "$NODE_MODULES_VOL" >/dev/null 2>&1 || true
+  "$RUNTIME" volume rm -f "$NEXT_CACHE_VOL" >/dev/null 2>&1 || true
   rm -f "$DEP_HASH_FILE" >/dev/null 2>&1 || true
 fi
 
@@ -170,7 +177,7 @@ RUN_EXTRA_ARGS=()
 WORKDIR_MOUNT="$PWD:/workspace"
 
 if [ "$RUNTIME" = "podman" ]; then
-  # keep-id makes container uid map to host uid -> avoids root-owned files
+  # keep-id maps container uid -> host uid to avoid root-owned files on bind mounts
   RUN_EXTRA_ARGS+=(--userns=keep-id)
   WORKDIR_MOUNT="$PWD:/workspace:Z"
 elif [ "$RUNTIME" = "docker" ]; then
@@ -180,11 +187,12 @@ fi
 # --- If container already running, reuse it ---
 if "$RUNTIME" ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
   echo "Container already running: $CONTAINER_NAME"
-if [ "$TAIL_LOGS" = true ]; then
-  exec "$RUNTIME" logs -f --tail=200 "$CONTAINER_NAME"
-  # or: exec "$RUNTIME" logs -f --since=10s "$CONTAINER_NAME"
-fi
-  if [ "$SHELL_ONLY" = true ]; then exec "$RUNTIME" exec -it "$CONTAINER_NAME" bash; fi
+  if [ "$TAIL_LOGS" = true ]; then
+    exec "$RUNTIME" logs -f --tail=200 "$CONTAINER_NAME"
+  fi
+  if [ "$SHELL_ONLY" = true ]; then
+    exec "$RUNTIME" exec -it "$CONTAINER_NAME" bash
+  fi
   echo "App: $APP_URL"
   exit 0
 fi
@@ -195,9 +203,12 @@ echo "Starting dev container at $APP_URL"
 RUN_MODE_ARGS=()
 if [ "$DETACH" = true ]; then RUN_MODE_ARGS+=(-d); else RUN_MODE_ARGS+=(-it); fi
 
+# Bind explicitly to localhost for stability on macOS+Podman
+PORT_PUBLISH="127.0.0.1:${APP_PORT}:${APP_PORT}"
+
 "$RUNTIME" run --rm "${RUN_MODE_ARGS[@]}" \
   --name "$CONTAINER_NAME" \
-  -p "$APP_PORT:$APP_PORT" \
+  -p "$PORT_PUBLISH" \
   -e PORT="$APP_PORT" \
   -e PNPM_VERSION="$PNPM_VERSION" \
   -e COREPACK_ENABLE_STRICT=1 \
@@ -205,6 +216,7 @@ if [ "$DETACH" = true ]; then RUN_MODE_ARGS+=(-d); else RUN_MODE_ARGS+=(-it); fi
   -v "$WORKDIR_MOUNT" \
   --volume "${PNPM_STORE_VOL}:/workspace/.pnpm-store" \
   --volume "${NODE_MODULES_VOL}:/workspace/node_modules" \
+  --volume "${NEXT_CACHE_VOL}:/workspace/.next" \
   "${RUN_EXTRA_ARGS[@]}" \
   "$IMAGE_NAME" \
 bash -lc "$(cat <<'BASH'
@@ -215,8 +227,8 @@ corepack prepare "pnpm@${PNPM_VERSION}" --activate >/dev/null 2>&1 || true
 
 pnpm config set store-dir /workspace/.pnpm-store
 
-mkdir -p /workspace/.pnpm-store
-chmod u+rwX /workspace /workspace/node_modules /workspace/.pnpm-store 2>/dev/null || true
+mkdir -p /workspace/.pnpm-store /workspace/.next
+chmod u+rwX /workspace /workspace/node_modules /workspace/.pnpm-store /workspace/.next 2>/dev/null || true
 
 IS_CI="${CI:-}"
 if [ "$IS_CI" = "true" ]; then
@@ -225,13 +237,24 @@ else
   LOCKFLAG="--no-frozen-lockfile"
 fi
 
-PNPM_CONFIRM_DELETE=1 pnpm install $LOCKFLAG --prefer-offline || (
-  echo 'pnpm install failed; wiping node_modules contents once and retrying'
-  # node_modules is a volume mount; delete contents, not the mountpoint
-  find /workspace/node_modules -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
-  PNPM_CONFIRM_DELETE=1 pnpm install $LOCKFLAG --prefer-offline
-)
+# Only install when lockfile hash changes (prevents node_modules churn -> fewer Turbopack disconnects)
+LOCK_HASH_FILE="/workspace/node_modules/.last-lock-hash"
+CURRENT_LOCK_HASH="$(sha256sum /workspace/pnpm-lock.yaml 2>/dev/null | cut -d' ' -f1)"
+LAST_LOCK_HASH="$(cat "$LOCK_HASH_FILE" 2>/dev/null || echo '')"
 
+if [ "$CURRENT_LOCK_HASH" != "$LAST_LOCK_HASH" ]; then
+  echo "Lockfile changed — installing deps"
+  PNPM_CONFIRM_DELETE=1 pnpm install $LOCKFLAG --prefer-offline || (
+    echo 'pnpm install failed; wiping node_modules contents once and retrying'
+    find /workspace/node_modules -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+    PNPM_CONFIRM_DELETE=1 pnpm install $LOCKFLAG --prefer-offline
+  )
+  echo "$CURRENT_LOCK_HASH" > "$LOCK_HASH_FILE"
+else
+  echo "Lockfile unchanged — skipping pnpm install"
+fi
+
+# Prisma: regenerate only when schema changes
 PRISMA_HASH_FILE="/workspace/.prisma/.last-schema-hash"
 mkdir -p /workspace/.prisma
 
@@ -245,9 +268,11 @@ if [ "$CURRENT_PRISMA_HASH" != "$LAST_PRISMA_HASH" ]; then
 else
   echo 'Prisma schema unchanged — skipping generate'
 fi
+
 if [ "${SHELL_ONLY:-false}" = "true" ]; then
   exec bash
 fi
+
 exec pnpm dev --port "$PORT" --hostname 0.0.0.0
 BASH
 )"

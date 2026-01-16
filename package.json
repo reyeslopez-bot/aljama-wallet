@@ -2,6 +2,7 @@
   "name": "aljama-wallet",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "pnpm prisma:generate && next build --webpack",
@@ -19,13 +20,18 @@
     "prisma:migrate:deploy:pg": "prisma migrate deploy --schema=prisma/pg/schema.prisma"
   },
   "dependencies": {
+    "@base-org/account": "2.4.2",
+    "@metamask/sdk": "^0.34.0",
+    "@prisma/client": "7.1.0",
     "@rainbow-me/rainbowkit": "^2.2.10",
+    "@safe-global/safe-apps-provider": "^0.18.6",
+    "@safe-global/safe-apps-sdk": "^9.1.0",
     "@tanstack/react-query": "5.90.12",
+    "@walletconnect/ethereum-provider": "2.21.1",
     "clsx": "^2.1.1",
     "ethers": "6.16.0",
     "framer-motion": "12.23.25",
     "pino": "^10.1.0",
-    "@prisma/client": "7.1.0",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "viem": "2.41.2",

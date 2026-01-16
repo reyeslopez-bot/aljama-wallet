@@ -43,7 +43,7 @@
     "global.d.ts",
     ".next/dev/types/**/*.ts",
     "framer.d.ts"
-  ],
+, "tailwind.config.mjs"  ],
   "exclude": [
     "node_modules",
     ".next"
