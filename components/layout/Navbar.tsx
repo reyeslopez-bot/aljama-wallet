@@ -8,10 +8,10 @@ import WalletButton from '@/components/wallet/ui/WalletButton'
 import { BRAND } from '@/constants/brand'
 
 const MENU_ITEMS = [
-  { label: 'Overview', href: '/' },
-  { label: 'Security', href: '/security' },
-  { label: 'Docs', href: '/docs' },
-  { label: 'Support', href: '/support' },
+  { label: 'Overview', href: '/#overview' },
+  { label: 'Create', href: '/#create' },
+  { label: 'Connect', href: '/#connect' },
+  { label: 'XRPL', href: '/#xrpl' },
 ]
 
 const LANGUAGES = [

@@ -1,33 +1,31 @@
 // components/home/HomeActionButtons.client.tsx 
 "use client"
 
+import Link from "next/link"
 import { motion } from "framer-motion"
-import { useConnectModal } from "@rainbow-me/rainbowkit"
-import { useRouter } from "next/navigation"
 
 type Btn =
-  | { kind: "create"; label: string; href: string; bg: string; fg: string }
-  | { kind: "route"; label: string; href: string; bg: string; fg: string }
-  | { kind: "connect"; label: string; bg: string; fg: string }
+  | { kind: "anchor"; label: string; href: string; bg: string; fg: string }
 
 const buttons: Btn[] = [
   {
-    kind: "create",
+    kind: "anchor",
     label: "Create Wallet",
-    href: "/wallet/create",
+    href: "#create",
     bg: "linear-gradient(135deg, #f6d7b0 0%, #e7b77f 45%, #cf8b58 100%)",
     fg: "#1A1A1A",
   },
   {
-    kind: "connect",
+    kind: "anchor",
     label: "Connect Wallet",
+    href: "#connect",
     bg: "linear-gradient(135deg, #f4c08d 0%, #e39a5e 50%, #c7703d 100%)",
     fg: "#160E08",
   },
   {
-    kind: "route",
-    label: "Discover",
-    href: "/discover",
+    kind: "anchor",
+    label: "XRPL",
+    href: "#xrpl",
     bg: "linear-gradient(135deg, #f7e1b6 0%, #e0c48a 50%, #b9935a 100%)",
     fg: "#2A1C0F",
   },
@@ -42,30 +40,15 @@ const surface = (bg: string) => ({
 } as const)
 
 export default function HomeActionButtons() {
-  const router = useRouter()
-  const { openConnectModal } = useConnectModal()
-  const handleAction = (button: Btn) => {
-    if (button.kind === "connect") {
-      return openConnectModal?.()
-    }
-    if (button.kind === "create") {
-      return router.push(button.href)
-    }
-    return router.push(button.href)
-  }
-
   return (
     <div className="w-full">
       <div className="mx-auto grid w-full max-w-3xl grid-cols-3 gap-4 md:gap-6">
         {buttons.map((b) => (
-          <button
+          <Link
             key={b.label}
-            type="button"
-            onClick={() => {
-              handleAction(b)
-            }}
+            href={b.href}
             className="block w-full bg-transparent p-0 border-0 outline-none appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-            aria-label={b.kind === "connect" ? "Connect a wallet" : b.label}
+            aria-label={b.label}
           >
             <motion.div
               whileHover={{ y: -2 }}
@@ -76,7 +59,7 @@ export default function HomeActionButtons() {
             >
               <span style={{ color: b.fg }}>{b.label}</span>
             </motion.div>
-          </button>
+          </Link>
         ))}
       </div>
     </div>
