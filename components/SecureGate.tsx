@@ -5,15 +5,19 @@ import { useEffect, useMemo, useState } from 'react'
 
 type SecureGateProps = {
   children: React.ReactNode
+  storageKey?: string
 }
 
-export default function SecureGate({ children }: SecureGateProps) {
+export default function SecureGate({ children, storageKey }: SecureGateProps) {
   const [mounted, setMounted] = useState(false)
   const [unlocked, setUnlocked] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    if (!storageKey) return
+    const stored = window.localStorage.getItem(storageKey)
+    if (stored === '1') setUnlocked(true)
+  }, [storageKey])
 
   const styles = useMemo(() => {
     const font = 'Inter, "Inter Placeholder", sans-serif'
@@ -73,7 +77,12 @@ export default function SecureGate({ children }: SecureGateProps) {
         <button
           type="button"
           style={styles.button}
-          onClick={() => setUnlocked(true)}
+          onClick={() => {
+            setUnlocked(true)
+            if (storageKey) {
+              window.localStorage.setItem(storageKey, '1')
+            }
+          }}
         >
           Continue
         </button>
