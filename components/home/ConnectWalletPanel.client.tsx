@@ -1,12 +1,17 @@
 'use client'
 
-import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { motion } from 'framer-motion'
-import { useAccount } from 'wagmi'
+import { useAccount, useConnect, useDisconnect } from 'wagmi'
 
 export function ConnectWalletPanel() {
-  const { openConnectModal } = useConnectModal()
   const { address, isConnected } = useAccount()
+  const { connect, connectors, isPending } = useConnect()
+  const { disconnect } = useDisconnect()
+
+  const connector = connectors.find((item) => item.id === 'injected') ?? connectors[0]
+  const canConnect = Boolean(connector)
+  const connectLabel = isConnected ? 'Switch wallet' : 'Connect wallet'
+  const statusLabel = isConnected ? 'Connected' : 'Ready to connect'
 
   return (
     <section className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 via-white/5 to-black/60 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl">
@@ -23,11 +28,11 @@ export function ConnectWalletPanel() {
             Link your EVM wallet
           </h2>
           <p className="text-sm text-white/70">
-            Use WalletConnect or browser wallets to authenticate instantly.
+            Use your browser wallet to authenticate instantly.
           </p>
         </div>
         <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-white/70">
-          {isConnected ? 'Connected' : 'Ready to connect'}
+          {statusLabel}
         </span>
       </header>
 
@@ -56,10 +61,18 @@ export function ConnectWalletPanel() {
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => openConnectModal?.()}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#5da9e9] to-[#2f6fb4] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-sky-400/30 transition focus:outline-none focus:ring-2 focus:ring-sky-200/40"
+          disabled={!canConnect || isPending}
+          onClick={() => {
+            if (!connector) return
+            if (isConnected) {
+              disconnect()
+              return
+            }
+            connect({ connector })
+          }}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#5da9e9] to-[#2f6fb4] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-sky-400/30 transition focus:outline-none focus:ring-2 focus:ring-sky-200/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isConnected ? 'Switch wallet' : 'Connect wallet'}
+          {isPending ? 'Connecting...' : connectLabel}
         </motion.button>
       </div>
     </section>
