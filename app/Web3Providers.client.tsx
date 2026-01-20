@@ -3,11 +3,11 @@
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { WagmiProvider, createConfig, http } from "wagmi"
-import { mainnet, sepolia } from "wagmi/chains"
+import { base, mainnet, polygon, sepolia } from "wagmi/chains"
 import { injected } from "@wagmi/core"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
-const CHAINS = [mainnet, sepolia] as const
+const CHAINS = [mainnet, sepolia, polygon, base] as const
 
 export default function Web3Providers({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false)
@@ -20,7 +20,12 @@ export default function Web3Providers({ children }: { children: ReactNode }) {
       chains: CHAINS,
       ssr: false,
       connectors: [injected()],
-      transports: { [mainnet.id]: http(), [sepolia.id]: http() },
+      transports: {
+        [mainnet.id]: http(),
+        [sepolia.id]: http(),
+        [polygon.id]: http(),
+        [base.id]: http(),
+      },
     })
   }, [])
 
