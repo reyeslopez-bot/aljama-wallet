@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ---------- base ----------
-FROM node:24.3.0 AS base
+FROM node:25.4.0 AS base
 WORKDIR /workspace
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
@@ -13,9 +13,8 @@ RUN apt-get update && apt-get install -y -qq \
       git curl vim neovim bash xxd xclip \
     && rm -rf /var/lib/apt/lists/*
 
-ARG PNPM_VERSION=10.27.0
-RUN corepack enable \
- && corepack prepare pnpm@${PNPM_VERSION} --activate
+ARG PNPM_VERSION=10.28.1
+RUN npm i -g pnpm@${PNPM_VERSION}
 
 # ---------- dev ----------
 FROM base AS dev

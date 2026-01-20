@@ -1,10 +1,9 @@
 // lib/xrpl.ts
 import { getXrplClient, createXrplWalletFromSeed } from '@/infra/xrpl/client'
 
-export type XrplDevAccount = {
-  address: string
-  xrpBalance: string
-}
+export type XrplDevAccount =
+  | { address: string; funded: true; xrpBalance: string }
+  | { address: string; funded: false; xrpBalance: "0"; needsFunding: true }
 
 export async function getDevXrplAccount(): Promise<XrplDevAccount> {
   const seed = process.env.XRPL_DEV_SEED
@@ -15,11 +14,33 @@ export async function getDevXrplAccount(): Promise<XrplDevAccount> {
   const client = await getXrplClient()
   const wallet = createXrplWalletFromSeed(seed)
 
-  const balance = await client.getXrpBalance(wallet.address)
-  const balanceStr = typeof balance === 'string' ? balance : balance.toString()
+  try {
+    const balance = await client.getXrpBalance(wallet.address)
+    const balanceStr =
+      typeof balance === 'string' ? balance : balance.toString()
 
-  return {
-    address: wallet.address,
-    xrpBalance: balanceStr,
+    return {
+      address: wallet.address,
+      funded: true,
+      xrpBalance: balanceStr,
+    }
+  } catch (e: unknown) {
+    const msg =
+      e instanceof Error
+        ? e.message
+        : typeof e === "string"
+          ? e
+          : String(e)
+
+    if (msg.includes('Account not found')) {
+      return {
+        address: wallet.address,
+        funded: false,
+        xrpBalance: "0",
+        needsFunding: true,
+      }
+    }
+
+    throw e
   }
 }

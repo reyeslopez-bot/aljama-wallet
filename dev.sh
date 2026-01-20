@@ -17,7 +17,7 @@ NODE_MODULES_VOL="${NODE_MODULES_VOL:-aljama_node_modules}"
 NEXT_CACHE_VOL="${NEXT_CACHE_VOL:-aljama_next_cache}"   # persist .next to reduce recompiles/reconnects
 
 # Tooling
-PNPM_VERSION="${PNPM_VERSION:-10.27.0}"
+PNPM_VERSION="${PNPM_VERSION:-10.28.1}"
 echo "pnpm version pin: ${PNPM_VERSION:-unset}"
 
 # hash inputs (deps + container wiring)
@@ -72,7 +72,7 @@ Env:
   PNPM_STORE_VOL=aljama_pnpm_store
   NODE_MODULES_VOL=aljama_node_modules
   NEXT_CACHE_VOL=aljama_next_cache
-  PNPM_VERSION=10.27.0
+  PNPM_VERSION=10.28.1
 
 Notes:
   Default is --detach, so you can exec into the container:

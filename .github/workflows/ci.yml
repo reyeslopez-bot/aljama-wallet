@@ -36,7 +36,7 @@ jobs:
         run: corepack enable
 
       - name: Activate pnpm
-        run: corepack prepare pnpm@10.27.0 --activate
+        run: corepack prepare pnpm@10.28.1 --activate
 
       - name: Setup pnpm cache
         uses: actions/setup-node@v4
@@ -133,7 +133,7 @@ jobs:
             bash -lc '
               set -euo pipefail
               corepack enable >/dev/null 2>&1 || true
-              corepack prepare pnpm@10.27.0 --activate >/dev/null 2>&1 || true
+              corepack prepare pnpm@10.28.1 --activate >/dev/null 2>&1 || true
 
               pnpm install --frozen-lockfile
 
