@@ -10,7 +10,7 @@ export function ConnectWalletPanel() {
 
   const connector = connectors.find((item) => item.id === 'injected') ?? connectors[0]
   const canConnect = Boolean(connector)
-  const connectLabel = isConnected ? 'Switch wallet' : 'Connect wallet'
+  const connectLabel = isConnected ? 'Disconnect wallet' : 'Connect wallet'
   const statusLabel = isConnected ? 'Connected' : 'Ready to connect'
 
   return (

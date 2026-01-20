@@ -25,6 +25,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [languageOpen, setLanguageOpen] = useState(false)
   const [activeLanguage, setActiveLanguage] = useState(LANGUAGES[0])
+  const [activeHash, setActiveHash] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
   const languageRef = useRef<HTMLDivElement>(null)
 
@@ -62,9 +63,25 @@ export default function Navbar() {
   }, [])
 
   useEffect(() => {
+    const updateHash = () => {
+      setActiveHash(window.location.hash ?? '')
+    }
+
+    updateHash()
+    window.addEventListener('hashchange', updateHash)
+    return () => window.removeEventListener('hashchange', updateHash)
+  }, [])
+
+  useEffect(() => {
     setMenuOpen(false)
     setLanguageOpen(false)
+    setActiveHash(window.location.hash ?? '')
   }, [pathname])
+
+  const getHashFromHref = (href: string) => {
+    const hashIndex = href.indexOf('#')
+    return hashIndex === -1 ? '' : href.slice(hashIndex)
+  }
 
   return (
     <nav
@@ -91,7 +108,8 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           <div className="hidden items-center gap-1 md:flex">
             {MENU_ITEMS.map((item) => {
-              const isActive = pathname === item.href
+              const itemHash = getHashFromHref(item.href)
+              const isActive = itemHash ? itemHash === activeHash : pathname === item.href
               return (
                 <Link
                   key={item.label}
@@ -128,7 +146,8 @@ export default function Navbar() {
                 role="menu"
               >
                 {MENU_ITEMS.map((item) => {
-                  const isActive = pathname === item.href
+                  const itemHash = getHashFromHref(item.href)
+                  const isActive = itemHash ? itemHash === activeHash : pathname === item.href
                   return (
                     <Link
                       key={item.label}
