@@ -1,15 +1,20 @@
 // prisma/pg/schema.prisma
 
-// prisma/pg/schema.prisma
+datasource db {
+  provider = "postgresql"
+  // URL is configured in prisma/pg/prisma.config.ts
+}
+
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/pg"
 }
 
-
-datasource db {
-  provider = "postgresql"
-  // URL is configured in prisma/pg/prisma.config.ts
+model User {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  email     String   @unique
+  name      String?
 }
 
 model DailyTransactionSummary {
