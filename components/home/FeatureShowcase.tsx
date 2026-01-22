@@ -10,13 +10,6 @@ const featureCards = [
     title: 'Wagmi-ready wiring',
     subtitle: 'EVM networks',
     body: 'Hooks and detectors stay synced with wagmi connection status so the UI never falls behind the wallet.',
-    accent: 'emerald',
-    badge: 'Realtime',
-  },
-  {
-    title: 'Composable rituals',
-    subtitle: 'Next.js + Tailwind',
-    body: 'Sections are data-driven so you can swap copy, animations, and layouts without rewiring logic.',
     accent: 'indigo',
     badge: 'Composable',
   },
@@ -31,10 +24,6 @@ const rituals = [
     title: 'Track connections',
     detail: 'useTrackUserWallet posts to /api/track-wallet when sessions change.',
   },
-  {
-    title: 'Guide unlocks',
-    detail: 'WalletDetector hovers unobtrusively with status + actions.',
-  },
 ]
 
 export function FeatureShowcase() {
@@ -44,13 +33,13 @@ export function FeatureShowcase() {
       <div className="relative grid gap-10 lg:grid-cols-[1fr_0.9fr]">
         <div className="space-y-4">
           <p className="text-xs uppercase tracking-[0.16em] text-amber-100/80">Design language</p>
-          <h2 className="text-3xl font-semibold text-[#f7f0e6] sm:text-4xl">Dune-slick UI with pragmatic wiring</h2>
+          <h2 className="text-3xl font-semibold text-[#f7f0e6] sm:text-4xl"></h2>
           <p className="text-base text-white/70">
-            Each block keeps copy editable and logic decoupled. Use this surface to showcase new rituals, L2 support,
-            or ENS/WalletConnect flows without rewriting the landing page.
+            Use this surface to showcase new rituals, L2 support,
+            or ENS/WalletConnect flows..
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             {rituals.map((item) => (
               <div key={item.title} className="rounded-2xl border border-white/10 bg-black/40 p-3 shadow-inner shadow-black/40">
                 <p className="text-sm font-semibold text-[#f7f0e6]">{item.title}</p>
@@ -60,7 +49,7 @@ export function FeatureShowcase() {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
           {featureCards.map((card) => (
             <article
               key={card.title}
@@ -70,7 +59,6 @@ export function FeatureShowcase() {
               <span
                 className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em]
                 ${card.accent === 'amber' ? 'bg-amber-400/15 text-amber-100' : ''}
-                ${card.accent === 'emerald' ? 'bg-emerald-400/15 text-emerald-100' : ''}
                 ${card.accent === 'indigo' ? 'bg-indigo-400/15 text-indigo-100' : ''}
               `}
               >
