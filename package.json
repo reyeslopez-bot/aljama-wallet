@@ -35,8 +35,8 @@
     "framer-motion": "12.23.25",
     "pino": "^10.1.0",
     "porto": "^0.2.37",
-    "react": "19.2.1",
-    "react-dom": "19.2.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "viem": "2.41.2",
     "wagmi": "3.1.0",
     "xrpl": "^4.4.3",
@@ -48,7 +48,7 @@
     "@next/eslint-plugin-next": "16.1.0",
     "@tailwindcss/postcss": "^4.1.17",
     "@types/node": "24.x",
-    "@types/react": "19.2.7",
+    "@types/react": "19.2.3",
     "@types/react-dom": "19.2.3",
     "@typescript-eslint/parser": "^8.49.0",
     "@vitest/coverage-v8": "^4.0.15",
@@ -66,16 +66,18 @@
   },
   "pnpm": {
     "overrides": {
-      "@types/react": "19.2.7",
+      "@types/react": "19.2.3",
       "@types/react-dom": "19.2.3",
       "wagmi": "3.1.0",
       "viem": "2.41.2",
       "@wagmi/connectors": "7.0.2",
       "@base-org/account": "2.4.2",
-      "@walletconnect/ethereum-provider": "2.21.1",
-      "@walletconnect/universal-provider": "2.21.1",
-      "@walletconnect/sign-client": "2.21.1",
-      "abitype@1.0.8>zod": "^3.22.4"
+      "@walletconnect/ethereum-provider": "2.23.4",
+      "@walletconnect/universal-provider": "2.23.4",
+      "@walletconnect/sign-client": "2.23.4",
+      "abitype@1.0.8>zod": "^3.22.4",
+      "@metamask/sdk": "0.34.0",
+      "@paulmillr/qr@": "0.3.0"
     },
     "peerDependencyRules": {
       "allowAny": [
