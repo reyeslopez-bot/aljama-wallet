@@ -15,11 +15,12 @@
 7. [Configuration & Environment Variables](#configuration--environment-variables)
 8. [Scripts & Commands](#scripts--commands)
 9. [Directory Structure](#directory-structure)
-10. [Testing](#testing)
-11. [Deployment](#deployment)
-12. [Contributing](#contributing)
-13. [License](#license)
-14. [Acknowledgements](#acknowledgements)
+10. [Newcomer Guide (Codebase Tour)](#newcomer-guide-codebase-tour)
+11. [Testing](#testing)
+12. [Deployment](#deployment)
+13. [Contributing](#contributing)
+14. [License](#license)
+15. [Acknowledgements](#acknowledgements)
 
 ---
 
@@ -153,6 +154,54 @@ pnpm format    # Prettier
 ├─ .github/workflows/   # CI definitions
 └─ README.md            # This file
 ```
+
+## Newcomer Guide (Codebase Tour)
+
+### App Entry + Routing
+
+* `app/layout.tsx` is the root layout, wires global styles + providers and wraps every route.  
+* `app/(site)` hosts the public marketing/home route (`page.tsx`).  
+* `app/(wallet)` hosts wallet UI routes and provides the themed layout shell.  
+* `app/Providers.client.tsx` + `app/Web3Providers.client.tsx` configure React Query + Wagmi client-side.  
+* `app/ClientOnly.tsx` is a helper to gate UI against hydration quirks.  
+
+### UI + Wallet UX
+
+* `components/home/*` is the primary home page UI surface (wallet actions, XRPL panel, and login gate).  
+* `components/wallet/*` and `components/ui/*` host wallet-specific and shared UI atoms.  
+* `infra/state/walletStore.ts` holds the in-memory unlocked wallet state.  
+
+### Wallet Logic + APIs
+
+* `lib/wallet.ts` contains the create/unlock flow and base64 payload helpers (toy crypto).  
+* `app/api/create-wallet/route.ts` creates an encrypted wallet payload.  
+* `app/api/track-wallet/route.ts` accepts wallet telemetry for dev observability.  
+
+### Data + Prisma
+
+* `prisma/crdb/schema.prisma` is the OLTP schema (wallets + transactions).  
+* `prisma/pg/schema.prisma` is the OLAP schema (user + daily summaries).  
+* `infra/db/prisma-crdb.ts` and `infra/db/prisma-pg.ts` are the database client factories.  
+* `infra/utils/summary.service.ts` wraps the OLAP read path for summaries.  
+
+### Messaging + Agents
+
+* `infra/kafka/*` provides a Kafka REST producer/consumer client.  
+* `infra/agentic/*` holds agent orchestration, RAG, and wallet-policy logic.  
+
+### Runtime + Local Dev
+
+* `dev.sh` and `prod.sh` are the Podman/Docker runners for local and production-like builds.  
+* `justfile` provides convenience wrappers for the shell scripts.  
+* `tests/*` contains Vitest suites and helpers.  
+
+### Things to Learn Next
+
+* Trace the wallet creation flow: `components/home/*` → `/api/create-wallet` → `lib/wallet.ts`.  
+* Review Wagmi + connector setup in `app/Web3Providers.client.tsx` and `infra/wagmi/wagmi.ts`.  
+* Learn how data is pulled from OLAP by reading `infra/utils/summary.service.ts` and the `pg` Prisma schema.  
+* Inspect Kafka agent wiring in `infra/agentic/kafka.ts` and the REST client in `infra/kafka/client.ts`.  
+* Extend tests in `tests/lib/*` and `tests/app/api/*` for new wallet flows.  
 
 ## Testing
 
