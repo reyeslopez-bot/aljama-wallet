@@ -1,5 +1,7 @@
 // Server Component (NO 'use client')
 
+import CurrentLocation from '@/components/ui/CurrentLocation.client'
+import MapboxMap from '@/components/ui/MapboxMap.client'
 import { CreateWalletPanel } from '@/components/home/CreateWalletPanel'
 import { FeatureShowcase } from '@/components/home/FeatureShowcase'
 import HomeActionButtons from '@/components/home/HomeActionButtons.client'
@@ -24,6 +26,7 @@ export default function HomeContent() {
     <div className="relative mx-auto max-w-7xl space-y-24 pb-32 pt-28">
       <ClientTrackWallet />
 
+      {/* ================= HERO / OVERVIEW ================= */}
       <section
         id="overview"
         className={`relative scroll-mt-28 overflow-hidden p-12 md:p-14 ${SURFACE} shadow-[0_40px_120px_rgba(0,0,0,0.9)]`}
@@ -33,16 +36,15 @@ export default function HomeContent() {
         <div className="absolute -right-24 bottom-0 h-40 w-40 rounded-full bg-emerald-400/15 blur-[140px]" />
 
         <div className="relative z-10 max-w-3xl space-y-8">
-          <p className="text-sm uppercase tracking-[0.25em] text-[#c9a24d]/90">
-            {BRAND.name}
-          </p>
+          <p className="text-sm uppercase tracking-[0.25em] text-[#c9a24d]/90">{BRAND.name}</p>
 
           <h1 className="text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl">
             Wealth-grade self custody for a desert age.
           </h1>
 
           <p className="text-lg text-white/70">
-            Create encrypted session vaults, move across EVM networks, and maintain full sovereign control without onboarding noise.
+            Create encrypted session vaults, move across EVM networks, and maintain full sovereign control without onboarding
+            noise.
           </p>
 
           <HomeActionButtons />
@@ -59,6 +61,20 @@ export default function HomeContent() {
         </div>
       </section>
 
+      {/* ================= MAP + LOCATION ================= */}
+      <section id="demo" className="grid scroll-mt-28 gap-20 lg:grid-cols-2">
+        {/* LEFT: current location */}
+        <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
+          <CurrentLocation />
+        </div>
+
+        {/* RIGHT: native Mapbox map (centers on user when requested) */}
+        <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
+          <MapboxMap />
+        </div>
+      </section>
+
+      {/* ================= CREATE ================= */}
       <section id="create" className="grid scroll-mt-28 gap-20 lg:grid-cols-2">
         <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
           <CreateWalletPanel />
@@ -68,6 +84,7 @@ export default function HomeContent() {
         </div>
       </section>
 
+      {/* ================= CONNECT ================= */}
       <section id="connect" className="grid scroll-mt-28 gap-20 lg:grid-cols-2">
         <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
           <ConnectWalletPanel />
@@ -89,6 +106,7 @@ export default function HomeContent() {
         </div>
       </section>
 
+      {/* ================= XRPL ================= */}
       <section id="xrpl" className="grid scroll-mt-28 gap-20 lg:grid-cols-2">
         <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
           <XrplPanel />

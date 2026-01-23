@@ -3,6 +3,7 @@
 
 @import "tailwindcss";
 @config "../tailwind.config.ts";
+@import "mapbox-gl/dist/mapbox-gl.css";
 
 /* =========================================================
    GLOBAL RESET
