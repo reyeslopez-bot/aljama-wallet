@@ -1,32 +1,17 @@
-// prisma/crdb/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma-crdb"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "cockroachdb"
 }
 
 model Wallet {
-  id         String   @id @default(cuid())
-  address    String   @unique
-  privateKey String
-  createdAt  DateTime @default(now())
-
-  transactionsSent     Transaction[] @relation("FromWallet")
-  transactionsReceived Transaction[] @relation("ToWallet")
-}
-
-model Transaction {
-  id           String   @id @default(cuid())
-  fromWallet   Wallet   @relation("FromWallet", fields: [fromWalletId], references: [id])
-  fromWalletId String
-  toWallet     Wallet   @relation("ToWallet", fields: [toWalletId], references: [id])
-  toWalletId   String
-  value        Float
-  asset        String
-  blockchain   String
-  createdAt    DateTime @default(now())
+  id                 String   @id @default(cuid())
+  address            String   @unique
+  encryptedPrivateKey Bytes
+  encryptionIv       Bytes
+  keyVersion         Int      @default(1)
+  createdAt          DateTime @default(now())
 }

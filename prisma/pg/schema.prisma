@@ -1,26 +1,17 @@
-// prisma/pg/schema.prisma
-
-datasource db {
-  provider = "postgresql"
-  // URL is configured in prisma/pg/prisma.config.ts
-}
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/pg"
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  email     String   @unique
-  name      String?
+datasource db {
+  provider = "postgresql"
 }
 
-model DailyTransactionSummary {
-  id         String   @id @default(cuid())
-  day        DateTime
-  totalValue Float
-  chain      String
-  asset      String
+model Wallet {
+  id                 String   @id @default(cuid())
+  address            String   @unique
+  encryptedPrivateKey Bytes
+  encryptionIv       Bytes
+  keyVersion         Int      @default(1)
+  createdAt          DateTime @default(now())
 }

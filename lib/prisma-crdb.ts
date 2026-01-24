@@ -1,2 +1,22 @@
 // lib/prisma-crdb.ts
-export { prismaCrdb } from "@/infra/db/prisma"
+import { PrismaClient } from "@/prisma/generated/prisma-crdb"
+import { PrismaPg } from "@prisma/adapter-pg"
+import pg from "pg"
+
+const globalForPrisma = globalThis as unknown as {
+  prismaCrdb?: PrismaClient
+}
+
+export const prismaCrdb =
+  globalForPrisma.prismaCrdb ??
+  new PrismaClient({
+    adapter: new PrismaPg(
+      new pg.Pool({
+        connectionString: process.env.CRDB_DATABASE_URL,
+      })
+    ),
+  })
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prismaCrdb = prismaCrdb
+}

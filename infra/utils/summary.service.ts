@@ -1,5 +1,5 @@
 // infra/utils/summary.service.ts
-import { prismaPg } from '@/infra/db/prisma'
+import { prismaPg } from '@/lib/prisma-pg'
 
 export const getDailySummaries = async () => {
   // CI: don’t require DB connectivity

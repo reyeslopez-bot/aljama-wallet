@@ -1,78 +1,100 @@
 // services/mcp/wallet-signer.ts
-import { createServer, type ServerResponse } from 'node:http';
-import { z } from 'zod';
-import { Transaction, Wallet, verifyMessage } from 'ethers';
-import { prismaCrdb } from '@/lib/prisma-crdb';
+import { createServer, type ServerResponse } from 'node:http'
+import { z } from 'zod'
+import { Transaction, Wallet, verifyMessage } from 'ethers'
+import { prismaCrdb } from '@/lib/prisma-crdb'
+import { decryptPrivateKey } from '@/lib/crypto/wallet-crypto'
 
 const requestSchema = z.object({
   tool: z.enum(['wallet.signTx', 'wallet.deriveAddress', 'wallet.verifySignature']),
   input: z.record(z.string(), z.unknown()),
-});
-type RequestTool = z.infer<typeof requestSchema>['tool'];
+})
+type RequestTool = z.infer<typeof requestSchema>['tool']
 
 const signTxSchema = z.object({
   walletId: z.string().min(3),
   chainId: z.number().int().positive(),
   tx: z.record(z.string(), z.unknown()),
-});
+})
 
 const deriveAddressSchema = z.object({
   walletId: z.string().min(3),
-  path: z.string().optional(),
-});
+  path: z.string().optional(), // reserved for future HD wallets
+})
 
 const verifySignatureSchema = z.object({
   message: z.string(),
   signature: z.string(),
   address: z.string(),
-});
+})
+
+function sendJson(res: ServerResponse, status: number, body: unknown) {
+  res.statusCode = status
+  res.setHeader('content-type', 'application/json')
+  res.end(JSON.stringify(body))
+}
+
+function ensure0xHex(pk: string): string {
+  const trimmed = pk.trim()
+  return trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`
+}
+
+async function getDecryptedWallet(walletId: string) {
+  const record = await prismaCrdb().wallet.findUnique({
+    where: { id: walletId },
+    select: {
+      id: true,
+      encryptedPrivateKey: true,
+      encryptionIv: true,
+      keyVersion: true,
+      address: true,
+    },
+  })
+
+  if (!record) throw new Error('WALLET_NOT_FOUND')
+
+  // Prisma Bytes usually come back as Uint8Array; convert to Buffer for your decrypt fn
+  const encrypted = Buffer.from(record.encryptedPrivateKey)
+  const iv = Buffer.from(record.encryptionIv)
+
+  const privateKey = decryptPrivateKey(encrypted, iv)
+  return new Wallet(ensure0xHex(privateKey))
+}
 
 async function signTx(input: z.infer<typeof signTxSchema>) {
-  const walletRecord = await prismaCrdb().wallet.findUnique({
-    where: { id: input.walletId },
-  });
-  if (!walletRecord) throw new Error('WALLET_NOT_FOUND');
+  const wallet = await getDecryptedWallet(input.walletId)
 
-  const wallet = new Wallet(walletRecord.privateKey);
-  const signedTx = await wallet.signTransaction({ ...input.tx, chainId: input.chainId });
-  const txHash = Transaction.from(signedTx).hash ?? '';
+  const signedTx = await wallet.signTransaction({ ...input.tx, chainId: input.chainId })
+  const txHash = Transaction.from(signedTx).hash ?? ''
 
-  return { signedTx, txHash };
+  return { signedTx, txHash }
 }
 
 async function deriveAddress(input: z.infer<typeof deriveAddressSchema>) {
-  const walletRecord = await prismaCrdb().wallet.findUnique({
-    where: { id: input.walletId },
-  });
-  if (!walletRecord) throw new Error('WALLET_NOT_FOUND');
+  // path currently unused (non-HD). Keep it for future API stability.
+  void input.path
 
-  const wallet = new Wallet(walletRecord.privateKey);
-  return { address: wallet.address };
+  const wallet = await getDecryptedWallet(input.walletId)
+  return { address: wallet.address }
 }
 
 async function verifySignatureTool(input: z.infer<typeof verifySignatureSchema>) {
-  const recovered = verifyMessage(input.message, input.signature);
-  return { ok: recovered.toLowerCase() === input.address.toLowerCase() };
-}
-
-function sendJson(res: ServerResponse, status: number, body: unknown) {
-  res.statusCode = status;
-  res.setHeader('content-type', 'application/json');
-  res.end(JSON.stringify(body));
+  const recovered = verifyMessage(input.message, input.signature)
+  return { ok: recovered.toLowerCase() === input.address.toLowerCase() }
 }
 
 // ---------- typed tool registry ----------
 
 type AnyTool = {
-  schema: z.ZodTypeAny;
-  handler: (input: unknown) => Promise<unknown>;
-};
+  schema: z.ZodTypeAny
+  handler: (input: unknown) => Promise<unknown>
+}
 
 function defineTool<S extends z.ZodTypeAny, Out>(tool: {
-  schema: S;
-  handler: (input: z.infer<S>) => Promise<Out>;
+  schema: S
+  handler: (input: z.infer<S>) => Promise<Out>
 }): AnyTool {
-  return tool as AnyTool;
+  return tool as AnyTool
 }
 
 const toolHandlers: Record<RequestTool, AnyTool> = {
@@ -88,43 +110,43 @@ const toolHandlers: Record<RequestTool, AnyTool> = {
     schema: verifySignatureSchema,
     handler: verifySignatureTool,
   }),
-};
+}
 
 // ---------- server ----------
 
 export function startWalletSignerServer() {
-  const port = Number(process.env.MCP_WALLET_SIGNER_PORT ?? 4011);
+  const port = Number(process.env.MCP_WALLET_SIGNER_PORT ?? 4011)
 
   const server = createServer(async (req, res) => {
     if (req.method !== 'POST') {
-      sendJson(res, 405, { error: 'METHOD_NOT_ALLOWED' });
-      return;
+      sendJson(res, 405, { error: 'METHOD_NOT_ALLOWED' })
+      return
     }
 
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(Buffer.from(chunk));
+    const chunks: Buffer[] = []
+    for await (const chunk of req) chunks.push(Buffer.from(chunk))
 
     try {
-      const payload = requestSchema.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-      const tool = toolHandlers[payload.tool];
+      const payload = requestSchema.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')))
+      const tool = toolHandlers[payload.tool]
       if (!tool) {
-        sendJson(res, 400, { error: 'UNKNOWN_TOOL' });
-        return;
+        sendJson(res, 400, { error: 'UNKNOWN_TOOL' })
+        return
       }
 
-      const input = tool.schema.parse(payload.input);
-      const output = await tool.handler(input);
-      sendJson(res, 200, { tool: payload.tool, output });
+      const input = tool.schema.parse(payload.input)
+      const output = await tool.handler(input)
+      sendJson(res, 200, { tool: payload.tool, output })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'INVALID_REQUEST';
-      sendJson(res, 400, { error: message });
+      const message = error instanceof Error ? error.message : 'INVALID_REQUEST'
+      sendJson(res, 400, { error: message })
     }
-  });
+  })
 
-  server.listen(port);
-  return server;
+  server.listen(port)
+  return server
 }
 
 if (process.env.MCP_WALLET_SIGNER_AUTO_START === 'true') {
-  startWalletSignerServer();
+  startWalletSignerServer()
 }

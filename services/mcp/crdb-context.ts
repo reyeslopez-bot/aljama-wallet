@@ -1,46 +1,56 @@
 // services/mcp/crdb-context.ts
-import { createServer, type ServerResponse } from 'node:http';
-import { z } from 'zod';
-import { prismaCrdb } from '@/lib/prisma-crdb';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { z } from 'zod'
+import { prismaCrdb } from '@/lib/prisma-crdb'
 
 const requestSchema = z.object({
   tool: z.enum(['wallet.getState', 'wallet.getLimits']),
   input: z.record(z.string(), z.unknown()),
-});
-type RequestTool = z.infer<typeof requestSchema>['tool'];
+})
+type RequestTool = z.infer<typeof requestSchema>['tool']
 
 const walletStateSchema = z.object({
   walletId: z.string().min(3),
   chainId: z.number().int().positive(),
-});
+})
 
 const walletLimitsSchema = z.object({
-  userId: z.string().min(3),
-});
+  walletId: z.string().min(3),
+  chainId: z.number().int().positive(),
+})
 
 function sendJson(res: ServerResponse, status: number, body: unknown) {
-  res.statusCode = status;
-  res.setHeader('content-type', 'application/json');
-  res.end(JSON.stringify(body));
+  res.statusCode = status
+  res.setHeader('content-type', 'application/json')
+  res.end(JSON.stringify(body))
+}
+
+// Minimal internal auth gate. Set MCP_INTERNAL_TOKEN in env.
+// If you don’t want auth, keep it unset (dev mode), but do NOT expose this port publicly.
+function assertAuthorized(req: IncomingMessage): boolean {
+  const expected = process.env.MCP_INTERNAL_TOKEN
+  if (!expected) return true
+  const got = req.headers['authorization']
+  return got === `Bearer ${expected}`
 }
 
 async function getWalletState(input: z.infer<typeof walletStateSchema>) {
-  const chainKey = String(input.chainId);
-  const prisma = prismaCrdb();
+  const chainKey = String(input.chainId)
+  const prisma = prismaCrdb()
 
-  const [nonce, sentByAsset, receivedByAsset, lastTx] = await Promise.all([
+  const [sentCount, sentByAsset, receivedByAsset, lastTx] = await Promise.all([
     prisma.transaction.count({
       where: { fromWalletId: input.walletId, blockchain: chainKey },
     }),
     prisma.transaction.groupBy({
       by: ['asset'],
       where: { fromWalletId: input.walletId, blockchain: chainKey },
-      _sum: { value: true },
+      _sum: { valueWei: true },
     }),
     prisma.transaction.groupBy({
       by: ['asset'],
       where: { toWalletId: input.walletId, blockchain: chainKey },
-      _sum: { value: true },
+      _sum: { valueWei: true },
     }),
     prisma.transaction.findFirst({
       where: {
@@ -49,72 +59,75 @@ async function getWalletState(input: z.infer<typeof walletStateSchema>) {
       },
       orderBy: { createdAt: 'desc' },
     }),
-  ]);
+  ])
 
-  const balances = new Map<string, number>();
+  const balances = new Map<string, bigint>()
 
   for (const row of receivedByAsset) {
-    const value = row._sum.value ?? 0;
-    balances.set(row.asset, (balances.get(row.asset) ?? 0) + value);
+    const value = row._sum?.valueWei ?? 0n
+    balances.set(row.asset, (balances.get(row.asset) ?? 0n) + value)
   }
 
   for (const row of sentByAsset) {
-    const value = row._sum.value ?? 0;
-    balances.set(row.asset, (balances.get(row.asset) ?? 0) - value);
+    const value = row._sum?.valueWei ?? 0n
+    balances.set(row.asset, (balances.get(row.asset) ?? 0n) - value)
   }
 
   return {
     walletId: input.walletId,
     chainId: input.chainId,
-    nonce,
+    sentCount,
     balances: Object.fromEntries(
-      Array.from(balances.entries()).map(([asset, amount]) => [asset, amount.toString()]),
+      Array.from(balances.entries()).map(([asset, amountWei]) => [asset, amountWei.toString()]),
     ),
     lastTx: lastTx
       ? {
           id: lastTx.id,
           fromWalletId: lastTx.fromWalletId,
           toWalletId: lastTx.toWalletId,
-          value: lastTx.value.toString(),
+          valueWei: lastTx.valueWei.toString(),
           asset: lastTx.asset,
           createdAt: lastTx.createdAt.toISOString(),
         }
       : null,
-  };
+  }
 }
 
 async function getWalletLimits(input: z.infer<typeof walletLimitsSchema>) {
-  const prisma = prismaCrdb();
-  const dailyLimitWei = BigInt(process.env.WALLET_DAILY_LIMIT_WEI ?? '0');
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const prisma = prismaCrdb()
+  const chainKey = String(input.chainId)
+
+  const dailyLimitWei = BigInt(process.env.WALLET_DAILY_LIMIT_WEI ?? '0')
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
   const spentToday = await prisma.transaction.aggregate({
-    where: { fromWalletId: input.userId, createdAt: { gte: since } },
-    _sum: { value: true },
-  });
+    where: { fromWalletId: input.walletId, blockchain: chainKey, createdAt: { gte: since } },
+    _sum: { valueWei: true },
+  })
 
-  const spentTodayWei = BigInt(Math.trunc(spentToday._sum.value ?? 0)).toString();
+  const spentTodayWei = spentToday._sum?.valueWei ?? 0n
 
   return {
-    userId: input.userId,
+    walletId: input.walletId,
+    chainId: input.chainId,
     dailyLimitWei: dailyLimitWei.toString(),
-    spentTodayWei,
-  };
+    spentTodayWei: spentTodayWei.toString(),
+    remainingWei: (dailyLimitWei - spentTodayWei).toString(),
+  }
 }
 
 // ---------- typed tool registry ----------
 
 type AnyTool = {
-  schema: z.ZodTypeAny;
-  handler: (input: unknown) => Promise<unknown>;
-};
+  schema: z.ZodTypeAny
+  handler: (input: unknown) => Promise<unknown>
+}
 
 function defineTool<S extends z.ZodTypeAny, Out>(tool: {
-  schema: S;
-  handler: (input: z.infer<S>) => Promise<Out>;
+  schema: S
+  handler: (input: z.infer<S>) => Promise<Out>
 }): AnyTool {
-  // Runtime is unchanged. This wrapper only helps TypeScript.
-  return tool as AnyTool;
+  return tool as AnyTool
 }
 
 const toolHandlers: Record<RequestTool, AnyTool> = {
@@ -126,43 +139,48 @@ const toolHandlers: Record<RequestTool, AnyTool> = {
     schema: walletLimitsSchema,
     handler: getWalletLimits,
   }),
-};
+}
 
 // ---------- server ----------
 
 export function startCrdbContextServer() {
-  const port = Number(process.env.MCP_CRDB_CONTEXT_PORT ?? 4012);
+  const port = Number(process.env.MCP_CRDB_CONTEXT_PORT ?? 4012)
 
   const server = createServer(async (req, res) => {
-    if (req.method !== 'POST') {
-      sendJson(res, 405, { error: 'METHOD_NOT_ALLOWED' });
-      return;
+    if (!assertAuthorized(req)) {
+      sendJson(res, 401, { error: 'UNAUTHORIZED' })
+      return
     }
 
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(Buffer.from(chunk));
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { error: 'METHOD_NOT_ALLOWED' })
+      return
+    }
+
+    const chunks: Buffer[] = []
+    for await (const chunk of req) chunks.push(Buffer.from(chunk))
 
     try {
-      const payload = requestSchema.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-      const tool = toolHandlers[payload.tool];
+      const payload = requestSchema.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')))
+      const tool = toolHandlers[payload.tool]
       if (!tool) {
-        sendJson(res, 400, { error: 'UNKNOWN_TOOL' });
-        return;
+        sendJson(res, 400, { error: 'UNKNOWN_TOOL' })
+        return
       }
 
-      const input = tool.schema.parse(payload.input);
-      const output = await tool.handler(input);
-      sendJson(res, 200, { tool: payload.tool, output });
+      const input = tool.schema.parse(payload.input)
+      const output = await tool.handler(input)
+      sendJson(res, 200, { tool: payload.tool, output })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'INVALID_REQUEST';
-      sendJson(res, 400, { error: message });
+      const message = error instanceof Error ? error.message : 'INVALID_REQUEST'
+      sendJson(res, 400, { error: message })
     }
-  });
+  })
 
-  server.listen(port);
-  return server;
+  server.listen(port)
+  return server
 }
 
 if (process.env.MCP_CRDB_CONTEXT_AUTO_START === 'true') {
-  startCrdbContextServer();
+  startCrdbContextServer()
 }

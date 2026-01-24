@@ -14,35 +14,33 @@ RUNTIME="${CONTAINER_RUNTIME:-}" # podman|docker (auto if empty)
 # Volumes
 PNPM_STORE_VOL="${PNPM_STORE_VOL:-aljama_pnpm_store}"
 NODE_MODULES_VOL="${NODE_MODULES_VOL:-aljama_node_modules}"
-NEXT_CACHE_VOL="${NEXT_CACHE_VOL:-aljama_next_cache}"   # persist .next to reduce recompiles/reconnects
+NEXT_CACHE_VOL="${NEXT_CACHE_VOL:-aljama_next_cache}"
 
 # Tooling
 PNPM_VERSION="${PNPM_VERSION:-10.28.1}"
 echo "pnpm version pin: ${PNPM_VERSION:-unset}"
 
-# hash inputs (deps + container wiring)
+# hash inputs
 DEPS_HASH_FILES=("package.json" "pnpm-lock.yaml" "pnpm-workspace.yaml" ".devcontainer/Containerfile" ".npmrc" ".env")
 DEP_HASH_FILE=".devcontainer/.last-deps-hash"
 
-# mode
 STOP_ONLY=false
 SHELL_ONLY=false
 TAIL_LOGS=false
 DETACH=true
 
-# --- .env (optional) ---
+# --- Load .env on HOST (for hashing / defaults only) ---
 if [ -f .env ]; then
   if grep -qE '^[A-Z0-9_]+=\s+' .env; then
     echo "Invalid .env format: spaces after '='"
     exit 1
   fi
   set -a
-  # shellcheck disable=SC1091
   source .env
   set +a
 fi
 
-# --- CLI ---
+# --- CLI parsing ---
 while (($#)); do
   case $1 in
     --force-clean) FORCE_CLEAN=true; shift ;;
@@ -54,48 +52,17 @@ while (($#)); do
     --detach)      DETACH=true; shift ;;
     --port)        APP_PORT="${2:?}"; shift 2 ;;
     --port=*)      APP_PORT="${1#*=}"; shift ;;
-    --image-name)  IMAGE_NAME="${2:?}"; shift 2 ;;
-    --image-name=*) IMAGE_NAME="${1#*=}"; shift ;;
-    --container-name) CONTAINER_NAME="${2:?}"; shift 2 ;;
-    --container-name=*) CONTAINER_NAME="${1#*=}"; shift ;;
-    --build-context) BUILD_CONTEXT="${2:?}"; shift 2 ;;
-    --build-context=*) BUILD_CONTEXT="${1#*=}"; shift ;;
-    --runtime)     RUNTIME="${2:?}"; shift 2 ;;
-    --runtime=*)   RUNTIME="${1#*=}"; shift ;;
-    -h|--help)
-      cat <<EOF
-Usage:
-  ./dev.sh [--rebuild] [--force-clean] [--stop] [--shell] [--logs] [--attach|--detach]
-           [--port N] [--runtime podman|docker]
-
-Env:
-  PNPM_STORE_VOL=aljama_pnpm_store
-  NODE_MODULES_VOL=aljama_node_modules
-  NEXT_CACHE_VOL=aljama_next_cache
-  PNPM_VERSION=10.28.1
-
-Notes:
-  Default is --detach, so you can exec into the container:
-    podman exec -it nextjs-container bash
-EOF
-      exit 0 ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
 
-# --- Validate ---
-if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || [ "$APP_PORT" -lt 1 ] || [ "$APP_PORT" -gt 65535 ]; then
-  echo "Invalid port: $APP_PORT"
-  exit 1
-fi
 if [ -z "$APP_URL" ]; then
   APP_URL="http://localhost:$APP_PORT"
 fi
-[ -f package.json ] || { echo "package.json not found (run from project root)"; exit 1; }
 
-# --- Runtime detect (prefer podman) ---
+# --- Runtime detection ---
 if [ -n "$RUNTIME" ]; then
-  command -v "$RUNTIME" >/dev/null || { echo "Runtime '$RUNTIME' not found"; exit 1; }
+  command -v "$RUNTIME" >/dev/null
 else
   if command -v podman >/dev/null 2>&1; then RUNTIME=podman
   elif command -v docker >/dev/null 2>&1; then RUNTIME=docker
@@ -103,26 +70,13 @@ else
   fi
 fi
 
-# --- Optional Node engines hint ---
-if command -v jq >/dev/null 2>&1; then
-  nv=$(jq -r '.engines.node // empty' package.json || true)
-  [ -n "$nv" ] && echo "Node engines: $nv"
+# --- Stop only ---
+if [ "$STOP_ONLY" = true ]; then
+  "$RUNTIME" rm -f "$CONTAINER_NAME" || true
+  exit 0
 fi
 
-# --- Lockfile bootstrap (if missing) ---
-if [ ! -f pnpm-lock.yaml ]; then
-  echo "pnpm-lock.yaml missing — creating"
-  if command -v pnpm >/dev/null 2>&1; then
-    corepack enable >/dev/null 2>&1 || true
-    corepack prepare "pnpm@${PNPM_VERSION}" --activate >/dev/null 2>&1 || true
-    pnpm install
-  else
-    "$RUNTIME" run --rm -v "$PWD:/workspace" -w /workspace node:24.3.0 \
-      bash -lc "set -euo pipefail; corepack enable; corepack prepare pnpm@${PNPM_VERSION} --activate; pnpm install"
-  fi
-fi
-
-# --- Smart rebuild on deps/container change ---
+# --- Hash deps ---
 mkdir -p .devcontainer
 _hash_inputs=()
 for f in "${DEPS_HASH_FILES[@]}"; do
@@ -131,84 +85,61 @@ done
 CURRENT_HASH=$(sha256sum "${_hash_inputs[@]}" 2>/dev/null | sha256sum | cut -d' ' -f1)
 LAST_HASH="$(cat "$DEP_HASH_FILE" 2>/dev/null || echo '')"
 if [[ "$CURRENT_HASH" != "$LAST_HASH" && "$FORCE_CLEAN" = false ]]; then
-  echo "Dependencies/container config changed — rebuild triggered"
   REBUILD=true
-fi
-
-# --- Stop only ---
-if [ "$STOP_ONLY" = true ]; then
-  echo "Stopping $CONTAINER_NAME"
-  "$RUNTIME" rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-  exit 0
 fi
 
 # --- Force clean ---
 if [ "$FORCE_CLEAN" = true ]; then
-  echo "Force clean: remove container/image + volumes + hash"
-  "$RUNTIME" rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-  "$RUNTIME" rmi -f "$IMAGE_NAME" >/dev/null 2>&1 || true
-  "$RUNTIME" volume rm -f "$PNPM_STORE_VOL" >/dev/null 2>&1 || true
-  "$RUNTIME" volume rm -f "$NODE_MODULES_VOL" >/dev/null 2>&1 || true
-  "$RUNTIME" volume rm -f "$NEXT_CACHE_VOL" >/dev/null 2>&1 || true
-  rm -f "$DEP_HASH_FILE" >/dev/null 2>&1 || true
+  "$RUNTIME" rm -f "$CONTAINER_NAME" || true
+  "$RUNTIME" rmi -f "$IMAGE_NAME" || true
+  "$RUNTIME" volume rm -f "$PNPM_STORE_VOL" "$NODE_MODULES_VOL" "$NEXT_CACHE_VOL" || true
+  rm -f "$DEP_HASH_FILE" || true
 fi
 
-# --- Build image ---
-if [ "$REBUILD" = true ] || [ "$FORCE_CLEAN" = true ]; then
-  echo "Building dev image (target=dev)..."
+# --- Build ---
+if [ "$REBUILD" = true ]; then
   "$RUNTIME" build \
     -f .devcontainer/Containerfile \
     --target dev \
     -t "$IMAGE_NAME" \
     "$BUILD_CONTEXT"
   echo "$CURRENT_HASH" > "$DEP_HASH_FILE"
-else
-  echo "Using existing dev image"
 fi
 
-# --- Restart running container if rebuilt ---
-if [ "$REBUILD" = true ] && "$RUNTIME" ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
-  echo "Rebuild requested — restarting running container: $CONTAINER_NAME"
-  "$RUNTIME" rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+# --- Restart if running ---
+if "$RUNTIME" ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
+  "$RUNTIME" rm -f "$CONTAINER_NAME"
 fi
 
-# --- Mounts / user mapping ---
+# --- Mounts ---
 RUN_EXTRA_ARGS=()
 WORKDIR_MOUNT="$PWD:/workspace"
-
 if [ "$RUNTIME" = "podman" ]; then
-  # keep-id maps container uid -> host uid to avoid root-owned files on bind mounts
   RUN_EXTRA_ARGS+=(--userns=keep-id)
   WORKDIR_MOUNT="$PWD:/workspace:Z"
-elif [ "$RUNTIME" = "docker" ]; then
+else
   RUN_EXTRA_ARGS+=(--user "$(id -u):$(id -g)")
 fi
 
-# --- If container already running, reuse it ---
-if "$RUNTIME" ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
-  echo "Container already running: $CONTAINER_NAME"
-  if [ "$TAIL_LOGS" = true ]; then
-    exec "$RUNTIME" logs -f --tail=200 "$CONTAINER_NAME"
-  fi
-  if [ "$SHELL_ONLY" = true ]; then
-    exec "$RUNTIME" exec -it "$CONTAINER_NAME" bash
-  fi
-  echo "App: $APP_URL"
-  exit 0
-fi
+# --- ENV FILES (CRITICAL FIX) ---
+ENV_FILE_ARGS=()
+[ -f "$PWD/.env" ] && ENV_FILE_ARGS+=(--env-file "$PWD/.env")
+[ -f "$PWD/.env.local" ] && ENV_FILE_ARGS+=(--env-file "$PWD/.env.local")
 
-# --- Run dev container ---
-echo "Starting dev container at $APP_URL"
-
-RUN_MODE_ARGS=()
-if [ "$DETACH" = true ]; then RUN_MODE_ARGS+=(-d); else RUN_MODE_ARGS+=(-it); fi
-
-# Bind explicitly to localhost for stability on macOS+Podman
 PORT_PUBLISH="127.0.0.1:${APP_PORT}:${APP_PORT}"
 
-"$RUNTIME" run --rm "${RUN_MODE_ARGS[@]}" \
-  --name "$CONTAINER_NAME" \
-  -p "$PORT_PUBLISH" \
+  # --- Run container ---
+  RUN_MODE_ARGS=()
+  if [ "$DETACH" = true ]; then
+    RUN_MODE_ARGS+=(-d)
+  else
+    RUN_MODE_ARGS+=(-it)
+  fi
+
+  "$RUNTIME" run --rm "${RUN_MODE_ARGS[@]}" \
+    --name "$CONTAINER_NAME" \
+    "${ENV_FILE_ARGS[@]}" \
+    -p "$PORT_PUBLISH" \
   -e PORT="$APP_PORT" \
   -e PNPM_VERSION="$PNPM_VERSION" \
   -e COREPACK_ENABLE_STRICT=1 \
@@ -219,74 +150,17 @@ PORT_PUBLISH="127.0.0.1:${APP_PORT}:${APP_PORT}"
   --volume "${NEXT_CACHE_VOL}:/workspace/.next" \
   "${RUN_EXTRA_ARGS[@]}" \
   "$IMAGE_NAME" \
-bash -lc "$(cat <<'BASH'
-set -euo pipefail
-
-corepack enable >/dev/null 2>&1 || true
-corepack prepare "pnpm@${PNPM_VERSION}" --activate >/dev/null 2>&1 || true
-
+bash -lc "
+corepack enable
+corepack prepare pnpm@${PNPM_VERSION} --activate
 pnpm config set store-dir /workspace/.pnpm-store
 
-mkdir -p /workspace/.pnpm-store /workspace/.next
-chmod u+rwX /workspace /workspace/node_modules /workspace/.pnpm-store /workspace/.next 2>/dev/null || true
+pnpm install --prefer-offline || true
 
-IS_CI="${CI:-}"
-if [ "$IS_CI" = "true" ]; then
-  LOCKFLAG="--frozen-lockfile"
-else
-  LOCKFLAG="--no-frozen-lockfile"
-fi
+pnpm prisma:generate || true
 
-# Only install when lockfile hash changes (prevents node_modules churn -> fewer Turbopack disconnects)
-LOCK_HASH_FILE="/workspace/node_modules/.last-lock-hash"
-CURRENT_LOCK_HASH="$(sha256sum /workspace/pnpm-lock.yaml 2>/dev/null | cut -d' ' -f1)"
-LAST_LOCK_HASH="$(cat "$LOCK_HASH_FILE" 2>/dev/null || echo '')"
-
-if [ "$CURRENT_LOCK_HASH" != "$LAST_LOCK_HASH" ]; then
-  echo "Lockfile changed — installing deps"
-  PNPM_CONFIRM_DELETE=1 pnpm install $LOCKFLAG --prefer-offline || (
-    echo 'pnpm install failed; wiping node_modules contents once and retrying'
-    find /workspace/node_modules -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
-    PNPM_CONFIRM_DELETE=1 pnpm install $LOCKFLAG --prefer-offline
-  )
-  echo "$CURRENT_LOCK_HASH" > "$LOCK_HASH_FILE"
-else
-  echo "Lockfile unchanged — skipping pnpm install"
-fi
-
-# Prisma: regenerate only when schema changes
-PRISMA_HASH_FILE="/workspace/.prisma/.last-schema-hash"
-mkdir -p /workspace/.prisma
-
-CURRENT_PRISMA_HASH="$(sha256sum prisma/crdb/schema.prisma prisma/pg/schema.prisma 2>/dev/null | sha256sum | cut -d' ' -f1)"
-LAST_PRISMA_HASH="$(cat "$PRISMA_HASH_FILE" 2>/dev/null || echo '')"
-
-if [ "$CURRENT_PRISMA_HASH" != "$LAST_PRISMA_HASH" ]; then
-  echo 'Prisma schema changed — generating clients'
-  pnpm prisma:generate
-  echo "$CURRENT_PRISMA_HASH" > "$PRISMA_HASH_FILE"
-else
-  echo 'Prisma schema unchanged — skipping generate'
-fi
-
-if [ "${SHELL_ONLY:-false}" = "true" ]; then
-  exec bash
-fi
-
-exec pnpm dev --port "$PORT" --hostname 0.0.0.0
-BASH
-)"
-
-# --- Post-run actions ---
-if [ "$TAIL_LOGS" = true ]; then
-  exec "$RUNTIME" logs -f "$CONTAINER_NAME"
-fi
-
-if [ "$SHELL_ONLY" = true ]; then
-  exec "$RUNTIME" exec -it "$CONTAINER_NAME" bash
-fi
+exec pnpm dev --port \$PORT --hostname 0.0.0.0
+"
 
 echo "Container: $CONTAINER_NAME"
 echo "App: $APP_URL"
-echo "Enter shell: $RUNTIME exec -it $CONTAINER_NAME bash"
-echo "Logs:        $RUNTIME logs -f $CONTAINER_NAME"

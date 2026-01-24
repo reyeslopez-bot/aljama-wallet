@@ -1,6 +1,5 @@
 // Server Component (NO 'use client')
 
-import CurrentLocation from '@/components/ui/CurrentLocation.client'
 import MapboxMap from '@/components/ui/MapboxMap.client'
 import { CreateWalletPanel } from '@/components/home/CreateWalletPanel'
 import { FeatureShowcase } from '@/components/home/FeatureShowcase'
@@ -61,14 +60,8 @@ export default function HomeContent() {
         </div>
       </section>
 
-      {/* ================= MAP + LOCATION ================= */}
-      <section id="demo" className="grid scroll-mt-28 gap-20 lg:grid-cols-2">
-        {/* LEFT: current location */}
-        <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
-          <CurrentLocation />
-        </div>
-
-        {/* RIGHT: native Mapbox map (centers on user when requested) */}
+      {/* ================= MAP (location + map combined) ================= */}
+      <section id="demo" className="scroll-mt-28">
         <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
           <MapboxMap />
         </div>
@@ -116,8 +109,8 @@ export default function HomeContent() {
             <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">XRPL Integration</p>
             <h3 className="text-2xl font-semibold text-white">Ledger-aware, server-backed.</h3>
             <p className="text-sm text-white/70">
-              XRPL balances and account metadata flow through a server proxy so the UI stays secure while still providing real-time
-              ledger context.
+              XRPL balances and account metadata flow through a server proxy so the UI stays secure while still providing
+              real-time ledger context.
             </p>
             <div className={`${SURFACE_SOFT} p-6 ${SURFACE_INNER}`}>
               <p className="text-xs uppercase tracking-wider text-white/40">XRPL path</p>
