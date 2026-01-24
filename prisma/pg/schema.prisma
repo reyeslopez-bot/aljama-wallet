@@ -15,3 +15,9 @@ model Wallet {
   keyVersion         Int      @default(1)
   createdAt          DateTime @default(now())
 }
+model DailyTransactionSummary {
+  id        String   @id @default(cuid())
+  day       DateTime @unique
+  count     Int
+  createdAt DateTime @default(now())
+}

@@ -1,12 +1,22 @@
 // lib/prisma-pg.ts
-import { PrismaClient } from '@/prisma/generated/prisma-crdb'
-import { PrismaPg } from '@prisma/adapter-pg'
-import { Pool } from 'pg'
+import { PrismaClient } from "@/prisma/generated/pg"
+import { PrismaPg } from "@prisma/adapter-pg"
+import pg from "pg"
 
-const pool = new Pool({
-  connectionString: process.env.CRDB_DATABASE_URL,
-})
+const globalForPrisma = globalThis as unknown as {
+  prismaPg?: PrismaClient
+}
 
-const adapter = new PrismaPg(pool)
+export const prismaPg =
+  globalForPrisma.prismaPg ??
+  new PrismaClient({
+    adapter: new PrismaPg(
+      new pg.Pool({
+        connectionString: process.env.PG_DATABASE_URL,
+      })
+    ),
+  })
 
-export const prismaCrdb = new PrismaClient({ adapter })
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prismaPg = prismaPg
+}

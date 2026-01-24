@@ -56,6 +56,11 @@ prisma-generate:
 	pnpm prisma generate --schema=prisma/crdb/schema.prisma
 	pnpm prisma generate --schema=prisma/pg/schema.prisma
 
+prisma-keys-pg:
+	podman exec -it nextjs-container sh -lc 'cd /workspace && pnpm -s tsx -e "import { prismaPg } from \"./lib/prisma-pg\"; console.log(Object.keys(prismaPg).filter(k=>!k.startsWith(\"$\")).sort())"'
+prisma-keys-crdb:
+	podman exec -it nextjs-container sh -lc 'cd /workspace && pnpm -s tsx -e "import { prismaCrdb } from \"./lib/prisma-crdb\"; console.log(Object.keys(prismaCrdb).filter(k=>!k.startsWith(\"$\")).sort())"'
+
 lint:
 	pnpm lint
 
