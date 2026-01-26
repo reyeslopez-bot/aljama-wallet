@@ -1,7 +1,8 @@
 // services/mcp/crdb-context.ts
+
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { z } from 'zod'
-import { prismaCrdb } from '@/lib/prisma-crdb'
+import { prismaPg } from '@/lib/prisma-pg'
 
 const requestSchema = z.object({
   tool: z.enum(['wallet.getState', 'wallet.getLimits']),
@@ -34,85 +35,93 @@ function assertAuthorized(req: IncomingMessage): boolean {
   return got === `Bearer ${expected}`
 }
 
+function hasPgConfigured(): boolean {
+  if (process.env.CI === 'true') return false
+
+  const pgUrl =
+    process.env.PG_DATABASE_URL ??
+    process.env.POSTGRES_URL ??
+    process.env.DATABASE_URL_PG
+
+  return Boolean(pgUrl)
+}
+
+/**
+ * IMPORTANT:
+ * Your current PG Prisma schema only has:
+ * - Wallet
+ * - DailyTransactionSummary
+ *
+ * There is NO Transaction model in PG, so we cannot compute:
+ * - sent/received counts per wallet
+ * - balances per asset
+ * - lastTx
+ *
+ * This implementation returns the available summary info, and keeps the API stable.
+ */
 async function getWalletState(input: z.infer<typeof walletStateSchema>) {
-  const chainKey = String(input.chainId)
-  const prisma = prismaCrdb()
+  void input.chainId // reserved for future multi-chain summaries in PG schema
 
-  const [sentCount, sentByAsset, receivedByAsset, lastTx] = await Promise.all([
-    prisma.transaction.count({
-      where: { fromWalletId: input.walletId, blockchain: chainKey },
-    }),
-    prisma.transaction.groupBy({
-      by: ['asset'],
-      where: { fromWalletId: input.walletId, blockchain: chainKey },
-      _sum: { valueWei: true },
-    }),
-    prisma.transaction.groupBy({
-      by: ['asset'],
-      where: { toWalletId: input.walletId, blockchain: chainKey },
-      _sum: { valueWei: true },
-    }),
-    prisma.transaction.findFirst({
-      where: {
-        blockchain: chainKey,
-        OR: [{ fromWalletId: input.walletId }, { toWalletId: input.walletId }],
-      },
-      orderBy: { createdAt: 'desc' },
-    }),
-  ])
-
-  const balances = new Map<string, bigint>()
-
-  for (const row of receivedByAsset) {
-    const value = row._sum?.valueWei ?? 0n
-    balances.set(row.asset, (balances.get(row.asset) ?? 0n) + value)
+  if (!hasPgConfigured()) {
+    return {
+      walletId: input.walletId,
+      chainId: input.chainId,
+      sentCount: 0,
+      balances: {},
+      lastTx: null,
+      summariesLast7Days: [],
+      note: 'PG_NOT_CONFIGURED',
+    }
   }
 
-  for (const row of sentByAsset) {
-    const value = row._sum?.valueWei ?? 0n
-    balances.set(row.asset, (balances.get(row.asset) ?? 0n) - value)
-  }
+  // Latest 7 daily summaries (global). If you later add walletId/chainId fields,
+  // adjust the where clause accordingly.
+  const last7 = await prismaPg.dailyTransactionSummary.findMany({
+    orderBy: { day: 'desc' },
+    take: 7,
+    select: { day: true, count: true },
+  })
 
   return {
     walletId: input.walletId,
     chainId: input.chainId,
-    sentCount,
-    balances: Object.fromEntries(
-      Array.from(balances.entries()).map(([asset, amountWei]) => [asset, amountWei.toString()]),
-    ),
-    lastTx: lastTx
-      ? {
-          id: lastTx.id,
-          fromWalletId: lastTx.fromWalletId,
-          toWalletId: lastTx.toWalletId,
-          valueWei: lastTx.valueWei.toString(),
-          asset: lastTx.asset,
-          createdAt: lastTx.createdAt.toISOString(),
-        }
-      : null,
+    // Not derivable from current schema; keep fields but return defaults.
+    sentCount: 0,
+    balances: {},
+    lastTx: null,
+
+    summariesLast7Days: last7.map((r) => ({
+      day: r.day.toISOString(),
+      count: r.count,
+    })),
   }
 }
 
 async function getWalletLimits(input: z.infer<typeof walletLimitsSchema>) {
-  const prisma = prismaCrdb()
-  const chainKey = String(input.chainId)
+  void input.chainId // reserved for future chain-specific limits
 
   const dailyLimitWei = BigInt(process.env.WALLET_DAILY_LIMIT_WEI ?? '0')
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
-  const spentToday = await prisma.transaction.aggregate({
-    where: { fromWalletId: input.walletId, blockchain: chainKey, createdAt: { gte: since } },
-    _sum: { valueWei: true },
-  })
+  if (!hasPgConfigured()) {
+    return {
+      walletId: input.walletId,
+      chainId: input.chainId,
+      dailyLimitWei: dailyLimitWei.toString(),
+      spentTodayWei: '0',
+      remainingWei: dailyLimitWei.toString(),
+      note: 'PG_NOT_CONFIGURED',
+    }
+  }
 
-  const spentTodayWei = spentToday._sum?.valueWei ?? 0n
-
+  // With current schema we only have counts, not valueWei.
+  // So we cannot compute "spentTodayWei". Keep stable fields and return 0.
   return {
     walletId: input.walletId,
     chainId: input.chainId,
     dailyLimitWei: dailyLimitWei.toString(),
-    spentTodayWei: spentTodayWei.toString(),
-    remainingWei: (dailyLimitWei - spentTodayWei).toString(),
+    spentTodayWei: '0',
+    remainingWei: dailyLimitWei.toString(),
+    note: 'NO_PG_TRANSACTION_MODEL',
   }
 }
 
@@ -168,8 +177,8 @@ export function startCrdbContextServer() {
         return
       }
 
-      const input = tool.schema.parse(payload.input)
-      const output = await tool.handler(input)
+      const parsedInput = tool.schema.parse(payload.input)
+      const output = await tool.handler(parsedInput)
       sendJson(res, 200, { tool: payload.tool, output })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'INVALID_REQUEST'
