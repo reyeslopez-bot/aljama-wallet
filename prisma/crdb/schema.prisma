@@ -5,13 +5,35 @@ generator client {
 
 datasource db {
   provider = "cockroachdb"
+  // url moved to prisma.config.ts in Prisma 7
 }
 
 model Wallet {
-  id                 String   @id @default(cuid())
-  address            String   @unique
+  id                  String        @id @default(cuid())
+  address             String        @unique
   encryptedPrivateKey Bytes
-  encryptionIv       Bytes
-  keyVersion         Int      @default(1)
-  createdAt          DateTime @default(now())
+  encryptionIv        Bytes
+  keyVersion          Int           @default(1)
+  createdAt           DateTime      @default(now())
+
+  sentTransactions     Transaction[] @relation("TxFromWallet")
+  receivedTransactions Transaction[] @relation("TxToWallet")
+}
+
+model Transaction {
+  id         String   @id @default(cuid())
+  blockchain String
+  asset      String
+  valueWei   BigInt
+  createdAt  DateTime @default(now())
+
+  fromWalletId String
+  toWalletId   String
+
+  fromWallet Wallet @relation("TxFromWallet", fields: [fromWalletId], references: [id])
+  toWallet   Wallet @relation("TxToWallet", fields: [toWalletId], references: [id])
+
+  @@index([blockchain, fromWalletId, createdAt])
+  @@index([blockchain, toWalletId, createdAt])
+  @@index([asset])
 }

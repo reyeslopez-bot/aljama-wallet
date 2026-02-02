@@ -1,4 +1,5 @@
 // services/mcp/wallet-signer.ts
+
 import { createServer, type ServerResponse } from 'node:http'
 import { z } from 'zod'
 import { Transaction, Wallet, verifyMessage } from 'ethers'
@@ -6,11 +7,7 @@ import { prismaCrdb } from '@/lib/prisma-crdb'
 import { decryptPrivateKey } from '@/lib/crypto/wallet-crypto'
 
 const requestSchema = z.object({
-  tool: z.enum([
-    'wallet.signTx',
-    'wallet.deriveAddress',
-    'wallet.verifySignature',
-  ]),
+  tool: z.enum(['wallet.signTx', 'wallet.deriveAddress', 'wallet.verifySignature']),
   input: z.record(z.string(), z.unknown()),
 })
 type RequestTool = z.infer<typeof requestSchema>['tool']
@@ -23,7 +20,7 @@ const signTxSchema = z.object({
 
 const deriveAddressSchema = z.object({
   walletId: z.string().min(3),
-  path: z.string().optional(),
+  path: z.string().optional(), // reserved for future HD wallets
 })
 
 const verifySignatureSchema = z.object({
@@ -47,14 +44,17 @@ async function getDecryptedWallet(walletId: string) {
   const record = await prismaCrdb.wallet.findUnique({
     where: { id: walletId },
     select: {
+      id: true,
       encryptedPrivateKey: true,
       encryptionIv: true,
+      keyVersion: true,
       address: true,
     },
   })
 
   if (!record) throw new Error('WALLET_NOT_FOUND')
 
+  // Prisma Bytes usually come back as Uint8Array; convert to Buffer for your decrypt fn
   const encrypted = Buffer.from(record.encryptedPrivateKey)
   const iv = Buffer.from(record.encryptionIv)
 
@@ -64,17 +64,17 @@ async function getDecryptedWallet(walletId: string) {
 
 async function signTx(input: z.infer<typeof signTxSchema>) {
   const wallet = await getDecryptedWallet(input.walletId)
-  const signedTx = await wallet.signTransaction({
-    ...input.tx,
-    chainId: input.chainId,
-  })
 
+  const signedTx = await wallet.signTransaction({ ...input.tx, chainId: input.chainId })
   const txHash = Transaction.from(signedTx).hash ?? ''
+
   return { signedTx, txHash }
 }
 
 async function deriveAddress(input: z.infer<typeof deriveAddressSchema>) {
+  // path currently unused (non-HD). Keep it for future API stability.
   void input.path
+
   const wallet = await getDecryptedWallet(input.walletId)
   return { address: wallet.address }
 }
@@ -128,18 +128,15 @@ export function startWalletSignerServer() {
     for await (const chunk of req) chunks.push(Buffer.from(chunk))
 
     try {
-      const payload = requestSchema.parse(
-        JSON.parse(Buffer.concat(chunks).toString('utf8')),
-      )
-
+      const payload = requestSchema.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')))
       const tool = toolHandlers[payload.tool]
       if (!tool) {
         sendJson(res, 400, { error: 'UNKNOWN_TOOL' })
         return
       }
 
-      const input = tool.schema.parse(payload.input)
-      const output = await tool.handler(input)
+      const parsedInput = tool.schema.parse(payload.input)
+      const output = await tool.handler(parsedInput)
       sendJson(res, 200, { tool: payload.tool, output })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'INVALID_REQUEST'
