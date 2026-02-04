@@ -3,6 +3,9 @@ import crypto from "node:crypto"
 
 const ALGO = "aes-256-gcm"
 
+let cachedActiveVersion: number | null = null
+let cachedActiveKey: Buffer | null = null
+
 function getKeyForVersion(version: number): Buffer {
   const keyHex = process.env[`WALLET_ENCRYPTION_KEY_V${version}`]
   if (!keyHex) throw new Error(`WALLET_ENCRYPTION_KEY_V${version} not set`)
@@ -38,14 +41,24 @@ function assertFingerprintMatches(version: number, key: Buffer) {
   }
 }
 
-// ---- fail-fast validation at module load ----
-const __ACTIVE_VERSION = getActiveVersion()
-const __ACTIVE_KEY = getKeyForVersion(__ACTIVE_VERSION)
-assertFingerprintMatches(__ACTIVE_VERSION, __ACTIVE_KEY)
+function getActiveKey(): { version: number; key: Buffer } {
+  if (cachedActiveVersion !== null && cachedActiveKey) {
+    return { version: cachedActiveVersion, key: cachedActiveKey }
+  }
+
+  const version = getActiveVersion()
+  const key = getKeyForVersion(version)
+  assertFingerprintMatches(version, key)
+
+  cachedActiveVersion = version
+  cachedActiveKey = key
+  return { version, key }
+}
 
 export function encryptPrivateKey(privateKey: string) {
+  const active = getActiveKey()
   const iv = crypto.randomBytes(12)
-  const cipher = crypto.createCipheriv(ALGO, __ACTIVE_KEY, iv)
+  const cipher = crypto.createCipheriv(ALGO, active.key, iv)
 
   const ciphertext = Buffer.concat([cipher.update(privateKey, "utf8"), cipher.final()])
   const tag = cipher.getAuthTag()
@@ -53,7 +66,7 @@ export function encryptPrivateKey(privateKey: string) {
   return {
     encryptedPrivateKey: Buffer.concat([ciphertext, tag]),
     encryptionIv: iv,
-    keyVersion: __ACTIVE_VERSION,
+    keyVersion: active.version,
   }
 }
 

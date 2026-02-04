@@ -1,6 +1,5 @@
 // services/wallet.service.ts
 import { prismaCrdb } from "@/lib/prisma-crdb"
-import { encryptPrivateKey } from "@/lib/crypto/wallet-crypto"
 
 export async function getWallets() {
   // NOTE: this assumes `prismaCrdb` is a PrismaClient INSTANCE (not a function).
@@ -22,6 +21,7 @@ export async function createWalletRecord(input: { address: string; privateKey: s
   if (!address) throw new Error("address is required")
   if (!privateKey) throw new Error("privateKey is required")
 
+  const { encryptPrivateKey } = await import("@/lib/crypto/wallet-crypto")
   const encrypted = encryptPrivateKey(privateKey)
 
   return prismaCrdb.wallet.create({

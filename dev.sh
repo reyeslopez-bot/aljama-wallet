@@ -116,6 +116,7 @@ RUN_EXTRA_ARGS=()
 WORKDIR_MOUNT="$PWD:/workspace"
 if [ "$RUNTIME" = "podman" ]; then
   RUN_EXTRA_ARGS+=(--userns=keep-id)
+  RUN_EXTRA_ARGS+=(--add-host=host.containers.internal:host-gateway)
   WORKDIR_MOUNT="$PWD:/workspace:Z"
 else
   RUN_EXTRA_ARGS+=(--user "$(id -u):$(id -g)")
