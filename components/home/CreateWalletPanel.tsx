@@ -2,6 +2,7 @@
 
 import type { FormEvent } from 'react'
 import { useState } from 'react'
+import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 
 type WalletPreview = {
   address: string
@@ -14,6 +15,8 @@ export function CreateWalletPanel() {
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
   const [walletPreview, setWalletPreview] = useState<WalletPreview | null>(null)
+  const setCreateWalletStatus = useDynamicInfoStore((s) => s.setCreateWalletStatus)
+  const setCreatedWalletAddress = useDynamicInfoStore((s) => s.setCreatedWalletAddress)
 
   const disabled = !password.trim() || status === 'pending'
 
@@ -28,6 +31,7 @@ export function CreateWalletPanel() {
 
     setStatus('pending')
     setError(null)
+    setCreateWalletStatus('pending')
 
     try {
       const res = await fetch('/api/create-wallet', {
@@ -47,10 +51,14 @@ export function CreateWalletPanel() {
       // We intentionally ignore data.encrypted for now.
       setWalletPreview({ address: data.address })
       setStatus('success')
+      setCreatedWalletAddress(data.address)
+      setCreateWalletStatus('success')
     } catch (err) {
       console.error('Wallet creation failed', err)
-      setError(err instanceof Error ? err.message : 'Failed to create wallet')
+      const message = err instanceof Error ? err.message : 'Failed to create wallet'
+      setError(message)
       setStatus('error')
+      setCreateWalletStatus('error', message)
     }
   }
 

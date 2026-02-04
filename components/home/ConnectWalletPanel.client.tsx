@@ -1,17 +1,45 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useEffect } from 'react'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 
 export function ConnectWalletPanel() {
-  const { address, isConnected } = useAccount()
+  const { address, isConnected, chain, connector: accountConnector } = useAccount()
   const { connect, connectors, isPending } = useConnect()
   const { disconnect } = useDisconnect()
+  const setConnectWalletStatus = useDynamicInfoStore((s) => s.setConnectWalletStatus)
+  const setConnectedWallet = useDynamicInfoStore((s) => s.setConnectedWallet)
 
-  const connector = connectors.find((item) => item.id === 'injected') ?? connectors[0]
-  const canConnect = Boolean(connector)
+  const preferredConnector = connectors.find((item) => item.id === 'injected') ?? connectors[0]
+  const canConnect = Boolean(preferredConnector)
   const connectLabel = isConnected ? 'Disconnect wallet' : 'Connect wallet'
   const statusLabel = isConnected ? 'Connected' : 'Ready to connect'
+
+  useEffect(() => {
+    if (!isConnected || !address) {
+      setConnectedWallet({ address: null })
+      if (!isPending) setConnectWalletStatus('idle')
+      return
+    }
+
+    setConnectedWallet({
+      address,
+      chainName: chain?.name ?? (chain?.id ? `Chain ${chain.id}` : null),
+      connectorName: accountConnector?.name ?? null,
+    })
+    setConnectWalletStatus('success')
+  }, [
+    accountConnector?.name,
+    address,
+    chain?.id,
+    chain?.name,
+    isConnected,
+    isPending,
+    setConnectedWallet,
+    setConnectWalletStatus,
+  ])
 
   return (
     <section className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 via-white/5 to-black/60 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl">
@@ -63,12 +91,14 @@ export function ConnectWalletPanel() {
           whileTap={{ scale: 0.98 }}
           disabled={!canConnect || isPending}
           onClick={() => {
-            if (!connector) return
+            if (!preferredConnector) return
             if (isConnected) {
+              setConnectWalletStatus('pending')
               disconnect()
               return
             }
-            connect({ connector })
+            setConnectWalletStatus('pending')
+            connect({ connector: preferredConnector })
           }}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#5da9e9] to-[#2f6fb4] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-sky-400/30 transition focus:outline-none focus:ring-2 focus:ring-sky-200/40 disabled:cursor-not-allowed disabled:opacity-60"
         >

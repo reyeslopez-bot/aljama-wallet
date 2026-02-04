@@ -1,5 +1,6 @@
-// Server Component (NO 'use client')
+// app/(site)/components/home/HomeContent.tsx
 
+// Server Component (NO 'use client')
 import MapboxMap from '@/components/ui/MapboxMap.client'
 import { CreateWalletPanel } from '@/components/home/CreateWalletPanel'
 import { FeatureShowcase } from '@/components/home/FeatureShowcase'
@@ -8,6 +9,7 @@ import { ConnectWalletPanel } from '@/components/home/ConnectWalletPanel.client'
 import { XrplPanel } from '@/components/home/XrplPanel.client'
 import ClientTrackWallet from '@/infra/utils/ClientTrackWallet'
 import { BRAND } from '@/constants/brand'
+import DynamicInfoCard from '@/components/home/DynamicInfoCard.client'
 
 const statBlocks = [
   { label: 'Mainnet posture', value: 'EVM-First', detail: 'Wagmi + Ethers production stack' },
@@ -24,6 +26,7 @@ export default function HomeContent() {
   return (
     <div className="relative mx-auto max-w-7xl space-y-24 pb-32 pt-28">
       <ClientTrackWallet />
+      <DynamicInfoCard />
 
       {/* ================= HERO / OVERVIEW ================= */}
       <section
