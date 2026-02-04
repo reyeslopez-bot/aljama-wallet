@@ -3,6 +3,8 @@ import { prismaCrdb } from "@/lib/prisma-crdb"
 import { encryptPrivateKey } from "@/lib/crypto/wallet-crypto"
 
 export async function getWallets() {
+  // NOTE: this assumes `prismaCrdb` is a PrismaClient INSTANCE (not a function).
+  // If your lib exports a factory `prismaCrdb()`, change to `const prisma = prismaCrdb()` and use `prisma.wallet...`.
   return prismaCrdb.wallet.findMany({
     select: {
       id: true,
@@ -13,18 +15,21 @@ export async function getWallets() {
   })
 }
 
-export async function createWalletRecord(input: {
-  address: string
-  privateKey: string
-}) {
-  const encrypted = encryptPrivateKey(input.privateKey)
+export async function createWalletRecord(input: { address: string; privateKey: string }) {
+  const address = input.address.trim()
+  const privateKey = input.privateKey.trim()
+
+  if (!address) throw new Error("address is required")
+  if (!privateKey) throw new Error("privateKey is required")
+
+  const encrypted = encryptPrivateKey(privateKey)
 
   return prismaCrdb.wallet.create({
     data: {
-      address: input.address,
+      address,
       encryptedPrivateKey: encrypted.encryptedPrivateKey,
       encryptionIv: encrypted.encryptionIv,
-      keyVersion: encrypted.keyVersion,
+      keyVersion: encrypted.keyVersion, // stored for future rotations
     },
     select: {
       id: true,

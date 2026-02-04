@@ -58,7 +58,7 @@ async function getDecryptedWallet(walletId: string) {
   const encrypted = Buffer.from(record.encryptedPrivateKey)
   const iv = Buffer.from(record.encryptionIv)
 
-  const privateKey = decryptPrivateKey(encrypted, iv)
+  const privateKey = decryptPrivateKey(encrypted, iv, record.keyVersion)
   return new Wallet(ensure0xHex(privateKey))
 }
 
