@@ -76,6 +76,20 @@ if [ "$STOP_ONLY" = true ]; then
   exit 0
 fi
 
+# --- Ensure Podman machine is running (macOS/Windows) ---
+if [ "$RUNTIME" = "podman" ]; then
+  if ! podman info >/dev/null 2>&1; then
+    if podman machine list >/dev/null 2>&1; then
+      echo "Podman not running; starting podman machine..."
+      podman machine start
+    fi
+  fi
+  if ! podman info >/dev/null 2>&1; then
+    echo "Cannot connect to Podman. Try: podman machine start"
+    exit 1
+  fi
+fi
+
 # --- Hash deps ---
 mkdir -p .devcontainer
 _hash_inputs=()
