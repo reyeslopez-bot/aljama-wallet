@@ -1,11 +1,12 @@
 'use client'
 
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { useConnection, useConnect, useConnectors, useDisconnect } from 'wagmi'
 
 export default function WalletButton() {
-  const { address, isConnected } = useAccount()
-  const { connect, connectors, isPending } = useConnect()
-  const { disconnect } = useDisconnect()
+  const { address, isConnected } = useConnection()
+  const connectors = useConnectors()
+  const { mutate: connect, isPending } = useConnect()
+  const { mutate: disconnect } = useDisconnect()
 
   const connector = connectors.find((item) => item.id === 'injected') ?? connectors[0]
   const shortAddress =

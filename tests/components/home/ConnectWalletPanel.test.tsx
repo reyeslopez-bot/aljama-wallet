@@ -1,0 +1,136 @@
+// @vitest-environment jsdom
+
+import { fireEvent, render, waitFor } from '@testing-library/react'
+import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
+import { ConnectWalletPanel } from '@/components/home/ConnectWalletPanel.client'
+import { useConnect, useConnectors, useConnection, useDisconnect } from 'wagmi'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import type { Connector } from 'wagmi'
+import React from 'react'
+
+vi.mock('framer-motion', () => ({
+  motion: {
+    button: ({ whileHover, whileTap, ...props }: React.ComponentProps<'button'> & {
+      whileHover?: unknown
+      whileTap?: unknown
+    }) => React.createElement('button', props),
+  },
+}))
+
+vi.mock('wagmi', () => ({
+  useConnection: vi.fn(),
+  useConnect: vi.fn(),
+  useConnectors: vi.fn(),
+  useDisconnect: vi.fn(),
+}))
+
+const mockedUseConnection = vi.mocked(useConnection)
+const mockedUseConnect = vi.mocked(useConnect)
+const mockedUseConnectors = vi.mocked(useConnectors)
+const mockedUseDisconnect = vi.mocked(useDisconnect)
+
+const initialState = useDynamicInfoStore.getState()
+
+const resetStore = () => {
+  useDynamicInfoStore.setState(
+    {
+      ...initialState,
+      wallet: { ...initialState.wallet },
+    },
+    true,
+  )
+}
+
+describe('ConnectWalletPanel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    resetStore()
+  })
+
+  it('renders disconnected state and resets store', async () => {
+    const connector = { id: 'injected', name: 'Injected' } as Connector
+
+    useDynamicInfoStore.setState({
+      connectWalletStatus: 'success',
+      wallet: {
+        ...initialState.wallet,
+        connectedAddress: '0xdead',
+      },
+    })
+
+    mockedUseConnection.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+      chain: undefined,
+      connector: undefined,
+    } as any)
+    mockedUseConnectors.mockReturnValue([connector])
+    mockedUseConnect.mockReturnValue({ mutate: vi.fn(), isPending: false } as any)
+    mockedUseDisconnect.mockReturnValue({ mutate: vi.fn() } as any)
+
+    const { getByText } = render(<ConnectWalletPanel />)
+
+    expect(getByText('No wallet connected')).toBeTruthy()
+    expect(getByText('Connect wallet')).toBeTruthy()
+
+    await waitFor(() => {
+      const state = useDynamicInfoStore.getState()
+      expect(state.connectWalletStatus).toBe('idle')
+      expect(state.wallet.connectedAddress).toBeNull()
+    })
+  })
+
+  it('updates store when connected and can disconnect', async () => {
+    const connector = { id: 'injected', name: 'Injected' } as Connector
+    const disconnect = vi.fn()
+
+    mockedUseConnection.mockReturnValue({
+      address: '0x1234567890abcdef1234567890abcdef12345678',
+      isConnected: true,
+      chain: { id: 1, name: 'Ethereum' },
+      connector: { name: 'MetaMask' },
+    } as any)
+    mockedUseConnectors.mockReturnValue([connector])
+    mockedUseConnect.mockReturnValue({ mutate: vi.fn(), isPending: false } as any)
+    mockedUseDisconnect.mockReturnValue({ mutate: disconnect } as any)
+
+    const { getByText, getByRole } = render(<ConnectWalletPanel />)
+
+    expect(getByText('Wallet linked')).toBeTruthy()
+    expect(getByText('Disconnect wallet')).toBeTruthy()
+
+    await waitFor(() => {
+      const state = useDynamicInfoStore.getState()
+      expect(state.connectWalletStatus).toBe('success')
+      expect(state.wallet.connectedAddress).toBe(
+        '0x1234567890abcdef1234567890abcdef12345678',
+      )
+      expect(state.wallet.chainName).toBe('Ethereum')
+      expect(state.wallet.connectorName).toBe('MetaMask')
+    })
+
+    fireEvent.click(getByRole('button'))
+    expect(disconnect).toHaveBeenCalled()
+  })
+
+  it('connects when disconnected', () => {
+    const connector = { id: 'injected', name: 'Injected' } as Connector
+    const connect = vi.fn()
+
+    mockedUseConnection.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+      chain: undefined,
+      connector: undefined,
+    } as any)
+    mockedUseConnectors.mockReturnValue([connector])
+    mockedUseConnect.mockReturnValue({ mutate: connect, isPending: false } as any)
+    mockedUseDisconnect.mockReturnValue({ mutate: vi.fn() } as any)
+
+    const { getByRole } = render(<ConnectWalletPanel />)
+
+    fireEvent.click(getByRole('button'))
+
+    expect(connect).toHaveBeenCalledWith({ connector })
+  })
+})

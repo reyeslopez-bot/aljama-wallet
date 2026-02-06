@@ -2,13 +2,14 @@
 
 import { motion } from 'framer-motion'
 import { useEffect } from 'react'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { useConnection, useConnect, useConnectors, useDisconnect } from 'wagmi'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 
 export function ConnectWalletPanel() {
-  const { address, isConnected, chain, connector: accountConnector } = useAccount()
-  const { connect, connectors, isPending } = useConnect()
-  const { disconnect } = useDisconnect()
+  const { address, isConnected, chain, connector: accountConnector } = useConnection()
+  const connectors = useConnectors()
+  const { mutate: connect, isPending } = useConnect()
+  const { mutate: disconnect } = useDisconnect()
   const setConnectWalletStatus = useDynamicInfoStore((s) => s.setConnectWalletStatus)
   const setConnectedWallet = useDynamicInfoStore((s) => s.setConnectedWallet)
 

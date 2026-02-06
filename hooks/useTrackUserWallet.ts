@@ -1,4 +1,4 @@
-import { useAccount } from 'wagmi'
+import { useConnection } from 'wagmi'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 type TrackingStatus = 'idle' | 'pending' | 'success' | 'error'
@@ -17,7 +17,7 @@ type TrackWalletPayload = {
 }
 
 export function useTrackUserWallet(): TrackUserWalletResult {
-  const { address, chain, connector, isConnected } = useAccount()
+  const { address, chain, connector, isConnected } = useConnection()
   const [status, setStatus] = useState<TrackingStatus>('idle')
   const [error, setError] = useState<Error | null>(null)
   const lastTrackedSignatureRef = useRef('')

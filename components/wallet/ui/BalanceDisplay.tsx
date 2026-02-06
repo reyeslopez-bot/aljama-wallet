@@ -1,7 +1,7 @@
 // components/wallet/ui/BalanceDisplay.tsx
 'use client'
 
-import { useAccount, useBalance } from 'wagmi'
+import { useBalance, useConnection } from 'wagmi'
 import { formatUnits } from 'viem'
 import { mainnet, sepolia, polygon, base } from 'viem/chains'
 
@@ -12,7 +12,7 @@ type Props = {
 }
 
 export default function BalanceDisplay({ className = '' }: Props) {
-  const { address, isConnected } = useAccount()
+  const { address, isConnected } = useConnection()
 
   if (!isConnected || !address) {
     return (

@@ -7,10 +7,10 @@ export function useWalletConnectors() {
   const connectors = useConnectors()
 
   const {
-    connect,
-    status,          // 'idle' | 'pending' | 'success' | 'error'
+    mutate,
+    status, // 'idle' | 'pending' | 'success' | 'error'
     error,
-    variables,       // { connector?: Connector } while pending
+    variables, // { connector?: Connector } while pending
   } = useConnect()
 
   const isLoading = status === 'pending'
@@ -18,7 +18,7 @@ export function useWalletConnectors() {
 
   return {
     connectors,
-    connect,
+    connect: mutate,
     isLoading,
     pendingConnector, // now well-typed, optional
     error,
