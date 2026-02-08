@@ -1,11 +1,6 @@
 import { defineConfig } from 'vitest/config'
 import path from 'node:path'
 
-// Ensure React uses the non-production build so `act` is available in tests.
-if (process.env.NODE_ENV !== 'test') {
-  process.env.NODE_ENV = 'test'
-}
-
 export default defineConfig({
   test: {
     globals: true,
