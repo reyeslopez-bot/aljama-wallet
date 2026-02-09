@@ -3,6 +3,7 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
+import { persistEncryptedSession, persistWalletId } from '@/lib/storage/walletSession'
 
 type WalletPreview = {
   address: string
@@ -45,10 +46,12 @@ export function CreateWalletPanel() {
         throw new Error(body.error ?? `Failed to create wallet (${res.status})`)
       }
 
-      const data: { address: string; encrypted: string } = await res.json()
+      const data: { address: string; encrypted: string; walletId?: string } = await res.json()
 
-      // Demo mode: no WalletContext, no unlock flow yet.
-      // We intentionally ignore data.encrypted for now.
+      persistEncryptedSession(data.encrypted)
+      if (data.walletId) {
+        persistWalletId(data.walletId)
+      }
       setWalletPreview({ address: data.address })
       setStatus('success')
       setCreatedWalletAddress(data.address)

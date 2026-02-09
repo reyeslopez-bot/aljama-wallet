@@ -1,6 +1,7 @@
 // app/api/create-wallet/route.ts
 import { NextResponse } from 'next/server'
 import { createEncryptedWallet } from '@/lib/wallet'
+import { createWalletRecord } from '@/services/wallet.service'
 
 export async function POST(req: Request) {
   try {
@@ -13,9 +14,15 @@ export async function POST(req: Request) {
       )
     }
 
-    const { encrypted, wallet } = createEncryptedWallet(password)
+    const { encrypted, wallet } = await createEncryptedWallet(password)
+
+    const record = await createWalletRecord({
+      address: wallet.address,
+      privateKey: wallet.privateKey,
+    })
 
     return NextResponse.json({
+      walletId: record.id,
       address: wallet.address,
       encrypted, // canonical thing the client stores
       // no privateKey / mnemonic over the wire

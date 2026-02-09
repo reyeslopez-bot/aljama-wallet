@@ -80,6 +80,12 @@ Aljama Wallet aims to deliver a seamless, culturally resonant wallet experience 
    ```ini
    NEXT_PUBLIC_ALCHEMY_API_KEY=<ALCHEMY_KEY>
    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<WALLETCONNECT_PROJECT_ID>
+   EVM_RPC_URL=<RPC_URL>
+   WALLET_DAILY_LIMIT_WEI=<DAILY_LIMIT_WEI>
+   WALLET_ALLOWED_CHAIN_IDS=<CHAIN_ID_LIST>
+   WALLET_ENCRYPTION_KEY_ACTIVE_VERSION=1
+   WALLET_ENCRYPTION_KEY_V1=<64_HEX_CHARS>
+   WALLET_ENCRYPTION_KEY_FINGERPRINT_V1=<SHA256_HEX>
    COCKROACH_URL=postgresql://USER:PASSWORD@HOST:PORT/defaultdb?sslmode=require
    POSTGRES_URL=postgresql://USER:PASSWORD@HOST:PORT/dbname
    ```
@@ -120,6 +126,12 @@ pnpm format    # Prettier
 | ------------------------------------- | ----------------------------------------- | ------- |
 | `NEXT_PUBLIC_ALCHEMY_API_KEY`         | Enables faster RPC reads via Alchemy      | `v2_yourAlchemyKey` |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`| Enables WalletConnect modal               | `123abc456def789ghi` |
+| `EVM_RPC_URL`                         | JSON-RPC endpoint for internal signing    | `https://rpc.example` |
+| `WALLET_DAILY_LIMIT_WEI`              | Daily transfer limit (wei)                | `1000000000000000000` |
+| `WALLET_ALLOWED_CHAIN_IDS`            | Comma-separated allowed chains            | `1,8453,11155111` |
+| `WALLET_ENCRYPTION_KEY_ACTIVE_VERSION`| Active key version for AES-GCM vaults     | `1` |
+| `WALLET_ENCRYPTION_KEY_V1`            | 32-byte hex key for AES-GCM               | `64hexchars...` |
+| `WALLET_ENCRYPTION_KEY_FINGERPRINT_V1`| SHA-256 hex fingerprint for key check     | `sha256hex...` |
 | `COCKROACH_URL`                       | Prisma datasource URL for CockroachDB OLTP| `postgresql://user:pass@host:26257/defaultdb?sslmode=require` |
 | `POSTGRES_URL`                        | Prisma datasource URL for Postgres OLAP   | `postgresql://user:pass@host:5432/analytics` |
 
@@ -173,7 +185,7 @@ pnpm format    # Prettier
 
 ### Wallet Logic + APIs
 
-* `lib/wallet.ts` contains the create/unlock flow and base64 payload helpers (toy crypto).  
+* `lib/wallet.ts` contains the create/unlock flow and PBKDF2 + AES-GCM session encryption.  
 * `app/api/create-wallet/route.ts` creates an encrypted wallet payload.  
 * `app/api/track-wallet/route.ts` accepts wallet telemetry for dev observability.  
 

@@ -4,6 +4,7 @@ import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { mainnet, sepolia } from 'viem/chains'
 import type { CreateConnectorFn } from 'wagmi'
+import { encodePayloadToEncrypted, encodeWalletToEncrypted } from '@/lib/wallet'
 
 // Keep raw private keys separately
 const primaryPrivateKey =
@@ -73,25 +74,25 @@ export const mockConnector: CreateConnectorFn = () =>
   } as any)
 
 // Use the same mockAccounts.primary values that tests expect
-export const mockEncryptedWallet = (password: string) =>
-  Buffer.from(
-    JSON.stringify({
+export const mockEncryptedWallet = async (password: string) =>
+  encodeWalletToEncrypted(
+    {
       address: mockAccounts.primary.address,
       privateKey: mockAccounts.primary.privateKey,
-      passwordHint: password,
-    }),
-    'utf-8',
-  ).toString('base64')
+    },
+    password,
+  )
 
-export const mockEncryptedWalletMissingMaterial = (
+export const mockEncryptedWalletMissingMaterial = async (
   missingField: 'privateKey' | 'address',
-) =>
-  Buffer.from(
-    JSON.stringify({
-      ...(missingField === 'address' ? {} : { address: mockAccounts.primary.address }),
-      ...(missingField === 'privateKey'
-        ? {}
-        : { privateKey: mockAccounts.primary.privateKey }),
-    }),
-    'utf-8',
-  ).toString('base64')
+  password = 'anything',
+) => {
+  const payload = {
+    ...(missingField === 'address' ? {} : { address: mockAccounts.primary.address }),
+    ...(missingField === 'privateKey'
+      ? {}
+      : { privateKey: mockAccounts.primary.privateKey }),
+  }
+
+  return encodePayloadToEncrypted(payload, password)
+}

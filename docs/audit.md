@@ -6,7 +6,7 @@
 - README directory structure now matches the current repository layout (root-level dev/prod scripts, `infra/`, dual Prisma schemas, placeholder services).
 
 ## Outstanding gaps and recommended fixes
-- `unlockWallet` is still unimplemented, so password-based unlocks will throw until real decryption is wired up.
+- `unlockWallet` now uses PBKDF2 + AES-GCM (WebCrypto), so password-based unlocks are functional.
 - Wallet tracking currently only validates address format; no persistence, rate limiting, or analytics hand-off are present.
 - `tests/helpers/walletMocks.ts` is empty, forcing tests to reimplement fixtures.
 - Service and data layers are stubs (`services/wallet.service.ts`, `lib/getTokensByWallet.ts`), so UI flows will show empty results.
