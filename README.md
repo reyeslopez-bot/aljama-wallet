@@ -107,6 +107,24 @@ just dev port=3200        # launches on http://localhost:3200
 just preview port=3200    # open the matching browser tab
 ```
 
+### Local Databases (Podman/Docker)
+
+```bash
+# Start Postgres + Cockroach locally
+./db.sh up
+
+# Optional: inspect status/logs
+./db.sh status
+./db.sh logs
+
+# Stop databases
+./db.sh down
+
+# Prisma schema sync (first run)
+pnpm prisma db push --config prisma.crdb.config.ts
+pnpm prisma db push --config prisma.pg.config.ts --accept-data-loss
+```
+
 ### Running Locally
 
 ```bash

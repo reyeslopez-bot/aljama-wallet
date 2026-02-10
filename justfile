@@ -12,6 +12,18 @@ dev port=app_port:
 rebuild port=app_port:
 	APP_PORT={{port}} ./dev.sh --rebuild --detach --logs
 
+db-up:
+	./db.sh up
+
+db-down:
+	./db.sh down
+
+db-status:
+	./db.sh status
+
+db-logs:
+	./db.sh logs
+
 up port=app_port:
 	APP_PORT={{port}} ./dev.sh --detach
 

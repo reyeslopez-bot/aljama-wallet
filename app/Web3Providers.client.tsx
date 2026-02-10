@@ -39,6 +39,7 @@ function buildWagmiConfig(): CreateConfigParameters {
           url: APP_URL,
           icons: [],
         },
+        showQrModal: true,
       }),
     )
   }

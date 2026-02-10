@@ -141,6 +141,37 @@ ENV_FILE_ARGS=()
 [ -f "$PWD/.env" ] && ENV_FILE_ARGS+=(--env-file "$PWD/.env")
 [ -f "$PWD/.env.local" ] && ENV_FILE_ARGS+=(--env-file "$PWD/.env.local")
 
+# --- DB URL overrides for container runtime ---
+DB_ENV_ARGS=()
+DB_HOST_ALIAS="host.containers.internal"
+if [ "$RUNTIME" = "docker" ]; then
+  DB_HOST_ALIAS="host.docker.internal"
+fi
+
+rewrite_db_url() {
+  local url="$1"
+  local alias="$2"
+  url="${url/localhost/${alias}}"
+  url="${url/127.0.0.1/${alias}}"
+  echo "$url"
+}
+
+maybe_override_db_env() {
+  local var_name="$1"
+  local value="${!var_name:-}"
+  if [ -z "$value" ]; then
+    return
+  fi
+  if [[ "$value" == *"localhost"* || "$value" == *"127.0.0.1"* ]]; then
+    DB_ENV_ARGS+=(-e "${var_name}=$(rewrite_db_url "$value" "$DB_HOST_ALIAS")")
+  fi
+}
+
+maybe_override_db_env "PG_DATABASE_URL"
+maybe_override_db_env "CRDB_DATABASE_URL"
+maybe_override_db_env "POSTGRES_URL"
+maybe_override_db_env "COCKROACH_URL"
+
 PORT_PUBLISH="127.0.0.1:${APP_PORT}:${APP_PORT}"
 
   # --- Run container ---
@@ -154,6 +185,7 @@ PORT_PUBLISH="127.0.0.1:${APP_PORT}:${APP_PORT}"
   "$RUNTIME" run --rm "${RUN_MODE_ARGS[@]}" \
     --name "$CONTAINER_NAME" \
     "${ENV_FILE_ARGS[@]}" \
+    "${DB_ENV_ARGS[@]}" \
     -p "$PORT_PUBLISH" \
   -e PORT="$APP_PORT" \
   -e PNPM_VERSION="$PNPM_VERSION" \

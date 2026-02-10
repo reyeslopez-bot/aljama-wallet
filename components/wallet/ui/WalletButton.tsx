@@ -8,8 +8,15 @@ export default function WalletButton() {
   const { mutate: connect, isPending } = useConnect()
   const { mutate: disconnect } = useDisconnect()
 
+  const hasInjected =
+    typeof window !== 'undefined' &&
+    Boolean((window as Window & { ethereum?: unknown }).ethereum)
+
   const readyConnectors = connectors.filter(
-    (item) => (item as { ready?: boolean }).ready !== false,
+    (item) =>
+      item.id === 'injected'
+        ? hasInjected && (item as { ready?: boolean }).ready !== false
+        : (item as { ready?: boolean }).ready !== false,
   )
   const injectedConnector = readyConnectors.find((item) => item.id === 'injected')
   const walletConnectConnector = readyConnectors.find((item) => item.id === 'walletConnect')
