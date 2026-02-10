@@ -74,6 +74,9 @@ export function getUtmParams(): Record<string, string> {
 export function getBasicContext() {
   if (!hasWindow()) return {}
   const nav = navigator as Navigator & { userAgentData?: { brands?: { brand: string; version: string }[] } }
+  const connection =
+    (navigator as Navigator & { connection?: { effectiveType?: string; rtt?: number; downlink?: number; saveData?: boolean } })
+      .connection ?? null
 
   return {
     userAgent: navigator.userAgent ?? null,
@@ -98,7 +101,18 @@ export function getBasicContext() {
       deviceMemory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? null,
       maxTouchPoints: navigator.maxTouchPoints ?? null,
       userAgentBrands: nav.userAgentData?.brands ?? null,
+      userActivation: (navigator as Navigator & { userActivation?: { hasBeenActive: boolean; isActive: boolean } })
+        .userActivation ?? null,
+      cookieEnabled: navigator.cookieEnabled ?? null,
     },
+    connection: connection
+      ? {
+          effectiveType: connection.effectiveType ?? null,
+          rtt: connection.rtt ?? null,
+          downlink: connection.downlink ?? null,
+          saveData: connection.saveData ?? null,
+        }
+      : null,
   }
 }
 

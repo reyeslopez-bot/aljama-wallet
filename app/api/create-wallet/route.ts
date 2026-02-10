@@ -48,10 +48,25 @@ export async function POST(req: Request) {
       })
     }
 
-    const record = await createWalletRecord({
-      address: wallet.address,
-      privateKey: wallet.privateKey,
-    })
+    let record: Awaited<ReturnType<typeof createWalletRecord>>
+    try {
+      record = await createWalletRecord({
+        address: wallet.address,
+        privateKey: wallet.privateKey,
+      })
+    } catch (dbError) {
+      if (process.env.NODE_ENV !== 'production') {
+        const reason = dbError instanceof Error ? dbError.message : 'DB write failed'
+        return NextResponse.json({
+          walletId: null,
+          address: wallet.address,
+          encrypted,
+          mode: 'session-only',
+          warning: `Custody write failed: ${reason}`,
+        })
+      }
+      throw dbError
+    }
 
     return NextResponse.json({
       walletId: record.id,

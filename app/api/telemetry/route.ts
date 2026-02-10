@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { recordTelemetryEvent } from '@/services/telemetry.service'
+import crypto from 'node:crypto'
 
 const MAX_BODY_BYTES = 16_384
 
@@ -30,6 +31,23 @@ const errorResponse = (status: number, code: string, message: string, details?: 
 
 export async function POST(req: NextRequest) {
   try {
+    const ipHeader =
+      req.headers.get('x-forwarded-for') ??
+      req.headers.get('x-real-ip') ??
+      (req as NextRequest & { ip?: string }).ip ??
+      ''
+    const ip = ipHeader.split(',')[0]?.trim() || null
+    const ipHash = ip ? crypto.createHash('sha256').update(ip).digest('hex') : null
+
+    const geo = {
+      country: req.headers.get('x-vercel-ip-country') ?? null,
+      region: req.headers.get('x-vercel-ip-country-region') ?? null,
+      city: req.headers.get('x-vercel-ip-city') ?? null,
+      latitude: req.headers.get('x-vercel-ip-latitude') ?? null,
+      longitude: req.headers.get('x-vercel-ip-longitude') ?? null,
+      timezone: req.headers.get('x-vercel-ip-timezone') ?? null,
+    }
+
     const declaredSize = req.headers.get('content-length')
     if (declaredSize && Number(declaredSize) > MAX_BODY_BYTES) {
       return errorResponse(413, 'payload_too_large', 'Request body exceeds limit')
@@ -53,12 +71,20 @@ export async function POST(req: NextRequest) {
       return errorResponse(400, 'invalid_payload', 'Validation failed', validation.error.format())
     }
 
+    const enrichedContext = {
+      ...validation.data.context,
+      server: {
+        ipHash,
+        geo,
+      },
+    }
+
     await recordTelemetryEvent({
       event: validation.data.event,
       sessionId: validation.data.sessionId,
       deviceId: validation.data.deviceId,
       path: validation.data.path ?? null,
-      context: validation.data.context ?? null,
+      context: enrichedContext ?? null,
       payload: validation.data.payload ?? null,
     })
 

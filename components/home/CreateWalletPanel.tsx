@@ -18,6 +18,7 @@ export function CreateWalletPanel() {
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [mode, setMode] = useState<'custody' | 'session-only' | null>(null)
   const [walletPreview, setWalletPreview] = useState<WalletPreview | null>(null)
   const setCreateWalletStatus = useDynamicInfoStore((s) => s.setCreateWalletStatus)
   const setCreatedWalletAddress = useDynamicInfoStore((s) => s.setCreatedWalletAddress)
@@ -36,6 +37,7 @@ export function CreateWalletPanel() {
     setStatus('pending')
     setError(null)
     setNotice(null)
+    setMode(null)
     setCreateWalletStatus('pending')
 
     try {
@@ -63,6 +65,7 @@ export function CreateWalletPanel() {
         persistWalletId(data.walletId)
       }
       setWalletPreview({ address: data.address })
+      setMode(data.mode ?? null)
       if (data.mode === 'session-only') {
         setNotice(data.warning ?? 'Running in session-only mode.')
       }
@@ -104,7 +107,11 @@ export function CreateWalletPanel() {
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${badgeColor}`}
         >
-          {status === 'success' ? 'Ready to use' : 'Custody flow'}
+          {status === 'success'
+            ? mode === 'session-only'
+              ? 'Session-only'
+              : 'Ready to use'
+            : 'Custody flow'}
         </span>
       </header>
 

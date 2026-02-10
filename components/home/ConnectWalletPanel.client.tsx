@@ -15,11 +15,12 @@ export function ConnectWalletPanel() {
   const setConnectWalletStatus = useDynamicInfoStore((s) => s.setConnectWalletStatus)
   const setConnectedWallet = useDynamicInfoStore((s) => s.setConnectedWallet)
 
-  const injectedConnector = connectors.find(
-    (item) => item.id === 'injected' && (item as { ready?: boolean }).ready !== false,
+  const readyConnectors = connectors.filter(
+    (item) => (item as { ready?: boolean }).ready !== false,
   )
-  const walletConnectConnector = connectors.find((item) => item.id === 'walletConnect')
-  const preferredConnector = injectedConnector ?? walletConnectConnector ?? connectors[0]
+  const injectedConnector = readyConnectors.find((item) => item.id === 'injected')
+  const walletConnectConnector = readyConnectors.find((item) => item.id === 'walletConnect')
+  const preferredConnector = injectedConnector ?? walletConnectConnector ?? readyConnectors[0]
   const canConnect = Boolean(preferredConnector)
   const connectLabel = isConnected ? 'Disconnect wallet' : 'Connect wallet'
   const statusLabel = !canConnect
