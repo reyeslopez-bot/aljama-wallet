@@ -4,19 +4,29 @@ import { motion } from 'framer-motion'
 import { useEffect } from 'react'
 import { useConnection, useConnect, useConnectors, useDisconnect } from 'wagmi'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
+import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 
 export function ConnectWalletPanel() {
+  useComponentTelemetry('ConnectWalletPanel')
   const { address, isConnected, chain, connector: accountConnector } = useConnection()
   const connectors = useConnectors()
-  const { mutate: connect, isPending } = useConnect()
+  const { mutate: connect, isPending, error: connectError } = useConnect()
   const { mutate: disconnect } = useDisconnect()
   const setConnectWalletStatus = useDynamicInfoStore((s) => s.setConnectWalletStatus)
   const setConnectedWallet = useDynamicInfoStore((s) => s.setConnectedWallet)
 
-  const preferredConnector = connectors.find((item) => item.id === 'injected') ?? connectors[0]
+  const injectedConnector = connectors.find(
+    (item) => item.id === 'injected' && (item as { ready?: boolean }).ready !== false,
+  )
+  const walletConnectConnector = connectors.find((item) => item.id === 'walletConnect')
+  const preferredConnector = injectedConnector ?? walletConnectConnector ?? connectors[0]
   const canConnect = Boolean(preferredConnector)
   const connectLabel = isConnected ? 'Disconnect wallet' : 'Connect wallet'
-  const statusLabel = isConnected ? 'Connected' : 'Ready to connect'
+  const statusLabel = !canConnect
+    ? 'No connector'
+    : isConnected
+      ? 'Connected'
+      : 'Ready to connect'
 
   useEffect(() => {
     if (!isConnected || !address) {
@@ -105,6 +115,19 @@ export function ConnectWalletPanel() {
         >
           {isPending ? 'Connecting...' : connectLabel}
         </motion.button>
+
+        {!canConnect ? (
+          <p className="text-xs text-amber-200/80">
+            No wallet connector detected. Install a browser wallet or set
+            `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` for WalletConnect.
+          </p>
+        ) : null}
+
+        {connectError ? (
+          <p className="text-xs text-red-300">
+            {connectError instanceof Error ? connectError.message : 'Wallet connection failed'}
+          </p>
+        ) : null}
       </div>
     </section>
   )

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
+import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 
 type XrplAccount = {
   address: string
@@ -21,6 +22,7 @@ const initialState: XrplState = {
 }
 
 export function XrplPanel() {
+  useComponentTelemetry('XrplPanel')
   const [state, setState] = useState<XrplState>(initialState)
 
   const loadAccount = useCallback(async () => {
@@ -32,7 +34,7 @@ export function XrplPanel() {
         | { ok: false; error: string }
 
       if (!res.ok || !body.ok) {
-        throw new Error('XRPL dev account not available')
+        throw new Error('XRPL dev account not available (check XRPL_DEV_SEED)')
       }
 
       setState({ loading: false, error: null, account: body.account })
@@ -64,7 +66,7 @@ export function XrplPanel() {
             XRP Ledger ready
           </h2>
           <p className="text-sm text-white/70">
-            Live XRPL bridge via server-side RPC. Pull balances on demand.
+            Testnet snapshot from the server-side XRPL dev seed. Pull balances on demand.
           </p>
         </div>
         <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-white/70">
@@ -82,7 +84,7 @@ export function XrplPanel() {
             <div className="space-y-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.16em] text-emerald-100/80">
-                  Dev account
+                  Testnet dev account
                 </p>
                 <p className="mt-1 break-all font-mono text-sm text-emerald-100">
                   {state.account.address}

@@ -8,7 +8,11 @@ export default function WalletButton() {
   const { mutate: connect, isPending } = useConnect()
   const { mutate: disconnect } = useDisconnect()
 
-  const connector = connectors.find((item) => item.id === 'injected') ?? connectors[0]
+  const injectedConnector = connectors.find(
+    (item) => item.id === 'injected' && (item as { ready?: boolean }).ready !== false,
+  )
+  const walletConnectConnector = connectors.find((item) => item.id === 'walletConnect')
+  const connector = injectedConnector ?? walletConnectConnector ?? connectors[0]
   const shortAddress =
     address && address.length > 10
       ? `${address.slice(0, 6)}…${address.slice(-4)}`

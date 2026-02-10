@@ -12,7 +12,7 @@ export const prismaPg =
   new PrismaClient({
     adapter: new PrismaPg(
       new pg.Pool({
-        connectionString: process.env.PG_DATABASE_URL,
+        connectionString: process.env.PG_DATABASE_URL ?? process.env.POSTGRES_URL,
       })
     ),
   })

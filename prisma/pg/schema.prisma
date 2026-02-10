@@ -21,3 +21,18 @@ model DailyTransactionSummary {
   count     Int
   createdAt DateTime @default(now())
 }
+
+model TelemetryEvent {
+  id        String   @id @default(cuid())
+  event     String
+  sessionId String
+  deviceId  String
+  path      String?
+  context   Json?
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([event])
+  @@index([sessionId])
+}

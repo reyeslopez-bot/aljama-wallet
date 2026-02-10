@@ -12,7 +12,7 @@ export const prismaCrdb =
   new PrismaClient({
     adapter: new PrismaPg(
       new pg.Pool({
-        connectionString: process.env.CRDB_DATABASE_URL,
+        connectionString: process.env.CRDB_DATABASE_URL ?? process.env.COCKROACH_URL,
       })
     ),
   })

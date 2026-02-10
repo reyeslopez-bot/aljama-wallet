@@ -4,6 +4,7 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { persistEncryptedSession, persistWalletId } from '@/lib/storage/walletSession'
+import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 
 type WalletPreview = {
   address: string
@@ -12,9 +13,11 @@ type WalletPreview = {
 type Status = 'idle' | 'pending' | 'success' | 'error'
 
 export function CreateWalletPanel() {
+  useComponentTelemetry('CreateWalletPanel')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [walletPreview, setWalletPreview] = useState<WalletPreview | null>(null)
   const setCreateWalletStatus = useDynamicInfoStore((s) => s.setCreateWalletStatus)
   const setCreatedWalletAddress = useDynamicInfoStore((s) => s.setCreatedWalletAddress)
@@ -32,6 +35,7 @@ export function CreateWalletPanel() {
 
     setStatus('pending')
     setError(null)
+    setNotice(null)
     setCreateWalletStatus('pending')
 
     try {
@@ -46,13 +50,22 @@ export function CreateWalletPanel() {
         throw new Error(body.error ?? `Failed to create wallet (${res.status})`)
       }
 
-      const data: { address: string; encrypted: string; walletId?: string } = await res.json()
+      const data: {
+        address: string
+        encrypted: string
+        walletId?: string | null
+        mode?: 'custody' | 'session-only'
+        warning?: string
+      } = await res.json()
 
       persistEncryptedSession(data.encrypted)
       if (data.walletId) {
         persistWalletId(data.walletId)
       }
       setWalletPreview({ address: data.address })
+      if (data.mode === 'session-only') {
+        setNotice(data.warning ?? 'Running in session-only mode.')
+      }
       setStatus('success')
       setCreatedWalletAddress(data.address)
       setCreateWalletStatus('success')
@@ -163,6 +176,7 @@ export function CreateWalletPanel() {
           </div>
         )}
 
+        {notice && <p className="mt-3 text-xs text-amber-200/90">{notice}</p>}
         {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
       </div>
     </section>
