@@ -13,7 +13,7 @@ import DynamicInfoCard from '@/components/home/DynamicInfoCard.client'
 
 const statBlocks = [
   { label: 'Mainnet posture', value: 'EVM-First', detail: 'Wagmi + Ethers production stack' },
-  { label: 'Security model', value: 'Session-local', detail: 'Encrypted, no remote custody' },
+  { label: 'Security model', value: 'Encrypted custody', detail: 'Server-stored keys, policy-controlled signing' },
   { label: 'UX philosophy', value: 'Frictionless', detail: 'Zero clutter, guided flows' },
 ]
 
@@ -41,11 +41,11 @@ export default function HomeContent() {
           <p className="text-sm uppercase tracking-[0.25em] text-[#c9a24d]/90">{BRAND.name}</p>
 
           <h1 className="text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl">
-            Wealth-grade self custody for a desert age.
+            Wealth-grade encrypted custody for a desert age.
           </h1>
 
           <p className="text-lg text-white/70">
-            Create encrypted session vaults, move across EVM networks, and maintain full sovereign control without onboarding
+            Create encrypted vaults, move across EVM networks, and operate under policy-controlled custody without onboarding
             noise.
           </p>
 
@@ -87,7 +87,7 @@ export default function HomeContent() {
         </div>
         <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
           <div className="space-y-6">
-            <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">Session Intel</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">Vault Intel</p>
             <h3 className="text-2xl font-semibold text-white">Stay synced with live wallet context.</h3>
             <p className="text-sm text-white/70">
               This panel surfaces RainbowKit + wagmi state so you can verify active connections, swap accounts, and track EVM

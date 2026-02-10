@@ -85,13 +85,13 @@ export function CreateWalletPanel() {
             Spin up a fresh vault
           </h2>
           <p className="text-sm text-white/70">
-            Generate a wallet, store it in-session, and keep moving.
+            Generate a wallet, store an encrypted session copy, and sync to the custody vault.
           </p>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${badgeColor}`}
         >
-          {status === 'success' ? 'Ready to use' : 'Ephemeral demo'}
+          {status === 'success' ? 'Ready to use' : 'Custody flow'}
         </span>
       </header>
 
@@ -126,7 +126,7 @@ export function CreateWalletPanel() {
         <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Session
-            encrypted
+            copy encrypted
           </span>
           <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-200" /> Keep the
@@ -142,7 +142,7 @@ export function CreateWalletPanel() {
               Wallet ready
             </p>
             <p className="text-sm text-white/70">
-              Keep this tab open; your material stays in-session.
+              Keep this tab open; your session copy stays local.
             </p>
             <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-100">
               <p className="text-xs uppercase tracking-[0.14em] text-emerald-200/80">
@@ -159,7 +159,7 @@ export function CreateWalletPanel() {
               <span className="h-2 w-2 rounded-full bg-amber-300" />
               No wallet created yet
             </p>
-            <p>Use a memorable phrase. We keep it in memory only for this session.</p>
+            <p>Use a memorable phrase. It encrypts your local session copy.</p>
           </div>
         )}
 

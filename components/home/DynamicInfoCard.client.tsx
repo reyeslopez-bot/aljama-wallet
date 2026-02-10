@@ -159,7 +159,7 @@ export default function DynamicInfoCard() {
       const parts = [wallet.chainName, wallet.connectorName].filter(Boolean)
       return parts.length ? parts.join(' · ') : 'Connected'
     }
-    if (wallet.createdAddress) return 'Encrypted session vault'
+    if (wallet.createdAddress) return 'Custody vault ready'
     return user?.role ?? 'New arrival'
   }, [user?.role, wallet.chainName, wallet.connectorName, wallet.connectedAddress, wallet.createdAddress])
 
@@ -216,7 +216,7 @@ export default function DynamicInfoCard() {
                 className="space-y-3"
               >
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/50">Session</div>
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/50">Vault session</div>
                   <div className="mt-2 grid gap-2 text-xs text-white/75">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-white/50">Wallet</span>
