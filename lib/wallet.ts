@@ -109,11 +109,17 @@ function utf8Decode(bytes: ArrayBuffer | Uint8Array): string {
   return new TextDecoder().decode(buffer)
 }
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength)
+  new Uint8Array(buffer).set(bytes)
+  return buffer
+}
+
 async function deriveKey(password: string, salt: Uint8Array, iterations: number) {
   const crypto = getCrypto()
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    utf8Encode(password),
+    toArrayBuffer(utf8Encode(password)),
     'PBKDF2',
     false,
     ['deriveKey'],
@@ -122,7 +128,7 @@ async function deriveKey(password: string, salt: Uint8Array, iterations: number)
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt,
+      salt: toArrayBuffer(salt),
       iterations,
       hash: DIGEST,
     },
@@ -158,9 +164,13 @@ async function encryptPayload(payload: Record<string, unknown>, password: string
   const plaintext = utf8Encode(JSON.stringify(payload))
 
   const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv, additionalData: utf8Encode(AAD_TEXT) },
+    {
+      name: 'AES-GCM',
+      iv: toArrayBuffer(iv),
+      additionalData: toArrayBuffer(utf8Encode(AAD_TEXT)),
+    },
     key,
-    plaintext,
+    toArrayBuffer(plaintext),
   )
 
   const envelope: EncryptedWalletPayload = {
@@ -220,9 +230,13 @@ async function decryptPayload(encrypted: string, password: string): Promise<Reco
 
   try {
     const plaintext = await getCrypto().subtle.decrypt(
-      { name: 'AES-GCM', iv, additionalData: utf8Encode(AAD_TEXT) },
+      {
+        name: 'AES-GCM',
+        iv: toArrayBuffer(iv),
+        additionalData: toArrayBuffer(utf8Encode(AAD_TEXT)),
+      },
       key,
-      ciphertext,
+      toArrayBuffer(ciphertext),
     )
 
     return JSON.parse(utf8Decode(plaintext)) as Record<string, unknown>
