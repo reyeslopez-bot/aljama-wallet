@@ -13,6 +13,7 @@ describe('app/api/market-snapshot route', () => {
   })
 
   it('returns snapshot data from upstream', async () => {
+    // NOTE: This verifies we pass through upstream pricing when available.
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ prices: [[0, 1], [1, 2], [2, 3]] }),
@@ -31,6 +32,7 @@ describe('app/api/market-snapshot route', () => {
   })
 
   it('falls back when upstream fetch fails', async () => {
+    // NOTE: The route must be resilient in CI/offline environments.
     const mockFetch = vi.fn().mockRejectedValue(new Error('nope'))
     vi.stubGlobal('fetch', mockFetch)
 

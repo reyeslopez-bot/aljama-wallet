@@ -27,26 +27,24 @@ const globalForWagmi = globalThis as unknown as {
 }
 
 function buildWagmiConfig(): CreateConfigParameters {
-  const connectors = [injected()]
-
-  if (WC_PROJECT_ID) {
-    connectors.push(
-      walletConnect({
-        projectId: WC_PROJECT_ID,
-        metadata: {
-          name: BRAND.name,
-          description: BRAND.description,
-          url: APP_URL,
-          icons: [`${APP_URL}/favicon.png`],
-        },
-        showQrModal: true,
-        qrModalOptions: {
-          themeMode: "dark",
-          mobileLinks: ["binance", "metamask", "trust", "coinbase", "rainbow"],
-        },
-      }),
-    )
-  }
+  const connectors: CreateConfigParameters["connectors"] = WC_PROJECT_ID
+    ? [
+        injected(),
+        walletConnect({
+          projectId: WC_PROJECT_ID,
+          metadata: {
+            name: BRAND.name,
+            description: BRAND.description,
+            url: APP_URL,
+            icons: [`${APP_URL}/favicon.png`],
+          },
+          showQrModal: true,
+          qrModalOptions: {
+            themeMode: "dark",
+          },
+        }),
+      ]
+    : [injected()]
 
   return {
     chains: CHAINS,
@@ -61,26 +59,28 @@ function buildWagmiConfig(): CreateConfigParameters {
   }
 }
 
-const wagmiConfig =
-  globalForWagmi.aljamaWagmiConfig ?? createConfig(buildWagmiConfig())
-
-if (!globalForWagmi.aljamaWagmiConfig) {
-  globalForWagmi.aljamaWagmiConfig = wagmiConfig
+function getWagmiConfig() {
+  if (!globalForWagmi.aljamaWagmiConfig) {
+    globalForWagmi.aljamaWagmiConfig = createConfig(buildWagmiConfig())
+  }
+  return globalForWagmi.aljamaWagmiConfig
 }
 
 export default function Web3Providers({ children }: { children: ReactNode }) {
-  // Prevent connector init during hydration, but\ still render UI.
+  // Prevent connector init during hydration, but still render UI.
   const [mounted, setMounted] = useState(false)
+  const [config, setConfig] = useState<ReturnType<typeof createConfig> | null>(null)
 
   // Create once.
   const [queryClient] = useState(() => new QueryClient())
 
-  const config = wagmiConfig
-
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    setMounted(true)
+    setConfig(getWagmiConfig())
+  }, [])
 
   // Don’t let wallet connectors initialize during hydration
-  if (!mounted) return <>{children}</>
+  if (!mounted || !config) return <>{children}</>
 
   return (
     <WagmiProvider config={config}>

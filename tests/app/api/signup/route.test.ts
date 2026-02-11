@@ -17,6 +17,7 @@ describe('app/api/signup route', () => {
   })
 
   it('rejects invalid payloads', async () => {
+    // NOTE: This asserts the API rejects malformed payloads before touching storage.
     const { POST } = await import('@/app/api/signup/route')
     const res = await POST(
       new Request('http://localhost/api/signup', {
@@ -32,6 +33,8 @@ describe('app/api/signup route', () => {
   })
 
   it('stores signup and returns ok', async () => {
+    // NOTE: We verify a successful path returns data in the expected shape,
+    // and that the service is called once with normalized inputs.
     mockUpsertSignup.mockResolvedValue({
       id: 'signup-1',
       email: 'test@example.com',

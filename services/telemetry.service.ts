@@ -1,5 +1,6 @@
 // services/telemetry.service.ts
 import { prismaPg } from '@/lib/prisma-pg'
+import type { Prisma } from '@/prisma/generated/pg'
 
 export type TelemetryEventInput = {
   event: string
@@ -19,6 +20,11 @@ function canUsePg() {
   return Boolean(process.env.PG_DATABASE_URL ?? process.env.POSTGRES_URL)
 }
 
+function toJsonValue(value?: Record<string, unknown> | null): Prisma.InputJsonValue | undefined {
+  if (!value) return undefined
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
+}
+
 export async function recordTelemetryEvent(input: TelemetryEventInput) {
   if (canUsePg()) {
     try {
@@ -28,8 +34,8 @@ export async function recordTelemetryEvent(input: TelemetryEventInput) {
           sessionId: input.sessionId,
           deviceId: input.deviceId,
           path: input.path ?? null,
-          context: input.context ?? undefined,
-          payload: input.payload ?? undefined,
+          context: toJsonValue(input.context),
+          payload: toJsonValue(input.payload),
         },
       })
       return { stored: 'db' as const }
