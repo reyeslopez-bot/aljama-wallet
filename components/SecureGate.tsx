@@ -20,7 +20,8 @@ export default function SecureGate({ children, storageKey }: SecureGateProps) {
   }, [storageKey])
 
   const styles = useMemo(() => {
-    const font = 'Inter, "Inter Placeholder", sans-serif'
+    const font = 'var(--font-body), system-ui, sans-serif'
+    const display = 'var(--font-display), serif'
     return {
       overlay: {
         position: 'fixed' as const,
@@ -30,15 +31,17 @@ export default function SecureGate({ children, storageKey }: SecureGateProps) {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 24,
-        backgroundColor: 'rgba(0,0,0,0.85)',
+        backgroundColor: 'rgba(9,12,14,0.85)',
       },
       card: {
         width: '100%',
         maxWidth: 520,
-        backgroundColor: 'rgb(0,0,0)',
-        color: 'rgb(255,255,255)',
-        padding: 24,
-        borderRadius: 26,
+        background: 'linear-gradient(180deg, rgba(15,18,22,0.96), rgba(8,10,12,0.98))',
+        color: 'rgb(237,229,215)',
+        padding: 28,
+        borderRadius: 28,
+        border: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
         display: 'flex',
         flexDirection: 'column' as const,
         alignItems: 'center',
@@ -49,16 +52,19 @@ export default function SecureGate({ children, storageKey }: SecureGateProps) {
         fontSize: 28,
         marginBottom: 12,
         letterSpacing: '-0.02em',
+        fontFamily: display,
       },
       p: {
         fontSize: 16,
-        opacity: 0.85,
+        opacity: 0.75,
         marginBottom: 24,
       },
       button: {
-        padding: '12px 20px',
-        borderRadius: 15,
-        border: 'none',
+        padding: '12px 22px',
+        borderRadius: 18,
+        border: '1px solid rgba(255,255,255,0.12)',
+        background: 'linear-gradient(135deg, #f0d7a0, #dda469, #c7794a)',
+        color: '#1c120a',
         cursor: 'pointer',
         fontFamily: font,
         letterSpacing: '-0.01em',

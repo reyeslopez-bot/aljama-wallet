@@ -17,7 +17,7 @@ export default function BalanceDisplay({ className = '' }: Props) {
   if (!isConnected || !address) {
     return (
       <div className={className}>
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-white/60 shadow-inner shadow-black/40">
+        <div className="surface-inner px-4 py-3 text-xs text-ivory/60">
           Wallet not connected.
         </div>
       </div>
@@ -26,11 +26,11 @@ export default function BalanceDisplay({ className = '' }: Props) {
 
   return (
     <div className={className}>
-      <div className="mb-2 text-sm font-semibold text-[#f9e7cf]">
+      <div className="mb-2 text-sm font-semibold text-ivory">
         Native balances
       </div>
 
-      <ul className="space-y-2 text-sm text-[#f5f0e6]">
+      <ul className="space-y-2 text-sm text-ivory/80">
         {supportedChains.map((c) => (
           <ChainBalance key={c.id} chainId={c.id} address={address} />
         ))}
@@ -53,7 +53,7 @@ function ChainBalance({
 
   if (isLoading) {
     return (
-      <li className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-xs text-white/60">
+      <li className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-xs text-ivory/60">
         <span>{chainName}</span>
         <span>Loading…</span>
       </li>
@@ -69,7 +69,7 @@ function ChainBalance({
   }
   if (!data) {
     return (
-      <li className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-xs text-white/60">
+      <li className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-xs text-ivory/60">
         <span>{chainName}</span>
         <span>—</span>
       </li>
@@ -85,9 +85,9 @@ function ChainBalance({
     fracPart.length > 0 ? `${intPart}.${fracPart.slice(0, 6)}` : intPart
 
   return (
-    <li className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-sm text-white">
-      <span className="text-white/70">{chainName}</span>
-      <span className="font-mono text-xs text-amber-100">
+    <li className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-sm text-ivory">
+      <span className="text-ivory/70">{chainName}</span>
+      <span className="font-mono text-xs text-saffron/80">
         {short} {data.symbol}
       </span>
     </li>

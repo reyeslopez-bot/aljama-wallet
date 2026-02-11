@@ -52,55 +52,53 @@ export function XrplPanel() {
   }, [loadAccount])
 
   return (
-    <section className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 via-white/5 to-black/60 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl">
-      <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      <div className="absolute -left-24 -top-24 h-48 w-48 rounded-full bg-[#7a5cff]/30 blur-[120px] transition-all duration-500 group-hover:scale-110" />
-      <div className="absolute -right-16 bottom-0 h-40 w-40 rounded-full bg-pink-400/20 blur-[120px]" />
+    <section className="surface-panel panel-glow-lapis relative p-7 sm:p-8">
+      <div className="absolute inset-x-8 top-5 ornament-line" />
 
       <header className="relative flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">
+          <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">
             XRPL + Ledger
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-[#f7f0e6] sm:text-3xl">
+          <h2 className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
             XRP Ledger ready
           </h2>
-          <p className="text-sm text-white/70">
+          <p className="text-sm text-ivory/70">
             Testnet snapshot from the server-side XRPL dev seed. Pull balances on demand.
           </p>
         </div>
-        <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-white/70">
+        <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70">
           {state.loading ? 'Syncing' : 'Online'}
         </span>
       </header>
 
       <div className="relative mt-6 space-y-4">
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-4 shadow-inner shadow-black/40">
+        <div className="surface-inner p-4">
           {state.loading ? (
-            <p className="text-sm text-white/60">Fetching XRPL dev account…</p>
+            <p className="text-sm text-ivory/60">Fetching XRPL dev account…</p>
           ) : state.error ? (
             <p className="text-sm text-red-300">{state.error}</p>
           ) : state.account ? (
             <div className="space-y-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-emerald-100/80">
+                <p className="text-xs uppercase tracking-[0.16em] text-jade/80">
                   Testnet dev account
                 </p>
-                <p className="mt-1 break-all font-mono text-sm text-emerald-100">
+                <p className="mt-1 break-all font-mono text-sm text-jade">
                   {state.account.address}
                 </p>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.14em] text-white/60">
+              <div className="surface-soft px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-ivory/60">
                   Balance
                 </p>
-                <p className="mt-1 text-lg font-semibold text-white">
+                <p className="mt-1 text-lg font-semibold text-ivory">
                   {state.account.xrpBalance} XRP
                 </p>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-white/60">No XRPL data loaded.</p>
+            <p className="text-sm text-ivory/60">No XRPL data loaded.</p>
           )}
         </div>
 
@@ -109,7 +107,7 @@ export function XrplPanel() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => void loadAccount()}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#7a5cff] to-[#c06cf2] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-fuchsia-400/30 transition focus:outline-none focus:ring-2 focus:ring-fuchsia-200/40"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b9577]/30 transition focus:outline-none focus:ring-2 focus:ring-lapis/40"
         >
           Refresh XRPL snapshot
         </motion.button>

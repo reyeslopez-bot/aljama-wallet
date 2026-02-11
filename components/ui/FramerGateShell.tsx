@@ -13,14 +13,12 @@ export default function FramerGateShell({ title, subtitle, children, rightPanel 
   return (
     <div className="relative mx-auto flex min-h-[70vh] max-w-6xl items-center justify-center px-6 py-16">
       {/* background */}
-      <div className="pointer-events-none absolute inset-0 bg-[#050507]" />
-      <div className="pointer-events-none absolute -inset-[30%] bg-[radial-gradient(closest-side_at_50%_35%,rgba(255,255,255,0.10),rgba(255,255,255,0.00)_62%)]" />
-      <div className="pointer-events-none absolute left-1/2 top-[40%] h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_60%_40%,rgba(140,160,255,0.18),rgba(0,0,0,0)_60%)] blur-[20px]" />
+      <div className="pointer-events-none absolute inset-0 bg-[#07090c]" />
+      <div className="pointer-events-none absolute -inset-[30%] bg-[radial-gradient(closest-side_at_50%_35%,rgba(210,167,98,0.10),rgba(255,255,255,0.00)_62%)]" />
+      <div className="pointer-events-none absolute left-1/2 top-[40%] h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_60%_40%,rgba(78,120,160,0.16),rgba(0,0,0,0)_60%)] blur-[20px]" />
 
-      <section className="relative w-full max-w-[1100px] overflow-hidden rounded-[2.5rem] border border-white/10 bg-black/60 shadow-2xl shadow-black/40 backdrop-blur-xl">
-        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-        <div className="absolute -left-24 -top-24 h-48 w-48 rounded-full bg-[#d96f42]/25 blur-[140px]" />
-        <div className="absolute -right-16 bottom-0 h-40 w-40 rounded-full bg-emerald-400/15 blur-[140px]" />
+      <section className="surface-panel panel-glow-saffron relative w-full max-w-[1100px] overflow-hidden rounded-[2.5rem]">
+        <div className="absolute inset-x-10 top-6 ornament-line" />
 
         <div className="relative grid gap-12 p-10 lg:grid-cols-[1.2fr_1fr]">
           <div className="space-y-6">
@@ -35,15 +33,15 @@ export default function FramerGateShell({ title, subtitle, children, rightPanel 
                   />
                 </svg>
               </div>
-              <h1 className="text-4xl font-semibold tracking-tight text-white">{title}</h1>
-              <p className="mt-2 text-sm text-white/65">{subtitle}</p>
+              <h1 className="font-display text-4xl font-semibold tracking-tight text-ivory">{title}</h1>
+              <p className="mt-2 text-sm text-ivory/70">{subtitle}</p>
             </div>
 
             {children}
           </div>
 
           {rightPanel ? (
-            <div className="relative rounded-2xl border border-white/10 bg-white/5 p-6 shadow-inner shadow-black/40">
+            <div className="surface-inner relative p-6">
               {rightPanel}
             </div>
           ) : null}

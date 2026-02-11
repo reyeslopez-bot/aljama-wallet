@@ -18,16 +18,20 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 // Base styles
 const BASE_BUTTON_CLASSES =
-  'rounded-xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-amber-300/40 focus:ring-offset-0 transition duration-200 hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed'
+  'rounded-2xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-saffron/40 focus:ring-offset-0 transition duration-200 hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed'
 
 // Variants
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold shadow-lg shadow-amber-500/25 hover:from-amber-400 hover:to-amber-600',
-  accent: 'bg-gradient-to-r from-orange-500 to-rose-500 text-white font-semibold shadow-lg shadow-orange-500/25 hover:from-orange-400 hover:to-rose-500',
-  danger: 'bg-gradient-to-r from-red-500 to-rose-600 text-white font-semibold shadow-lg shadow-red-500/25 hover:from-red-400 hover:to-rose-600',
-  default: 'bg-white/10 text-white font-semibold shadow-inner shadow-black/40 hover:bg-white/15',
+  primary:
+    'bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] text-[#1c120a] font-semibold shadow-lg shadow-[#c7794a]/30 hover:from-[#f6e1b6] hover:to-[#d48755]',
+  accent:
+    'bg-gradient-to-r from-[#6fa0d9] via-[#5e8bb8] to-[#4b9577] text-white font-semibold shadow-lg shadow-[#4b9577]/30 hover:from-[#7bb0e6] hover:to-[#5aa687]',
+  danger:
+    'bg-gradient-to-r from-red-500 to-rose-600 text-white font-semibold shadow-lg shadow-red-500/25 hover:from-red-400 hover:to-rose-600',
+  default:
+    'bg-white/5 text-ivory/90 font-semibold shadow-inner shadow-black/40 hover:bg-white/10',
   secondary:
-    'bg-transparent border border-white/20 text-white/80 hover:bg-white/10',
+    'bg-transparent border border-white/20 text-ivory/80 hover:border-saffron/40 hover:bg-white/10',
 }
 
 // Sizes

@@ -9,9 +9,9 @@ export default function Animated404() {
       role="region"
       aria-label="404 Not Found Page"
       tabIndex={0}
-      className="min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden p-8 text-neutral-900"
+      className="min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden p-8 text-ivory"
       style={{
-        fontFamily: "Inter, sans-serif",
+        fontFamily: "var(--font-display), serif",
         fontSize: "170px",
         fontWeight: 700,
         letterSpacing: "-0.01em",
@@ -46,7 +46,7 @@ export default function Animated404() {
 
       <Link
         href="/"
-        className="absolute bottom-12 text-sm underline opacity-70 hover:opacity-100"
+        className="absolute bottom-12 text-sm underline text-saffron/80 hover:text-saffron"
       >
         Go home
       </Link>

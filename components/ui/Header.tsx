@@ -6,14 +6,16 @@ import { BRAND } from '@/constants/brand'
 
 export default function Header() {
   return (
-    <header className="w-full border-b border-white/10 bg-black/50 backdrop-blur-xl">
+    <header className="w-full border-b border-saffron/20 bg-black/60 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-white">{BRAND.name}</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-[0.16em] text-ivory">
+          {BRAND.name}
+        </h1>
 
         <nav className="space-x-4">
-          <Link href="/" className="text-sm uppercase tracking-[0.18em] text-white/70 transition hover:text-amber-200">Home</Link>
-          <Link href="/about" className="text-sm uppercase tracking-[0.18em] text-white/70 transition hover:text-amber-200">About Us</Link>
-          <Link href="/contact" className="text-sm uppercase tracking-[0.18em] text-white/70 transition hover:text-amber-200">Contact</Link>
+          <Link href="/" className="text-sm uppercase tracking-[0.18em] text-ivory/70 transition hover:text-sand">Home</Link>
+          <Link href="/about" className="text-sm uppercase tracking-[0.18em] text-ivory/70 transition hover:text-sand">About Us</Link>
+          <Link href="/contact" className="text-sm uppercase tracking-[0.18em] text-ivory/70 transition hover:text-sand">Contact</Link>
         </nav>
       </div>
     </header>

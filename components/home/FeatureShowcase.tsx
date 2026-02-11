@@ -4,7 +4,7 @@ const featureCards = [
     subtitle: 'Definition + URI',
     body: `Put key asset info onchain, or link docs via URI.
 Always verifiable, always discoverable.`,
-    accent: 'amber',
+    accent: 'saffron',
     badge: 'Metadata',
   },
   {
@@ -12,7 +12,7 @@ Always verifiable, always discoverable.`,
     subtitle: 'Wallets + apps',
     body: `One canonical reference across wallets and dApps.
 Consistent display, less confusion.`,
-    accent: 'indigo',
+    accent: 'lapis',
     badge: 'Onchain ready',
   },
 ]
@@ -30,20 +30,20 @@ const rituals = [
 
 export function FeatureShowcase() {
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-white/5 bg-white/5 p-6 shadow-xl shadow-black/30 backdrop-blur-xl">
-      <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/40" />
+    <section className="surface-panel panel-glow-rose relative p-7 sm:p-8">
+      <div className="absolute inset-x-8 top-5 ornament-line" />
 
       {/* SINGLE COLUMN: header -> rituals -> cards */}
       <div className="relative space-y-6">
         <div className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.16em] text-amber-100/80">Design language</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-saffron/80">Design language</p>
 
-          <h2 className="text-3xl font-semibold text-[#f7f0e6] sm:text-4xl">
-            Dune-slick UI with pragmatic wiring
+          <h2 className="font-display text-3xl font-semibold text-ivory sm:text-4xl">
+            Geometry-forward surfaces, calm by design
           </h2>
 
-          <p className="max-w-prose text-base text-white/70">
-            Modular surfaces for wallet flows and onchain context — without tight coupling.
+          <p className="max-w-prose text-base text-ivory/70">
+            Layered surfaces for wallet flows and onchain context, with clear hierarchy and low noise.
           </p>
         </div>
 
@@ -51,10 +51,10 @@ export function FeatureShowcase() {
           {rituals.map((item) => (
             <div
               key={item.title}
-              className="rounded-2xl border border-white/10 bg-black/40 p-4 shadow-inner shadow-black/40"
+              className="surface-inner p-4"
             >
-              <p className="text-sm font-semibold text-[#f7f0e6]">{item.title}</p>
-              <p className="text-xs leading-relaxed text-white/60">{item.detail}</p>
+              <p className="text-sm font-semibold text-ivory">{item.title}</p>
+              <p className="text-xs leading-relaxed text-ivory/60">{item.detail}</p>
             </div>
           ))}
         </div>
@@ -70,22 +70,22 @@ export function FeatureShowcase() {
 
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-semibold text-[#f7f0e6]">{card.title}</h3>
-                  <p className="text-sm text-white/60">{card.subtitle}</p>
+                  <h3 className="text-xl font-semibold text-ivory">{card.title}</h3>
+                  <p className="text-sm text-ivory/60">{card.subtitle}</p>
                 </div>
 
                 <span
                   className={[
                     'shrink-0 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em]',
-                    card.accent === 'amber' ? 'bg-amber-400/15 text-amber-100' : '',
-                    card.accent === 'indigo' ? 'bg-indigo-400/15 text-indigo-100' : '',
+                    card.accent === 'saffron' ? 'bg-saffron/15 text-saffron' : '',
+                    card.accent === 'lapis' ? 'bg-lapis/20 text-lapis' : '',
                   ].join(' ')}
                 >
                   {card.badge}
                 </span>
               </div>
 
-              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-white/70">{card.body}</p>
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-ivory/70">{card.body}</p>
 
               <div className="mt-4 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition group-hover:opacity-100" />
             </article>

@@ -75,17 +75,17 @@ export default function CurrentLocation() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">Current Location</p>
+      <p className="text-xs uppercase tracking-[0.18em] text-saffron/70">Current Location</p>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-inner shadow-black/40">
+      <div className="surface-inner p-6">
         {state.status === 'idle' && (
-          <p className="text-sm text-white/70">
+          <p className="text-sm text-ivory/70">
             Location is not requested yet. Click “Use my location” to fetch coordinates.
           </p>
         )}
 
         {state.status === 'loading' && (
-          <p className="text-sm text-white/70">Requesting location…</p>
+          <p className="text-sm text-ivory/70">Requesting location…</p>
         )}
 
         {state.status === 'error' && (
@@ -94,11 +94,11 @@ export default function CurrentLocation() {
 
         {state.status === 'ready' && (
           <div className="space-y-2">
-            <div className="text-white">
+            <div className="text-ivory">
               <div className="text-2xl font-medium">
                 {format(state.lat)}, {format(state.lng)}
               </div>
-              <div className="mt-1 text-xs text-white/60">
+              <div className="mt-1 text-xs text-ivory/60">
                 Accuracy: {state.accuracy ? `${Math.round(state.accuracy)}m` : '—'} · Updated:{' '}
                 {new Date(state.timestamp).toLocaleTimeString()}
               </div>
@@ -108,7 +108,7 @@ export default function CurrentLocation() {
               <button
                 type="button"
                 onClick={copy}
-                className="rounded-full border border-white/10 bg-black/60 px-3 py-2 text-sm text-white backdrop-blur hover:bg-black/70"
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10"
               >
                 Copy
               </button>
@@ -118,7 +118,7 @@ export default function CurrentLocation() {
                   href={mapsHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-full border border-white/10 bg-black/60 px-3 py-2 text-sm text-white backdrop-blur hover:bg-black/70"
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10"
                 >
                   Open in Google Maps
                 </a>
@@ -131,7 +131,7 @@ export default function CurrentLocation() {
       <button
         type="button"
         onClick={request}
-        className="rounded-full border border-white/10 bg-black/60 px-4 py-2 text-sm text-white backdrop-blur hover:bg-black/70"
+        className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10"
       >
         Use my location
       </button>

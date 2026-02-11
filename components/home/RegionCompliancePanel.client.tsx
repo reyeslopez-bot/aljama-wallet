@@ -46,15 +46,15 @@ export default function RegionCompliancePanel() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">Region + Compliance</p>
-        <h3 className="mt-2 text-2xl font-semibold text-white">Set your operating region.</h3>
-        <p className="text-sm text-white/70">
+        <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">Region + Compliance</p>
+        <h3 className="mt-3 font-display text-2xl font-semibold text-ivory">Set your operating region.</h3>
+        <p className="text-sm text-ivory/70">
           Pick a region to tailor disclosure copy and privacy defaults. This is a UI preference only.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-black/40 p-4 shadow-inner shadow-black/40">
-        <label htmlFor="region-select" className="text-xs uppercase tracking-[0.16em] text-white/60">
+      <div className="surface-inner p-4">
+        <label htmlFor="region-select" className="text-xs uppercase tracking-[0.16em] text-ivory/60">
           Region
         </label>
         <select
@@ -67,7 +67,7 @@ export default function RegionCompliancePanel() {
               window.localStorage.setItem(REGION_KEY, next)
             }
           }}
-          className="mt-3 w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-200/30"
+          className="mt-3 w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-sm text-ivory focus:outline-none focus:ring-2 focus:ring-saffron/30"
         >
           {REGIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -75,34 +75,34 @@ export default function RegionCompliancePanel() {
             </option>
           ))}
         </select>
-        <p className="mt-2 text-xs text-white/50">
+        <p className="mt-2 text-xs text-ivory/50">
           {REGIONS.find((option) => option.value === region)?.detail}
         </p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-        <p className="text-xs uppercase tracking-[0.16em] text-white/50">Compliance targets</p>
+      <div className="surface-soft p-4 text-sm text-ivory/70">
+        <p className="text-xs uppercase tracking-[0.16em] text-ivory/50">Compliance targets</p>
         <div className="mt-3 space-y-3">
           {COMPLIANCE.map((item) => (
             <div key={item.title} className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-white">{item.title}</p>
-                <p className="text-xs text-white/50">{item.detail}</p>
+                <p className="text-sm font-semibold text-ivory">{item.title}</p>
+                <p className="text-xs text-ivory/50">{item.detail}</p>
               </div>
-              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-ivory/60">
                 Targeted
               </span>
             </div>
           ))}
         </div>
-        <p className="mt-3 text-[11px] text-white/40">
+        <p className="mt-3 text-[11px] text-ivory/40">
           Informational only. Not a certification claim.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-black/40 p-4 shadow-inner shadow-black/40">
-        <p className="text-xs uppercase tracking-[0.16em] text-white/60">Sign up</p>
-        <p className="mt-2 text-sm text-white/70">
+      <div className="surface-inner p-4">
+        <p className="text-xs uppercase tracking-[0.16em] text-ivory/60">Sign up</p>
+        <p className="mt-2 text-sm text-ivory/70">
           Get launch updates and security briefings.
         </p>
         <form
@@ -143,18 +143,18 @@ export default function RegionCompliancePanel() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@company.com"
-            className="w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-200/30"
+            className="w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-sm text-ivory placeholder:text-ivory/40 focus:outline-none focus:ring-2 focus:ring-saffron/30"
           />
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-xl bg-gradient-to-r from-[#d96f42] to-[#b95734] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[#d96f42]/30 transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] px-4 py-2 text-sm font-semibold text-[#1c120a] shadow-lg shadow-[#c7794a]/30 transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? 'Sending…' : 'Join updates'}
           </button>
         </form>
         {submitted && (
-          <p className="mt-2 text-xs text-emerald-200">
+          <p className="mt-2 text-xs text-jade">
             Thanks — you’re on the list.
           </p>
         )}

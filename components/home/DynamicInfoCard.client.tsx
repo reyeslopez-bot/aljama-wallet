@@ -16,7 +16,7 @@ function StatusDot({ tone }: { tone: 'ok' | 'warn' | 'bad' | 'idle' }) {
     tone === 'ok'
       ? 'bg-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.35)]'
       : tone === 'warn'
-        ? 'bg-amber-300 shadow-[0_0_20px_rgba(252,211,77,0.25)]'
+        ? 'bg-saffron shadow-[0_0_20px_rgba(210,167,98,0.3)]'
         : tone === 'bad'
           ? 'bg-red-400 shadow-[0_0_20px_rgba(248,113,113,0.25)]'
           : 'bg-white/25'
@@ -31,7 +31,7 @@ function IconButton(props: {
   children: ReactNode
 }) {
   const className =
-    'inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/20'
+    'inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-ivory/70 transition hover:bg-white/10 hover:text-ivory focus:outline-none focus:ring-2 focus:ring-saffron/30'
 
   if (props.href) {
     return (
@@ -172,25 +172,25 @@ export default function DynamicInfoCard() {
       onHoverEnd={() => setHovered(false)}
       className="fixed right-4 top-20 z-50 w-[260px] select-none sm:right-6 sm:top-24 sm:w-[280px] lg:right-8 lg:top-24 lg:w-[300px]"
     >
-      <div className="rounded-[18px] border border-white/10 bg-black/70 shadow-2xl shadow-black/50 backdrop-blur-xl">
-        <div className="rounded-t-[18px] border-b border-white/10 bg-gradient-to-b from-white/10 to-transparent p-3">
+      <div className="surface-panel panel-glow-saffron rounded-[18px]">
+        <div className="rounded-t-[18px] border-b border-white/10 bg-white/5 p-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#d96f42] via-[#c9a24d] to-emerald-400 p-[1px]">
-                <div className="flex h-full w-full items-center justify-center rounded-full bg-black/80 text-xs font-semibold text-white/80">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#c7794a] via-[#e0bf7f] to-[#4b9577] p-[1px]">
+                <div className="flex h-full w-full items-center justify-center rounded-full bg-black/80 text-xs font-semibold text-ivory/80">
                   {(primaryLine[0] ?? 'G').toUpperCase()}
                 </div>
               </div>
 
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold tracking-tight text-white">{primaryLine}</div>
-                <div className="truncate text-[11px] tracking-wide text-white/60">{secondaryLine}</div>
+                <div className="truncate text-sm font-semibold tracking-tight text-ivory">{primaryLine}</div>
+                <div className="truncate text-[11px] tracking-wide text-ivory/60">{secondaryLine}</div>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="text-[11px] font-semibold tabular-nums tracking-tight text-white">{timeLabel}</div>
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-white/80">
+              <div className="text-[11px] font-semibold tabular-nums tracking-tight text-ivory">{timeLabel}</div>
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-ivory/80">
                 <StatusDot tone={statusTone} />
                 <span className="whitespace-nowrap">{statusLabel}</span>
               </div>
@@ -198,8 +198,8 @@ export default function DynamicInfoCard() {
           </div>
 
           {lastEvent ? (
-            <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white/70">
-              <span className="font-semibold text-white/80">Signal:</span> {lastEvent.message}
+            <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-ivory/70">
+              <span className="font-semibold text-ivory/80">Signal:</span> {lastEvent.message}
             </div>
           ) : null}
         </div>
@@ -216,11 +216,11 @@ export default function DynamicInfoCard() {
                 className="space-y-3"
               >
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/50">Vault session</div>
-                  <div className="mt-2 grid gap-2 text-[11px] text-white/75">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-ivory/50">Vault session</div>
+                  <div className="mt-2 grid gap-2 text-[11px] text-ivory/75">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-white/50">Wallet</span>
-                      <span className="font-mono text-white/80">
+                      <span className="text-ivory/50">Wallet</span>
+                      <span className="font-mono text-ivory/80">
                         {wallet.connectedAddress
                           ? formatShortAddress(wallet.connectedAddress)
                           : wallet.createdAddress
@@ -229,16 +229,16 @@ export default function DynamicInfoCard() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-white/50">Network</span>
-                      <span className="truncate text-white/80">{wallet.chainName ?? '—'}</span>
+                      <span className="text-ivory/50">Network</span>
+                      <span className="truncate text-ivory/80">{wallet.chainName ?? '—'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-white/50">Connector</span>
-                      <span className="truncate text-white/80">{wallet.connectorName ?? '—'}</span>
+                      <span className="text-ivory/50">Connector</span>
+                      <span className="truncate text-ivory/80">{wallet.connectorName ?? '—'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-white/50">Tracking</span>
-                      <span className="text-white/80">
+                      <span className="text-ivory/50">Tracking</span>
+                      <span className="text-ivory/80">
                         {trackingStatus}
                         {trackingStatus === 'error' && trackingError ? `: ${trackingError}` : ''}
                       </span>
@@ -269,7 +269,7 @@ export default function DynamicInfoCard() {
                     </IconButton>
                   </div>
 
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-white/40">Hover view</div>
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-ivory/40">Hover view</div>
                 </div>
               </motion.div>
             ) : (
@@ -293,7 +293,7 @@ export default function DynamicInfoCard() {
                   </IconButton>
                 </div>
 
-                <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-wide text-white/70">
+                <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-wide text-ivory/70">
                   Expand on hover
                 </div>
               </motion.div>

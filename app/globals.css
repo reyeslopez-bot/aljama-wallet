@@ -1,6 +1,7 @@
 /* globals.css */
 /* stylelint-disable at-rule-no-unknown */
 
+@import url("https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;600;700&family=Manrope:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 @import "mapbox-gl/dist/mapbox-gl.css";
@@ -31,15 +32,28 @@
    ========================================================= */
 
 :root {
-  /* RGB tokens */
-  --foreground: 54 44 34; /* warm umber */
-  --brass: 201 162 77; /* gold */
-  --onyx: 10 10 10; /* deep black */
-  --ivory: 247 243 224; /* warm paper */
+  /* Typography */
+  --font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-display: "El Messiri", "Georgia", serif;
 
-  /* background tokens */
-  --surface: 247 243 224; /* default page surface */
-  --mist-gradient: linear-gradient(120deg, #2a1b12, #5a3b24, #8a5a36, #c08a5a);
+  /* Core palette */
+  --foreground: 237 229 215; /* warm parchment */
+  --foreground-muted: 190 176 160;
+  --brass: 209 168 98; /* brushed gold */
+  --onyx: 9 12 14; /* inky night */
+  --ivory: 245 236 219;
+  --surface: 12 14 17; /* page surface */
+
+  /* Accent palette */
+  --sand: 227 200 158;
+  --saffron: 210 167 98;
+  --copper: 187 110 76;
+  --lapis: 78 120 160;
+  --jade: 92 152 124;
+  --rose: 204 117 90;
+
+  /* Background gradient */
+  --mist-gradient: linear-gradient(135deg, #0d1014, #191512, #251a14, #1a1514);
 }
 
 /* =========================================================
@@ -48,29 +62,49 @@
 
 @layer base {
   body {
-    font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-family: var(--font-body);
+    position: relative;
+    isolation: isolate;
 
     /* base colors */
     background-color: rgb(var(--surface));
     color: rgb(var(--foreground));
 
-    /* your animated gradient overlay */
+    /* animated desert dusk */
     background-image: var(--mist-gradient);
     background-size: 200% 200%;
     background-repeat: no-repeat;
     background-position: center;
-    animation: mist-shift 24s ease infinite;
+    animation: mist-shift 26s ease infinite;
 
-    letter-spacing: 0.01em;
+    letter-spacing: 0.005em;
     transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background-image:
+      radial-gradient(circle at 12% 18%, rgb(var(--saffron) / 0.18), transparent 45%),
+      radial-gradient(circle at 85% 12%, rgb(var(--lapis) / 0.18), transparent 50%),
+      radial-gradient(circle at 50% 90%, rgb(var(--jade) / 0.14), transparent 55%),
+      repeating-linear-gradient(
+        45deg,
+        rgb(255 255 255 / 0.04) 0,
+        rgb(255 255 255 / 0.04) 1px,
+        transparent 1px,
+        transparent 12px
+      );
+    opacity: 0.9;
   }
 
   /* dark mode (you’re toggling via body.dark) */
   body.dark {
-    --surface: 10 10 10;
-    --foreground: 237 237 237;
-
-    /* keep same mist gradient unless you want a darker one */
+    --surface: 8 10 12;
+    --foreground: 241 236 228;
     background-color: rgb(var(--surface));
     color: rgb(var(--foreground));
   }
@@ -78,11 +112,12 @@
   h1,
   h2,
   h3 {
-    letter-spacing: -0.015em;
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
   }
 
   p {
-    line-height: 1.6;
+    line-height: 1.7;
   }
 }
 
@@ -107,7 +142,109 @@
   background-image: var(--mist-gradient);
   background-size: 200% 200%;
   background-repeat: no-repeat;
-  animation: mist-shift 24s ease infinite;
+  animation: mist-shift 26s ease infinite;
+}
+
+/* =========================================================
+   SURFACE SYSTEM
+   ========================================================= */
+
+@layer components {
+  .surface-panel {
+    --panel-glow: radial-gradient(circle at 15% 0%, rgb(var(--saffron) / 0.3), transparent 60%);
+    position: relative;
+    overflow: hidden;
+    border-radius: 28px;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    background: linear-gradient(180deg, rgb(14 17 20 / 0.92), rgb(9 11 14 / 0.92));
+    backdrop-filter: blur(18px);
+    box-shadow:
+      0 24px 70px rgb(4 6 8 / 0.6),
+      inset 0 1px 0 rgb(255 255 255 / 0.04);
+  }
+
+  .surface-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--panel-glow);
+    opacity: 0.9;
+    pointer-events: none;
+  }
+
+  .surface-panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(135deg, rgb(255 255 255 / 0.06), transparent 55%),
+      repeating-linear-gradient(
+        45deg,
+        rgb(255 255 255 / 0.025) 0,
+        rgb(255 255 255 / 0.025) 1px,
+        transparent 1px,
+        transparent 12px
+      );
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .surface-panel > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .surface-soft {
+    border-radius: 20px;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    background: rgb(255 255 255 / 0.04);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.03),
+      0 12px 30px rgb(3 4 6 / 0.35);
+  }
+
+  .surface-inner {
+    border-radius: 18px;
+    border: 1px solid rgb(255 255 255 / 0.06);
+    background: rgb(8 10 13 / 0.65);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.03),
+      inset 0 12px 24px rgb(0 0 0 / 0.4);
+  }
+
+  .ornament-line {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgb(var(--saffron) / 0.6),
+      transparent
+    );
+  }
+
+  .panel-glow-saffron {
+    --panel-glow:
+      radial-gradient(circle at 12% 0%, rgb(var(--saffron) / 0.35), transparent 60%),
+      radial-gradient(circle at 100% 30%, rgb(var(--copper) / 0.2), transparent 55%);
+  }
+
+  .panel-glow-lapis {
+    --panel-glow:
+      radial-gradient(circle at 10% 10%, rgb(var(--lapis) / 0.3), transparent 60%),
+      radial-gradient(circle at 100% 50%, rgb(var(--jade) / 0.18), transparent 55%);
+  }
+
+  .panel-glow-jade {
+    --panel-glow:
+      radial-gradient(circle at 15% 15%, rgb(var(--jade) / 0.32), transparent 60%),
+      radial-gradient(circle at 90% 20%, rgb(var(--saffron) / 0.16), transparent 55%);
+  }
+
+  .panel-glow-rose {
+    --panel-glow:
+      radial-gradient(circle at 12% 0%, rgb(var(--rose) / 0.3), transparent 60%),
+      radial-gradient(circle at 90% 35%, rgb(var(--saffron) / 0.18), transparent 55%);
+  }
 }
 
 /* =========================================================

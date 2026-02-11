@@ -35,16 +35,16 @@ export default function Card({
     return (
         <section
             className={clsx(
-                'relative flex h-full flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 text-white shadow-xl shadow-black/40 backdrop-blur-xl',
+                'surface-panel panel-glow-saffron relative flex h-full flex-col justify-between p-7 text-ivory',
                 'transition-transform duration-300 ease-in-out hover:-translate-y-1 hover:shadow-2xl',
                 className
             )}
         >
-            <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            <div className="absolute inset-x-10 top-6 ornament-line" />
             <header className="text-center">
-                <p className="text-xs uppercase tracking-[0.2em] text-amber-100/70">Aljama</p>
-                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[#f7f0e6]">{title}</h2>
-                <p className="mt-2 text-sm text-white/65">{description}</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">Aljama</p>
+                <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-ivory">{title}</h2>
+                <p className="mt-2 text-sm text-ivory/70">{description}</p>
             </header>
 
             <div className="mt-6 flex justify-center">

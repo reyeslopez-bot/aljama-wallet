@@ -130,30 +130,28 @@ export default function XrplMarketPanel() {
   }, [visibleAssets])
 
   return (
-    <section className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 via-white/5 to-black/60 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl">
-      <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      <div className="absolute -left-20 top-0 h-40 w-40 rounded-full bg-[#7a5cff]/20 blur-[120px]" />
-      <div className="absolute -right-20 bottom-0 h-40 w-40 rounded-full bg-[#f4c542]/20 blur-[120px]" />
+    <section className="surface-panel panel-glow-rose relative p-7 sm:p-8">
+      <div className="absolute inset-x-8 top-5 ornament-line" />
 
       <header className="relative flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">
+          <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">
             Market Snapshot
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-[#f7f0e6] sm:text-3xl">
+          <h2 className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
             XRPL vs. majors
           </h2>
-          <p className="text-sm text-white/70">
+          <p className="text-sm text-ivory/70">
             Normalized 24h index. Reference prices are cross-chain and may not be issued on XRPL.
           </p>
         </div>
-        <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-white/70">
+        <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70">
           {state.snapshot?.source === 'fallback' ? 'Fallback data' : 'Live'}
         </span>
       </header>
 
       <div className="relative mt-6 space-y-5">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-ivory/60">
           {viewOptions.map((option) => (
             <button
               key={option.id}
@@ -161,23 +159,23 @@ export default function XrplMarketPanel() {
               onClick={() => setState((prev) => ({ ...prev, view: option.id }))}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                 state.view === option.id
-                  ? 'border-amber-200/60 bg-amber-200/10 text-amber-100'
-                  : 'border-white/10 bg-white/5 text-white/60 hover:border-white/20'
+                  ? 'border-saffron/60 bg-saffron/10 text-saffron'
+                  : 'border-white/10 bg-white/5 text-ivory/60 hover:border-white/20'
               }`}
             >
               {option.label}
             </button>
           ))}
-          <span className="ml-auto text-[11px] text-white/40">
+          <span className="ml-auto text-[11px] text-ivory/40">
             {state.snapshot?.updatedAt
               ? `Updated ${new Date(state.snapshot.updatedAt).toLocaleTimeString()}`
               : ''}
           </span>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-4 shadow-inner shadow-black/40">
+        <div className="surface-inner p-4">
           {state.loading ? (
-            <p className="text-sm text-white/60">Loading market data…</p>
+            <p className="text-sm text-ivory/60">Loading market data…</p>
           ) : state.error ? (
             <p className="text-sm text-red-300">{state.error}</p>
           ) : (
@@ -185,9 +183,9 @@ export default function XrplMarketPanel() {
               <svg viewBox="0 0 100 48" className="h-32 w-full">
                 <defs>
                   <linearGradient id="marketGlow" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#7a5cff" stopOpacity="0.35" />
-                    <stop offset="50%" stopColor="#f4c542" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="#5da9e9" stopOpacity="0.35" />
+                    <stop offset="0%" stopColor="#6fa0d9" stopOpacity="0.35" />
+                    <stop offset="50%" stopColor="#e0bf7f" stopOpacity="0.35" />
+                    <stop offset="100%" stopColor="#4b9577" stopOpacity="0.35" />
                   </linearGradient>
                 </defs>
                 <rect x="0" y="0" width="100" height="48" fill="url(#marketGlow)" opacity="0.08" />
@@ -207,7 +205,7 @@ export default function XrplMarketPanel() {
                 })}
               </svg>
 
-              <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-ivory/60">
                 {visibleAssets.map((asset) => (
                   <span key={asset.id} className="inline-flex items-center gap-2">
                     <span
@@ -222,8 +220,8 @@ export default function XrplMarketPanel() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-          <div className="grid grid-cols-4 gap-3 text-xs uppercase tracking-wide text-white/50">
+        <div className="surface-soft p-4 text-sm text-ivory/70">
+          <div className="grid grid-cols-4 gap-3 text-xs uppercase tracking-wide text-ivory/50">
             <span>Asset</span>
             <span>Price</span>
             <span>24h</span>
@@ -232,13 +230,13 @@ export default function XrplMarketPanel() {
           <div className="mt-3 space-y-2">
             {visibleAssets.map((asset) => (
               <div key={asset.id} className="grid grid-cols-4 gap-3">
-                <span className="font-medium text-white">{asset.symbol}</span>
+                <span className="font-medium text-ivory">{asset.symbol}</span>
                 <span>{formatUsd(asset.priceUsd)}</span>
                 <span className={asset.change24h >= 0 ? 'text-emerald-200' : 'text-red-300'}>
                   {asset.change24h >= 0 ? '+' : ''}
                   {asset.change24h.toFixed(2)}%
                 </span>
-                <span className="text-white/60">
+                <span className="text-ivory/60">
                   {asset.network === 'xrpl' ? 'XRPL' : 'Reference'}
                 </span>
               </div>
@@ -251,7 +249,7 @@ export default function XrplMarketPanel() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => void loadSnapshot()}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#7a5cff] to-[#c06cf2] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-fuchsia-400/30 transition focus:outline-none focus:ring-2 focus:ring-fuchsia-200/40"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-5 py-3 text-base font-semibold tracking-wide text-[#1c120a] shadow-lg shadow-[#b26a49]/30 transition focus:outline-none focus:ring-2 focus:ring-saffron/40"
         >
           Refresh market snapshot
         </motion.button>

@@ -74,7 +74,7 @@ export default function MapboxMap() {
     const lngLat: [number, number] = [coords.lng, coords.lat]
 
     if (!markerRef.current) {
-      markerRef.current = new mapboxgl.Marker({ color: '#c9a24d' }).setLngLat(lngLat).addTo(map)
+      markerRef.current = new mapboxgl.Marker({ color: '#d2a762' }).setLngLat(lngLat).addTo(map)
     } else {
       markerRef.current.setLngLat(lngLat)
     }
@@ -124,15 +124,15 @@ export default function MapboxMap() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">Map</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-saffron/70">Map</p>
 
-          <p className="text-sm text-white/70">
+          <p className="text-sm text-ivory/70">
             {status === 'idle' && 'Click “Use my location” to center the map on you.'}
             {status === 'loading' && 'Requesting location…'}
             {status === 'ready' && coords && (
               <>
                 Centered at{' '}
-                <span className="text-white">
+                <span className="text-ivory">
                   {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
                 </span>
                 {coords.accuracy ? ` · ±${Math.round(coords.accuracy)}m` : null}
@@ -145,7 +145,7 @@ export default function MapboxMap() {
         <button
           type="button"
           onClick={requestLocation}
-          className="rounded-full border border-white/10 bg-black/60 px-4 py-2 text-sm text-white backdrop-blur hover:bg-black/70"
+          className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10"
         >
           Use my location
         </button>
@@ -155,7 +155,7 @@ export default function MapboxMap() {
         <div ref={containerRef} className="h-[260px] w-full md:h-[320px]" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40" />
         {!mapReady && !error ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-white/60">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-ivory/60">
             Loading map tiles…
           </div>
         ) : null}

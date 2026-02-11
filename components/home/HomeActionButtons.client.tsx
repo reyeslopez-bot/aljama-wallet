@@ -12,22 +12,22 @@ const buttons: Btn[] = [
     kind: "anchor",
     label: "Create Wallet",
     href: "#create",
-    bg: "linear-gradient(135deg, #f6d7b0 0%, #e7b77f 45%, #cf8b58 100%)",
-    fg: "#1A1A1A",
+    bg: "linear-gradient(135deg, #f3d9aa 0%, #e0ad70 45%, #c67a4a 100%)",
+    fg: "#1B120A",
   },
   {
     kind: "anchor",
     label: "Connect Wallet",
     href: "#connect",
-    bg: "linear-gradient(135deg, #f4c08d 0%, #e39a5e 50%, #c7703d 100%)",
-    fg: "#160E08",
+    bg: "linear-gradient(135deg, #7fb0d9 0%, #5c8db4 50%, #4b7c79 100%)",
+    fg: "#F7F1E7",
   },
   {
     kind: "anchor",
     label: "XRPL",
     href: "#xrpl",
-    bg: "linear-gradient(135deg, #f7e1b6 0%, #e0c48a 50%, #b9935a 100%)",
-    fg: "#2A1C0F",
+    bg: "linear-gradient(135deg, #e8d2a2 0%, #c8ab72 50%, #a1804f 100%)",
+    fg: "#1C140B",
   },
 ]
 
@@ -35,8 +35,8 @@ const surface = (bg: string) => ({
   backgroundImage: bg,
   borderRadius: "9999px",
   boxShadow:
-    "0 12px 32px rgba(24,16,10,0.18), inset 0 0 0 1px rgba(255,255,255,0.65)",
-  border: "1px solid rgba(255,255,255,0.35)",
+    "0 16px 36px rgba(12,10,8,0.28), inset 0 0 0 1px rgba(255,255,255,0.6)",
+  border: "1px solid rgba(255,255,255,0.25)",
 } as const)
 
 export default function HomeActionButtons() {
@@ -47,14 +47,14 @@ export default function HomeActionButtons() {
           <Link
             key={b.label}
             href={b.href}
-            className="block w-full bg-transparent p-0 border-0 outline-none appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+            className="block w-full bg-transparent p-0 border-0 outline-none appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saffron/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             aria-label={b.label}
           >
             <motion.div
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.98 }}
               transition={{ type: "spring", stiffness: 220, damping: 18 }}
-              className="flex h-[82px] w-full items-center justify-center px-10 text-[17px] font-semibold tracking-tight drop-shadow-[0_1px_0_rgba(255,255,255,0.4)] transition-all md:h-[88px] md:text-[18px]"
+              className="flex h-[78px] w-full items-center justify-center px-10 text-[17px] font-semibold tracking-wide drop-shadow-[0_1px_0_rgba(255,255,255,0.35)] transition-all md:h-[86px] md:text-[18px]"
               style={surface(b.bg)}
             >
               <span style={{ color: b.fg }}>{b.label}</span>

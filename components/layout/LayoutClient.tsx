@@ -8,11 +8,11 @@ export default function LayoutClient({ children }: { children: ReactNode }) {
   return (
     <>
       <div
-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(218,160,84,0.22),transparent_55%)]"
+        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(210,167,98,0.2),transparent_55%)]"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_30%_60%,rgba(255,220,170,0.18),transparent_50%)]"
+        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_30%_60%,rgba(92,152,124,0.18),transparent_55%)]"
         aria-hidden="true"
       />
 
