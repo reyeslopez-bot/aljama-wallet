@@ -220,6 +220,7 @@
       rgb(var(--saffron) / 0.6),
       transparent
     );
+    pointer-events: none;
   }
 
   .panel-glow-saffron {

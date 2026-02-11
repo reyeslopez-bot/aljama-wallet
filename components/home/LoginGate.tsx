@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 
 type Props = {
@@ -27,6 +27,7 @@ export default function LoginGate({
   const t = useTranslations("auth")
   const locale = useLocale()
   const router = useRouter()
+  const pathname = usePathname()
 
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
@@ -118,12 +119,42 @@ export default function LoginGate({
     }
   }
 
+  const LANGUAGES = [
+    { label: "EN", value: "en" },
+    { label: "HE", value: "he" },
+    { label: "AR", value: "ar" },
+  ]
+
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-black/80 px-6 py-12">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(closest-side_at_50%_50%,rgba(210,167,98,0.12),rgba(255,255,255,0.00)_62%)]" />
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_60%_40%,rgba(78,120,160,0.16),rgba(0,0,0,0)_60%)] blur-[20px]" />
 
       <div className="surface-panel panel-glow-saffron relative w-full max-w-xl rounded-[2rem] p-8">
+        <div className="absolute right-6 top-6 z-10 flex items-center gap-2">
+          {LANGUAGES.map((language) => (
+            <button
+              key={language.value}
+              type="button"
+              onClick={() => {
+                const segments = pathname.split('/')
+                if (segments.length > 1) {
+                  segments[1] = language.value
+                } else {
+                  segments.push(language.value)
+                }
+                router.push(segments.join('/') || `/${language.value}`)
+              }}
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-[0.16em] transition ${
+                locale === language.value
+                  ? 'border-saffron/60 bg-saffron/10 text-saffron'
+                  : 'border-white/10 bg-white/5 text-ivory/60 hover:border-white/20'
+              }`}
+            >
+              {language.label}
+            </button>
+          ))}
+        </div>
         <div className="absolute inset-x-10 top-6 ornament-line" />
         <div className="text-center">
           <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5">
@@ -218,15 +249,21 @@ export default function LoginGate({
               : buttonText ?? (mode === "register" ? t("register") : t("signIn"))}
           </button>
 
-          {mode === "register" && password && !strongPassword && !error && (
-            <p className="text-[11px] text-ivory/50">{t("passwordRules")}</p>
+          {mode === "register" && (
+            <p className={`text-[11px] ${strongPassword ? 'text-ivory/50' : 'text-saffron/80'}`}>
+              {t("passwordRules")}
+            </p>
           )}
           {error && <p className="text-xs text-red-300">{error}</p>}
           {notice && <p className="text-xs text-jade">{notice}</p>}
 
           <button
             type="button"
-            onClick={() => setMode((prev) => (prev === "login" ? "register" : "login"))}
+            onClick={() => {
+              setMode((prev) => (prev === "login" ? "register" : "login"))
+              setError(null)
+              setNotice(null)
+            }}
             className="text-xs uppercase tracking-[0.18em] text-ivory/60 transition hover:text-saffron"
           >
             {mode === "login" ? t("toggleToRegister") : t("toggleToLogin")}

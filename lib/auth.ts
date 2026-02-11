@@ -1,13 +1,16 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
+import { verifyPassword } from '@/lib/auth/password'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prismaPg } from '@/lib/prisma-pg'
-import { verifyPassword } from '@/lib/auth/password'
+import { findUserByEmail, usePgAuth } from '@/lib/auth/store'
+
+const usePg = usePgAuth()
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prismaPg),
+  adapter: usePg ? PrismaAdapter(prismaPg) : undefined,
   session: {
-    strategy: 'database',
+    strategy: usePg ? 'database' : 'jwt',
   },
   providers: [
     CredentialsProvider({
@@ -22,9 +25,7 @@ export const authOptions: NextAuthOptions = {
 
         if (!email || !password) return null
 
-        const user = await prismaPg.user.findUnique({
-          where: { email },
-        })
+        const user = await findUserByEmail(email)
 
         if (!user || !user.passwordHash) return null
 
@@ -40,9 +41,9 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async session({ session, user }) {
-      if (session.user && user?.id) {
-        session.user.id = user.id
+    async session({ session, user, token }) {
+      if (session.user) {
+        session.user.id = user?.id ?? token?.sub ?? session.user.id
       }
       return session
     },

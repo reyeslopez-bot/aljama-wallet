@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { prismaPg } from '@/lib/prisma-pg'
 import { hashPassword } from '@/lib/auth/password'
+import { createUser, findUserByEmail } from '@/lib/auth/store'
 
 const passwordSchema = z
   .string()
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     }
 
     const email = parsed.data.email.trim().toLowerCase()
-    const existing = await prismaPg.user.findUnique({ where: { email } })
+    const existing = await findUserByEmail(email)
     if (existing) {
       return NextResponse.json(
         { ok: false, error: 'User already exists' },
@@ -48,22 +48,17 @@ export async function POST(req: Request) {
     }
 
     const passwordHash = await hashPassword(parsed.data.password)
-    const user = await prismaPg.user.create({
-      data: {
-        email,
-        passwordHash,
-      },
-      select: {
-        id: true,
-        email: true,
-      },
-    })
+    const user = await createUser({ email, passwordHash })
 
-    return NextResponse.json({ ok: true, user })
+    return NextResponse.json({ ok: true, user: { id: user.id, email: user.email } })
   } catch (error) {
     console.error('register error', error)
+    const message =
+      error instanceof Error && process.env.NODE_ENV !== 'production'
+        ? error.message
+        : 'Failed to register'
     return NextResponse.json(
-      { ok: false, error: 'Failed to register' },
+      { ok: false, error: message },
       { status: 500 },
     )
   }
