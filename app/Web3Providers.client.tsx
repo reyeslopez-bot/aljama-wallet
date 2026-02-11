@@ -37,9 +37,13 @@ function buildWagmiConfig(): CreateConfigParameters {
           name: BRAND.name,
           description: BRAND.description,
           url: APP_URL,
-          icons: [],
+          icons: [`${APP_URL}/favicon.png`],
         },
         showQrModal: true,
+        qrModalOptions: {
+          themeMode: "dark",
+          mobileLinks: ["binance", "metamask", "trust", "coinbase", "rainbow"],
+        },
       }),
     )
   }
