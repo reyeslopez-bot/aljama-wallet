@@ -20,6 +20,7 @@ export default function MapboxMap() {
   const [coords, setCoords] = React.useState<Coords | null>(null)
   const [status, setStatus] = React.useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [error, setError] = React.useState<string | null>(null)
+  const [mapReady, setMapReady] = React.useState(false)
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
@@ -38,11 +39,23 @@ export default function MapboxMap() {
       container: containerRef.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
-      zoom: 11,
+      zoom: 10.5,
       attributionControl: true,
+      pitchWithRotate: false,
+      dragRotate: false,
+      interactive: false,
     })
 
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right')
+    map.on('load', () => {
+      setMapReady(true)
+      map.resize()
+    })
+    map.on('error', (event) => {
+      console.warn('mapbox error', event?.error)
+      setStatus('error')
+      setError('Map tiles unavailable. Check Mapbox token or network.')
+    })
 
     mapRef.current = map
 
@@ -139,7 +152,18 @@ export default function MapboxMap() {
       </div>
 
       <div className="relative w-full overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-2xl shadow-black/40 backdrop-blur-xl">
-        <div ref={containerRef} className="h-[360px] w-full md:h-[420px]" />
+        <div ref={containerRef} className="h-[260px] w-full md:h-[320px]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40" />
+        {!mapReady && !error ? (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-white/60">
+            Loading map tiles…
+          </div>
+        ) : null}
+        {error ? (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-red-200">
+            Map offline
+          </div>
+        ) : null}
       </div>
     </div>
   )

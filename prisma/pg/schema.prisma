@@ -36,3 +36,14 @@ model TelemetryEvent {
   @@index([event])
   @@index([sessionId])
 }
+
+model Signup {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  region    String?
+  source    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}

@@ -7,6 +7,8 @@ import { FeatureShowcase } from '@/components/home/FeatureShowcase'
 import HomeActionButtons from '@/components/home/HomeActionButtons.client'
 import { ConnectWalletPanel } from '@/components/home/ConnectWalletPanel.client'
 import { XrplPanel } from '@/components/home/XrplPanel.client'
+import XrplMarketPanel from '@/components/home/XrplMarketPanel.client'
+import RegionCompliancePanel from '@/components/home/RegionCompliancePanel.client'
 import ClientTrackWallet from '@/infra/utils/ClientTrackWallet'
 import { BRAND } from '@/constants/brand'
 import DynamicInfoCard from '@/components/home/DynamicInfoCard.client'
@@ -63,10 +65,13 @@ export default function HomeContent() {
         </div>
       </section>
 
-      {/* ================= MAP (location + map combined) ================= */}
-      <section id="demo" className="scroll-mt-28">
+      {/* ================= MAP + REGION ================= */}
+      <section id="demo" className="grid scroll-mt-28 gap-20 lg:grid-cols-2">
         <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
           <MapboxMap />
+        </div>
+        <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
+          <RegionCompliancePanel />
         </div>
       </section>
 
@@ -108,19 +113,7 @@ export default function HomeContent() {
           <XrplPanel />
         </div>
         <div className={`${SURFACE} p-10 md:p-12 ${SURFACE_SHADOW}`}>
-          <div className="space-y-6">
-            <p className="text-xs uppercase tracking-[0.18em] text-amber-100/70">XRPL Integration</p>
-            <h3 className="text-2xl font-semibold text-white">Ledger-aware, server-backed.</h3>
-            <p className="text-sm text-white/70">
-              XRPL balances and account metadata flow through a server proxy so the UI stays secure while still providing
-              real-time ledger context.
-            </p>
-            <div className={`${SURFACE_SOFT} p-6 ${SURFACE_INNER}`}>
-              <p className="text-xs uppercase tracking-wider text-white/40">XRPL path</p>
-              <p className="mt-3 text-2xl font-medium text-white">Testnet live</p>
-              <p className="mt-1 text-sm text-white/60">Wire in mainnet endpoints when ready to ship.</p>
-            </div>
-          </div>
+          <XrplMarketPanel />
         </div>
       </section>
     </div>
