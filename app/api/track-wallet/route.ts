@@ -1,6 +1,7 @@
 // app/api/track-wallet/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { recordTrackWalletEvent } from '@/services/track-wallet.service'
 
 export type TrackWalletEvent = {
   address: string
@@ -18,11 +19,7 @@ export type TrackWalletEvent = {
   receivedAt: number
 }
 
-// Simple in-memory log for dev (per server instance only)
-const events: TrackWalletEvent[] = []
-
 const MAX_BODY_BYTES = 4_096
-const MAX_EVENTS = 100
 
 const trackWalletSchema = z.object({
   address: z.string().min(1),
@@ -75,10 +72,17 @@ export async function POST(req: NextRequest) {
       receivedAt: Date.now(),
     }
 
-    events.push(event)
-    if (events.length > MAX_EVENTS) {
-      events.splice(0, events.length - MAX_EVENTS)
-    }
+    await recordTrackWalletEvent({
+      address: event.address,
+      chainId: event.chain.id,
+      chainName: event.chain.name,
+      connectorId: event.connector.id,
+      connectorName: event.connector.name,
+      connectorType: event.connector.type,
+      userAgent: event.userAgent,
+      timestamp: event.timestamp,
+      receivedAt: event.receivedAt,
+    })
 
     return NextResponse.json({ ok: true })
   } catch (error: unknown) {

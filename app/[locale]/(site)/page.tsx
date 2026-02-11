@@ -1,4 +1,4 @@
-// app/(site)/page.tsx
+// app/[locale]/(site)/page.tsx
 import HomeContent from '@/components/home/HomeContent'
 
 export default function HomePage() {

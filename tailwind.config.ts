@@ -27,7 +27,7 @@ const config: Config = {
         alloy: '#C46210',
         pearl: '#efddc2',
         azure: '#0080FF',
-        sand: '#EED9A3',
+        sandLight: '#EED9A3',
         sunsetOrange: '#D76C5B',
       },
 

@@ -1,0 +1,267 @@
+{
+  "navbar": {
+    "overview": "نظرة عامة",
+    "create": "إنشاء",
+    "connect": "ربط",
+    "xrpl": "XRPL",
+    "about": "من نحن",
+    "contact": "تواصل",
+    "menu": "القائمة",
+    "active": "نشط",
+    "language": "اللغة",
+    "signIn": "تسجيل الدخول"
+  },
+  "home": {
+    "hero": {
+      "title": "حفظ الحيازة المشفّرة المصمم لرأس مال عابر للحدود.",
+      "subtitle": "أنشئ خزائن مشفّرة، وتنقّل عبر شبكات EVM، واعمل ضمن حفظ قائم على السياسات بدون ضجيج التسجيل."
+    },
+    "stats": {
+      "mainnetLabel": "وضع الشبكة",
+      "mainnetValue": "EVM أولاً",
+      "mainnetDetail": "حزمة إنتاج Wagmi + Ethers",
+      "securityLabel": "نموذج الأمان",
+      "securityValue": "حفظ مشفّر",
+      "securityDetail": "توقيع محكوم بالسياسات مع ضوابط الخزنة",
+      "uxLabel": "فلسفة التجربة",
+      "uxValue": "تدفقات موجهة",
+      "uxDetail": "تسلسل واضح وضجيج أقل"
+    },
+    "vaultIntel": {
+      "label": "ذكاء الخزنة",
+      "title": "ابقَ متزامناً مع سياق المحفظة المباشر.",
+      "body": "يعرض هذا اللوح حالة RainbowKit + wagmi للتحقق من الاتصالات النشطة وتبديل الحسابات وتتبع أرصدة EVM دون مغادرة الصفحة.",
+      "statusLabel": "حالة الموصل",
+      "statusValue": "مباشر",
+      "statusDetail": "WalletConnect وInjected والتدفقات المخصصة متاحة."
+    }
+  },
+  "actions": {
+    "createWallet": "إنشاء محفظة",
+    "connectWallet": "ربط محفظة",
+    "xrpl": "XRPL",
+    "refresh": "تحديث",
+    "connecting": "جارٍ الربط…",
+    "creating": "جارٍ الإنشاء…"
+  },
+  "createWallet": {
+    "eyebrow": "إنشاء + تشفير",
+    "title": "أنشئ خزنة جديدة",
+    "body": "أنشئ محفظة، واحفظ نسخة جلسة مشفّرة، وازامنها مع خزنة الحيازة.",
+    "badgeCustody": "تدفق الحيازة",
+    "badgeReady": "جاهز للاستخدام",
+    "badgeSessionOnly": "جلسة فقط",
+    "passwordLabel": "كلمة المرور",
+    "passwordTag": "تشفير",
+    "passwordPlaceholder": "أنشئ عبارة يسهل تذكرها",
+    "button": "إنشاء محفظة",
+    "tagEncrypted": "نسخة الجلسة مشفّرة",
+    "tagPrivate": "احتفظ بكلمة المرور سرية",
+    "emptyTitle": "لم يتم إنشاء محفظة بعد",
+    "emptyBody": "استخدم عبارة سهلة التذكر. فهي تشفّر نسخة الجلسة المحلية.",
+    "readyTitle": "المحفظة جاهزة",
+    "readyBody": "أبقِ هذا التبويب مفتوحاً؛ النسخة المحلية تبقى هنا.",
+    "addressLabel": "العنوان"
+  },
+  "featureShowcase": {
+    "eyebrow": "لغة التصميم",
+    "title": "أسطح هندسية، هادئة بالتصميم",
+    "body": "أسطح متعددة الطبقات لتدفقات المحفظة وسياق onchain، مع تسلسل واضح وضجيج منخفض.",
+    "rituals": {
+      "createTitle": "إنشاء + تشفير",
+      "createDetail": "إنشاء محمي بكلمة مرور مع تغذية راجعة واضحة.",
+      "trackTitle": "تتبع الاتصالات",
+      "trackDetail": "تزامن فوري للواجهة عند تغيّر حالة المحفظة."
+    },
+    "cards": {
+      "metadataTitle": "بيانات onchain الوصفية",
+      "metadataSubtitle": "تعريف + URI",
+      "metadataBody": "ضع معلومات الأصول الأساسية على السلسلة أو اربط المستندات عبر URI.\nدائماً قابلة للتحقق ودائماً قابلة للاكتشاف.",
+      "metadataBadge": "بيانات وصفية",
+      "contextTitle": "سياق أصول مشترك",
+      "contextSubtitle": "محافظ + تطبيقات",
+      "contextBody": "مرجع واحد عبر المحافظ وdApps.\nعرض متسق، التباس أقل.",
+      "contextBadge": "جاهز للسلسلة"
+    }
+  },
+  "region": {
+    "eyebrow": "المنطقة + الامتثال",
+    "title": "حدد منطقة التشغيل الخاصة بك.",
+    "body": "اختر منطقة لضبط نصوص الإفصاح وإعدادات الخصوصية. هذا تفضيل واجهة فقط.",
+    "label": "المنطقة",
+    "regions": {
+      "us": "الولايات المتحدة",
+      "eu": "الاتحاد الأوروبي",
+      "mena": "الشرق الأوسط وشمال أفريقيا",
+      "apac": "آسيا والمحيط الهادئ",
+      "latam": "أمريكا اللاتينية"
+    },
+    "regionDetail": {
+      "us": "مراكز بيانات أمريكية + إفصاحات",
+      "eu": "إعدادات افتراضية وفق GDPR",
+      "mena": "تجربة إقليمية + تركيز لغوي",
+      "apac": "توجيه منخفض الكمون إقليمياً",
+      "latam": "سياق تسجيل محلي"
+    },
+    "complianceTitle": "أهداف الامتثال",
+    "compliance": {
+      "gdpr": "مواءمة GDPR",
+      "gdprDetail": "عناصر موافقة تركز على الخصوصية",
+      "soc2": "خارطة طريق SOC 2",
+      "soc2Detail": "ضوابط تشغيلية تستهدف SOC 2",
+      "iso": "خارطة طريق ISO 27001",
+      "isoDetail": "مواءمة إدارة الأمن"
+    },
+    "targeted": "مستهدف",
+    "disclaimer": "معلومات فقط. ليست مطالبة شهادة.",
+    "signupTitle": "التسجيل",
+    "signupBody": "احصل على تحديثات الإطلاق ونشرات الأمان.",
+    "emailPlaceholder": "you@company.com",
+    "signupButton": "انضم للتحديثات",
+    "signupSending": "جارٍ الإرسال…",
+    "signupSuccess": "شكراً — تم إضافتك.",
+    "signupError": "فشل التسجيل. حاول مرة أخرى.",
+    "emailError": "أدخل بريداً إلكترونياً صحيحاً."
+  },
+  "connectWallet": {
+    "eyebrow": "ربط + مزامنة",
+    "title": "اربط محفظة EVM",
+    "body": "استخدم محفظة المتصفح للمصادقة فوراً.",
+    "status": {
+      "noConnector": "لا يوجد موصل",
+      "connected": "متصل",
+      "ready": "جاهز للربط"
+    },
+    "linkedTitle": "تم ربط المحفظة",
+    "linkedSubtitle": "العنوان الأساسي",
+    "emptyTitle": "لا توجد محفظة متصلة",
+    "emptyBody": "افتح الموصل ووافق على الوصول لمزامنة الأرصدة.",
+    "buttonConnect": "ربط المحفظة",
+    "buttonDisconnect": "فصل المحفظة",
+    "buttonConnecting": "جارٍ الربط…",
+    "noConnectorNote": "لم يتم العثور على موصل محفظة. ثبّت محفظة للمتصفح أو اضبط NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID لـ WalletConnect."
+  },
+  "xrpl": {
+    "eyebrow": "XRPL + Ledger",
+    "title": "جاهز لـ XRP Ledger",
+    "body": "لقطة اختبار من بذرة XRPL التطويرية على الخادم. اسحب الأرصدة عند الطلب.",
+    "statusSyncing": "جارٍ المزامنة",
+    "statusOnline": "متصل",
+    "loading": "جارٍ جلب حساب XRPL…",
+    "accountTitle": "حساب اختبار",
+    "balanceLabel": "الرصيد",
+    "empty": "لا توجد بيانات XRPL محمّلة.",
+    "refresh": "تحديث لقطة XRPL"
+  },
+  "market": {
+    "eyebrow": "لقطة السوق",
+    "title": "XRPL مقابل العملات الكبرى",
+    "body": "مؤشر 24 ساعة مُطَبّع. أسعار المرجع عابرة للسلاسل وقد لا تكون مُصدرة على XRPL.",
+    "badgeFallback": "بيانات احتياطية",
+    "badgeLive": "مباشر",
+    "viewAll": "الكل",
+    "viewXrpl": "XRPL",
+    "viewReference": "مرجعي",
+    "updated": "تم التحديث",
+    "loading": "جارٍ تحميل بيانات السوق…",
+    "table": {
+      "asset": "الأصل",
+      "price": "السعر",
+      "change": "24 ساعة",
+      "network": "الشبكة",
+      "xrpl": "XRPL",
+      "reference": "مرجعي"
+    },
+    "refresh": "تحديث لقطة السوق"
+  },
+  "map": {
+    "label": "الخريطة",
+    "idle": "اضغط “استخدم موقعي” لتمركز الخريطة عليك.",
+    "loading": "جارٍ طلب الموقع…",
+    "centered": "متمركزة عند",
+    "error": "خطأ في الخريطة.",
+    "useLocation": "استخدم موقعي",
+    "loadingTiles": "جارٍ تحميل مربعات الخريطة…",
+    "offline": "الخريطة غير متاحة"
+  },
+  "location": {
+    "label": "الموقع الحالي",
+    "idle": "لم يتم طلب الموقع بعد. اضغط “استخدم موقعي” لجلب الإحداثيات.",
+    "loading": "جارٍ طلب الموقع…",
+    "accuracy": "الدقة",
+    "updated": "تم التحديث",
+    "copy": "نسخ",
+    "openMaps": "فتح في خرائط Google",
+    "useLocation": "استخدم موقعي"
+  },
+  "infoCard": {
+    "signal": "إشارة",
+    "vaultSession": "جلسة الخزنة",
+    "wallet": "المحفظة",
+    "network": "الشبكة",
+    "connector": "الموصل",
+    "tracking": "التتبع",
+    "hoverView": "عرض عند المرور",
+    "expand": "توسيع عند المرور",
+    "status": {
+      "creating": "جارٍ الإنشاء",
+      "syncing": "جارٍ المزامنة",
+      "action": "إجراء مطلوب",
+      "available": "متاح",
+      "vault": "الخزنة",
+      "idle": "خامل"
+    }
+  },
+  "footer": {
+    "privacy": "الخصوصية",
+    "terms": "الشروط",
+    "contact": "تواصل",
+    "rights": "جميع الحقوق محفوظة."
+  },
+  "consent": {
+    "text": "نستخدم القياس عن بعد لتحسين الموثوقية وتجربة الاستخدام (الأداء والتنقل واستخدام الميزات). يمكنك إيقافها في أي وقت.",
+    "decline": "رفض",
+    "accept": "موافقة"
+  },
+  "wallet": {
+    "connect": "ربط",
+    "connecting": "جارٍ الربط…",
+    "connected": "متصل",
+    "nativeBalances": "الأرصدة الأصلية",
+    "walletNotConnected": "المحفظة غير متصلة.",
+    "loading": "جارٍ التحميل…",
+    "error": "خطأ"
+  },
+  "auth": {
+    "title": "بوابة آمنة",
+    "subtitle": "سجّل الدخول للمتابعة.",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "invite": "رمز الدعوة",
+    "signIn": "تسجيل الدخول",
+    "signingIn": "جارٍ تسجيل الدخول…",
+    "register": "إنشاء حساب",
+    "registering": "جارٍ التسجيل…",
+    "toggleToRegister": "لديك دعوة؟ أنشئ حساباً",
+    "toggleToLogin": "لديك وصول؟ سجّل الدخول",
+    "back": "العودة للصفحة الرئيسية",
+    "invalidInvite": "رمز الدعوة غير صالح.",
+    "registerSuccess": "تم إنشاء الحساب. جارٍ تسجيل الدخول…",
+    "loginFailed": "فشل تسجيل الدخول.",
+    "registerFailed": "فشل التسجيل.",
+    "emailInvalid": "أدخل بريدًا إلكترونيًا صحيحًا.",
+    "unlockActions": "سجّل الدخول لفتح الإجراءات.",
+    "passwordWeak": "كلمة المرور ضعيفة جدًا.",
+    "passwordRules": "استخدم 12+ حرفًا مع أحرف كبيرة/صغيرة ورقم ورمز.",
+    "inviteHint": "استخدم رمز الدعوة التجريبي: demo-invite"
+  },
+  "common": {
+    "optional": "اختياري"
+  },
+  "errors": {
+    "required": "مطلوب"
+  },
+  "notFound": {
+    "goHome": "العودة للرئيسية"
+  }
+}

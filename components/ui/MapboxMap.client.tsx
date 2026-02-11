@@ -2,6 +2,8 @@
 
 import * as React from 'react'
 import mapboxgl from 'mapbox-gl'
+import { useTranslations } from 'next-intl'
+import { useSession } from 'next-auth/react'
 
 type Coords = {
   lat: number
@@ -13,6 +15,10 @@ type Coords = {
 const DEFAULT_CENTER = { lat: 32.0853, lng: 34.7818 } // Tel Aviv fallback
 
 export default function MapboxMap() {
+  const t = useTranslations('map')
+  const tAuth = useTranslations('auth')
+  const { status: sessionStatus } = useSession()
+  const locked = sessionStatus !== 'authenticated'
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const mapRef = React.useRef<mapboxgl.Map | null>(null)
   const markerRef = React.useRef<mapboxgl.Marker | null>(null)
@@ -83,6 +89,11 @@ export default function MapboxMap() {
   }, [coords])
 
   const requestLocation = React.useCallback(() => {
+    if (locked) {
+      setStatus('idle')
+      setError(null)
+      return
+    }
     setError(null)
 
     if (!('geolocation' in navigator)) {
@@ -118,36 +129,37 @@ export default function MapboxMap() {
       },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 15_000 },
     )
-  }, [])
+  }, [locked])
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-xs uppercase tracking-[0.18em] text-saffron/70">Map</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-saffron/70">{t('label')}</p>
 
           <p className="text-sm text-ivory/70">
-            {status === 'idle' && 'Click “Use my location” to center the map on you.'}
-            {status === 'loading' && 'Requesting location…'}
+            {status === 'idle' && t('idle')}
+            {status === 'loading' && t('loading')}
             {status === 'ready' && coords && (
               <>
-                Centered at{' '}
+                {t('centered')}{' '}
                 <span className="text-ivory">
                   {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
                 </span>
                 {coords.accuracy ? ` · ±${Math.round(coords.accuracy)}m` : null}
               </>
             )}
-            {status === 'error' && (error ?? 'Map error.')}
+            {status === 'error' && (error ?? t('error'))}
           </p>
         </div>
 
         <button
           type="button"
           onClick={requestLocation}
-          className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10"
+          disabled={locked}
+          className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Use my location
+          {t('useLocation')}
         </button>
       </div>
 
@@ -156,15 +168,20 @@ export default function MapboxMap() {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40" />
         {!mapReady && !error ? (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-ivory/60">
-            Loading map tiles…
+            {t('loadingTiles')}
           </div>
         ) : null}
         {error ? (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-red-200">
-            Map offline
+            {t('offline')}
           </div>
         ) : null}
       </div>
+      {locked && (
+        <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
+          {tAuth('unlockActions')}
+        </p>
+      )}
     </div>
   )
 }

@@ -1,0 +1,267 @@
+{
+  "navbar": {
+    "overview": "סקירה",
+    "create": "יצירה",
+    "connect": "חיבור",
+    "xrpl": "XRPL",
+    "about": "אודות",
+    "contact": "צור קשר",
+    "menu": "תפריט",
+    "active": "פעיל",
+    "language": "שפה",
+    "signIn": "התחברו"
+  },
+  "home": {
+    "hero": {
+      "title": "משמורת מוצפנת שנועדה להון חוצה גבולות.",
+      "subtitle": "צרו כספות מוצפנות, נועו בין רשתות EVM ופעלו תחת משמורת מבוססת מדיניות ללא רעש קליטה."
+    },
+    "stats": {
+      "mainnetLabel": "עמדת רשת",
+      "mainnetValue": "EVM תחילה",
+      "mainnetDetail": "סטאק ייצור Wagmi + Ethers",
+      "securityLabel": "מודל אבטחה",
+      "securityValue": "משמורת מוצפנת",
+      "securityDetail": "חתימה מונחית מדיניות עם בקרות כספת",
+      "uxLabel": "פילוסופיית חוויה",
+      "uxValue": "זרימות מונחות",
+      "uxDetail": "רצף ברור, מינימום רעש"
+    },
+    "vaultIntel": {
+      "label": "מודיעין כספת",
+      "title": "הישארו מסונכרנים עם מצב ארנק חי.",
+      "body": "הפאנל מציג מצב RainbowKit + wagmi כדי לאמת חיבורים פעילים, להחליף חשבונות ולעקוב אחר יתרות EVM בלי לעזוב את דף הבית.",
+      "statusLabel": "סטטוס מחבר",
+      "statusValue": "חי",
+      "statusDetail": "WalletConnect, injected וזרימות מותאמות זמינים."
+    }
+  },
+  "actions": {
+    "createWallet": "יצירת ארנק",
+    "connectWallet": "חיבור ארנק",
+    "xrpl": "XRPL",
+    "refresh": "רענון",
+    "connecting": "מתחבר…",
+    "creating": "יוצר…"
+  },
+  "createWallet": {
+    "eyebrow": "יצירה + הצפנה",
+    "title": "צרו כספת חדשה",
+    "body": "צרו ארנק, שמרו עותק סשן מוצפן וסנכרנו לכספת המשמורת.",
+    "badgeCustody": "תהליך משמורת",
+    "badgeReady": "מוכן לשימוש",
+    "badgeSessionOnly": "סשן בלבד",
+    "passwordLabel": "סיסמה",
+    "passwordTag": "הצפנה",
+    "passwordPlaceholder": "צרו סיסמה שתזכרו",
+    "button": "יצירת ארנק",
+    "tagEncrypted": "עותק סשן מוצפן",
+    "tagPrivate": "שמרו את הסיסמה פרטית",
+    "emptyTitle": "עדיין לא נוצר ארנק",
+    "emptyBody": "בחרו משפט שקל לזכור. הוא מצפין את עותק הסשן המקומי.",
+    "readyTitle": "הארנק מוכן",
+    "readyBody": "השאירו את הטאב פתוח; העותק המקומי נשמר כאן.",
+    "addressLabel": "כתובת"
+  },
+  "featureShowcase": {
+    "eyebrow": "שפת עיצוב",
+    "title": "משטחים גאומטריים, שקטים במכוון",
+    "body": "משטחים שכבתיים לזרימות ארנק והקשר אונצ'יין, עם היררכיה ברורה ורעש מינימלי.",
+    "rituals": {
+      "createTitle": "יצירה + הצפנה",
+      "createDetail": "יצירה מוגנת סיסמה עם משוב UI ברור.",
+      "trackTitle": "מעקב חיבורים",
+      "trackDetail": "סנכרון UI מיידי עם שינוי מצב ארנק."
+    },
+    "cards": {
+      "metadataTitle": "מטא-דאטה אונצ'יין",
+      "metadataSubtitle": "הגדרה + URI",
+      "metadataBody": "שימו מידע נכס מרכזי אונצ'יין או קשרו מסמכים ב-URI.\nתמיד מאומת, תמיד ניתן לגילוי.",
+      "metadataBadge": "מטא-דאטה",
+      "contextTitle": "הקשר נכסים משותף",
+      "contextSubtitle": "ארנקים + אפליקציות",
+      "contextBody": "מקור אמת אחד בין ארנקים ו-dApps.\nתצוגה עקבית, פחות בלבול.",
+      "contextBadge": "מוכן לאונצ'יין"
+    }
+  },
+  "region": {
+    "eyebrow": "אזור + תאימות",
+    "title": "קבעו את אזור הפעולה שלכם.",
+    "body": "בחרו אזור כדי להתאים טקסט גילוי והגדרות פרטיות. זהו העדפת UI בלבד.",
+    "label": "אזור",
+    "regions": {
+      "us": "ארצות הברית",
+      "eu": "האיחוד האירופי",
+      "mena": "MENA",
+      "apac": "APAC",
+      "latam": "LATAM"
+    },
+    "regionDetail": {
+      "us": "מרכזי נתונים בארה״ב + גילויים",
+      "eu": "ברירות מחדל לפי GDPR",
+      "mena": "UX אזורי + מיקוד שפה",
+      "apac": "ניתוב אזורי נמוך שיהוי",
+      "latam": "הקשר קליטה מקומי"
+    },
+    "complianceTitle": "יעדי תאימות",
+    "compliance": {
+      "gdpr": "יישור GDPR",
+      "gdprDetail": "בקרות הסכמה מוכוונות פרטיות",
+      "soc2": "מפת דרכים SOC 2",
+      "soc2Detail": "בקרות תפעוליות לכיוון SOC 2",
+      "iso": "מפת דרכים ISO 27001",
+      "isoDetail": "יישור ניהול אבטחה"
+    },
+    "targeted": "יעד",
+    "disclaimer": "מידע בלבד. לא הצהרת הסמכה.",
+    "signupTitle": "הרשמה",
+    "signupBody": "קבלו עדכוני השקה ובריפינגי אבטחה.",
+    "emailPlaceholder": "you@company.com",
+    "signupButton": "הצטרפו לעדכונים",
+    "signupSending": "שולח…",
+    "signupSuccess": "תודה — אתם ברשימה.",
+    "signupError": "ההרשמה נכשלה. נסו שוב.",
+    "emailError": "הזינו אימייל תקין."
+  },
+  "connectWallet": {
+    "eyebrow": "חיבור + סנכרון",
+    "title": "חברו את ארנק ה-EVM שלכם",
+    "body": "השתמשו בארנק הדפדפן לאימות מיידי.",
+    "status": {
+      "noConnector": "אין מחבר",
+      "connected": "מחובר",
+      "ready": "מוכן לחיבור"
+    },
+    "linkedTitle": "ארנק מחובר",
+    "linkedSubtitle": "כתובת ראשית",
+    "emptyTitle": "אין ארנק מחובר",
+    "emptyBody": "פתחו את המחבר ואשרו גישה לסנכרון יתרות.",
+    "buttonConnect": "חיבור ארנק",
+    "buttonDisconnect": "ניתוק ארנק",
+    "buttonConnecting": "מתחבר…",
+    "noConnectorNote": "לא נמצא מחבר ארנק. התקינו ארנק דפדפן או הגדירו NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID עבור WalletConnect."
+  },
+  "xrpl": {
+    "eyebrow": "XRPL + Ledger",
+    "title": "XRP Ledger מוכן",
+    "body": "תמונת מצב טסט-נט מהזרע השרתתי של XRPL. משיכת יתרות לפי דרישה.",
+    "statusSyncing": "מסנכרן",
+    "statusOnline": "מקוון",
+    "loading": "טוען חשבון XRPL…",
+    "accountTitle": "חשבון טסט-נט",
+    "balanceLabel": "יתרה",
+    "empty": "אין נתוני XRPL נטענים.",
+    "refresh": "רענון תמונת מצב XRPL"
+  },
+  "market": {
+    "eyebrow": "תמונת שוק",
+    "title": "XRPL מול הגדולות",
+    "body": "מדד 24ש׳ מנורמל. מחירי ייחוס חוצי-שרשרת ועשויים לא להיות מונפקים ב-XRPL.",
+    "badgeFallback": "נתוני גיבוי",
+    "badgeLive": "חי",
+    "viewAll": "הכול",
+    "viewXrpl": "XRPL",
+    "viewReference": "ייחוס",
+    "updated": "עודכן",
+    "loading": "טוען נתוני שוק…",
+    "table": {
+      "asset": "נכס",
+      "price": "מחיר",
+      "change": "24ש׳",
+      "network": "רשת",
+      "xrpl": "XRPL",
+      "reference": "ייחוס"
+    },
+    "refresh": "רענון תמונת שוק"
+  },
+  "map": {
+    "label": "מפה",
+    "idle": "לחצו על „השתמשו במיקום שלי” כדי למרכז את המפה עליכם.",
+    "loading": "מבקש מיקום…",
+    "centered": "ממורכז ב־",
+    "error": "שגיאת מפה.",
+    "useLocation": "השתמשו במיקום שלי",
+    "loadingTiles": "טוען אריחי מפה…",
+    "offline": "מפה לא זמינה"
+  },
+  "location": {
+    "label": "מיקום נוכחי",
+    "idle": "המיקום עדיין לא התבקש. לחצו על „השתמשו במיקום שלי” כדי להביא קואורדינטות.",
+    "loading": "מבקש מיקום…",
+    "accuracy": "דיוק",
+    "updated": "עודכן",
+    "copy": "העתקה",
+    "openMaps": "פתיחה ב-Google Maps",
+    "useLocation": "השתמשו במיקום שלי"
+  },
+  "infoCard": {
+    "signal": "אות",
+    "vaultSession": "סשן כספת",
+    "wallet": "ארנק",
+    "network": "רשת",
+    "connector": "מחבר",
+    "tracking": "מעקב",
+    "hoverView": "תצוגת ריחוף",
+    "expand": "הרחבה בריחוף",
+    "status": {
+      "creating": "יוצר",
+      "syncing": "מסנכרן",
+      "action": "נדרשת פעולה",
+      "available": "זמין",
+      "vault": "כספת",
+      "idle": "ממתין"
+    }
+  },
+  "footer": {
+    "privacy": "פרטיות",
+    "terms": "תנאים",
+    "contact": "צור קשר",
+    "rights": "כל הזכויות שמורות."
+  },
+  "consent": {
+    "text": "אנו משתמשים בטלמטריה לשיפור אמינות וחוויית משתמש (ביצועים, ניווט ושימוש בפיצ'רים). ניתן לבטל בכל עת.",
+    "decline": "דחייה",
+    "accept": "אישור"
+  },
+  "wallet": {
+    "connect": "חיבור",
+    "connecting": "מתחבר…",
+    "connected": "מחובר",
+    "nativeBalances": "יתרות טבעיות",
+    "walletNotConnected": "הארנק לא מחובר.",
+    "loading": "טוען…",
+    "error": "שגיאה"
+  },
+  "auth": {
+    "title": "שער מאובטח",
+    "subtitle": "התחברו כדי להמשיך.",
+    "email": "אימייל",
+    "password": "סיסמה",
+    "invite": "טוקן הזמנה",
+    "signIn": "התחברות",
+    "signingIn": "מתחבר…",
+    "register": "הירשמות",
+    "registering": "נרשם…",
+    "toggleToRegister": "יש לכם הזמנה? הירשמות",
+    "toggleToLogin": "כבר יש גישה? התחברו",
+    "back": "חזרה לדף הבית",
+    "invalidInvite": "טוקן הזמנה לא תקין.",
+    "registerSuccess": "החשבון נוצר. מתחברים…",
+    "loginFailed": "ההתחברות נכשלה.",
+    "registerFailed": "ההרשמה נכשלה.",
+    "emailInvalid": "הזן כתובת אימייל תקינה.",
+    "unlockActions": "התחברו כדי לפתוח פעולות.",
+    "passwordWeak": "הסיסמה חלשה מדי.",
+    "passwordRules": "השתמשו ב-12+ תווים עם אותיות גדולות/קטנות, מספר וסמל.",
+    "inviteHint": "השתמשו בטוקן הדמו: demo-invite"
+  },
+  "common": {
+    "optional": "אופציונלי"
+  },
+  "errors": {
+    "required": "נדרש"
+  },
+  "notFound": {
+    "goHome": "חזרה לדף הבית"
+  }
+}

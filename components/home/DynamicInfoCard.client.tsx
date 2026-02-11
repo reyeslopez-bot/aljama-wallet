@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
+import { useTranslations } from 'next-intl'
 
 function formatShortAddress(address: string) {
   const trimmed = address.trim()
@@ -106,6 +107,7 @@ function CopyIcon() {
 }
 
 export default function DynamicInfoCard() {
+  const t = useTranslations('infoCard')
   const [hovered, setHovered] = useState(false)
   const [now, setNow] = useState(() => new Date())
 
@@ -140,12 +142,12 @@ export default function DynamicInfoCard() {
   }, [connectStatus, createStatus, trackingStatus, wallet.connectedAddress])
 
   const statusLabel = useMemo(() => {
-    if (createStatus === 'pending') return 'Creating'
-    if (connectStatus === 'pending') return 'Syncing'
-    if (createStatus === 'error' || connectStatus === 'error') return 'Action needed'
-    if (wallet.connectedAddress) return 'Available'
-    if (wallet.createdAddress) return 'Vault'
-    return 'Idle'
+    if (createStatus === 'pending') return t('status.creating')
+    if (connectStatus === 'pending') return t('status.syncing')
+    if (createStatus === 'error' || connectStatus === 'error') return t('status.action')
+    if (wallet.connectedAddress) return t('status.available')
+    if (wallet.createdAddress) return t('status.vault')
+    return t('status.idle')
   }, [connectStatus, createStatus, wallet.connectedAddress, wallet.createdAddress])
 
   const primaryLine = useMemo(() => {
@@ -199,7 +201,7 @@ export default function DynamicInfoCard() {
 
           {lastEvent ? (
             <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-ivory/70">
-              <span className="font-semibold text-ivory/80">Signal:</span> {lastEvent.message}
+              <span className="font-semibold text-ivory/80">{t('signal')}:</span> {lastEvent.message}
             </div>
           ) : null}
         </div>
@@ -216,10 +218,10 @@ export default function DynamicInfoCard() {
                 className="space-y-3"
               >
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-ivory/50">Vault session</div>
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-ivory/50">{t('vaultSession')}</div>
                   <div className="mt-2 grid gap-2 text-[11px] text-ivory/75">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-ivory/50">Wallet</span>
+                      <span className="text-ivory/50">{t('wallet')}</span>
                       <span className="font-mono text-ivory/80">
                         {wallet.connectedAddress
                           ? formatShortAddress(wallet.connectedAddress)
@@ -229,15 +231,15 @@ export default function DynamicInfoCard() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-ivory/50">Network</span>
+                      <span className="text-ivory/50">{t('network')}</span>
                       <span className="truncate text-ivory/80">{wallet.chainName ?? '—'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-ivory/50">Connector</span>
+                      <span className="text-ivory/50">{t('connector')}</span>
                       <span className="truncate text-ivory/80">{wallet.connectorName ?? '—'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-ivory/50">Tracking</span>
+                      <span className="text-ivory/50">{t('tracking')}</span>
                       <span className="text-ivory/80">
                         {trackingStatus}
                         {trackingStatus === 'error' && trackingError ? `: ${trackingError}` : ''}
@@ -269,7 +271,7 @@ export default function DynamicInfoCard() {
                     </IconButton>
                   </div>
 
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-ivory/40">Hover view</div>
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-ivory/40">{t('hoverView')}</div>
                 </div>
               </motion.div>
             ) : (
@@ -294,7 +296,7 @@ export default function DynamicInfoCard() {
                 </div>
 
                 <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-wide text-ivory/70">
-                  Expand on hover
+                  {t('expand')}
                 </div>
               </motion.div>
             )}

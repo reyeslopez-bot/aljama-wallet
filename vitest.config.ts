@@ -6,6 +6,7 @@ export default defineConfig({
     globals: true,
     environment: 'node', // since you're testing wallet logic, not React components
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    setupFiles: ['tests/setup.ts'],
     coverage: {
       provider: 'v8',
     },

@@ -3,6 +3,8 @@
 
 import { useEffect, useState } from 'react'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
+import { useTranslations } from 'next-intl'
+import { useSession } from 'next-auth/react'
 
 type RegionOption = {
   value: string
@@ -13,27 +15,31 @@ type RegionOption = {
 const REGION_KEY = 'aljama.region'
 const EMAIL_KEY = 'aljama.signupEmail'
 
-const REGIONS: RegionOption[] = [
-  { value: 'us', label: 'United States', detail: 'US data centers + disclosures' },
-  { value: 'eu', label: 'European Union', detail: 'GDPR-first defaults' },
-  { value: 'mena', label: 'MENA', detail: 'Regional UX + language focus' },
-  { value: 'apac', label: 'APAC', detail: 'Low-latency regional routing' },
-  { value: 'latam', label: 'LATAM', detail: 'Localized onboarding context' },
-]
-
-const COMPLIANCE = [
-  { title: 'GDPR alignment', detail: 'Privacy-first consent controls' },
-  { title: 'SOC 2 roadmap', detail: 'Operational controls targeting SOC 2' },
-  { title: 'ISO 27001 roadmap', detail: 'Security management alignment' },
-]
-
 export default function RegionCompliancePanel() {
   useComponentTelemetry('RegionCompliancePanel')
+  const t = useTranslations('region')
+  const tAuth = useTranslations('auth')
+  const { status: sessionStatus } = useSession()
+  const locked = sessionStatus !== 'authenticated'
   const [region, setRegion] = useState<string>('us')
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const regions: RegionOption[] = [
+    { value: 'us', label: t('regions.us'), detail: t('regionDetail.us') },
+    { value: 'eu', label: t('regions.eu'), detail: t('regionDetail.eu') },
+    { value: 'mena', label: t('regions.mena'), detail: t('regionDetail.mena') },
+    { value: 'apac', label: t('regions.apac'), detail: t('regionDetail.apac') },
+    { value: 'latam', label: t('regions.latam'), detail: t('regionDetail.latam') },
+  ]
+
+  const compliance = [
+    { title: t('compliance.gdpr'), detail: t('compliance.gdprDetail') },
+    { title: t('compliance.soc2'), detail: t('compliance.soc2Detail') },
+    { title: t('compliance.iso'), detail: t('compliance.isoDetail') },
+  ]
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -46,20 +52,19 @@ export default function RegionCompliancePanel() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">Region + Compliance</p>
-        <h3 className="mt-3 font-display text-2xl font-semibold text-ivory">Set your operating region.</h3>
-        <p className="text-sm text-ivory/70">
-          Pick a region to tailor disclosure copy and privacy defaults. This is a UI preference only.
-        </p>
+        <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('eyebrow')}</p>
+        <h3 className="mt-3 font-display text-2xl font-semibold text-ivory">{t('title')}</h3>
+        <p className="text-sm text-ivory/70">{t('body')}</p>
       </div>
 
       <div className="surface-inner p-4">
         <label htmlFor="region-select" className="text-xs uppercase tracking-[0.16em] text-ivory/60">
-          Region
+          {t('label')}
         </label>
         <select
           id="region-select"
           value={region}
+          disabled={locked}
           onChange={(event) => {
             const next = event.target.value
             setRegion(next)
@@ -67,51 +72,50 @@ export default function RegionCompliancePanel() {
               window.localStorage.setItem(REGION_KEY, next)
             }
           }}
-          className="mt-3 w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-sm text-ivory focus:outline-none focus:ring-2 focus:ring-saffron/30"
+          className="mt-3 w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-sm text-ivory focus:outline-none focus:ring-2 focus:ring-saffron/30 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {REGIONS.map((option) => (
+          {regions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
         </select>
         <p className="mt-2 text-xs text-ivory/50">
-          {REGIONS.find((option) => option.value === region)?.detail}
+          {regions.find((option) => option.value === region)?.detail}
         </p>
       </div>
 
       <div className="surface-soft p-4 text-sm text-ivory/70">
-        <p className="text-xs uppercase tracking-[0.16em] text-ivory/50">Compliance targets</p>
+        <p className="text-xs uppercase tracking-[0.16em] text-ivory/50">{t('complianceTitle')}</p>
         <div className="mt-3 space-y-3">
-          {COMPLIANCE.map((item) => (
+          {compliance.map((item) => (
             <div key={item.title} className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-ivory">{item.title}</p>
                 <p className="text-xs text-ivory/50">{item.detail}</p>
               </div>
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-ivory/60">
-                Targeted
+                {t('targeted')}
               </span>
             </div>
           ))}
         </div>
         <p className="mt-3 text-[11px] text-ivory/40">
-          Informational only. Not a certification claim.
+          {t('disclaimer')}
         </p>
       </div>
 
       <div className="surface-inner p-4">
-        <p className="text-xs uppercase tracking-[0.16em] text-ivory/60">Sign up</p>
-        <p className="mt-2 text-sm text-ivory/70">
-          Get launch updates and security briefings.
-        </p>
+        <p className="text-xs uppercase tracking-[0.16em] text-ivory/60">{t('signupTitle')}</p>
+        <p className="mt-2 text-sm text-ivory/70">{t('signupBody')}</p>
         <form
           className="mt-3 flex flex-col gap-3 sm:flex-row"
           onSubmit={(event) => {
             event.preventDefault()
+            if (locked) return
             const trimmedEmail = email.trim()
             if (!trimmedEmail) {
-              setError('Enter a valid email.')
+              setError(t('emailError'))
               return
             }
             setError(null)
@@ -133,7 +137,7 @@ export default function RegionCompliancePanel() {
                 }
               })
               .catch(() => {
-                setError('Signup failed. Try again.')
+                setError(t('signupError'))
               })
               .finally(() => setSubmitting(false))
           }}
@@ -142,20 +146,26 @@ export default function RegionCompliancePanel() {
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@company.com"
-            className="w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-sm text-ivory placeholder:text-ivory/40 focus:outline-none focus:ring-2 focus:ring-saffron/30"
+            placeholder={t('emailPlaceholder')}
+            disabled={locked}
+            className="w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-sm text-ivory placeholder:text-ivory/40 focus:outline-none focus:ring-2 focus:ring-saffron/30 disabled:cursor-not-allowed disabled:opacity-60"
           />
           <button
             type="submit"
-            disabled={submitting}
+            disabled={locked || submitting}
             className="rounded-xl bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] px-4 py-2 text-sm font-semibold text-[#1c120a] shadow-lg shadow-[#c7794a]/30 transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? 'Sending…' : 'Join updates'}
+            {submitting ? t('signupSending') : t('signupButton')}
           </button>
         </form>
+        {locked && (
+          <p className="mt-2 text-xs uppercase tracking-[0.18em] text-ivory/50">
+            {tAuth('unlockActions')}
+          </p>
+        )}
         {submitted && (
           <p className="mt-2 text-xs text-jade">
-            Thanks — you’re on the list.
+            {t('signupSuccess')}
           </p>
         )}
         {error && <p className="mt-2 text-xs text-red-300">{error}</p>}

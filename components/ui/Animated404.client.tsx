@@ -2,8 +2,11 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { useLocale, useTranslations } from "next-intl"
 
 export default function Animated404() {
+  const t = useTranslations("notFound")
+  const locale = useLocale()
   return (
     <div
       role="region"
@@ -45,10 +48,10 @@ export default function Animated404() {
       </div>
 
       <Link
-        href="/"
+        href={`/${locale}`}
         className="absolute bottom-12 text-sm underline text-saffron/80 hover:text-saffron"
       >
-        Go home
+        {t("goHome")}
       </Link>
     </div>
   )

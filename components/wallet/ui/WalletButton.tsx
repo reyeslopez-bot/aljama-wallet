@@ -1,8 +1,10 @@
 'use client'
 
 import { useConnection, useConnect, useConnectors, useDisconnect } from 'wagmi'
+import { useTranslations } from 'next-intl'
 
 export default function WalletButton() {
+  const t = useTranslations('wallet')
   const { address, isConnected } = useConnection()
   const connectors = useConnectors()
   const { mutate: connect, isPending } = useConnect()
@@ -41,7 +43,7 @@ export default function WalletButton() {
         }}
         className="rounded-full border border-white/12 bg-white/5 px-4 py-2 text-xs font-semibold tracking-wide text-ivory/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isPending ? 'Connecting…' : isConnected ? shortAddress ?? 'Connected' : 'Connect'}
+        {isPending ? t('connecting') : isConnected ? shortAddress ?? t('connected') : t('connect')}
       </button>
     </div>
   )

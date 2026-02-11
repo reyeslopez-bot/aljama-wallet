@@ -5,9 +5,15 @@ import { useEffect } from 'react'
 import { useConnection, useConnect, useConnectors, useDisconnect } from 'wagmi'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
+import { useTranslations } from 'next-intl'
+import { useSession } from 'next-auth/react'
 
 export function ConnectWalletPanel() {
   useComponentTelemetry('ConnectWalletPanel')
+  const t = useTranslations('connectWallet')
+  const tAuth = useTranslations('auth')
+  const { status: sessionStatus } = useSession()
+  const locked = sessionStatus !== 'authenticated'
   const { address, isConnected, chain, connector: accountConnector } = useConnection()
   const connectors = useConnectors()
   const { mutate: connect, isPending, error: connectError } = useConnect()
@@ -29,15 +35,15 @@ export function ConnectWalletPanel() {
   const walletConnectConnector = readyConnectors.find((item) => item.id === 'walletConnect')
   const preferredConnector = injectedConnector ?? walletConnectConnector ?? readyConnectors[0]
   const canConnect = Boolean(preferredConnector)
-  const connectLabel = isConnected ? 'Disconnect wallet' : 'Connect wallet'
+  const connectLabel = isConnected ? t('buttonDisconnect') : t('buttonConnect')
   const statusLabel = !canConnect
-    ? 'No connector'
+    ? t('status.noConnector')
     : isConnected
-      ? 'Connected'
-      : 'Ready to connect'
+      ? t('status.connected')
+      : t('status.ready')
 
   useEffect(() => {
-    if (!isConnected || !address) {
+    if (locked || !isConnected || !address) {
       setConnectedWallet({ address: null })
       if (!isPending) setConnectWalletStatus('idle')
       return
@@ -66,15 +72,11 @@ export function ConnectWalletPanel() {
 
       <header className="relative flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">
-            Connect + Sync
-          </p>
+          <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('eyebrow')}</p>
           <h2 className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
-            Link your EVM wallet
+            {t('title')}
           </h2>
-          <p className="text-sm text-ivory/70">
-            Use your browser wallet to authenticate instantly.
-          </p>
+          <p className="text-sm text-ivory/70">{t('body')}</p>
         </div>
         <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70">
           {statusLabel}
@@ -86,18 +88,18 @@ export function ConnectWalletPanel() {
           {isConnected ? (
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-[0.16em] text-jade/80">
-                Wallet linked
+                {t('linkedTitle')}
               </p>
-              <p className="text-sm text-ivory/70">Primary address</p>
+              <p className="text-sm text-ivory/70">{t('linkedSubtitle')}</p>
               <p className="break-all font-mono text-sm text-jade">{address}</p>
             </div>
           ) : (
             <div className="space-y-2 text-sm text-ivory/70">
               <p className="flex items-center gap-2 font-medium text-saffron/80">
                 <span className="h-2 w-2 rounded-full bg-saffron" />
-                No wallet connected
+                {t('emptyTitle')}
               </p>
-              <p>Open the connector and approve access to sync balances.</p>
+              <p>{t('emptyBody')}</p>
             </div>
           )}
         </div>
@@ -106,8 +108,9 @@ export function ConnectWalletPanel() {
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          disabled={!canConnect || isPending}
+          disabled={locked || !canConnect || isPending}
           onClick={() => {
+            if (locked) return
             if (!preferredConnector) return
             if (isConnected) {
               setConnectWalletStatus('pending')
@@ -119,14 +122,17 @@ export function ConnectWalletPanel() {
           }}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#7fb0d9] via-[#5c8db4] to-[#4b7c79] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b7c79]/30 transition focus:outline-none focus:ring-2 focus:ring-lapis/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? 'Connecting...' : connectLabel}
+          {isPending ? t('buttonConnecting') : connectLabel}
         </motion.button>
 
-        {!canConnect ? (
-          <p className="text-xs text-saffron/80">
-            No wallet connector detected. Install a browser wallet or set
-            `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` for WalletConnect.
+        {locked && (
+          <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
+            {tAuth('unlockActions')}
           </p>
+        )}
+
+        {!canConnect ? (
+          <p className="text-xs text-saffron/80">{t('noConnectorNote')}</p>
         ) : null}
 
         {connectError ? (

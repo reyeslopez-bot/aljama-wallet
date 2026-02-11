@@ -3,33 +3,11 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { useLocale, useTranslations } from "next-intl"
+import { useSession } from "next-auth/react"
 
 type Btn =
   | { kind: "anchor"; label: string; href: string; bg: string; fg: string }
-
-const buttons: Btn[] = [
-  {
-    kind: "anchor",
-    label: "Create Wallet",
-    href: "#create",
-    bg: "linear-gradient(135deg, #f3d9aa 0%, #e0ad70 45%, #c67a4a 100%)",
-    fg: "#1B120A",
-  },
-  {
-    kind: "anchor",
-    label: "Connect Wallet",
-    href: "#connect",
-    bg: "linear-gradient(135deg, #7fb0d9 0%, #5c8db4 50%, #4b7c79 100%)",
-    fg: "#F7F1E7",
-  },
-  {
-    kind: "anchor",
-    label: "XRPL",
-    href: "#xrpl",
-    bg: "linear-gradient(135deg, #e8d2a2 0%, #c8ab72 50%, #a1804f 100%)",
-    fg: "#1C140B",
-  },
-]
 
 const surface = (bg: string) => ({
   backgroundImage: bg,
@@ -40,6 +18,36 @@ const surface = (bg: string) => ({
 } as const)
 
 export default function HomeActionButtons() {
+  const t = useTranslations("actions")
+  const tAuth = useTranslations("auth")
+  const locale = useLocale()
+  const { status: sessionStatus } = useSession()
+  const locked = sessionStatus !== "authenticated"
+
+  const buttons: Btn[] = [
+    {
+      kind: "anchor",
+      label: t("createWallet"),
+      href: `/${locale}/#create`,
+      bg: "linear-gradient(135deg, #f3d9aa 0%, #e0ad70 45%, #c67a4a 100%)",
+      fg: "#1B120A",
+    },
+    {
+      kind: "anchor",
+      label: t("connectWallet"),
+      href: `/${locale}/#connect`,
+      bg: "linear-gradient(135deg, #7fb0d9 0%, #5c8db4 50%, #4b7c79 100%)",
+      fg: "#F7F1E7",
+    },
+    {
+      kind: "anchor",
+      label: t("xrpl"),
+      href: `/${locale}/#xrpl`,
+      bg: "linear-gradient(135deg, #e8d2a2 0%, #c8ab72 50%, #a1804f 100%)",
+      fg: "#1C140B",
+    },
+  ]
+
   return (
     <div className="w-full">
       <div className="mx-auto grid w-full max-w-3xl grid-cols-3 gap-4 md:gap-6">
@@ -47,7 +55,14 @@ export default function HomeActionButtons() {
           <Link
             key={b.label}
             href={b.href}
-            className="block w-full bg-transparent p-0 border-0 outline-none appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saffron/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+            onClick={(event) => {
+              if (locked) event.preventDefault()
+            }}
+            aria-disabled={locked}
+            tabIndex={locked ? -1 : 0}
+            className={`block w-full bg-transparent p-0 border-0 outline-none appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saffron/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
+              locked ? "pointer-events-none opacity-60" : ""
+            }`}
             aria-label={b.label}
           >
             <motion.div
@@ -62,6 +77,11 @@ export default function HomeActionButtons() {
           </Link>
         ))}
       </div>
+      {locked && (
+        <p className="mt-4 text-center text-xs uppercase tracking-[0.18em] text-ivory/50">
+          {tAuth("unlockActions")}
+        </p>
+      )}
     </div>
   )
 }

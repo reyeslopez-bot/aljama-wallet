@@ -4,6 +4,7 @@
 import { useBalance, useConnection } from 'wagmi'
 import { formatUnits } from 'viem'
 import { mainnet, sepolia, polygon, base } from 'viem/chains'
+import { useTranslations } from 'next-intl'
 
 const supportedChains = [mainnet, sepolia, polygon, base]
 
@@ -12,13 +13,14 @@ type Props = {
 }
 
 export default function BalanceDisplay({ className = '' }: Props) {
+  const t = useTranslations('wallet')
   const { address, isConnected } = useConnection()
 
   if (!isConnected || !address) {
     return (
       <div className={className}>
         <div className="surface-inner px-4 py-3 text-xs text-ivory/60">
-          Wallet not connected.
+          {t('walletNotConnected')}
         </div>
       </div>
     )
@@ -27,7 +29,7 @@ export default function BalanceDisplay({ className = '' }: Props) {
   return (
     <div className={className}>
       <div className="mb-2 text-sm font-semibold text-ivory">
-        Native balances
+        {t('nativeBalances')}
       </div>
 
       <ul className="space-y-2 text-sm text-ivory/80">
@@ -46,6 +48,7 @@ function ChainBalance({
   chainId: number
   address: `0x${string}`
 }) {
+  const t = useTranslations('wallet')
   const { data, isLoading, isError } = useBalance({ address, chainId })
 
   const chainName =
@@ -55,7 +58,7 @@ function ChainBalance({
     return (
       <li className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-xs text-ivory/60">
         <span>{chainName}</span>
-        <span>Loading…</span>
+        <span>{t('loading')}</span>
       </li>
     )
   }
@@ -63,7 +66,7 @@ function ChainBalance({
     return (
       <li className="flex items-center justify-between rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
         <span>{chainName}</span>
-        <span>Error</span>
+        <span>{t('error')}</span>
       </li>
     )
   }

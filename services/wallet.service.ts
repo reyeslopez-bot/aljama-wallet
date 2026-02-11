@@ -2,6 +2,7 @@
 import { getAddress } from 'ethers'
 import { prismaCrdb } from '@/lib/prisma-crdb'
 import { decryptPrivateKey, encryptPrivateKey } from '@/lib/crypto/wallet-crypto'
+import { incrementDailySummary } from '@/services/summary.service'
 
 function ensure0xHex(pk: string): string {
   const trimmed = pk.trim()
@@ -113,7 +114,7 @@ export async function recordTransaction(params: {
   valueWei: bigint
   asset?: string
 }) {
-  return prismaCrdb.transaction.create({
+  const record = await prismaCrdb.transaction.create({
     data: {
       blockchain: String(params.chainId),
       asset: params.asset ?? 'native',
@@ -122,4 +123,12 @@ export async function recordTransaction(params: {
       toWalletId: params.toWalletId,
     },
   })
+
+  try {
+    await incrementDailySummary(new Date())
+  } catch (error) {
+    console.warn('daily summary update failed', error)
+  }
+
+  return record
 }

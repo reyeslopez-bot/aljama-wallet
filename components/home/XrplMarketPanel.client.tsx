@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
+import { useTranslations } from 'next-intl'
+import { useSession } from 'next-auth/react'
 
 type MarketAsset = {
   id: string
@@ -30,13 +32,7 @@ const COLORS: Record<string, string> = {
   EURC: '#f4c542',
 }
 
-const viewOptions = [
-  { id: 'all', label: 'All' },
-  { id: 'xrpl', label: 'XRPL' },
-  { id: 'reference', label: 'Reference' },
-] as const
-
-type ViewOption = (typeof viewOptions)[number]['id']
+type ViewOption = 'all' | 'xrpl' | 'reference'
 
 function normalizeSeries(series: number[]): number[] {
   if (series.length === 0) return []
@@ -74,6 +70,10 @@ function formatUsd(value: number) {
 
 export default function XrplMarketPanel() {
   useComponentTelemetry('XrplMarketPanel')
+  const t = useTranslations('market')
+  const tAuth = useTranslations('auth')
+  const { status: sessionStatus } = useSession()
+  const locked = sessionStatus !== 'authenticated'
   const [state, setState] = useState<{
     loading: boolean
     error: string | null
@@ -129,24 +129,26 @@ export default function XrplMarketPanel() {
     return { normalizedSeries, min, max }
   }, [visibleAssets])
 
+  const viewOptions = [
+    { id: 'all', label: t('viewAll') },
+    { id: 'xrpl', label: t('viewXrpl') },
+    { id: 'reference', label: t('viewReference') },
+  ] as const
+
   return (
     <section className="surface-panel panel-glow-rose relative p-7 sm:p-8">
       <div className="absolute inset-x-8 top-5 ornament-line" />
 
       <header className="relative flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">
-            Market Snapshot
-          </p>
+          <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('eyebrow')}</p>
           <h2 className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
-            XRPL vs. majors
+            {t('title')}
           </h2>
-          <p className="text-sm text-ivory/70">
-            Normalized 24h index. Reference prices are cross-chain and may not be issued on XRPL.
-          </p>
+          <p className="text-sm text-ivory/70">{t('body')}</p>
         </div>
         <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70">
-          {state.snapshot?.source === 'fallback' ? 'Fallback data' : 'Live'}
+          {state.snapshot?.source === 'fallback' ? t('badgeFallback') : t('badgeLive')}
         </span>
       </header>
 
@@ -157,7 +159,8 @@ export default function XrplMarketPanel() {
               key={option.id}
               type="button"
               onClick={() => setState((prev) => ({ ...prev, view: option.id }))}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              disabled={locked}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 state.view === option.id
                   ? 'border-saffron/60 bg-saffron/10 text-saffron'
                   : 'border-white/10 bg-white/5 text-ivory/60 hover:border-white/20'
@@ -168,14 +171,14 @@ export default function XrplMarketPanel() {
           ))}
           <span className="ml-auto text-[11px] text-ivory/40">
             {state.snapshot?.updatedAt
-              ? `Updated ${new Date(state.snapshot.updatedAt).toLocaleTimeString()}`
+              ? `${t('updated')} ${new Date(state.snapshot.updatedAt).toLocaleTimeString()}`
               : ''}
           </span>
         </div>
 
         <div className="surface-inner p-4">
           {state.loading ? (
-            <p className="text-sm text-ivory/60">Loading market data…</p>
+            <p className="text-sm text-ivory/60">{t('loading')}</p>
           ) : state.error ? (
             <p className="text-sm text-red-300">{state.error}</p>
           ) : (
@@ -222,10 +225,10 @@ export default function XrplMarketPanel() {
 
         <div className="surface-soft p-4 text-sm text-ivory/70">
           <div className="grid grid-cols-4 gap-3 text-xs uppercase tracking-wide text-ivory/50">
-            <span>Asset</span>
-            <span>Price</span>
-            <span>24h</span>
-            <span>Network</span>
+            <span>{t('table.asset')}</span>
+            <span>{t('table.price')}</span>
+            <span>{t('table.change')}</span>
+            <span>{t('table.network')}</span>
           </div>
           <div className="mt-3 space-y-2">
             {visibleAssets.map((asset) => (
@@ -237,7 +240,7 @@ export default function XrplMarketPanel() {
                   {asset.change24h.toFixed(2)}%
                 </span>
                 <span className="text-ivory/60">
-                  {asset.network === 'xrpl' ? 'XRPL' : 'Reference'}
+                  {asset.network === 'xrpl' ? t('table.xrpl') : t('table.reference')}
                 </span>
               </div>
             ))}
@@ -248,11 +251,18 @@ export default function XrplMarketPanel() {
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          disabled={locked}
           onClick={() => void loadSnapshot()}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-5 py-3 text-base font-semibold tracking-wide text-[#1c120a] shadow-lg shadow-[#b26a49]/30 transition focus:outline-none focus:ring-2 focus:ring-saffron/40"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-5 py-3 text-base font-semibold tracking-wide text-[#1c120a] shadow-lg shadow-[#b26a49]/30 transition focus:outline-none focus:ring-2 focus:ring-saffron/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Refresh market snapshot
+          {t('refresh')}
         </motion.button>
+
+        {locked && (
+          <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
+            {tAuth('unlockActions')}
+          </p>
+        )}
       </div>
     </section>
   )

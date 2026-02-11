@@ -1,13 +1,18 @@
 // app/layout.tsx
 import './globals.css'
 import type { ReactNode } from 'react'
-import Providers from './Providers.client'
+import { cookies } from 'next/headers'
+import { defaultLocale, isRtlLocale } from '@/i18n/routing'
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const cookieStore = await cookies()
+  const locale = cookieStore.get('NEXT_LOCALE')?.value ?? defaultLocale
+  const dir = isRtlLocale(locale) ? 'rtl' : 'ltr'
+
   return (
-    <html lang="en">
+    <html lang={locale} dir={dir}>
       <body className="min-h-screen flex flex-col antialiased text-foreground bg-surface">
-        <Providers>{children}</Providers>
+        {children}
       </body>
     </html>
   )

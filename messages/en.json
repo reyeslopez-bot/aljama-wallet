@@ -1,0 +1,267 @@
+{
+  "navbar": {
+    "overview": "Overview",
+    "create": "Create",
+    "connect": "Connect",
+    "xrpl": "XRPL",
+    "about": "About",
+    "contact": "Contact",
+    "menu": "Menu",
+    "active": "Active",
+    "language": "Language",
+    "signIn": "Sign in"
+  },
+  "home": {
+    "hero": {
+      "title": "Encrypted custody designed for cross-border capital.",
+      "subtitle": "Create encrypted vaults, move across EVM networks, and operate under policy-controlled custody without noisy onboarding."
+    },
+    "stats": {
+      "mainnetLabel": "Mainnet posture",
+      "mainnetValue": "EVM-first",
+      "mainnetDetail": "Wagmi + Ethers production stack",
+      "securityLabel": "Security model",
+      "securityValue": "Encrypted custody",
+      "securityDetail": "Policy-governed signing with vault controls",
+      "uxLabel": "UX philosophy",
+      "uxValue": "Guided flows",
+      "uxDetail": "Clear sequencing, minimal surface noise"
+    },
+    "vaultIntel": {
+      "label": "Vault Intelligence",
+      "title": "Stay synced with live wallet context.",
+      "body": "This panel surfaces RainbowKit + wagmi state so you can verify active connections, swap accounts, and track EVM balances without leaving the landing page.",
+      "statusLabel": "Connector status",
+      "statusValue": "Live",
+      "statusDetail": "WalletConnect, injected, and custom flows remain available."
+    }
+  },
+  "actions": {
+    "createWallet": "Create Wallet",
+    "connectWallet": "Connect Wallet",
+    "xrpl": "XRPL",
+    "refresh": "Refresh",
+    "connecting": "Connecting...",
+    "creating": "Creating…"
+  },
+  "createWallet": {
+    "eyebrow": "Create + Encrypt",
+    "title": "Spin up a fresh vault",
+    "body": "Generate a wallet, store an encrypted session copy, and sync to the custody vault.",
+    "badgeCustody": "Custody flow",
+    "badgeReady": "Ready to use",
+    "badgeSessionOnly": "Session-only",
+    "passwordLabel": "Password",
+    "passwordTag": "Encrypt",
+    "passwordPlaceholder": "Create a passphrase you will remember",
+    "button": "Create wallet",
+    "tagEncrypted": "Session copy encrypted",
+    "tagPrivate": "Keep the password private",
+    "emptyTitle": "No wallet created yet",
+    "emptyBody": "Use a memorable phrase. It encrypts your local session copy.",
+    "readyTitle": "Wallet ready",
+    "readyBody": "Keep this tab open; your session copy stays local.",
+    "addressLabel": "Address"
+  },
+  "featureShowcase": {
+    "eyebrow": "Design language",
+    "title": "Geometry-forward surfaces, calm by design",
+    "body": "Layered surfaces for wallet flows and onchain context, with clear hierarchy and low noise.",
+    "rituals": {
+      "createTitle": "Create + encrypt",
+      "createDetail": "Password-gated creation with clear UI feedback.",
+      "trackTitle": "Track connections",
+      "trackDetail": "Instant UI sync when wallet state changes."
+    },
+    "cards": {
+      "metadataTitle": "Onchain metadata",
+      "metadataSubtitle": "Definition + URI",
+      "metadataBody": "Put key asset info onchain, or link docs via URI.\nAlways verifiable, always discoverable.",
+      "metadataBadge": "Metadata",
+      "contextTitle": "Shared asset context",
+      "contextSubtitle": "Wallets + apps",
+      "contextBody": "One canonical reference across wallets and dApps.\nConsistent display, less confusion.",
+      "contextBadge": "Onchain ready"
+    }
+  },
+  "region": {
+    "eyebrow": "Region + Compliance",
+    "title": "Set your operating region.",
+    "body": "Pick a region to tailor disclosure copy and privacy defaults. This is a UI preference only.",
+    "label": "Region",
+    "regions": {
+      "us": "United States",
+      "eu": "European Union",
+      "mena": "MENA",
+      "apac": "APAC",
+      "latam": "LATAM"
+    },
+    "regionDetail": {
+      "us": "US data centers + disclosures",
+      "eu": "GDPR-first defaults",
+      "mena": "Regional UX + language focus",
+      "apac": "Low-latency regional routing",
+      "latam": "Localized onboarding context"
+    },
+    "complianceTitle": "Compliance targets",
+    "compliance": {
+      "gdpr": "GDPR alignment",
+      "gdprDetail": "Privacy-first consent controls",
+      "soc2": "SOC 2 roadmap",
+      "soc2Detail": "Operational controls targeting SOC 2",
+      "iso": "ISO 27001 roadmap",
+      "isoDetail": "Security management alignment"
+    },
+    "targeted": "Targeted",
+    "disclaimer": "Informational only. Not a certification claim.",
+    "signupTitle": "Sign up",
+    "signupBody": "Get launch updates and security briefings.",
+    "emailPlaceholder": "you@company.com",
+    "signupButton": "Join updates",
+    "signupSending": "Sending…",
+    "signupSuccess": "Thanks — you’re on the list.",
+    "signupError": "Signup failed. Try again.",
+    "emailError": "Enter a valid email."
+  },
+  "connectWallet": {
+    "eyebrow": "Connect + Sync",
+    "title": "Link your EVM wallet",
+    "body": "Use your browser wallet to authenticate instantly.",
+    "status": {
+      "noConnector": "No connector",
+      "connected": "Connected",
+      "ready": "Ready to connect"
+    },
+    "linkedTitle": "Wallet linked",
+    "linkedSubtitle": "Primary address",
+    "emptyTitle": "No wallet connected",
+    "emptyBody": "Open the connector and approve access to sync balances.",
+    "buttonConnect": "Connect wallet",
+    "buttonDisconnect": "Disconnect wallet",
+    "buttonConnecting": "Connecting...",
+    "noConnectorNote": "No wallet connector detected. Install a browser wallet or set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID for WalletConnect."
+  },
+  "xrpl": {
+    "eyebrow": "XRPL + Ledger",
+    "title": "XRP Ledger ready",
+    "body": "Testnet snapshot from the server-side XRPL dev seed. Pull balances on demand.",
+    "statusSyncing": "Syncing",
+    "statusOnline": "Online",
+    "loading": "Fetching XRPL dev account…",
+    "accountTitle": "Testnet dev account",
+    "balanceLabel": "Balance",
+    "empty": "No XRPL data loaded.",
+    "refresh": "Refresh XRPL snapshot"
+  },
+  "market": {
+    "eyebrow": "Market Snapshot",
+    "title": "XRPL vs. majors",
+    "body": "Normalized 24h index. Reference prices are cross-chain and may not be issued on XRPL.",
+    "badgeFallback": "Fallback data",
+    "badgeLive": "Live",
+    "viewAll": "All",
+    "viewXrpl": "XRPL",
+    "viewReference": "Reference",
+    "updated": "Updated",
+    "loading": "Loading market data…",
+    "table": {
+      "asset": "Asset",
+      "price": "Price",
+      "change": "24h",
+      "network": "Network",
+      "xrpl": "XRPL",
+      "reference": "Reference"
+    },
+    "refresh": "Refresh market snapshot"
+  },
+  "map": {
+    "label": "Map",
+    "idle": "Click “Use my location” to center the map on you.",
+    "loading": "Requesting location…",
+    "centered": "Centered at",
+    "error": "Map error.",
+    "useLocation": "Use my location",
+    "loadingTiles": "Loading map tiles…",
+    "offline": "Map offline"
+  },
+  "location": {
+    "label": "Current Location",
+    "idle": "Location is not requested yet. Click “Use my location” to fetch coordinates.",
+    "loading": "Requesting location…",
+    "accuracy": "Accuracy",
+    "updated": "Updated",
+    "copy": "Copy",
+    "openMaps": "Open in Google Maps",
+    "useLocation": "Use my location"
+  },
+  "infoCard": {
+    "signal": "Signal",
+    "vaultSession": "Vault session",
+    "wallet": "Wallet",
+    "network": "Network",
+    "connector": "Connector",
+    "tracking": "Tracking",
+    "hoverView": "Hover view",
+    "expand": "Expand on hover",
+    "status": {
+      "creating": "Creating",
+      "syncing": "Syncing",
+      "action": "Action needed",
+      "available": "Available",
+      "vault": "Vault",
+      "idle": "Idle"
+    }
+  },
+  "footer": {
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "contact": "Contact",
+    "rights": "All rights reserved."
+  },
+  "consent": {
+    "text": "We use telemetry to improve reliability and UX (performance, navigation, and feature usage). You can opt out at any time.",
+    "decline": "Decline",
+    "accept": "Accept"
+  },
+  "wallet": {
+    "connect": "Connect",
+    "connecting": "Connecting…",
+    "connected": "Connected",
+    "nativeBalances": "Native balances",
+    "walletNotConnected": "Wallet not connected.",
+    "loading": "Loading…",
+    "error": "Error"
+  },
+  "auth": {
+    "title": "Secure Gate",
+    "subtitle": "Sign in to continue.",
+    "email": "Email",
+    "password": "Password",
+    "invite": "Invite token",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "register": "Sign up",
+    "registering": "Signing up…",
+    "toggleToRegister": "Need an invite? Sign up",
+    "toggleToLogin": "Already have access? Sign in",
+    "back": "Return to Home",
+    "invalidInvite": "Invalid invite token.",
+    "registerSuccess": "Account created. Signing you in…",
+    "loginFailed": "Login failed.",
+    "registerFailed": "Registration failed.",
+    "emailInvalid": "Enter a valid email address.",
+    "unlockActions": "Sign in to unlock actions.",
+    "passwordWeak": "Password is too weak.",
+    "passwordRules": "Use 12+ chars with upper/lowercase, number, and symbol.",
+    "inviteHint": "Use the demo token: demo-invite"
+  },
+  "common": {
+    "optional": "optional"
+  },
+  "errors": {
+    "required": "Required"
+  },
+  "notFound": {
+    "goHome": "Go home"
+  }
+}

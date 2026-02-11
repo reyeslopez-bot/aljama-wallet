@@ -2,6 +2,8 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
+import { useSession } from 'next-auth/react'
 
 type GeoState =
   | { status: 'idle' }
@@ -14,9 +16,14 @@ function format(n: number) {
 }
 
 export default function CurrentLocation() {
+  const t = useTranslations('location')
+  const tAuth = useTranslations('auth')
+  const { status: sessionStatus } = useSession()
+  const locked = sessionStatus !== 'authenticated'
   const [state, setState] = React.useState<GeoState>({ status: 'idle' })
 
   const request = React.useCallback(() => {
+    if (locked) return
     if (!('geolocation' in navigator)) {
       setState({ status: 'error', message: 'Geolocation not supported in this browser.' })
       return
@@ -56,9 +63,10 @@ export default function CurrentLocation() {
         maximumAge: 15_000,
       },
     )
-  }, [])
+  }, [locked])
 
   const copy = React.useCallback(async () => {
+    if (locked) return
     if (state.status !== 'ready') return
     const text = `${format(state.lat)}, ${format(state.lng)}`
     try {
@@ -66,7 +74,7 @@ export default function CurrentLocation() {
     } catch {
       // ignore (clipboard can be blocked)
     }
-  }, [state])
+  }, [locked, state])
 
   const mapsHref =
     state.status === 'ready'
@@ -75,17 +83,15 @@ export default function CurrentLocation() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs uppercase tracking-[0.18em] text-saffron/70">Current Location</p>
+      <p className="text-xs uppercase tracking-[0.18em] text-saffron/70">{t('label')}</p>
 
       <div className="surface-inner p-6">
         {state.status === 'idle' && (
-          <p className="text-sm text-ivory/70">
-            Location is not requested yet. Click “Use my location” to fetch coordinates.
-          </p>
+          <p className="text-sm text-ivory/70">{t('idle')}</p>
         )}
 
         {state.status === 'loading' && (
-          <p className="text-sm text-ivory/70">Requesting location…</p>
+          <p className="text-sm text-ivory/70">{t('loading')}</p>
         )}
 
         {state.status === 'error' && (
@@ -99,7 +105,7 @@ export default function CurrentLocation() {
                 {format(state.lat)}, {format(state.lng)}
               </div>
               <div className="mt-1 text-xs text-ivory/60">
-                Accuracy: {state.accuracy ? `${Math.round(state.accuracy)}m` : '—'} · Updated:{' '}
+                {t('accuracy')}: {state.accuracy ? `${Math.round(state.accuracy)}m` : '—'} · {t('updated')}{' '}
                 {new Date(state.timestamp).toLocaleTimeString()}
               </div>
             </div>
@@ -108,9 +114,10 @@ export default function CurrentLocation() {
               <button
                 type="button"
                 onClick={copy}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10"
+                disabled={locked}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Copy
+                {t('copy')}
               </button>
 
               {mapsHref && (
@@ -118,9 +125,11 @@ export default function CurrentLocation() {
                   href={mapsHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10"
+                  className={`rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 ${
+                    locked ? 'pointer-events-none opacity-60' : ''
+                  }`}
                 >
-                  Open in Google Maps
+                  {t('openMaps')}
                 </a>
               )}
             </div>
@@ -131,10 +140,16 @@ export default function CurrentLocation() {
       <button
         type="button"
         onClick={request}
-        className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10"
+        disabled={locked}
+        className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Use my location
+        {t('useLocation')}
       </button>
+      {locked && (
+        <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
+          {tAuth('unlockActions')}
+        </p>
+      )}
     </div>
   )
 }

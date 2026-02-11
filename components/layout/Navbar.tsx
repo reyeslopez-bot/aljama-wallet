@@ -2,40 +2,44 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import WalletButton from '@/components/wallet/ui/WalletButton'
 import { BRAND } from '@/constants/brand'
-
-const MENU_ITEMS = [
-  { label: 'Overview', href: '/#overview' },
-  { label: 'Create', href: '/#create' },
-  { label: 'Connect', href: '/#connect' },
-  { label: 'XRPL', href: '/#xrpl' },
-]
+import { useLocale, useTranslations } from 'next-intl'
+import { useSession } from 'next-auth/react'
 
 const LANGUAGES = [
   { label: 'English', value: 'en' },
-  { label: 'Hebrew', value: 'he' },
-  { label: 'Arabic', value: 'ar' },
+  { label: 'עברית', value: 'he' },
+  { label: 'العربية', value: 'ar' },
 ]
 
 export default function Navbar() {
+  const t = useTranslations('navbar')
+  const locale = useLocale()
   const pathname = usePathname()
+  const router = useRouter()
+  const { status } = useSession()
+  const isAuthed = status === 'authenticated'
   const [menuOpen, setMenuOpen] = useState(false)
   const [languageOpen, setLanguageOpen] = useState(false)
-  const [activeLanguage, setActiveLanguage] = useState(LANGUAGES[0])
   const [activeHash, setActiveHash] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
   const languageRef = useRef<HTMLDivElement>(null)
 
-  const walletRoutes =
-    pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/wallet') ||
-    pathname.startsWith('/swap') ||
-    pathname.startsWith('/send')
+  const localePrefix = `/${locale}`
+  const pathWithoutLocale = pathname.startsWith(localePrefix)
+    ? pathname.slice(localePrefix.length) || '/'
+    : pathname
 
-  const showWallet = walletRoutes
+  const walletRoutes =
+    pathWithoutLocale.startsWith('/dashboard') ||
+    pathWithoutLocale.startsWith('/wallet') ||
+    pathWithoutLocale.startsWith('/swap') ||
+    pathWithoutLocale.startsWith('/send')
+
+  const showWallet = walletRoutes && isAuthed
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
@@ -83,6 +87,13 @@ export default function Navbar() {
     return hashIndex === -1 ? '' : href.slice(hashIndex)
   }
 
+  const menuItems = [
+    { label: t('overview'), href: `/${locale}/#overview` },
+    { label: t('create'), href: `/${locale}/#create` },
+    { label: t('connect'), href: `/${locale}/#connect` },
+    { label: t('xrpl'), href: `/${locale}/#xrpl` },
+  ]
+
   return (
     <nav
       className="
@@ -99,7 +110,7 @@ export default function Navbar() {
     >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
         <Link
-          href="/"
+          href={`/${locale}`}
           className="font-display text-xl font-semibold tracking-[0.18em] text-ivory transition hover:text-sand"
         >
           {BRAND.name}
@@ -107,7 +118,7 @@ export default function Navbar() {
 
         <div className="flex items-center gap-3">
           <div className="hidden items-center gap-1 md:flex">
-            {MENU_ITEMS.map((item) => {
+            {menuItems.map((item) => {
               const itemHash = getHashFromHref(item.href)
               const isActive = itemHash ? itemHash === activeHash : pathname === item.href
               return (
@@ -135,7 +146,7 @@ export default function Navbar() {
               aria-expanded={menuOpen}
               aria-controls="navbar-menu"
             >
-              Menu
+              {t('menu')}
               <span className="text-xs opacity-80">{menuOpen ? '▲' : '▼'}</span>
             </button>
 
@@ -145,7 +156,7 @@ export default function Navbar() {
                 className="absolute right-0 mt-2 w-48 rounded-2xl border border-white/12 bg-gradient-to-b from-black/95 via-onyx/95 to-black/90 p-2 shadow-xl"
                 role="menu"
               >
-                {MENU_ITEMS.map((item) => {
+                {menuItems.map((item) => {
                   const itemHash = getHashFromHref(item.href)
                   const isActive = itemHash ? itemHash === activeHash : pathname === item.href
                   return (
@@ -163,6 +174,15 @@ export default function Navbar() {
                     </Link>
                   )
                 })}
+                {!isAuthed && (
+                  <Link
+                    href={`/${locale}/login`}
+                    className="block rounded-xl px-3 py-2 text-sm text-ivory/80 transition hover:bg-white/10 hover:text-ivory"
+                    role="menuitem"
+                  >
+                    {t('signIn')}
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -188,7 +208,7 @@ export default function Navbar() {
                 <path d="M2 12h20" />
                 <path d="M12 2c2.5 2.7 4 6.1 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.1-4-10s 1.5-7.3 4-10Z" />
               </svg>
-              <span>{activeLanguage.label}</span>
+              <span>{LANGUAGES.find((lang) => lang.value === locale)?.label ?? t('language')}</span>
               <span className="text-xs opacity-80">{languageOpen ? '▲' : '▼'}</span>
             </button>
 
@@ -203,15 +223,23 @@ export default function Navbar() {
                     key={language.value}
                     type="button"
                     onClick={() => {
-                      setActiveLanguage(language)
                       setLanguageOpen(false)
+                      const segments = pathname.split('/')
+                      if (segments.length > 1) {
+                        segments[1] = language.value
+                      } else {
+                        segments.push(language.value)
+                      }
+                      const nextPath = segments.join('/') || `/${language.value}`
+                      const hash = typeof window !== 'undefined' ? window.location.hash : ''
+                      router.push(`${nextPath}${hash}`)
                     }}
                     className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-ivory/80 transition hover:bg-white/10 hover:text-ivory"
                     role="menuitem"
                   >
                     <span>{language.label}</span>
-                    {activeLanguage.value === language.value && (
-                      <span className="text-xs text-ivory/70">Active</span>
+                    {locale === language.value && (
+                      <span className="text-xs text-ivory/70">{t('active')}</span>
                     )}
                   </button>
                 ))}
@@ -219,6 +247,14 @@ export default function Navbar() {
             )}
           </div>
 
+          {!isAuthed && (
+            <Link
+              href={`/${locale}/login`}
+              className="hidden rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-ivory transition hover:border-saffron/40 hover:bg-white/10 md:inline-flex"
+            >
+              {t('signIn')}
+            </Link>
+          )}
           {showWallet && <WalletButton />}
         </div>
       </div>

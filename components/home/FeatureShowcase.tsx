@@ -1,34 +1,36 @@
-const featureCards = [
-  {
-    title: 'Onchain metadata',
-    subtitle: 'Definition + URI',
-    body: `Put key asset info onchain, or link docs via URI.
-Always verifiable, always discoverable.`,
-    accent: 'saffron',
-    badge: 'Metadata',
-  },
-  {
-    title: 'Shared asset context',
-    subtitle: 'Wallets + apps',
-    body: `One canonical reference across wallets and dApps.
-Consistent display, less confusion.`,
-    accent: 'lapis',
-    badge: 'Onchain ready',
-  },
-]
-
-const rituals = [
-  {
-    title: 'Create + encrypt',
-    detail: 'Password-gated creation with clear UI feedback.',
-  },
-  {
-    title: 'Track connections',
-    detail: 'Instant UI sync when wallet state changes.',
-  },
-]
+import { useTranslations } from 'next-intl'
 
 export function FeatureShowcase() {
+  const t = useTranslations('featureShowcase')
+
+  const rituals = [
+    {
+      title: t('rituals.createTitle'),
+      detail: t('rituals.createDetail'),
+    },
+    {
+      title: t('rituals.trackTitle'),
+      detail: t('rituals.trackDetail'),
+    },
+  ]
+
+  const featureCards = [
+    {
+      title: t('cards.metadataTitle'),
+      subtitle: t('cards.metadataSubtitle'),
+      body: t('cards.metadataBody'),
+      accent: 'saffron',
+      badge: t('cards.metadataBadge'),
+    },
+    {
+      title: t('cards.contextTitle'),
+      subtitle: t('cards.contextSubtitle'),
+      body: t('cards.contextBody'),
+      accent: 'lapis',
+      badge: t('cards.contextBadge'),
+    },
+  ]
+
   return (
     <section className="surface-panel panel-glow-rose relative p-7 sm:p-8">
       <div className="absolute inset-x-8 top-5 ornament-line" />
@@ -36,15 +38,13 @@ export function FeatureShowcase() {
       {/* SINGLE COLUMN: header -> rituals -> cards */}
       <div className="relative space-y-6">
         <div className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.2em] text-saffron/80">Design language</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-saffron/80">{t('eyebrow')}</p>
 
           <h2 className="font-display text-3xl font-semibold text-ivory sm:text-4xl">
-            Geometry-forward surfaces, calm by design
+            {t('title')}
           </h2>
 
-          <p className="max-w-prose text-base text-ivory/70">
-            Layered surfaces for wallet flows and onchain context, with clear hierarchy and low noise.
-          </p>
+          <p className="max-w-prose text-base text-ivory/70">{t('body')}</p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
