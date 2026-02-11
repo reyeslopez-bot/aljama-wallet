@@ -21,6 +21,10 @@ const mockedUseDisconnect = vi.mocked(useDisconnect)
 describe('WalletButton', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.defineProperty(window, 'ethereum', {
+      value: {},
+      configurable: true,
+    })
   })
 
   it('connects when disconnected', () => {

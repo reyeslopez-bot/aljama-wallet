@@ -45,6 +45,10 @@ describe('ConnectWalletPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetStore()
+    Object.defineProperty(window, 'ethereum', {
+      value: {},
+      configurable: true,
+    })
   })
 
   it('renders disconnected state and resets store', async () => {
