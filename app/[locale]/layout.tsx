@@ -21,7 +21,12 @@ export default async function LocaleLayout({
 
   setRequestLocale(locale)
   const messages = await getMessages()
-  const session = await getServerSession(authOptions)
+  let session = null
+  try {
+    session = await getServerSession(authOptions)
+  } catch (error) {
+    console.error('auth session error', error)
+  }
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>

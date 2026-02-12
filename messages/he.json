@@ -253,7 +253,8 @@
     "unlockActions": "התחברו כדי לפתוח פעולות.",
     "passwordWeak": "הסיסמה חלשה מדי.",
     "passwordRules": "השתמשו ב-12+ תווים עם אותיות גדולות/קטנות, מספר וסמל.",
-    "inviteHint": "השתמשו בטוקן הדמו: demo-invite"
+    "inviteHint": "השתמשו בטוקן הדמו: demo-invite",
+    "emailExists": "כבר קיים חשבון עם המייל הזה."
   },
   "common": {
     "optional": "אופציונלי"

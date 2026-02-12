@@ -8,6 +8,9 @@ import { findUserByEmail, usePgAuth } from '@/lib/auth/store'
 const usePg = usePgAuth()
 
 export const authOptions: NextAuthOptions = {
+  secret:
+    process.env.NEXTAUTH_SECRET ??
+    (process.env.NODE_ENV !== 'production' ? 'dev-secret-change-me' : undefined),
   adapter: usePg ? PrismaAdapter(prismaPg) : undefined,
   session: {
     strategy: usePg ? 'database' : 'jwt',

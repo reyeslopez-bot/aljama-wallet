@@ -253,7 +253,8 @@
     "unlockActions": "سجّل الدخول لفتح الإجراءات.",
     "passwordWeak": "كلمة المرور ضعيفة جدًا.",
     "passwordRules": "استخدم 12+ حرفًا مع أحرف كبيرة/صغيرة ورقم ورمز.",
-    "inviteHint": "استخدم رمز الدعوة التجريبي: demo-invite"
+    "inviteHint": "استخدم رمز الدعوة التجريبي: demo-invite",
+    "emailExists": "يوجد حساب بهذا البريد بالفعل."
   },
   "common": {
     "optional": "اختياري"

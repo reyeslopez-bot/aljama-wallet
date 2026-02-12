@@ -48,10 +48,13 @@ export default function LoginGate({
   }
 
   const strongPassword = isStrongPassword(password)
+  const normalizedEmail = email.trim()
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
   const disabled =
     busy ||
-    !email.trim() ||
+    !normalizedEmail ||
     !password ||
+    !isValidEmail ||
     (mode === "register" && (!inviteToken.trim() || !strongPassword))
 
   async function handleSubmit(e: React.FormEvent) {
@@ -61,8 +64,6 @@ export default function LoginGate({
     setError(null)
     setNotice(null)
     try {
-      const normalizedEmail = email.trim()
-      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
       if (!isValidEmail) {
         setError(t("emailInvalid"))
         return
@@ -91,10 +92,14 @@ export default function LoginGate({
 
         if (!res.ok) {
           const body = await res.json().catch(() => null)
-          const message =
-            body?.error === "Invalid invite token"
-              ? t("invalidInvite")
-              : t("registerFailed")
+          let message = t("registerFailed")
+          if (body?.error === "Invalid invite token") {
+            message = t("invalidInvite")
+          } else if (body?.error === "User already exists") {
+            message = t("emailExists")
+          } else if (typeof body?.error === "string") {
+            message = body.error
+          }
           setError(message)
           return
         }
@@ -187,6 +192,9 @@ export default function LoginGate({
             autoComplete="email"
             type="email"
           />
+          {email && !isValidEmail && (
+            <p className="text-[11px] text-saffron/80">{t("emailInvalid")}</p>
+          )}
 
           <label className="block pt-2 text-xs uppercase tracking-[0.16em] text-ivory/60">
             {t("password")}

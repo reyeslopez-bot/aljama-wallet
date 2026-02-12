@@ -253,7 +253,8 @@
     "unlockActions": "Sign in to unlock actions.",
     "passwordWeak": "Password is too weak.",
     "passwordRules": "Use 12+ chars with upper/lowercase, number, and symbol.",
-    "inviteHint": "Use the demo token: demo-invite"
+    "inviteHint": "Use the demo token: demo-invite",
+    "emailExists": "An account with this email already exists."
   },
   "common": {
     "optional": "optional"
