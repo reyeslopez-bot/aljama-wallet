@@ -1,6 +1,7 @@
 // lib/crypto/wallet-crypto.ts
 import crypto from "node:crypto"
 import { isStrictMode } from "@/lib/security/runtime"
+import { loadKeyForVersion } from "@/lib/security/key-provider"
 
 const ALGO = "aes-256-gcm"
 const AAD_PREFIX = "aljama-wallet:pk:v1"
@@ -9,12 +10,9 @@ let cachedActiveVersion: number | null = null
 let cachedActiveKey: Buffer | null = null
 
 function getKeyForVersion(version: number): Buffer {
-  const keyHex = process.env[`WALLET_ENCRYPTION_KEY_V${version}`]
-  if (!keyHex) throw new Error(`WALLET_ENCRYPTION_KEY_V${version} not set`)
-
-  const key = Buffer.from(keyHex.trim(), "hex")
+  const { key } = loadKeyForVersion(version)
   if (key.length !== 32) {
-    throw new Error(`WALLET_ENCRYPTION_KEY_V${version} must be 32 bytes hex (64 chars)`)
+    throw new Error(`WALLET_ENCRYPTION_KEY_V${version} must be 32 bytes`)
   }
   assertFingerprintMatches(version, key)
   return key

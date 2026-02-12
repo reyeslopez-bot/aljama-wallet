@@ -137,3 +137,36 @@ model IdempotencyKey {
   @@unique([scope, key])
   @@index([expiresAt])
 }
+
+model WalletTransferLog {
+  id             String   @id @default(cuid())
+  walletId       String
+  userId         String?
+  chainId        Int
+  toAddress      String
+  amountWei      BigInt
+  status         String
+  idempotencyKey String
+  createdAt      DateTime @default(now())
+
+  @@index([walletId, createdAt])
+  @@index([userId, createdAt])
+  @@index([toAddress])
+  @@index([idempotencyKey])
+}
+
+model RiskDecision {
+  id        String   @id @default(cuid())
+  action    String
+  walletId  String?
+  userId    String?
+  score     Int
+  decision  String
+  reasons   Json?
+  context   Json?
+  createdAt DateTime @default(now())
+
+  @@index([walletId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+}

@@ -10,6 +10,8 @@ import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { reserveIdempotencyKey } from '@/services/idempotency.service'
 import { userOwnsWallet } from '@/services/wallet-ownership.service'
 import { isStrictMode } from '@/lib/security/runtime'
+import { assessTransferRisk } from '@/services/transfer-risk.service'
+import { recordTransferAttempt, updateTransferStatus } from '@/services/transfer-log.service'
 
 export const dynamic = 'force-dynamic'
 
@@ -128,6 +130,7 @@ async function buildUnsignedTx(
 }
 
 export async function POST(req: Request) {
+  let transferLogId: string | null = null
   try {
     const session = await requireSession()
     if (!session) {
@@ -162,12 +165,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
       }
     }
-
-    await reserveIdempotencyKey({
-      scope: `wallet.send:${input.walletId}`,
-      key: input.idempotencyKey,
-      ttlMs: 10 * 60 * 1000,
-    })
 
     const rpcUrl = requireRpcUrl()
     const provider = new JsonRpcProvider(rpcUrl)
@@ -219,11 +216,62 @@ export async function POST(req: Request) {
       },
     )
 
+    const risk = await assessTransferRisk({
+      walletId: intent.fromWalletId,
+      userId: session.user.id,
+      chainId: intent.chainId,
+      toAddress: intent.to,
+      amountWei: intent.amountWei,
+      dailyLimitWei,
+      spentTodayWei,
+      idempotencyKey: intent.idempotencyKey,
+    })
+
+    if (risk.decision !== 'allow') {
+      await recordTransferAttempt({
+        walletId: intent.fromWalletId,
+        userId: session.user.id,
+        chainId: intent.chainId,
+        toAddress: intent.to,
+        amountWei: BigInt(intent.amountWei),
+        status: risk.decision === 'deny' ? 'denied' : 'review',
+        idempotencyKey: intent.idempotencyKey,
+      })
+
+      return NextResponse.json(
+        {
+          error: risk.decision === 'deny' ? 'RISK_DENIED' : 'RISK_REVIEW',
+          risk: { score: risk.score, reasons: risk.reasons },
+        },
+        { status: 403 },
+      )
+    }
+
+    await reserveIdempotencyKey({
+      scope: `wallet.send:${input.walletId}`,
+      key: input.idempotencyKey,
+      ttlMs: 10 * 60 * 1000,
+    })
+
+    const log = await recordTransferAttempt({
+      walletId: intent.fromWalletId,
+      userId: session.user.id,
+      chainId: intent.chainId,
+      toAddress: intent.to,
+      amountWei: BigInt(intent.amountWei),
+      status: 'approved',
+      idempotencyKey: intent.idempotencyKey,
+    })
+    transferLogId = log.id
+
     const signer = new Wallet(wallet.privateKey, provider)
     const signedTx = await signer.signTransaction(unsignedTx)
     const derivedHash = Transaction.from(signedTx).hash ?? undefined
 
     const txHash = await provider.send('eth_sendRawTransaction', [signedTx])
+    if (transferLogId) {
+      await updateTransferStatus(transferLogId, 'broadcast')
+    }
 
     let recorded = false
     const recipient = await getWalletByAddress(intent.to).catch(() => null)
@@ -252,6 +300,9 @@ export async function POST(req: Request) {
       recorded,
     })
   } catch (error) {
+    if (transferLogId) {
+      await updateTransferStatus(transferLogId, 'failed').catch(() => {})
+    }
     const message = error instanceof Error ? error.message : 'Failed to send transaction'
     const status = message === 'IDEMPOTENCY_REPLAY' ? 409 : 400
     return NextResponse.json({ error: message }, { status })

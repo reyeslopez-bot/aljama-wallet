@@ -140,6 +140,8 @@ pnpm format    # Prettier
 
 ## Configuration & Environment Variables
 
+See `docs/security-hardening.md` for key management, re-encryption, and risk scoring configuration.
+
 | Key                                   | Description                               | Example |
 | ------------------------------------- | ----------------------------------------- | ------- |
 | `SECURITY_STRICT_MODE`                | Enforce strict auth/origin/rate limits    | `true` |
@@ -151,6 +153,21 @@ pnpm format    # Prettier
 | `INTERNAL_API_TOKEN`                  | Internal/debug API token                  | `long-random-token` |
 | `MCP_INTERNAL_TOKEN`                  | MCP context server token                  | `long-random-token` |
 | `MCP_WALLET_SIGNER_TOKEN`             | MCP wallet signer token                   | `long-random-token` |
+| `RISK_AI_ENDPOINT`                    | Optional AI risk endpoint                 | `https://risk.example.com/score` |
+| `RISK_AI_TOKEN`                       | Bearer token for AI endpoint              | `long-random-token` |
+| `RISK_AI_REQUIRED`                    | Fail closed if AI unavailable             | `false` |
+| `RISK_AI_TIMEOUT_MS`                  | AI endpoint timeout                       | `1200` |
+| `RISK_VELOCITY_WINDOW_MS`             | Transfer velocity window (ms)             | `300000` |
+| `RISK_VELOCITY_MAX_TX`                | Max tx in window before scoring           | `5` |
+| `RISK_REVIEW_SCORE`                   | Score threshold for review                | `50` |
+| `RISK_DENY_SCORE`                     | Score threshold for deny                  | `80` |
+| `RISK_HIGH_AMOUNT_PCT`                | Limit % for high-amount scoring           | `0.5` |
+| `RISK_HIGH_AMOUNT_SCORE`              | Score added for high amount               | `30` |
+| `RISK_ABSOLUTE_WEI`                   | Absolute wei threshold                    | `1000000000000000000` |
+| `RISK_ABSOLUTE_SCORE`                 | Score added for absolute threshold        | `40` |
+| `RISK_NEW_DESTINATION_SCORE`          | Score for new destination                 | `10` |
+| `RISK_NEW_CHAIN_SCORE`                | Score for new chain                        | `10` |
+| `RISK_VELOCITY_SCORE`                 | Score for velocity                         | `25` |
 | `NEXT_PUBLIC_ALCHEMY_API_KEY`         | Enables faster RPC reads via Alchemy      | `v2_yourAlchemyKey` |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`| Enables WalletConnect modal               | `123abc456def789ghi` |
 | `ALCHEMY_API_KEY`                     | Server-side Alchemy key                   | `v2_serverAlchemyKey` |
@@ -163,6 +180,8 @@ pnpm format    # Prettier
 | `WALLET_ENCRYPTION_KEY_V1`            | 32-byte hex key for AES-GCM               | `64hexchars...` |
 | `WALLET_ENCRYPTION_KEY_FINGERPRINT_V1`| SHA-256 hex fingerprint for key check     | `sha256hex...` |
 | `WALLET_CRYPTO_ALLOW_LEGACY`          | Allow decrypting legacy vaults            | `false` |
+| `WALLET_KEY_PROVIDER`                | Key source (`env` or `file`)              | `env` |
+| `WALLET_KEY_FILE_V1`                 | File path for key material                | `/run/secrets/aljama-wallet-key-v1` |
 | `COCKROACH_URL`                       | Prisma datasource URL for CockroachDB OLTP| `postgresql://user:pass@host:26257/defaultdb?sslmode=require` |
 | `POSTGRES_URL`                        | Prisma datasource URL for Postgres OLAP   | `postgresql://user:pass@host:5432/analytics` |
 
@@ -178,6 +197,7 @@ pnpm format    # Prettier
 * `pnpm test` - Run Vitest test suite
 * `pnpm lint` - Lint codebase
 * `pnpm format` - Format code
+* `pnpm security:migrate-wallet-keys` - Re-encrypt wallet vaults with active key
 
 ## Directory Structure
 
