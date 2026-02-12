@@ -1,5 +1,6 @@
 import { prismaPg } from '@/lib/prisma-pg'
 import { randomUUID } from 'node:crypto'
+import { logWarn } from '@/lib/security/logging'
 
 type StoredUser = {
   id: string
@@ -31,7 +32,7 @@ export async function findUserByEmail(email: string): Promise<StoredUser | null>
       return await prismaPg.user.findUnique({ where: { email } })
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
-        console.warn('auth: pg lookup failed, falling back to memory', error)
+        logWarn('auth:lookup', error)
         return devUsers.get(email) ?? null
       }
       throw error
@@ -55,7 +56,7 @@ export async function createUser(params: {
       })
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
-        console.warn('auth: pg create failed, falling back to memory', error)
+        logWarn('auth:create', error)
       } else {
         throw error
       }

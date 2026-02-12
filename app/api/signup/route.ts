@@ -1,8 +1,11 @@
 // app/api/signup/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { upsertSignup } from '@/services/signup.service'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
+import { errorJson, okJson } from '@/lib/security/api-response'
+import { logError } from '@/lib/security/logging'
+import { getErrorMessage } from '@/lib/security/errors'
 
 const signupSchema = z.object({
   email: z.string().email().max(256),
@@ -20,19 +23,19 @@ export async function POST(req: NextRequest) {
       windowMs: 60_000,
     })
     if (!limit.ok) {
-      return NextResponse.json(
-        { ok: false, error: 'RATE_LIMITED', retryAfter: limit.retryAfter },
-        { status: 429, headers: { 'retry-after': String(limit.retryAfter) } },
+      return errorJson(
+        429,
+        'rate_limited',
+        'RATE_LIMITED',
+        { retryAfter: limit.retryAfter },
+        { headers: { 'retry-after': String(limit.retryAfter) } },
       )
     }
 
     const body = await req.json().catch(() => ({}))
     const parsed = signupSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json(
-        { ok: false, error: 'Invalid signup payload', details: parsed.error.format() },
-        { status: 400 },
-      )
+      return errorJson(400, 'invalid_payload', 'Invalid signup payload', parsed.error.format())
     }
 
     const record = await upsertSignup({
@@ -41,18 +44,14 @@ export async function POST(req: NextRequest) {
       source: parsed.data.source ?? null,
     })
 
-    return NextResponse.json({
-      ok: true,
+    return okJson({
       id: record.id,
       email: record.email,
       region: record.region,
       source: record.source,
     })
   } catch (error) {
-    console.error('signup error', error)
-    return NextResponse.json(
-      { ok: false, error: 'Failed to save signup' },
-      { status: 500 },
-    )
+    logError('signup', error)
+    return errorJson(500, 'signup_failed', getErrorMessage(error, 'Failed to save signup'))
   }
 }

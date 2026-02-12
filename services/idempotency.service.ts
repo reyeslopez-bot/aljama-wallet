@@ -38,8 +38,9 @@ export async function reserveIdempotencyKey(params: {
         },
       })
       return
-    } catch (error: any) {
-      if (error?.code !== 'P2002') throw error
+    } catch (error: unknown) {
+      const err = error as { code?: string } | null
+      if (err?.code !== 'P2002') throw error
 
       const existing = await prismaPg.idempotencyKey.findUnique({
         where: {

@@ -7,6 +7,9 @@ import { isAllowedOrigin } from '@/lib/security/origin'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { isStrictMode } from '@/lib/security/runtime'
 import { linkWalletToUser } from '@/services/wallet-ownership.service'
+import { errorJson } from '@/lib/security/api-response'
+import { logError } from '@/lib/security/logging'
+import { getErrorMessage } from '@/lib/security/errors'
 
 const MIN_PASSWORD_LENGTH = 12
 
@@ -35,11 +38,11 @@ export async function POST(req: Request) {
   try {
     const session = await requireSession()
     if (!session) {
-      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
+      return errorJson(401, 'unauthorized', 'UNAUTHORIZED')
     }
 
     if (!isAllowedOrigin(req)) {
-      return NextResponse.json({ error: 'INVALID_ORIGIN' }, { status: 403 })
+      return errorJson(403, 'invalid_origin', 'INVALID_ORIGIN')
     }
 
     const rateKey = buildRateLimitKey(req, session.user?.id ?? null)
@@ -50,34 +53,32 @@ export async function POST(req: Request) {
       windowMs: 60_000,
     })
     if (!limit.ok) {
-      return NextResponse.json(
-        { error: 'RATE_LIMITED', retryAfter: limit.retryAfter },
-        { status: 429, headers: { 'retry-after': String(limit.retryAfter) } },
+      return errorJson(
+        429,
+        'rate_limited',
+        'RATE_LIMITED',
+        { retryAfter: limit.retryAfter },
+        { headers: { 'retry-after': String(limit.retryAfter) } },
       )
     }
 
     const { password } = await req.json()
 
     if (!password || typeof password !== 'string' || !password.trim()) {
-      return NextResponse.json(
-        { error: 'Password is required' },
-        { status: 400 },
-      )
+      return errorJson(400, 'password_required', 'Password is required')
     }
 
     if (password.trim().length < MIN_PASSWORD_LENGTH) {
-      return NextResponse.json(
-        { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` },
-        { status: 400 },
+      return errorJson(
+        400,
+        'password_too_short',
+        `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
       )
     }
 
     const missing = missingCreateWalletConfig()
     if (missing.length > 0 && isStrictMode) {
-      return NextResponse.json(
-        { error: 'SERVER_MISCONFIGURED' },
-        { status: 503 },
-      )
+      return errorJson(503, 'server_misconfigured', 'SERVER_MISCONFIGURED')
     }
 
     const { encrypted, wallet } = await createEncryptedWallet(password)
@@ -100,7 +101,7 @@ export async function POST(req: Request) {
       })
     } catch (dbError) {
       if (process.env.NODE_ENV !== 'production') {
-        const reason = dbError instanceof Error ? dbError.message : 'DB write failed'
+        const reason = getErrorMessage(dbError, 'DB write failed')
         return NextResponse.json({
           walletId: null,
           address: wallet.address,
@@ -115,17 +116,14 @@ export async function POST(req: Request) {
     try {
       await linkWalletToUser(session.user.id, record.id)
     } catch (linkError) {
-      console.error('wallet ownership link failed', linkError)
+      logError('create-wallet:ownership', linkError)
       try {
         await deleteWalletRecord(record.id)
       } catch (cleanupError) {
-        console.error('wallet cleanup failed', cleanupError)
+        logError('create-wallet:cleanup', cleanupError)
       }
 
-      return NextResponse.json(
-        { error: 'Failed to link wallet ownership' },
-        { status: 500 },
-      )
+      return errorJson(500, 'ownership_link_failed', 'Failed to link wallet ownership')
     }
 
     return NextResponse.json({
@@ -136,16 +134,11 @@ export async function POST(req: Request) {
       // no privateKey / mnemonic over the wire
     })
   } catch (error) {
-    console.error('create-wallet error', error)
+    logError('create-wallet', error)
     const message =
       process.env.NODE_ENV === 'production'
         ? 'Failed to create wallet'
-        : error instanceof Error
-          ? error.message
-          : 'Failed to create wallet'
-    return NextResponse.json(
-      { error: message },
-      { status: 500 },
-    )
+        : getErrorMessage(error, 'Failed to create wallet')
+    return errorJson(500, 'create_wallet_failed', message)
   }
 }

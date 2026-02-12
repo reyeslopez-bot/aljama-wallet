@@ -49,7 +49,11 @@ describe('app/api/create-wallet route', () => {
     const res = await POST(buildRequest({}))
 
     expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({ error: 'Password is required' })
+    await expect(res.json()).resolves.toMatchObject({
+      ok: false,
+      error: 'Password is required',
+      code: 'password_required',
+    })
     expect(mockCreateEncryptedWallet).not.toHaveBeenCalled()
   })
 

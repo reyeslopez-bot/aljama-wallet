@@ -25,9 +25,10 @@ export async function linkWalletToUser(userId: string, walletId: string) {
         },
       })
       return
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Ignore unique constraint collisions (wallet already linked)
-      if (error?.code === 'P2002') return
+      const err = error as { code?: string } | null
+      if (err?.code === 'P2002') return
       throw error
     }
   }

@@ -175,7 +175,7 @@ export async function assessTransferRisk(input: TransferRiskInput): Promise<Tran
       chainCount: stats.chainCount,
       idempotencyKey: input.idempotencyKey,
     })
-  } catch (error) {
+  } catch {
     const aiRequired = process.env.RISK_AI_REQUIRED === 'true' && isStrictMode
     if (aiRequired) {
       decision = combineDecision(decision, 'review')

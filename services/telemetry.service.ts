@@ -1,6 +1,7 @@
 // services/telemetry.service.ts
 import { prismaPg } from '@/lib/prisma-pg'
 import type { Prisma } from '@/prisma/generated/pg'
+import { logWarn } from '@/lib/security/logging'
 
 export type TelemetryEventInput = {
   event: string
@@ -41,7 +42,7 @@ export async function recordTelemetryEvent(input: TelemetryEventInput) {
       return { stored: 'db' as const }
     } catch (error) {
       // fall through to in-memory for dev
-      console.warn('telemetry db write failed, falling back to memory', error)
+      logWarn('telemetry', error)
     }
   }
 

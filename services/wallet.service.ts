@@ -3,6 +3,7 @@ import { getAddress } from 'ethers'
 import { prismaCrdb } from '@/lib/prisma-crdb'
 import { decryptPrivateKey, encryptPrivateKey } from '@/lib/crypto/wallet-crypto'
 import { incrementDailySummary } from '@/services/summary.service'
+import { logWarn } from '@/lib/security/logging'
 
 function ensure0xHex(pk: string): string {
   const trimmed = pk.trim()
@@ -144,7 +145,7 @@ export async function recordTransaction(params: {
   try {
     await incrementDailySummary(new Date())
   } catch (error) {
-    console.warn('daily summary update failed', error)
+    logWarn('wallet:daily-summary', error)
   }
 
   return record

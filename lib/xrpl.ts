@@ -1,5 +1,6 @@
 // lib/xrpl.ts
 import { getXrplClient, createXrplWalletFromSeed } from '@/infra/xrpl/client'
+import { getErrorMessage } from '@/lib/security/errors'
 
 export type XrplDevAccount =
   | { address: string; funded: true; xrpBalance: string }
@@ -25,12 +26,7 @@ export async function getDevXrplAccount(): Promise<XrplDevAccount> {
       xrpBalance: balanceStr,
     }
   } catch (e: unknown) {
-    const msg =
-      e instanceof Error
-        ? e.message
-        : typeof e === "string"
-          ? e
-          : String(e)
+    const msg = getErrorMessage(e, String(e))
 
     if (msg.includes('Account not found')) {
       return {

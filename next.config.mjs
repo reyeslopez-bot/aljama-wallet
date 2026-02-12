@@ -1,6 +1,7 @@
 // next.config.mjs
 
 import { createRequire } from "node:module";
+import process from "node:process";
 import createNextIntlPlugin from "next-intl/plugin";
 const require = createRequire(import.meta.url);
 const webpack = require("webpack");

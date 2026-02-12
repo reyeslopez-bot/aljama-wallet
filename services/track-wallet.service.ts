@@ -1,4 +1,5 @@
 import { prismaPg } from '@/lib/prisma-pg'
+import { logWarn } from '@/lib/security/logging'
 
 export type TrackWalletEventInput = {
   address: string
@@ -39,7 +40,7 @@ export async function recordTrackWalletEvent(input: TrackWalletEventInput) {
       })
       return { stored: 'db' as const }
     } catch (error) {
-      console.warn('track-wallet db write failed, falling back to memory', error)
+      logWarn('track-wallet', error)
     }
   }
 

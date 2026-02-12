@@ -1,6 +1,7 @@
 import { prismaPg } from '@/lib/prisma-pg'
 import crypto from 'node:crypto'
 import { isStrictMode } from '@/lib/security/runtime'
+import { logWarn } from '@/lib/security/logging'
 
 export type TransferStatus = 'initiated' | 'approved' | 'broadcast' | 'failed' | 'denied' | 'review'
 
@@ -53,7 +54,7 @@ export async function recordTransferAttempt(input: TransferLogInput): Promise<{ 
       return { id: record.id }
     } catch (error) {
       if (isStrictMode) throw error
-      console.warn('transfer log write failed, falling back to memory', error)
+      logWarn('transfer-log:write', error)
     }
   }
 
@@ -80,7 +81,7 @@ export async function updateTransferStatus(id: string, status: TransferStatus) {
       return
     } catch (error) {
       if (isStrictMode) throw error
-      console.warn('transfer log update failed, falling back to memory', error)
+      logWarn('transfer-log:update', error)
     }
   }
 
@@ -120,7 +121,7 @@ export async function getRecentTransferStats(params: {
       }
     } catch (error) {
       if (isStrictMode) throw error
-      console.warn('transfer log read failed, falling back to memory', error)
+      logWarn('transfer-log:read', error)
     }
   }
 

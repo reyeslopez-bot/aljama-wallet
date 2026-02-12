@@ -1,9 +1,11 @@
 // app/api/telemetry/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { recordTelemetryEvent } from '@/services/telemetry.service'
 import crypto from 'node:crypto'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
+import { errorJson, okJson } from '@/lib/security/api-response'
+import { logError } from '@/lib/security/logging'
 
 const MAX_BODY_BYTES = 16_384
 
@@ -17,19 +19,6 @@ const telemetrySchema = z.object({
   payload: z.record(z.string(), z.unknown()).optional(),
 })
 
-const errorResponse = (status: number, code: string, message: string, details?: unknown) =>
-  NextResponse.json(
-    {
-      ok: false,
-      error: {
-        code,
-        message,
-        details,
-      },
-    },
-    { status },
-  )
-
 export async function POST(req: NextRequest) {
   try {
     const rateKey = buildRateLimitKey(req, null)
@@ -40,7 +29,7 @@ export async function POST(req: NextRequest) {
       windowMs: 60_000,
     })
     if (!limit.ok) {
-      return errorResponse(429, 'rate_limited', 'Too many requests', {
+      return errorJson(429, 'rate_limited', 'Too many requests', {
         retryAfter: limit.retryAfter,
       })
     }
@@ -64,25 +53,25 @@ export async function POST(req: NextRequest) {
 
     const declaredSize = req.headers.get('content-length')
     if (declaredSize && Number(declaredSize) > MAX_BODY_BYTES) {
-      return errorResponse(413, 'payload_too_large', 'Request body exceeds limit')
+      return errorJson(413, 'payload_too_large', 'Request body exceeds limit')
     }
 
     const raw = await req.text()
     if (raw.length > MAX_BODY_BYTES) {
-      return errorResponse(413, 'payload_too_large', 'Request body exceeds limit')
+      return errorJson(413, 'payload_too_large', 'Request body exceeds limit')
     }
 
     let parsed: unknown
     try {
       parsed = raw ? JSON.parse(raw) : {}
     } catch (error) {
-      console.error('telemetry invalid json', error)
-      return errorResponse(400, 'invalid_json', 'Body must be valid JSON')
+      logError('telemetry:invalid_json', error)
+      return errorJson(400, 'invalid_json', 'Body must be valid JSON')
     }
 
     const validation = telemetrySchema.safeParse(parsed)
     if (!validation.success) {
-      return errorResponse(400, 'invalid_payload', 'Validation failed', validation.error.format())
+      return errorJson(400, 'invalid_payload', 'Validation failed', validation.error.format())
     }
 
     const enrichedContext = {
@@ -102,9 +91,9 @@ export async function POST(req: NextRequest) {
       payload: validation.data.payload ?? null,
     })
 
-    return NextResponse.json({ ok: true })
+    return okJson({})
   } catch (error) {
-    console.error('telemetry error', error)
-    return errorResponse(500, 'server_error', 'Unexpected error')
+    logError('telemetry', error)
+    return errorJson(500, 'server_error', 'Unexpected error')
   }
 }

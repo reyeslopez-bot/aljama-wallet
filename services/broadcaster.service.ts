@@ -1,5 +1,6 @@
 import { JsonRpcProvider } from 'ethers';
 import { walletTxSignedV1Schema, walletTopicsV1 } from '@/infra/agentic/kafka';
+import { logError } from '@/lib/security/logging';
 import { createConsumer, createProducer } from '@/infra/kafka';
 
 const broadcasterGroupId = process.env.KAFKA_BROADCASTER_GROUP_ID ?? 'wallet-broadcaster';
@@ -51,7 +52,7 @@ export async function startBroadcaster() {
 
 if (process.env.BROADCASTER_AUTO_START === 'true') {
   startBroadcaster().catch((error) => {
-    console.error(error);
+    logError('broadcaster', error as unknown);
     process.exitCode = 1;
   });
 }

@@ -6,6 +6,7 @@ import { locales } from '@/i18n/routing'
 import { notFound } from 'next/navigation'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
+import { logError } from '@/lib/security/logging'
 
 export default async function LocaleLayout({
   children,
@@ -25,7 +26,7 @@ export default async function LocaleLayout({
   try {
     session = await getServerSession(authOptions)
   } catch (error) {
-    console.error('auth session error', error)
+    logError('auth-session', error)
   }
 
   return (

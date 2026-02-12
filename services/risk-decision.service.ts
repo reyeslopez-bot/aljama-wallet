@@ -1,6 +1,7 @@
 import { prismaPg } from '@/lib/prisma-pg'
 import type { Prisma } from '@/prisma/generated/pg'
 import { isStrictMode } from '@/lib/security/runtime'
+import { logWarn } from '@/lib/security/logging'
 
 export type RiskDecisionInput = {
   action: string
@@ -49,7 +50,7 @@ export async function recordRiskDecision(input: RiskDecisionInput) {
       return
     } catch (error) {
       if (isStrictMode) throw error
-      console.warn('risk decision write failed, falling back to memory', error)
+      logWarn('risk-decision', error)
     }
   }
 

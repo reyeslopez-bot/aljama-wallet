@@ -1,6 +1,8 @@
 // app/api/market-snapshot/route.ts
 import { NextResponse } from 'next/server'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
+import { errorJson } from '@/lib/security/api-response'
+import { logWarn } from '@/lib/security/logging'
 
 type MarketAsset = {
   id: string
@@ -109,9 +111,12 @@ export async function GET(req?: Request) {
     windowMs: 60_000,
   })
   if (!limit.ok) {
-    return NextResponse.json(
-      { ok: false, error: 'RATE_LIMITED', retryAfter: limit.retryAfter },
-      { status: 429, headers: { 'retry-after': String(limit.retryAfter) } },
+    return errorJson(
+      429,
+      'rate_limited',
+      'RATE_LIMITED',
+      { retryAfter: limit.retryAfter },
+      { headers: { 'retry-after': String(limit.retryAfter) } },
     )
   }
 
@@ -128,7 +133,7 @@ export async function GET(req?: Request) {
     }
     return NextResponse.json(snapshot)
   } catch (error) {
-    console.warn('market snapshot fallback', error)
+    logWarn('market-snapshot', error)
     const snapshot = fallbackSnapshot()
     globalForMarket.aljamaMarketCache = {
       data: snapshot,

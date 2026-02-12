@@ -6,6 +6,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { z } from 'zod'
 import { prismaCrdb } from '@/lib/prisma-crdb'
 import crypto from 'node:crypto'
+import { getErrorMessage } from '@/lib/security/errors'
 
 const requestSchema = z.object({
   tool: z.enum(['wallet.getState', 'wallet.getLimits']),
@@ -182,7 +183,7 @@ export function startCrdbContextServer() {
       const output = await tool.handler(parsedInput)
       sendJson(res, 200, { tool: payload.tool, output })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'INVALID_REQUEST'
+      const message = getErrorMessage(error, 'INVALID_REQUEST')
       sendJson(res, 400, { error: message })
     }
   })

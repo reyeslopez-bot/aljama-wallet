@@ -12,6 +12,9 @@ import { userOwnsWallet } from '@/services/wallet-ownership.service'
 import { isStrictMode } from '@/lib/security/runtime'
 import { assessTransferRisk } from '@/services/transfer-risk.service'
 import { recordTransferAttempt, updateTransferStatus } from '@/services/transfer-log.service'
+import { errorJson } from '@/lib/security/api-response'
+import { logError } from '@/lib/security/logging'
+import { getErrorMessage } from '@/lib/security/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -134,11 +137,11 @@ export async function POST(req: Request) {
   try {
     const session = await requireSession()
     if (!session) {
-      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
+      return errorJson(401, 'unauthorized', 'UNAUTHORIZED')
     }
 
     if (!isAllowedOrigin(req)) {
-      return NextResponse.json({ error: 'INVALID_ORIGIN' }, { status: 403 })
+      return errorJson(403, 'invalid_origin', 'INVALID_ORIGIN')
     }
 
     const rateKey = buildRateLimitKey(req, session.user?.id ?? null)
@@ -149,9 +152,12 @@ export async function POST(req: Request) {
       windowMs: 60_000,
     })
     if (!limit.ok) {
-      return NextResponse.json(
-        { error: 'RATE_LIMITED', retryAfter: limit.retryAfter },
-        { status: 429, headers: { 'retry-after': String(limit.retryAfter) } },
+      return errorJson(
+        429,
+        'rate_limited',
+        'RATE_LIMITED',
+        { retryAfter: limit.retryAfter },
+        { headers: { 'retry-after': String(limit.retryAfter) } },
       )
     }
 
@@ -162,7 +168,7 @@ export async function POST(req: Request) {
     if (!isAdmin) {
       const owns = await userOwnsWallet(session.user.id, input.walletId)
       if (!owns) {
-        return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+        return errorJson(403, 'forbidden', 'FORBIDDEN')
       }
     }
 
@@ -171,17 +177,16 @@ export async function POST(req: Request) {
 
     const allowedChains = parseAllowedChains()
     if (allowedChains.size > 0 && !allowedChains.has(input.chainId)) {
-      return NextResponse.json({ error: 'CHAIN_DENIED' }, { status: 400 })
+      return errorJson(400, 'chain_denied', 'CHAIN_DENIED')
     }
 
     const network = await provider.getNetwork()
     if (Number(network.chainId) !== input.chainId) {
-      return NextResponse.json(
-        {
-          error: 'CHAIN_MISMATCH',
-          details: `RPC chain ${network.chainId.toString()} does not match requested ${input.chainId}`,
-        },
-        { status: 400 },
+      return errorJson(
+        400,
+        'chain_mismatch',
+        'CHAIN_MISMATCH',
+        `RPC chain ${network.chainId.toString()} does not match requested ${input.chainId}`,
       )
     }
 
@@ -238,12 +243,11 @@ export async function POST(req: Request) {
         idempotencyKey: intent.idempotencyKey,
       })
 
-      return NextResponse.json(
-        {
-          error: risk.decision === 'deny' ? 'RISK_DENIED' : 'RISK_REVIEW',
-          risk: { score: risk.score, reasons: risk.reasons },
-        },
-        { status: 403 },
+      return errorJson(
+        403,
+        risk.decision === 'deny' ? 'risk_denied' : 'risk_review',
+        risk.decision === 'deny' ? 'RISK_DENIED' : 'RISK_REVIEW',
+        { score: risk.score, reasons: risk.reasons },
       )
     }
 
@@ -303,8 +307,13 @@ export async function POST(req: Request) {
     if (transferLogId) {
       await updateTransferStatus(transferLogId, 'failed').catch(() => {})
     }
-    const message = error instanceof Error ? error.message : 'Failed to send transaction'
+    const message = getErrorMessage(error, 'Failed to send transaction')
     const status = message === 'IDEMPOTENCY_REPLAY' ? 409 : 400
-    return NextResponse.json({ error: message }, { status })
+    logError('wallet-send', error)
+    return errorJson(
+      status,
+      message === 'IDEMPOTENCY_REPLAY' ? 'idempotency_replay' : 'send_failed',
+      message,
+    )
   }
 }

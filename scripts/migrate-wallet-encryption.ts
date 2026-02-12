@@ -10,10 +10,33 @@ type WalletRecord = {
   keyVersion: number
 }
 
+type WalletFindManyArgs = {
+  take: number
+  skip?: number
+  cursor?: { id: string }
+  orderBy: { id: 'asc' | 'desc' }
+  select: {
+    id: true
+    address: true
+    encryptedPrivateKey: true
+    encryptionIv: true
+    keyVersion: true
+  }
+}
+
+type WalletUpdateArgs = {
+  where: { id: string }
+  data: {
+    encryptedPrivateKey: Uint8Array
+    encryptionIv: Uint8Array
+    keyVersion: number
+  }
+}
+
 type Client = {
   wallet: {
-    findMany: (args: any) => Promise<WalletRecord[]>
-    update: (args: any) => Promise<unknown>
+    findMany: (args: WalletFindManyArgs) => Promise<WalletRecord[]>
+    update: (args: WalletUpdateArgs) => Promise<unknown>
   }
 }
 

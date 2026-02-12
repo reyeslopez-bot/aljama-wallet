@@ -30,7 +30,7 @@ describe('app/api/telemetry route', () => {
 
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.error?.code).toBe('invalid_json')
+    expect(body.code).toBe('invalid_json')
   })
 
   it('rejects invalid payload', async () => {
@@ -39,7 +39,7 @@ describe('app/api/telemetry route', () => {
 
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.error?.code).toBe('invalid_payload')
+    expect(body.code).toBe('invalid_payload')
   })
 
   it('accepts a valid payload and records telemetry', async () => {

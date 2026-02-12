@@ -6,6 +6,7 @@ import { Transaction, Wallet, verifyMessage } from 'ethers'
 import { prismaCrdb } from '@/lib/prisma-crdb'
 import { decryptPrivateKey } from '@/lib/crypto/wallet-crypto'
 import crypto from 'node:crypto'
+import { getErrorMessage } from '@/lib/security/errors'
 
 const requestSchema = z.object({
   tool: z.enum(['wallet.signTx', 'wallet.deriveAddress', 'wallet.verifySignature']),
@@ -171,7 +172,7 @@ export function startWalletSignerServer() {
       const output = await tool.handler(parsedInput)
       sendJson(res, 200, { tool: payload.tool, output })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'INVALID_REQUEST'
+      const message = getErrorMessage(error, 'INVALID_REQUEST')
       sendJson(res, 400, { error: message })
     }
   })
