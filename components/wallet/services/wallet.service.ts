@@ -1,5 +1,6 @@
 // services/wallet.service.ts
 import { prismaCrdb } from '@/lib/prisma-crdb'
+import { getAddress } from 'ethers'
 
 function ensure0xHex(pk: string): string {
   const trimmed = pk.trim()
@@ -22,11 +23,12 @@ export async function createWalletRecord(input: {
   privateKey: string
 }) {
   const { encryptPrivateKey } = await import('@/lib/crypto/wallet-crypto')
-  const encrypted = encryptPrivateKey(ensure0xHex(input.privateKey))
+  const address = getAddress(input.address.trim())
+  const encrypted = encryptPrivateKey(ensure0xHex(input.privateKey), { address })
 
   return prismaCrdb.wallet.create({
     data: {
-      address: input.address,
+      address,
       encryptedPrivateKey: encrypted.encryptedPrivateKey,
       encryptionIv: encrypted.encryptionIv,
       keyVersion: encrypted.keyVersion,

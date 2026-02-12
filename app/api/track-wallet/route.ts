@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { recordTrackWalletEvent } from '@/services/track-wallet.service'
+import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 
 export type TrackWalletEvent = {
   address: string
@@ -44,6 +45,19 @@ const errorResponse = (status: number, code: string, message: string, details?: 
 
 export async function POST(req: NextRequest) {
   try {
+    const rateKey = buildRateLimitKey(req, null)
+    const limit = rateLimit({
+      bucket: 'track-wallet',
+      key: rateKey,
+      limit: 60,
+      windowMs: 60_000,
+    })
+    if (!limit.ok) {
+      return errorResponse(429, 'rate_limited', 'Too many requests', {
+        retryAfter: limit.retryAfter,
+      })
+    }
+
     const declaredSize = req.headers.get('content-length')
     if (declaredSize && Number(declaredSize) > MAX_BODY_BYTES) {
       return errorResponse(413, 'payload_too_large', 'Request body exceeds limit')

@@ -25,6 +25,7 @@ model User {
   passwordHash  String
   accounts      Account[]
   sessions      Session[]
+  wallets       UserWallet[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -112,4 +113,27 @@ model Signup {
   updatedAt DateTime @updatedAt
 
   @@index([createdAt])
+}
+
+model UserWallet {
+  id        String   @id @default(cuid())
+  userId    String
+  walletId  String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, walletId])
+  @@index([walletId])
+}
+
+model IdempotencyKey {
+  id        String   @id @default(cuid())
+  scope     String
+  key       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([scope, key])
+  @@index([expiresAt])
 }

@@ -18,6 +18,7 @@ const ENCRYPTION_VERSION = 2
 const KDF = 'PBKDF2'
 const DIGEST = 'SHA-256'
 const ITERATIONS = 310_000
+const MIN_ITERATIONS = 200_000
 const SALT_BYTES = 16
 const IV_BYTES = 12
 const AAD_TEXT = 'aljama-wallet:v2'
@@ -222,9 +223,17 @@ async function decryptPayload(encrypted: string, password: string): Promise<Reco
     throw new Error('Malformed encrypted wallet payload')
   }
 
+  if (decoded.iterations < MIN_ITERATIONS) {
+    throw new Error('Encrypted payload uses weak KDF settings')
+  }
+
   const salt = base64ToBytes(decoded.salt)
   const iv = base64ToBytes(decoded.iv)
   const ciphertext = base64ToBytes(decoded.ciphertext)
+
+  if (salt.length !== SALT_BYTES || iv.length !== IV_BYTES || ciphertext.length < 16) {
+    throw new Error('Malformed encrypted wallet payload')
+  }
 
   const key = await deriveKey(normalizedPassword, salt, decoded.iterations)
 

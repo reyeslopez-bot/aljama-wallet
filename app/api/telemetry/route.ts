@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { recordTelemetryEvent } from '@/services/telemetry.service'
 import crypto from 'node:crypto'
+import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 
 const MAX_BODY_BYTES = 16_384
 
@@ -31,6 +32,19 @@ const errorResponse = (status: number, code: string, message: string, details?: 
 
 export async function POST(req: NextRequest) {
   try {
+    const rateKey = buildRateLimitKey(req, null)
+    const limit = rateLimit({
+      bucket: 'telemetry',
+      key: rateKey,
+      limit: 120,
+      windowMs: 60_000,
+    })
+    if (!limit.ok) {
+      return errorResponse(429, 'rate_limited', 'Too many requests', {
+        retryAfter: limit.retryAfter,
+      })
+    }
+
     const ipHeader =
       req.headers.get('x-forwarded-for') ??
       req.headers.get('x-real-ip') ??

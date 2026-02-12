@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { hashPassword } from '@/lib/auth/password'
 import { createUser, findUserByEmail } from '@/lib/auth/store'
+import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
+import { isAllowedOrigin } from '@/lib/security/origin'
+import { isStrictMode } from '@/lib/security/runtime'
 
 const passwordSchema = z
   .string()
@@ -20,6 +23,24 @@ const registerSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    if (!isAllowedOrigin(req)) {
+      return NextResponse.json({ ok: false, error: 'INVALID_ORIGIN' }, { status: 403 })
+    }
+
+    const rateKey = buildRateLimitKey(req, null)
+    const limit = rateLimit({
+      bucket: 'auth-register',
+      key: rateKey,
+      limit: 10,
+      windowMs: 60_000,
+    })
+    if (!limit.ok) {
+      return NextResponse.json(
+        { ok: false, error: 'RATE_LIMITED', retryAfter: limit.retryAfter },
+        { status: 429, headers: { 'retry-after': String(limit.retryAfter) } },
+      )
+    }
+
     const body = await req.json().catch(() => ({}))
     const parsed = registerSchema.safeParse(body)
     if (!parsed.success) {
@@ -29,7 +50,14 @@ export async function POST(req: Request) {
       )
     }
 
-    const expectedInvite = process.env.AUTH_INVITE_TOKEN?.trim() ?? 'demo-invite'
+    const envInvite = process.env.AUTH_INVITE_TOKEN?.trim()
+    const expectedInvite = envInvite ?? (isStrictMode ? null : 'demo-invite')
+    if (!expectedInvite) {
+      return NextResponse.json(
+        { ok: false, error: 'INVITE_TOKEN_NOT_CONFIGURED' },
+        { status: 503 },
+      )
+    }
     const providedInvite = parsed.data.inviteToken.trim()
     if (providedInvite !== expectedInvite) {
       return NextResponse.json(

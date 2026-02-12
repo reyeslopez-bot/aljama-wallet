@@ -1,7 +1,14 @@
 // app/api/create-wallet/route.ts
 import { NextResponse } from 'next/server'
 import { createEncryptedWallet } from '@/lib/wallet'
-import { createWalletRecord } from '@/services/wallet.service'
+import { createWalletRecord, deleteWalletRecord } from '@/services/wallet.service'
+import { requireSession } from '@/lib/security/session'
+import { isAllowedOrigin } from '@/lib/security/origin'
+import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
+import { isStrictMode } from '@/lib/security/runtime'
+import { linkWalletToUser } from '@/services/wallet-ownership.service'
+
+const MIN_PASSWORD_LENGTH = 12
 
 function missingCreateWalletConfig(): string[] {
   const missing: string[] = []
@@ -26,6 +33,29 @@ function missingCreateWalletConfig(): string[] {
 
 export async function POST(req: Request) {
   try {
+    const session = await requireSession()
+    if (!session) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
+    }
+
+    if (!isAllowedOrigin(req)) {
+      return NextResponse.json({ error: 'INVALID_ORIGIN' }, { status: 403 })
+    }
+
+    const rateKey = buildRateLimitKey(req, session.user?.id ?? null)
+    const limit = rateLimit({
+      bucket: 'create-wallet',
+      key: rateKey,
+      limit: 10,
+      windowMs: 60_000,
+    })
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: 'RATE_LIMITED', retryAfter: limit.retryAfter },
+        { status: 429, headers: { 'retry-after': String(limit.retryAfter) } },
+      )
+    }
+
     const { password } = await req.json()
 
     if (!password || typeof password !== 'string' || !password.trim()) {
@@ -35,7 +65,21 @@ export async function POST(req: Request) {
       )
     }
 
+    if (password.trim().length < MIN_PASSWORD_LENGTH) {
+      return NextResponse.json(
+        { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` },
+        { status: 400 },
+      )
+    }
+
     const missing = missingCreateWalletConfig()
+    if (missing.length > 0 && isStrictMode) {
+      return NextResponse.json(
+        { error: 'SERVER_MISCONFIGURED' },
+        { status: 503 },
+      )
+    }
+
     const { encrypted, wallet } = await createEncryptedWallet(password)
 
     if (missing.length > 0) {
@@ -66,6 +110,22 @@ export async function POST(req: Request) {
         })
       }
       throw dbError
+    }
+
+    try {
+      await linkWalletToUser(session.user.id, record.id)
+    } catch (linkError) {
+      console.error('wallet ownership link failed', linkError)
+      try {
+        await deleteWalletRecord(record.id)
+      } catch (cleanupError) {
+        console.error('wallet cleanup failed', cleanupError)
+      }
+
+      return NextResponse.json(
+        { error: 'Failed to link wallet ownership' },
+        { status: 500 },
+      )
     }
 
     return NextResponse.json({

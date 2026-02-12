@@ -26,6 +26,19 @@ export async function getWallets() {
   })
 }
 
+export async function getWalletsByIds(walletIds: string[]) {
+  if (walletIds.length === 0) return []
+  return prismaCrdb.wallet.findMany({
+    where: { id: { in: walletIds } },
+    select: {
+      id: true,
+      address: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+}
+
 export async function getWalletById(walletId: string) {
   return prismaCrdb.wallet.findUnique({
     where: { id: walletId },
@@ -38,6 +51,10 @@ export async function getWalletById(walletId: string) {
       createdAt: true,
     },
   })
+}
+
+export async function deleteWalletRecord(walletId: string) {
+  return prismaCrdb.wallet.delete({ where: { id: walletId } })
 }
 
 export async function getWalletByAddress(address: string) {
@@ -62,7 +79,7 @@ export async function createWalletRecord(input: { address: string; privateKey: s
   if (!address) throw new Error('address is required')
   if (!privateKey) throw new Error('privateKey is required')
 
-  const encrypted = encryptPrivateKey(privateKey)
+  const encrypted = encryptPrivateKey(privateKey, { address })
 
   return prismaCrdb.wallet.create({
     data: {
@@ -86,7 +103,7 @@ export async function getDecryptedWallet(walletId: string) {
   const encrypted = Buffer.from(record.encryptedPrivateKey)
   const iv = Buffer.from(record.encryptionIv)
 
-  const privateKey = decryptPrivateKey(encrypted, iv, record.keyVersion)
+  const privateKey = decryptPrivateKey(encrypted, iv, record.keyVersion, { address: record.address })
 
   return {
     id: record.id,

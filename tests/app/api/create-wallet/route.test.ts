@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const mockCreateEncryptedWallet = vi.fn()
 const mockCreateWalletRecord = vi.fn()
+const mockDeleteWalletRecord = vi.fn()
+const mockLinkWalletToUser = vi.fn()
+const mockGetServerSession = vi.fn()
 
 vi.mock('@/lib/wallet', () => ({
   createEncryptedWallet: mockCreateEncryptedWallet,
@@ -9,6 +12,15 @@ vi.mock('@/lib/wallet', () => ({
 
 vi.mock('@/services/wallet.service', () => ({
   createWalletRecord: mockCreateWalletRecord,
+  deleteWalletRecord: mockDeleteWalletRecord,
+}))
+
+vi.mock('@/services/wallet-ownership.service', () => ({
+  linkWalletToUser: mockLinkWalletToUser,
+}))
+
+vi.mock('next-auth/next', () => ({
+  getServerSession: mockGetServerSession,
 }))
 
 function buildRequest(body: Record<string, unknown>) {
@@ -23,6 +35,8 @@ describe('app/api/create-wallet route', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    mockGetServerSession.mockResolvedValue({ user: { id: 'user-1', email: 'user@example.com' } })
+    mockLinkWalletToUser.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -52,7 +66,7 @@ describe('app/api/create-wallet route', () => {
     })
 
     const { POST } = await import('@/app/api/create-wallet/route')
-    const res = await POST(buildRequest({ password: 'pass' }))
+    const res = await POST(buildRequest({ password: 'passphrase-123' }))
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
@@ -80,7 +94,7 @@ describe('app/api/create-wallet route', () => {
     })
 
     const { POST } = await import('@/app/api/create-wallet/route')
-    const res = await POST(buildRequest({ password: 'pass' }))
+    const res = await POST(buildRequest({ password: 'passphrase-123' }))
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({
@@ -104,7 +118,7 @@ describe('app/api/create-wallet route', () => {
     mockCreateWalletRecord.mockRejectedValue(new Error('db down'))
 
     const { POST } = await import('@/app/api/create-wallet/route')
-    const res = await POST(buildRequest({ password: 'pass' }))
+    const res = await POST(buildRequest({ password: 'passphrase-123' }))
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({

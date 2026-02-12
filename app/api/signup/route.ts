@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { upsertSignup } from '@/services/signup.service'
+import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 
 const signupSchema = z.object({
   email: z.string().email().max(256),
@@ -11,6 +12,20 @@ const signupSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const rateKey = buildRateLimitKey(req, null)
+    const limit = rateLimit({
+      bucket: 'signup',
+      key: rateKey,
+      limit: 20,
+      windowMs: 60_000,
+    })
+    if (!limit.ok) {
+      return NextResponse.json(
+        { ok: false, error: 'RATE_LIMITED', retryAfter: limit.retryAfter },
+        { status: 429, headers: { 'retry-after': String(limit.retryAfter) } },
+      )
+    }
+
     const body = await req.json().catch(() => ({}))
     const parsed = signupSchema.safeParse(body)
     if (!parsed.success) {

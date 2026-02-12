@@ -4,6 +4,12 @@ import { z } from 'zod'
 import { getAddress, JsonRpcProvider, Transaction, Wallet } from 'ethers'
 import { approveTransfer } from '@/infra/agentic/wallet-policy'
 import { getDecryptedWallet, getSpentTodayWei, getWalletByAddress, recordTransaction } from '@/services/wallet.service'
+import { requireSession, isAdminEmail } from '@/lib/security/session'
+import { isAllowedOrigin } from '@/lib/security/origin'
+import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
+import { reserveIdempotencyKey } from '@/services/idempotency.service'
+import { userOwnsWallet } from '@/services/wallet-ownership.service'
+import { isStrictMode } from '@/lib/security/runtime'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +18,7 @@ const sendSchema = z.object({
   to: z.string(),
   amountWei: z.string().regex(/^\d+$/),
   chainId: z.number().int().positive(),
-  idempotencyKey: z.string().uuid().optional(),
+  idempotencyKey: z.string().uuid(),
   nonce: z.number().int().nonnegative().optional(),
   gasLimit: z.string().regex(/^\d+$/).optional(),
   maxFeePerGasWei: z.string().regex(/^\d+$/).optional(),
@@ -26,12 +32,18 @@ const MAX_UINT256 = (1n << 256n) - 1n
 function requireRpcUrl() {
   const rpcUrl = process.env.EVM_RPC_URL
   if (!rpcUrl) throw new Error('Missing EVM_RPC_URL')
+  if (rpcUrl && process.env.NODE_ENV === 'production' && !rpcUrl.startsWith('https://')) {
+    throw new Error('EVM_RPC_URL must use https in production')
+  }
   return rpcUrl
 }
 
 function parseAllowedChains(): Set<number> {
   const raw = process.env.WALLET_ALLOWED_CHAIN_IDS
-  if (!raw) return new Set()
+  if (!raw) {
+    if (isStrictMode) throw new Error('Missing WALLET_ALLOWED_CHAIN_IDS')
+    return new Set()
+  }
   const entries = raw
     .split(',')
     .map((value) => Number(value.trim()))
@@ -41,7 +53,10 @@ function parseAllowedChains(): Set<number> {
 
 function readDailyLimitWei(): bigint {
   const raw = process.env.WALLET_DAILY_LIMIT_WEI
-  if (raw === undefined || raw === null || raw === '') return MAX_UINT256
+  if (raw === undefined || raw === null || raw === '') {
+    if (isStrictMode) throw new Error('Missing WALLET_DAILY_LIMIT_WEI')
+    return MAX_UINT256
+  }
   const parsed = BigInt(raw)
   return parsed
 }
@@ -60,7 +75,7 @@ async function buildUnsignedTx(
 ) {
   const value = BigInt(input.amountWei)
 
-  if (value <= 0n) {
+  if (value <= 0n || value > MAX_UINT256) {
     throw new Error('Amount must be greater than 0')
   }
 
@@ -114,8 +129,45 @@ async function buildUnsignedTx(
 
 export async function POST(req: Request) {
   try {
+    const session = await requireSession()
+    if (!session) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
+    }
+
+    if (!isAllowedOrigin(req)) {
+      return NextResponse.json({ error: 'INVALID_ORIGIN' }, { status: 403 })
+    }
+
+    const rateKey = buildRateLimitKey(req, session.user?.id ?? null)
+    const limit = rateLimit({
+      bucket: 'wallet-send',
+      key: rateKey,
+      limit: 10,
+      windowMs: 60_000,
+    })
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: 'RATE_LIMITED', retryAfter: limit.retryAfter },
+        { status: 429, headers: { 'retry-after': String(limit.retryAfter) } },
+      )
+    }
+
     const body = await req.json()
     const input = sendSchema.parse(body)
+
+    const isAdmin = isAdminEmail(session.user?.email ?? null)
+    if (!isAdmin) {
+      const owns = await userOwnsWallet(session.user.id, input.walletId)
+      if (!owns) {
+        return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+      }
+    }
+
+    await reserveIdempotencyKey({
+      scope: `wallet.send:${input.walletId}`,
+      key: input.idempotencyKey,
+      ttlMs: 10 * 60 * 1000,
+    })
 
     const rpcUrl = requireRpcUrl()
     const provider = new JsonRpcProvider(rpcUrl)
@@ -139,7 +191,7 @@ export async function POST(req: Request) {
     const wallet = await getDecryptedWallet(input.walletId)
 
     const correlationId = safeUuid()
-    const idempotencyKey = input.idempotencyKey ?? safeUuid()
+    const idempotencyKey = input.idempotencyKey
 
     const unsignedTx = await buildUnsignedTx(input, wallet.address, provider)
 
@@ -201,6 +253,7 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to send transaction'
-    return NextResponse.json({ error: message }, { status: 400 })
+    const status = message === 'IDEMPOTENCY_REPLAY' ? 409 : 400
+    return NextResponse.json({ error: message }, { status })
   }
 }

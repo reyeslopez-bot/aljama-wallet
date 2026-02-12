@@ -5,6 +5,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { z } from 'zod'
 import { prismaCrdb } from '@/lib/prisma-crdb'
+import crypto from 'node:crypto'
 
 const requestSchema = z.object({
   tool: z.enum(['wallet.getState', 'wallet.getLimits']),
@@ -32,9 +33,17 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
 // If you don’t want auth, keep it unset (dev mode), but do NOT expose this port publicly.
 function assertAuthorized(req: IncomingMessage): boolean {
   const expected = process.env.MCP_INTERNAL_TOKEN
-  if (!expected) return true
-  const got = req.headers['authorization']
-  return got === `Bearer ${expected}`
+  if (!expected) return process.env.NODE_ENV !== 'production'
+  const raw = req.headers['authorization'] ?? req.headers['x-internal-token']
+  const header = Array.isArray(raw) ? raw[0] : raw
+  if (!header) return false
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : header.trim()
+  if (!token) return false
+
+  const bufA = Buffer.from(token)
+  const bufB = Buffer.from(expected)
+  if (bufA.length !== bufB.length) return false
+  return crypto.timingSafeEqual(bufA, bufB)
 }
 
 async function getWalletState(input: z.infer<typeof walletStateSchema>) {

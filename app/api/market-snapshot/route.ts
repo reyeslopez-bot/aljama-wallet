@@ -1,5 +1,6 @@
 // app/api/market-snapshot/route.ts
 import { NextResponse } from 'next/server'
+import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 
 type MarketAsset = {
   id: string
@@ -98,7 +99,22 @@ async function buildSnapshot(): Promise<MarketSnapshot> {
   }
 }
 
-export async function GET() {
+export async function GET(req?: Request) {
+  const request = req ?? new Request('http://localhost')
+  const rateKey = buildRateLimitKey(request, null)
+  const limit = rateLimit({
+    bucket: 'market-snapshot',
+    key: rateKey,
+    limit: 120,
+    windowMs: 60_000,
+  })
+  if (!limit.ok) {
+    return NextResponse.json(
+      { ok: false, error: 'RATE_LIMITED', retryAfter: limit.retryAfter },
+      { status: 429, headers: { 'retry-after': String(limit.retryAfter) } },
+    )
+  }
+
   const cached = globalForMarket.aljamaMarketCache
   if (cached && cached.expiresAt > Date.now()) {
     return NextResponse.json(cached.data)

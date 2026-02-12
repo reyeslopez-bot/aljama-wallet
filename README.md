@@ -142,14 +142,27 @@ pnpm format    # Prettier
 
 | Key                                   | Description                               | Example |
 | ------------------------------------- | ----------------------------------------- | ------- |
+| `SECURITY_STRICT_MODE`                | Enforce strict auth/origin/rate limits    | `true` |
+| `SECURITY_ALLOWED_ORIGINS`            | Allowed request origins (CSV)             | `https://app.example.com` |
+| `NEXTAUTH_URL`                        | Canonical auth URL                        | `https://app.example.com` |
+| `NEXTAUTH_SECRET`                     | NextAuth session secret                   | `long-random-secret` |
+| `AUTH_INVITE_TOKEN`                   | Registration invite token                 | `invite-2026` |
+| `AUTH_ADMIN_EMAILS`                   | Admin emails (CSV)                        | `admin@example.com` |
+| `INTERNAL_API_TOKEN`                  | Internal/debug API token                  | `long-random-token` |
+| `MCP_INTERNAL_TOKEN`                  | MCP context server token                  | `long-random-token` |
+| `MCP_WALLET_SIGNER_TOKEN`             | MCP wallet signer token                   | `long-random-token` |
 | `NEXT_PUBLIC_ALCHEMY_API_KEY`         | Enables faster RPC reads via Alchemy      | `v2_yourAlchemyKey` |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`| Enables WalletConnect modal               | `123abc456def789ghi` |
+| `ALCHEMY_API_KEY`                     | Server-side Alchemy key                   | `v2_serverAlchemyKey` |
+| `ALCHEMY_NETWORK`                     | Default Alchemy network                   | `eth-mainnet` |
+| `ALCHEMY_ALLOWED_NETWORKS`            | Allowed Alchemy networks (CSV)            | `eth-mainnet,base-mainnet` |
 | `EVM_RPC_URL`                         | JSON-RPC endpoint for internal signing    | `https://rpc.example` |
 | `WALLET_DAILY_LIMIT_WEI`              | Daily transfer limit (wei)                | `1000000000000000000` |
 | `WALLET_ALLOWED_CHAIN_IDS`            | Comma-separated allowed chains            | `1,8453,11155111` |
 | `WALLET_ENCRYPTION_KEY_ACTIVE_VERSION`| Active key version for AES-GCM vaults     | `1` |
 | `WALLET_ENCRYPTION_KEY_V1`            | 32-byte hex key for AES-GCM               | `64hexchars...` |
 | `WALLET_ENCRYPTION_KEY_FINGERPRINT_V1`| SHA-256 hex fingerprint for key check     | `sha256hex...` |
+| `WALLET_CRYPTO_ALLOW_LEGACY`          | Allow decrypting legacy vaults            | `false` |
 | `COCKROACH_URL`                       | Prisma datasource URL for CockroachDB OLTP| `postgresql://user:pass@host:26257/defaultdb?sslmode=require` |
 | `POSTGRES_URL`                        | Prisma datasource URL for Postgres OLAP   | `postgresql://user:pass@host:5432/analytics` |
 

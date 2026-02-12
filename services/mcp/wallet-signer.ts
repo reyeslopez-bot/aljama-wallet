@@ -1,10 +1,11 @@
 // services/mcp/wallet-signer.ts
 
-import { createServer, type ServerResponse } from 'node:http'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { z } from 'zod'
 import { Transaction, Wallet, verifyMessage } from 'ethers'
 import { prismaCrdb } from '@/lib/prisma-crdb'
 import { decryptPrivateKey } from '@/lib/crypto/wallet-crypto'
+import crypto from 'node:crypto'
 
 const requestSchema = z.object({
   tool: z.enum(['wallet.signTx', 'wallet.deriveAddress', 'wallet.verifySignature']),
@@ -35,6 +36,32 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body))
 }
 
+function extractHeader(req: IncomingMessage, name: string): string | null {
+  const value = req.headers[name.toLowerCase()]
+  if (!value) return null
+  return Array.isArray(value) ? value[0] ?? null : value
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a)
+  const bufB = Buffer.from(b)
+  if (bufA.length !== bufB.length) return false
+  return crypto.timingSafeEqual(bufA, bufB)
+}
+
+function assertAuthorized(req: IncomingMessage): boolean {
+  const expected = process.env.MCP_WALLET_SIGNER_TOKEN ?? process.env.MCP_INTERNAL_TOKEN
+  if (!expected) return process.env.NODE_ENV !== 'production'
+
+  const header =
+    extractHeader(req, 'authorization') ??
+    extractHeader(req, 'x-internal-token')
+  if (!header) return false
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : header.trim()
+  if (!token) return false
+  return safeEqual(token, expected)
+}
+
 function ensure0xHex(pk: string): string {
   const trimmed = pk.trim()
   return trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`
@@ -58,7 +85,7 @@ async function getDecryptedWallet(walletId: string) {
   const encrypted = Buffer.from(record.encryptedPrivateKey)
   const iv = Buffer.from(record.encryptionIv)
 
-  const privateKey = decryptPrivateKey(encrypted, iv, record.keyVersion)
+  const privateKey = decryptPrivateKey(encrypted, iv, record.keyVersion, { address: record.address })
   return new Wallet(ensure0xHex(privateKey))
 }
 
@@ -119,6 +146,11 @@ export function startWalletSignerServer() {
   const port = Number(process.env.MCP_WALLET_SIGNER_PORT ?? 4011)
 
   const server = createServer(async (req, res) => {
+    if (!assertAuthorized(req)) {
+      sendJson(res, 401, { error: 'UNAUTHORIZED' })
+      return
+    }
+
     if (req.method !== 'POST') {
       sendJson(res, 405, { error: 'METHOD_NOT_ALLOWED' })
       return

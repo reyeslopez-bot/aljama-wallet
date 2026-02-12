@@ -23,11 +23,22 @@ type TokenMetadata = {
 }
 
 const MAX_TOKEN_LOOKUP = 50
+const NETWORK_PATTERN = /^[a-z0-9-]+$/
 
 function getAlchemyBaseUrl(network?: string) {
   const apiKey = process.env.ALCHEMY_API_KEY
   if (!apiKey) throw new Error('Missing ALCHEMY_API_KEY')
   const target = network ?? process.env.ALCHEMY_NETWORK ?? 'eth-mainnet'
+  if (!NETWORK_PATTERN.test(target)) {
+    throw new Error('Invalid network')
+  }
+  const allowed = (process.env.ALCHEMY_ALLOWED_NETWORKS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+  if (allowed.length > 0 && !allowed.includes(target)) {
+    throw new Error('Network not allowed')
+  }
   return `https://${target}.g.alchemy.com/v2/${apiKey}`
 }
 
