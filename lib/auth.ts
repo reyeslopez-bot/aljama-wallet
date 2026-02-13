@@ -4,6 +4,7 @@ import { verifyPassword } from '@/lib/auth/password'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prismaPg } from '@/lib/prisma-pg'
 import { findUserByEmail, usePgAuth } from '@/lib/auth/store'
+import { logError, logWarn } from '@/lib/security/logging'
 
 const usePg = usePgAuth()
 
@@ -49,6 +50,19 @@ export const authOptions: NextAuthOptions = {
         session.user.id = user?.id ?? token?.sub ?? session.user.id
       }
       return session
+    },
+  },
+  logger: {
+    error(code, metadata) {
+      const details =
+        typeof metadata === 'object' && metadata !== null
+          ? (metadata as Record<string, unknown>)
+          : undefined
+      if (code === 'JWT_SESSION_ERROR') {
+        logWarn('next-auth:jwt-session', { message: code }, details)
+        return
+      }
+      logError('next-auth', { message: code }, details)
     },
   },
 }

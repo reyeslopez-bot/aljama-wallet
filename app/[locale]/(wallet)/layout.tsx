@@ -1,9 +1,8 @@
 // app/[locale]/(wallet)/layout.tsx
 import type { ReactNode } from 'react'
 import { BRAND } from '@/constants/brand'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import { getSession } from '@/lib/security/session'
 
 export default async function WalletLayout({
   children,
@@ -13,7 +12,7 @@ export default async function WalletLayout({
   params: Promise<{ locale: string }>
 }) {
   const { locale } = await params
-  const session = await getServerSession(authOptions)
+  const session = await getSession()
   if (!session) {
     redirect(`/${locale}/login`)
   }

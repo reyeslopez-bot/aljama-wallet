@@ -4,8 +4,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, setRequestLocale } from 'next-intl/server'
 import { locales } from '@/i18n/routing'
 import { notFound } from 'next/navigation'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/security/session'
 import { logError } from '@/lib/security/logging'
 
 export default async function LocaleLayout({
@@ -24,7 +23,7 @@ export default async function LocaleLayout({
   const messages = await getMessages()
   let session = null
   try {
-    session = await getServerSession(authOptions)
+    session = await getSession()
   } catch (error) {
     logError('auth-session', error)
   }
