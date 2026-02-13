@@ -69,7 +69,7 @@ function normalizeContextAddress(address: string): string {
 function deriveKeyForContext(baseKey: Buffer, version: number, context: WalletEncryptionContext) {
   const salt = crypto.createHash("sha256").update(normalizeContextAddress(context.address)).digest()
   const info = Buffer.from(`aljama-wallet:pk:${version}`)
-  return crypto.hkdfSync("sha256", baseKey, salt, info, 32)
+  return Buffer.from(crypto.hkdfSync("sha256", baseKey, salt, info, 32))
 }
 
 function buildAad(version: number, context: WalletEncryptionContext): Buffer {

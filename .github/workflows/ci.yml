@@ -58,6 +58,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Typecheck
+        run: pnpm typecheck
+
       - name: Test (Vitest)
         run: pnpm test -- --reporter=github
 
@@ -116,7 +119,7 @@ jobs:
         run: |
           podman volume create aljama_pnpm_store || true
 
-      - name: Run tests inside container (prefer just, fallback pnpm)
+      - name: Run CI checks inside container (prefer just, strict fallback)
         env:
           XRPL_RPC_URL: ${{ env.XRPL_RPC_URL }}
           XRPL_DEV_SEED: ${{ secrets.XRPL_DEV_SEED }}
@@ -137,10 +140,16 @@ jobs:
 
               pnpm install --frozen-lockfile
 
-              if command -v just >/dev/null 2>&1 && just -l | grep -qE "ci|test"; then
-                (just ci || just test) || pnpm test
+              if command -v just >/dev/null 2>&1 && just -l | grep -qE "^\\s*ci\\b"; then
+                just ci
+              elif command -v just >/dev/null 2>&1 && just -l | grep -qE "^\\s*test\\b"; then
+                just check
+                just test
+                pnpm build
               else
+                pnpm lint
+                pnpm typecheck
                 pnpm test
+                pnpm build
               fi
             '
-

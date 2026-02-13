@@ -1,5 +1,4 @@
 // app/api/track-wallet/route.ts
-import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { recordTrackWalletEvent } from '@/services/track-wallet.service'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
@@ -32,7 +31,7 @@ const trackWalletSchema = z.object({
   timestamp: z.string().datetime(),
 })
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const rateKey = buildRateLimitKey(req, null)
     const limit = rateLimit({

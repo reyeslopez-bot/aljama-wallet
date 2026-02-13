@@ -77,11 +77,23 @@ lint:
 	pnpm lint
 
 typecheck:
-	pnpm tsc --noEmit
+	pnpm typecheck
+
+test:
+	pnpm test
+
+build:
+	pnpm build
 
 check:
 	just lint
 	just typecheck
+
+ci:
+	just lint
+	just typecheck
+	just test
+	just build
 
 help:
 	@just --list

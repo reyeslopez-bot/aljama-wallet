@@ -8,6 +8,7 @@
     "build": "pnpm prisma:generate && next build --webpack",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "eslint": "eslint .",
     "test": "NODE_ENV=test vitest --run",
     "test:watch": "NODE_ENV=test vitest",

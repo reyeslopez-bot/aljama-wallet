@@ -1,5 +1,4 @@
 // app/api/telemetry/route.ts
-import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { recordTelemetryEvent } from '@/services/telemetry.service'
 import crypto from 'node:crypto'
@@ -19,7 +18,7 @@ const telemetrySchema = z.object({
   payload: z.record(z.string(), z.unknown()).optional(),
 })
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const rateKey = buildRateLimitKey(req, null)
     const limit = rateLimit({
@@ -37,7 +36,7 @@ export async function POST(req: NextRequest) {
     const ipHeader =
       req.headers.get('x-forwarded-for') ??
       req.headers.get('x-real-ip') ??
-      (req as NextRequest & { ip?: string }).ip ??
+      req.headers.get('cf-connecting-ip') ??
       ''
     const ip = ipHeader.split(',')[0]?.trim() || null
     const ipHash = ip ? crypto.createHash('sha256').update(ip).digest('hex') : null

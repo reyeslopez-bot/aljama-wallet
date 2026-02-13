@@ -1,5 +1,4 @@
 // app/api/signup/route.ts
-import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { upsertSignup } from '@/services/signup.service'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
@@ -13,7 +12,7 @@ const signupSchema = z.object({
   source: z.string().max(64).optional(),
 })
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const rateKey = buildRateLimitKey(req, null)
     const limit = rateLimit({
