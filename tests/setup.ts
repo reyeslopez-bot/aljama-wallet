@@ -22,11 +22,14 @@ vi.mock('next-intl', () => ({
   NextIntlClientProvider: ({ children }: { children: ReactNode }) => children,
 }))
 
+const mockUseSession = vi.fn(() => ({
+  data: { user: { id: 'test-user', email: 'test@example.com' } },
+  status: 'authenticated',
+}))
+const mockSignIn = vi.fn()
+
 vi.mock('next-auth/react', () => ({
-  useSession: () => ({
-    data: { user: { id: 'test-user', email: 'test@example.com' } },
-    status: 'authenticated',
-  }),
+  useSession: mockUseSession,
   SessionProvider: ({ children }: { children: ReactNode }) => children,
-  signIn: vi.fn(),
+  signIn: mockSignIn,
 }))
