@@ -11,8 +11,10 @@ type Props = {
   buttonText?: string
   onUnlock?: (payload: { email: string; password: string }) => void
   showBackLink?: boolean
+  showCloseButton?: boolean
   backText?: string
   onBack?: () => void
+  onClose?: () => void
 }
 
 export default function LoginGate({
@@ -21,8 +23,10 @@ export default function LoginGate({
   buttonText,
   onUnlock,
   showBackLink = true,
+  showCloseButton = !showBackLink,
   backText,
   onBack,
+  onClose,
 }: Props) {
   const t = useTranslations("auth")
   const locale = useLocale()
@@ -136,6 +140,29 @@ export default function LoginGate({
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_60%_40%,rgba(78,120,160,0.16),rgba(0,0,0,0)_60%)] blur-[20px]" />
 
       <div className="surface-panel panel-glow-saffron relative w-full max-w-xl rounded-[2rem] p-8">
+        {showCloseButton && (
+          <button
+            type="button"
+            onClick={() => {
+              if (onClose) {
+                onClose()
+                return
+              }
+              router.push(`/${locale}`)
+            }}
+            className="absolute left-6 top-6 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-ivory/70 transition hover:border-white/20 hover:bg-white/10 hover:text-ivory"
+            aria-label={t("back")}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path
+                d="M3 3l8 8M11 3l-8 8"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        )}
         <div className="absolute right-6 top-6 z-10 flex items-center gap-2">
           {LANGUAGES.map((language) => (
             <button

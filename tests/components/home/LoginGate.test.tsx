@@ -46,6 +46,14 @@ describe('LoginGate', () => {
     expect(mocks.push).toHaveBeenNthCalledWith(2, '/ar/login')
   })
 
+  it('closes to locale home when close button is clicked', () => {
+    const { getByLabelText } = render(<LoginGate showBackLink={false} />)
+
+    fireEvent.click(getByLabelText('Return to Home'))
+
+    expect(mocks.push).toHaveBeenCalledWith('/en')
+  })
+
   it('toggles password visibility button', () => {
     const { getByLabelText, getByPlaceholderText } = render(<LoginGate showBackLink={false} />)
 
@@ -115,4 +123,3 @@ describe('LoginGate', () => {
     })
   })
 })
-
