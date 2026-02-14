@@ -72,10 +72,14 @@ describe('CreateWalletPanel', () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/create-wallet', expect.any(Object))
       expect(getByText('rCreateWalletAddress')).toBeTruthy()
+      expect(getByText('Receive onchain')).toBeTruthy()
       expect(useDynamicInfoStore.getState().createWalletStatus).toBe('success')
       expect(useDynamicInfoStore.getState().wallet.createdAddress).toBe('rCreateWalletAddress')
       expect(sessionStorage.getItem('aljama.encryptedWallet')).toBe('encrypted-payload')
       expect(sessionStorage.getItem('aljama.walletId')).toBe('wallet-1')
     })
+
+    const buyWithCard = getByRole('link', { name: 'Buy with card' }) as HTMLAnchorElement
+    expect(buyWithCard.getAttribute('href')).toContain('walletAddress=rCreateWalletAddress')
   })
 })

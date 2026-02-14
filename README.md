@@ -170,6 +170,7 @@ See `docs/security-hardening.md` for key management, re-encryption, and risk sco
 | `RISK_VELOCITY_SCORE`                 | Score for velocity                         | `25` |
 | `NEXT_PUBLIC_ALCHEMY_API_KEY`         | Enables faster RPC reads via Alchemy      | `v2_yourAlchemyKey` |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`| Enables WalletConnect modal               | `123abc456def789ghi` |
+| `NEXT_PUBLIC_ONRAMP_URL_TEMPLATE`     | Card on-ramp URL (`{address}` placeholder optional) | `https://buy.example.com?walletAddress={address}` |
 | `ALCHEMY_API_KEY`                     | Server-side Alchemy key                   | `v2_serverAlchemyKey` |
 | `ALCHEMY_NETWORK`                     | Default Alchemy network                   | `eth-mainnet` |
 | `ALCHEMY_ALLOWED_NETWORKS`            | Allowed Alchemy networks (CSV)            | `eth-mainnet,base-mainnet` |

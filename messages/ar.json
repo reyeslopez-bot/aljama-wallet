@@ -61,7 +61,14 @@
     "emptyBody": "استخدم عبارة سهلة التذكر. فهي تشفّر نسخة الجلسة المحلية.",
     "readyTitle": "المحفظة جاهزة",
     "readyBody": "أبقِ هذا التبويب مفتوحاً؛ النسخة المحلية تبقى هنا.",
-    "addressLabel": "العنوان"
+    "addressLabel": "العنوان",
+    "copyAddress": "نسخ العنوان",
+    "copiedAddress": "تم النسخ",
+    "buyWithCard": "شراء بالبطاقة",
+    "buyWithCardDisabled": "يتم استخدام مزود بطاقة افتراضي. اضبط NEXT_PUBLIC_ONRAMP_URL_TEMPLATE لاستخدام رابط شراء خاص بك.",
+    "receiveCryptoTitle": "استلام على السلسلة",
+    "receiveCryptoBody": "أرسل ETH أو USDC أو EURC أو أي أصل EVM مدعوم إلى هذا العنوان.",
+    "offlineReceiveNote": "يمكن أن تصل الأموال حتى عند عدم اتصال التطبيق. قم بمزامنة الرصيد بعد إعادة الاتصال."
   },
   "featureShowcase": {
     "eyebrow": "لغة التصميم",

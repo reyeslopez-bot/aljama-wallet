@@ -26,7 +26,8 @@ const snapshot = {
       id: 'xrp',
       symbol: 'XRP',
       name: 'XRP',
-      network: 'xrpl' as const,
+      marketGroup: 'xrpl' as const,
+      network: 'XRPL',
       priceUsd: 0.62,
       change24h: 2.2,
       series: [1, 1.02, 1.01],
@@ -35,7 +36,8 @@ const snapshot = {
       id: 'btc',
       symbol: 'BTC',
       name: 'Bitcoin',
-      network: 'reference' as const,
+      marketGroup: 'reference' as const,
+      network: 'Bitcoin',
       priceUsd: 69000,
       change24h: -0.4,
       series: [1, 0.99, 1.01],
@@ -75,6 +77,7 @@ describe('XrplMarketPanel', () => {
     await waitFor(() => {
       expect(getByText('$0.62')).toBeTruthy()
       expect(getByText('$69,000.00')).toBeTruthy()
+      expect(getByText('Bitcoin')).toBeTruthy()
     })
 
     fireEvent.click(getByRole('button', { name: 'XRPL' }))

@@ -1,7 +1,7 @@
 'use client'
 
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { persistEncryptedSession, persistWalletId } from '@/lib/storage/walletSession'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
@@ -13,6 +13,20 @@ type WalletPreview = {
 }
 
 type Status = 'idle' | 'pending' | 'success' | 'error'
+
+const DEPOSIT_NETWORKS = ['Ethereum', 'Base', 'Arbitrum', 'Optimism', 'Polygon']
+const DEFAULT_ONRAMP_URL_TEMPLATE = 'https://global.transak.com?walletAddress={address}'
+
+function buildOnRampUrl(address: string): string {
+  const template = process.env.NEXT_PUBLIC_ONRAMP_URL_TEMPLATE?.trim() || DEFAULT_ONRAMP_URL_TEMPLATE
+
+  if (template.includes('{address}')) {
+    return template.replaceAll('{address}', encodeURIComponent(address))
+  }
+
+  const separator = template.includes('?') ? '&' : '?'
+  return `${template}${separator}walletAddress=${encodeURIComponent(address)}`
+}
 
 export function CreateWalletPanel() {
   useComponentTelemetry('CreateWalletPanel')
@@ -27,10 +41,30 @@ export function CreateWalletPanel() {
   const [notice, setNotice] = useState<string | null>(null)
   const [mode, setMode] = useState<'custody' | 'session-only' | null>(null)
   const [walletPreview, setWalletPreview] = useState<WalletPreview | null>(null)
+  const [addressCopied, setAddressCopied] = useState(false)
   const setCreateWalletStatus = useDynamicInfoStore((s) => s.setCreateWalletStatus)
   const setCreatedWalletAddress = useDynamicInfoStore((s) => s.setCreatedWalletAddress)
 
   const disabled = locked || !password.trim() || status === 'pending'
+  const usingDefaultOnRamp = !process.env.NEXT_PUBLIC_ONRAMP_URL_TEMPLATE?.trim()
+  const onRampUrl = walletPreview ? buildOnRampUrl(walletPreview.address) : null
+
+  useEffect(() => {
+    if (!addressCopied) return
+    const timeout = window.setTimeout(() => setAddressCopied(false), 1800)
+    return () => window.clearTimeout(timeout)
+  }, [addressCopied])
+
+  const copyAddress = async () => {
+    if (!walletPreview) return
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+    try {
+      await navigator.clipboard.writeText(walletPreview.address)
+      setAddressCopied(true)
+    } catch {
+      // ignore clipboard failures
+    }
+  }
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -166,7 +200,7 @@ export function CreateWalletPanel() {
 
       <div className="surface-inner relative mt-6 p-4">
         {walletPreview ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p className="text-xs uppercase tracking-[0.16em] text-jade/80">{t('readyTitle')}</p>
             <p className="text-sm text-ivory/70">{t('readyBody')}</p>
             <div className="rounded-xl border border-jade/30 bg-jade/10 px-4 py-3 text-sm text-jade">
@@ -174,6 +208,41 @@ export function CreateWalletPanel() {
               <p className="mt-1 break-all font-mono text-base">
                 {walletPreview.address}
               </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void copyAddress()}
+                  className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-ivory transition hover:bg-white/15"
+                >
+                  {addressCopied ? t('copiedAddress') : t('copyAddress')}
+                </button>
+                <a
+                  href={onRampUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-saffron/30 bg-saffron/10 px-3 py-1.5 text-xs font-semibold text-saffron transition hover:bg-saffron/20"
+                >
+                  {t('buyWithCard')}
+                </a>
+              </div>
+              {usingDefaultOnRamp && (
+                <p className="mt-2 text-[11px] text-ivory/55">{t('buyWithCardDisabled')}</p>
+              )}
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-saffron/80">{t('receiveCryptoTitle')}</p>
+              <p className="mt-1 text-xs text-ivory/70">{t('receiveCryptoBody')}</p>
+              <p className="mt-2 text-[11px] text-jade/80">{t('offlineReceiveNote')}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {DEPOSIT_NETWORKS.map((network) => (
+                  <span
+                    key={network}
+                    className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] text-ivory/70"
+                  >
+                    {network}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         ) : (

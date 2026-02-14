@@ -8,7 +8,8 @@ type MarketAsset = {
   id: string
   symbol: string
   name: string
-  network: 'xrpl' | 'reference'
+  marketGroup: 'xrpl' | 'reference'
+  network: string
   priceUsd: number
   change24h: number
   series: number[]
@@ -26,11 +27,41 @@ const MAX_POINTS = 24
 const CACHE_TTL_MS = 60_000
 
 const ASSETS = [
-  { id: 'ripple', symbol: 'XRP', name: 'XRP', network: 'xrpl' as const },
-  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', network: 'reference' as const },
-  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', network: 'reference' as const },
-  { id: 'usd-coin', symbol: 'USDC', name: 'USD Coin', network: 'reference' as const },
-  { id: 'euro-coin', symbol: 'EURC', name: 'Euro Coin', network: 'reference' as const },
+  {
+    id: 'ripple',
+    symbol: 'XRP',
+    name: 'XRP',
+    marketGroup: 'xrpl' as const,
+    network: 'XRPL',
+  },
+  {
+    id: 'bitcoin',
+    symbol: 'BTC',
+    name: 'Bitcoin',
+    marketGroup: 'reference' as const,
+    network: 'Bitcoin',
+  },
+  {
+    id: 'ethereum',
+    symbol: 'ETH',
+    name: 'Ethereum',
+    marketGroup: 'reference' as const,
+    network: 'Ethereum',
+  },
+  {
+    id: 'usd-coin',
+    symbol: 'USDC',
+    name: 'USD Coin',
+    marketGroup: 'reference' as const,
+    network: 'Ethereum',
+  },
+  {
+    id: 'euro-coin',
+    symbol: 'EURC',
+    name: 'Euro Coin',
+    marketGroup: 'reference' as const,
+    network: 'Ethereum',
+  },
 ]
 
 const globalForMarket = globalThis as unknown as {

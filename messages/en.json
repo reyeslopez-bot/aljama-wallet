@@ -61,7 +61,14 @@
     "emptyBody": "Use a memorable phrase. It encrypts your local session copy.",
     "readyTitle": "Wallet ready",
     "readyBody": "Keep this tab open; your session copy stays local.",
-    "addressLabel": "Address"
+    "addressLabel": "Address",
+    "copyAddress": "Copy address",
+    "copiedAddress": "Copied",
+    "buyWithCard": "Buy with card",
+    "buyWithCardDisabled": "Using a default card provider. Set NEXT_PUBLIC_ONRAMP_URL_TEMPLATE to use your own checkout URL.",
+    "receiveCryptoTitle": "Receive onchain",
+    "receiveCryptoBody": "Send ETH, USDC, EURC, or other supported EVM assets to this address.",
+    "offlineReceiveNote": "Funds can arrive while this app is offline. Sync balance after reconnect."
   },
   "featureShowcase": {
     "eyebrow": "Design language",

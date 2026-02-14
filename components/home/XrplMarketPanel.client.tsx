@@ -11,7 +11,8 @@ type MarketAsset = {
   id: string
   symbol: string
   name: string
-  network: 'xrpl' | 'reference'
+  marketGroup: 'xrpl' | 'reference'
+  network: string
   priceUsd: number
   change24h: number
   series: number[]
@@ -114,7 +115,7 @@ export default function XrplMarketPanel() {
   const visibleAssets = useMemo(() => {
     if (!state.snapshot) return []
     if (state.view === 'all') return state.snapshot.assets
-    return state.snapshot.assets.filter((asset) => asset.network === state.view)
+    return state.snapshot.assets.filter((asset) => asset.marketGroup === state.view)
   }, [state.snapshot, state.view])
 
   const normalized = useMemo(() => {
@@ -240,7 +241,7 @@ export default function XrplMarketPanel() {
                   {asset.change24h.toFixed(2)}%
                 </span>
                 <span className="text-ivory/60">
-                  {asset.network === 'xrpl' ? t('table.xrpl') : t('table.reference')}
+                  {asset.network}
                 </span>
               </div>
             ))}

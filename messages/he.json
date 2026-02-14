@@ -61,7 +61,14 @@
     "emptyBody": "בחרו משפט שקל לזכור. הוא מצפין את עותק הסשן המקומי.",
     "readyTitle": "הארנק מוכן",
     "readyBody": "השאירו את הטאב פתוח; העותק המקומי נשמר כאן.",
-    "addressLabel": "כתובת"
+    "addressLabel": "כתובת",
+    "copyAddress": "העתקת כתובת",
+    "copiedAddress": "הועתק",
+    "buyWithCard": "קנייה בכרטיס",
+    "buyWithCardDisabled": "נעשה שימוש בספק כרטיס ברירת מחדל. הגדירו NEXT_PUBLIC_ONRAMP_URL_TEMPLATE כדי להשתמש בכתובת רכישה משלכם.",
+    "receiveCryptoTitle": "קבלה אונצ׳יין",
+    "receiveCryptoBody": "שלחו ETH, USDC, EURC או נכסי EVM נתמכים נוספים לכתובת הזו.",
+    "offlineReceiveNote": "כספים יכולים להגיע גם כשהאפליקציה לא מקוונת. סנכרנו יתרה אחרי חיבור מחדש."
   },
   "featureShowcase": {
     "eyebrow": "שפת עיצוב",
