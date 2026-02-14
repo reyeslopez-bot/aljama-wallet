@@ -71,4 +71,17 @@ describe('ConsentBanner', () => {
       expect(queryByRole('button', { name: 'Reject all' })).toBeNull()
     })
   })
+
+  it('essential only stores denied consent and dismisses the popup', async () => {
+    const { getByRole, queryByRole } = render(<ConsentBanner />)
+
+    fireEvent.click(getByRole('button', { name: 'Essential only' }))
+
+    expect(setTelemetryConsentMock).toHaveBeenCalledWith('denied')
+    expect(setLocationConsentMock).toHaveBeenCalledWith('denied')
+
+    await waitFor(() => {
+      expect(queryByRole('button', { name: 'Essential only' })).toBeNull()
+    })
+  })
 })

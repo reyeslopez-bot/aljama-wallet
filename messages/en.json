@@ -263,14 +263,17 @@
     "rights": "All rights reserved."
   },
   "consent": {
+    "eyebrow": "Permissions",
     "title": "Allow Experience Services",
     "text": "Before we identify your session, choose whether to enable experience services for this visit.",
+    "essentialDetail": "Essential only keeps core security, authentication, and app session functionality.",
     "locationDetail": "Location access centers maps and loads local regulatory context.",
     "telemetryDetail": "Telemetry helps improve reliability, performance, and feature quality.",
     "requesting": "Waiting for browser location permission...",
     "decline": "Reject all",
     "accept": "Allow all",
     "rejectAll": "Reject all",
+    "essentialOnly": "Essential only",
     "acceptAll": "Allow all",
     "allowAll": "Allow all"
   },
