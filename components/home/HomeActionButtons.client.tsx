@@ -22,7 +22,7 @@ export default function HomeActionButtons() {
   const tAuth = useTranslations("auth")
   const locale = useLocale()
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== "authenticated"
+  const locked = sessionStatus === "unauthenticated"
 
   const buttons: Btn[] = [
     {

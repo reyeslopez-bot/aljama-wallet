@@ -19,7 +19,7 @@ export default function CurrentLocation() {
   const t = useTranslations('location')
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== 'authenticated'
+  const locked = sessionStatus === 'unauthenticated'
   const [state, setState] = React.useState<GeoState>({ status: 'idle' })
 
   const request = React.useCallback(() => {

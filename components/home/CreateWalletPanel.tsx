@@ -20,7 +20,7 @@ export function CreateWalletPanel() {
   const tActions = useTranslations('actions')
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== 'authenticated'
+  const locked = sessionStatus === 'unauthenticated'
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)

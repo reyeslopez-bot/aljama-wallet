@@ -18,7 +18,7 @@ export default function MapboxMap() {
   const t = useTranslations('map')
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== 'authenticated'
+  const locked = sessionStatus === 'unauthenticated'
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const mapRef = React.useRef<mapboxgl.Map | null>(null)
   const markerRef = React.useRef<mapboxgl.Marker | null>(null)

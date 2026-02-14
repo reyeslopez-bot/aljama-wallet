@@ -20,7 +20,7 @@ export default function RegionCompliancePanel() {
   const t = useTranslations('region')
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== 'authenticated'
+  const locked = sessionStatus === 'unauthenticated'
   const [region, setRegion] = useState<string>('us')
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)

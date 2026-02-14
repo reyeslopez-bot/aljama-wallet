@@ -28,7 +28,7 @@ export function XrplPanel() {
   const t = useTranslations('xrpl')
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== 'authenticated'
+  const locked = sessionStatus === 'unauthenticated'
   const [state, setState] = useState<XrplState>(initialState)
 
   const loadAccount = useCallback(async () => {

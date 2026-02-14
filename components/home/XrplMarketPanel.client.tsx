@@ -73,7 +73,7 @@ export default function XrplMarketPanel() {
   const t = useTranslations('market')
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== 'authenticated'
+  const locked = sessionStatus === 'unauthenticated'
   const [state, setState] = useState<{
     loading: boolean
     error: string | null

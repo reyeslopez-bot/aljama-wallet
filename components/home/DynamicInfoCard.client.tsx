@@ -109,7 +109,7 @@ function CopyIcon() {
 export default function DynamicInfoCard() {
   const t = useTranslations('infoCard')
   const [hovered, setHovered] = useState(false)
-  const [now, setNow] = useState(() => new Date())
+  const [now, setNow] = useState<Date | null>(null)
 
   const user = useDynamicInfoStore((s) => s.user)
   const wallet = useDynamicInfoStore((s) => s.wallet)
@@ -121,16 +121,19 @@ export default function DynamicInfoCard() {
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
 
   useEffect(() => {
+    setNow(new Date())
     const t = setInterval(() => setNow(new Date()), 30_000)
     return () => clearInterval(t)
   }, [])
 
   const timeLabel = useMemo(
-    () =>
-      now.toLocaleTimeString([], {
+    () => {
+      if (!now) return '--:--'
+      return now.toLocaleTimeString(undefined, {
         hour: 'numeric',
         minute: '2-digit',
-      }),
+      })
+    },
     [now],
   )
 
@@ -191,7 +194,12 @@ export default function DynamicInfoCard() {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="text-[11px] font-semibold tabular-nums tracking-tight text-ivory">{timeLabel}</div>
+              <div
+                suppressHydrationWarning
+                className="text-[11px] font-semibold tabular-nums tracking-tight text-ivory"
+              >
+                {timeLabel}
+              </div>
               <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-ivory/80">
                 <StatusDot tone={statusTone} />
                 <span className="whitespace-nowrap">{statusLabel}</span>

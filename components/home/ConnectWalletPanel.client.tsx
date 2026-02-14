@@ -13,7 +13,7 @@ export function ConnectWalletPanel() {
   const t = useTranslations('connectWallet')
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== 'authenticated'
+  const locked = sessionStatus === 'unauthenticated'
   const { address, isConnected, chain, connector: accountConnector } = useConnection()
   const connectors = useConnectors()
   const { mutate: connect, isPending, error: connectError } = useConnect()

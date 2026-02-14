@@ -12,6 +12,18 @@ APP_URL_ENV="${APP_URL:-}"
 APP_URL=""
 RUNTIME="${CONTAINER_RUNTIME:-}"
 
+# Load local env files so required auth secrets are validated before boot.
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+if [ -f .env.local ]; then
+  set -a
+  source .env.local
+  set +a
+fi
+
 while (($#)); do
   case $1 in
     --port)             APP_PORT="${2:?}"; shift 2 ;;
@@ -42,6 +54,12 @@ if [ -n "$APP_URL_ENV" ]; then
   APP_URL="$APP_URL_ENV"
 else
   APP_URL="http://localhost:$APP_PORT"
+fi
+
+if [ -z "${NEXTAUTH_SECRET:-}" ]; then
+  echo "NEXTAUTH_SECRET is required for production runs."
+  echo "Generate one with: openssl rand -base64 32"
+  exit 1
 fi
 
 # Runtime
@@ -79,6 +97,12 @@ RUN_CMD+=("--name" "$CONTAINER_NAME")
 RUN_CMD+=("-p" "$APP_PORT:$APP_PORT")
 RUN_CMD+=("-e" "PORT=$APP_PORT")
 RUN_CMD+=("-e" "HOSTNAME=0.0.0.0")
+if [ -f "$PWD/.env" ]; then
+  RUN_CMD+=("--env-file" "$PWD/.env")
+fi
+if [ -f "$PWD/.env.local" ]; then
+  RUN_CMD+=("--env-file" "$PWD/.env.local")
+fi
 
 if [ -d ./infra/runtime ]; then
   RUN_CMD+=("-v" "$PWD/infra/runtime:/runtime$VOLUME_SUFFIX")
