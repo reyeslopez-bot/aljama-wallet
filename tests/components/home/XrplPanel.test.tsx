@@ -54,6 +54,7 @@ describe('XrplPanel', () => {
     await waitFor(() => {
       expect(getByText('rAddressOne')).toBeTruthy()
     })
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('network=testnet')
 
     const refresh = getByRole('button', { name: 'Refresh XRPL snapshot' }) as HTMLButtonElement
     expect(refresh.disabled).toBe(false)
@@ -63,6 +64,7 @@ describe('XrplPanel', () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
     })
+    expect(fetchMock.mock.calls[1]?.[0]).toContain('network=testnet')
   })
 
   it('disables refresh button when unauthenticated', async () => {
@@ -89,5 +91,32 @@ describe('XrplPanel', () => {
     const refresh = getByRole('button', { name: 'Refresh XRPL snapshot' }) as HTMLButtonElement
     expect(refresh.disabled).toBe(true)
     expect(getByText('Sign in to unlock actions.')).toBeTruthy()
+  })
+
+  it('requests a new snapshot when switching network', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          account: { address: 'rNetworkSwitch', xrpBalance: '8.88' },
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByRole } = render(<XrplPanel />)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('network=testnet')
+
+    fireEvent.click(getByRole('button', { name: /Mainnet/ }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+    expect(fetchMock.mock.calls[1]?.[0]).toContain('network=mainnet')
   })
 })

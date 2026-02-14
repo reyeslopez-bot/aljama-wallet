@@ -18,12 +18,38 @@ vi.mock('@/infra/telemetry/client', () => ({
   setTelemetryConsent: setTelemetryConsentMock,
 }))
 vi.mock('@/infra/location/client', () => ({
+  canUseGeolocation: () => true,
   getLocationConsent: () => locationState.consent,
   setLocationConsent: setLocationConsentMock,
 }))
 
 describe('ConsentBanner', () => {
   beforeEach(() => {
+    const store = new Map<string, string>()
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        get length() {
+          return store.size
+        },
+        clear() {
+          store.clear()
+        },
+        getItem(key: string) {
+          return store.has(key) ? store.get(key)! : null
+        },
+        key(index: number) {
+          return Array.from(store.keys())[index] ?? null
+        },
+        removeItem(key: string) {
+          store.delete(key)
+        },
+        setItem(key: string, value: string) {
+          store.set(key, String(value))
+        },
+      },
+      configurable: true,
+    })
+
     vi.clearAllMocks()
     telemetryState.consent = 'unset'
     locationState.consent = 'unset'
@@ -45,9 +71,9 @@ describe('ConsentBanner', () => {
       configurable: true,
     })
 
-    const { getByRole, queryByRole } = render(<ConsentBanner />)
+    const { findByRole, queryByRole } = render(<ConsentBanner />)
 
-    const accept = getByRole('button', { name: 'Allow all' })
+    const accept = await findByRole('button', { name: 'Allow all' })
     fireEvent.click(accept)
 
     expect(setTelemetryConsentMock).toHaveBeenCalledWith('granted')
@@ -60,9 +86,9 @@ describe('ConsentBanner', () => {
   })
 
   it('reject all stores denied consent and dismisses the popup', async () => {
-    const { getByRole, queryByRole } = render(<ConsentBanner />)
+    const { findByRole, queryByRole } = render(<ConsentBanner />)
 
-    fireEvent.click(getByRole('button', { name: 'Reject all' }))
+    fireEvent.click(await findByRole('button', { name: 'Reject all' }))
 
     expect(setTelemetryConsentMock).toHaveBeenCalledWith('denied')
     expect(setLocationConsentMock).toHaveBeenCalledWith('denied')
@@ -73,9 +99,9 @@ describe('ConsentBanner', () => {
   })
 
   it('essential only stores denied consent and dismisses the popup', async () => {
-    const { getByRole, queryByRole } = render(<ConsentBanner />)
+    const { findByRole, queryByRole } = render(<ConsentBanner />)
 
-    fireEvent.click(getByRole('button', { name: 'Essential only' }))
+    fireEvent.click(await findByRole('button', { name: 'Essential only' }))
 
     expect(setTelemetryConsentMock).toHaveBeenCalledWith('denied')
     expect(setLocationConsentMock).toHaveBeenCalledWith('denied')

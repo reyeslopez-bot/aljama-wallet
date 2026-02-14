@@ -1,14 +1,21 @@
 // infra/xrpl/client.ts
 import { Client, Wallet } from 'xrpl'
+import {
+  DEFAULT_XRPL_NETWORK_ID,
+  resolveXrplNetwork,
+  type XrplNetworkId,
+} from '@/lib/xrpl-networks'
 
-let client: Client | null = null
+const clients = new Map<XrplNetworkId, Client>()
 
-export async function getXrplClient(): Promise<Client> {
-  if (client && client.isConnected()) return client
+export async function getXrplClient(networkId: XrplNetworkId = DEFAULT_XRPL_NETWORK_ID): Promise<Client> {
+  const network = resolveXrplNetwork(networkId)
+  const existing = clients.get(network.id)
+  if (existing && existing.isConnected()) return existing
 
-  const url = process.env.XRPL_RPC_URL ?? 'wss://s.altnet.rippletest.net:51233'
-  client = new Client(url)
+  const client = new Client(network.wsUrl)
   await client.connect()
+  clients.set(network.id, client)
   return client
 }
 

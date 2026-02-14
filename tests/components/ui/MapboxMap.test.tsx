@@ -29,6 +29,7 @@ vi.mock('mapbox-gl', () => ({
   },
 }))
 vi.mock('@/infra/location/client', () => ({
+  canUseGeolocation: () => true,
   getLocationConsent: () => locationState.consent,
   onLocationConsentChange: () => () => {},
   setLocationConsent: setLocationConsentMock,
@@ -38,6 +39,31 @@ const mockedUseSession = vi.mocked(useSession)
 
 describe('MapboxMap', () => {
   beforeEach(() => {
+    const store = new Map<string, string>()
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        get length() {
+          return store.size
+        },
+        clear() {
+          store.clear()
+        },
+        getItem(key: string) {
+          return store.has(key) ? store.get(key)! : null
+        },
+        key(index: number) {
+          return Array.from(store.keys())[index] ?? null
+        },
+        removeItem(key: string) {
+          store.delete(key)
+        },
+        setItem(key: string, value: string) {
+          store.set(key, String(value))
+        },
+      },
+      configurable: true,
+    })
+
     vi.clearAllMocks()
     locationState.consent = 'granted'
     mockedUseSession.mockReturnValue({
@@ -62,12 +88,12 @@ describe('MapboxMap', () => {
       configurable: true,
     })
 
-    const { getByText } = render(<MapboxMap />)
+    const { getByText, getAllByText } = render(<MapboxMap />)
 
     await waitFor(() => {
       expect(getCurrentPosition).toHaveBeenCalled()
-      expect(getByText('Detected jurisdiction:')).toBeTruthy()
-      expect(getByText('United States')).toBeTruthy()
+      expect(getByText('Jurisdiction:')).toBeTruthy()
+      expect(getAllByText('United States').length).toBeGreaterThan(0)
     })
   })
 

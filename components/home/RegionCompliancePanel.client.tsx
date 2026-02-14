@@ -13,7 +13,13 @@ type RegionOption = {
 }
 
 const REGION_KEY = 'aljama.region'
-const EMAIL_KEY = 'aljama.signupEmail'
+const REGION_PROFILE_KEY = 'aljama.region.profileEnabled'
+const REGION_SYNC_EVENT = 'aljama:region-sync'
+const SUPPORTED_REGIONS = new Set(['us', 'eu', 'mena', 'apac', 'latam'])
+
+function isSupportedRegion(value: string | null): value is string {
+  return Boolean(value && SUPPORTED_REGIONS.has(value))
+}
 
 export default function RegionCompliancePanel() {
   useComponentTelemetry('RegionCompliancePanel')
@@ -22,10 +28,7 @@ export default function RegionCompliancePanel() {
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === 'unauthenticated'
   const [region, setRegion] = useState<string>('us')
-  const [email, setEmail] = useState('')
-  const [submitted, setSubmitted] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
 
   const regions: RegionOption[] = [
     { value: 'us', label: t('regions.us'), detail: t('regionDetail.us') },
@@ -43,10 +46,38 @@ export default function RegionCompliancePanel() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+
     const storedRegion = window.localStorage.getItem(REGION_KEY)
-    if (storedRegion) setRegion(storedRegion)
-    const storedEmail = window.localStorage.getItem(EMAIL_KEY)
-    if (storedEmail) setEmail(storedEmail)
+    if (isSupportedRegion(storedRegion)) {
+      setRegion(storedRegion)
+    }
+
+    const handleRegionSync = (event: Event) => {
+      const detailRegion = (event as CustomEvent<{ region?: string }>).detail?.region
+      const detailRegionValue = typeof detailRegion === 'string' ? detailRegion : null
+      const nextRegion =
+        isSupportedRegion(detailRegionValue)
+          ? detailRegionValue
+          : window.localStorage.getItem(REGION_KEY)
+
+      if (!isSupportedRegion(nextRegion)) return
+      setRegion(nextRegion)
+      setSaved(false)
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== REGION_KEY) return
+      if (!isSupportedRegion(event.newValue)) return
+      setRegion(event.newValue)
+      setSaved(false)
+    }
+
+    window.addEventListener(REGION_SYNC_EVENT, handleRegionSync as EventListener)
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      window.removeEventListener(REGION_SYNC_EVENT, handleRegionSync as EventListener)
+      window.removeEventListener('storage', handleStorage)
+    }
   }, [])
 
   return (
@@ -68,6 +99,7 @@ export default function RegionCompliancePanel() {
           onChange={(event) => {
             const next = event.target.value
             setRegion(next)
+            setSaved(false)
             if (typeof window !== 'undefined') {
               window.localStorage.setItem(REGION_KEY, next)
             }
@@ -108,67 +140,32 @@ export default function RegionCompliancePanel() {
       <div className="surface-inner p-4">
         <p className="text-xs uppercase tracking-[0.16em] text-ivory/60">{t('signupTitle')}</p>
         <p className="mt-2 text-sm text-ivory/70">{t('signupBody')}</p>
-        <form
-          className="mt-3 flex flex-col gap-3 sm:flex-row"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (locked) return
-            const trimmedEmail = email.trim()
-            if (!trimmedEmail) {
-              setError(t('emailError'))
-              return
-            }
-            setError(null)
-            setSubmitting(true)
-            void fetch('/api/signup', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({
-                email: trimmedEmail,
-                region,
-                source: 'region-panel',
-              }),
-            })
-              .then(async (res) => {
-                if (!res.ok) throw new Error('Signup failed')
-                setSubmitted(true)
-                if (typeof window !== 'undefined') {
-                  window.localStorage.setItem(EMAIL_KEY, trimmedEmail)
-                }
-              })
-              .catch(() => {
-                setError(t('signupError'))
-              })
-              .finally(() => setSubmitting(false))
-          }}
-        >
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder={t('emailPlaceholder')}
-            disabled={locked}
-            className="w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-sm text-ivory placeholder:text-ivory/40 focus:outline-none focus:ring-2 focus:ring-saffron/30 disabled:cursor-not-allowed disabled:opacity-60"
-          />
+        <div className="mt-3">
           <button
-            type="submit"
-            disabled={locked || submitting}
+            type="button"
+            disabled={locked}
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.localStorage.setItem(REGION_KEY, region)
+                window.localStorage.setItem(REGION_PROFILE_KEY, 'true')
+              }
+              setSaved(true)
+            }}
             className="rounded-xl bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] px-4 py-2 text-sm font-semibold text-[#1c120a] shadow-lg shadow-[#c7794a]/30 transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? t('signupSending') : t('signupButton')}
+            {t('signupButton')}
           </button>
-        </form>
+        </div>
         {locked && (
           <p className="mt-2 text-xs uppercase tracking-[0.18em] text-ivory/50">
             {tAuth('unlockActions')}
           </p>
         )}
-        {submitted && (
+        {saved && (
           <p className="mt-2 text-xs text-jade">
             {t('signupSuccess')}
           </p>
         )}
-        {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
       </div>
     </div>
   )

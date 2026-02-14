@@ -9,7 +9,12 @@
     "menu": "תפריט",
     "active": "פעיל",
     "language": "שפה",
-    "signIn": "התחברו"
+    "signIn": "התחברו",
+    "themeToggle": "החלפת ערכת צבעים",
+    "themeLight": "מצב בהיר",
+    "themeDark": "מצב כהה",
+    "themeLightShort": "ב",
+    "themeDarkShort": "כ"
   },
   "home": {
     "hero": {
@@ -51,14 +56,34 @@
     "badgeCustody": "תהליך משמורת",
     "badgeReady": "מוכן לשימוש",
     "badgeSessionOnly": "סשן בלבד",
-    "passwordLabel": "סיסמה",
+    "passwordLabel": "משפט סיסמה",
     "passwordTag": "הצפנה",
     "passwordPlaceholder": "צרו סיסמה שתזכרו",
+    "passphraseRequired": "נדרש משפט סיסמה",
+    "passphraseTooWeak": "משפט הסיסמה חלש. השתמשו ב-16+ תווים עם אותיות גדולות/קטנות, מספר, סמל וללא דפוסים צפויים.",
+    "generatePassphrase": "יצירת משפט סיסמה",
+    "strengthLabel": "חוזק משפט סיסמה",
+    "strengthHint": "מינימום 16 תווים, מומלץ 20+, חזק 32+.",
+    "strength": {
+      "weak": "חלש",
+      "good": "טוב",
+      "strong": "חזק"
+    },
+    "ruleLength": "לפחות 16 תווים",
+    "ruleUpper": "כולל אותיות גדולות (A-Z)",
+    "ruleLower": "כולל אותיות קטנות (a-z)",
+    "ruleNumber": "כולל מספרים (0-9)",
+    "ruleSpecial": "כולל סימנים מיוחדים (!@#$%^&*)",
+    "rulePattern": "ללא דפוסים נפוצים או חוזרים",
     "button": "יצירת ארנק",
     "tagEncrypted": "עותק סשן מוצפן",
-    "tagPrivate": "שמרו את הסיסמה פרטית",
+    "tagPrivate": "שמרו את משפט הסיסמה פרטי",
     "emptyTitle": "עדיין לא נוצר ארנק",
     "emptyBody": "בחרו משפט שקל לזכור. הוא מצפין את עותק הסשן המקומי.",
+    "passphraseOfferTitle": "משפט סיסמה מוצפן מוכן",
+    "passphraseOfferBody": "משפט הסיסמה מוסתר מטעמי אבטחה. העתיקו ושמרו אותו אופליין.",
+    "copyPassphrase": "העתקת משפט הסיסמה",
+    "copiedPassphrase": "משפט הסיסמה הועתק",
     "readyTitle": "הארנק מוכן",
     "readyBody": "השאירו את הטאב פתוח; העותק המקומי נשמר כאן.",
     "addressLabel": "כתובת",
@@ -121,13 +146,13 @@
     },
     "targeted": "יעד",
     "disclaimer": "מידע בלבד. לא הצהרת הסמכה.",
-    "signupTitle": "הרשמה",
-    "signupBody": "קבלו עדכוני השקה ובריפינגי אבטחה.",
+    "signupTitle": "פרופיל פרטיות מקומי",
+    "signupBody": "לא נאסף כאן אימייל. נשמר רק פרופיל תאימות אזורי מקומי.",
     "emailPlaceholder": "you@company.com",
-    "signupButton": "הצטרפו לעדכונים",
-    "signupSending": "שולח…",
-    "signupSuccess": "תודה — אתם ברשימה.",
-    "signupError": "ההרשמה נכשלה. נסו שוב.",
+    "signupButton": "שמירת פרופיל אזור",
+    "signupSending": "שומר…",
+    "signupSuccess": "פרופיל האזור נשמר מקומית.",
+    "signupError": "השמירה נכשלה. נסו שוב.",
     "emailError": "הזינו אימייל תקין."
   },
   "connectWallet": {
@@ -151,14 +176,22 @@
   "xrpl": {
     "eyebrow": "XRPL + Ledger",
     "title": "XRP Ledger מוכן",
-    "body": "תמונת מצב טסט-נט מהזרע השרתתי של XRPL. משיכת יתרות לפי דרישה.",
+    "body": "בחרו סביבת XRPL, בדקו נקודות קצה, ומשכו תמונת מצב חשבון לפי דרישה.",
     "statusSyncing": "מסנכרן",
     "statusOnline": "מקוון",
     "loading": "טוען חשבון XRPL…",
-    "accountTitle": "חשבון טסט-נט",
+    "accountTitle": "חשבון הרשת הנבחרת",
     "balanceLabel": "יתרה",
     "empty": "אין נתוני XRPL נטענים.",
-    "refresh": "רענון תמונת מצב XRPL"
+    "refresh": "רענון תמונת מצב XRPL",
+    "networkSelectorLabel": "בחירת רשת",
+    "networkSelectorHint": "Mainnet משתמש ב-XRP אמיתי. רשתות בדיקה/פיתוח אינן פרודקשן ועלולות להתאפס.",
+    "networkTypeMainnet": "פרודקשן",
+    "networkTypeNonProduction": "לא פרודקשן",
+    "selectedNetwork": "רשת נבחרת",
+    "mainnetWarning": "נבחר Mainnet: כספים אמיתיים, טרנזקציות בלתי הפיכות וסיכון פרודקשן.",
+    "resetWarning": "הרשת הזו עלולה להתאפס ללא אזהרה. התייחסו ליתרות ככספי בדיקה זמניים.",
+    "openFaucet": "פתיחת Faucet"
   },
   "market": {
     "eyebrow": "תמונת שוק",
@@ -179,7 +212,9 @@
       "xrpl": "XRPL",
       "reference": "ייחוס"
     },
-    "refresh": "רענון תמונת שוק"
+    "refresh": "רענון תמונת שוק",
+    "pointAt": "נקודה בזמן",
+    "hoverHint": "רחפו מעל הגרף כדי לבדוק נכסי XRPL והנכסים המובילים."
   },
   "map": {
     "label": "מפה",
@@ -195,6 +230,9 @@
       "title": "רגולציה מקומית",
       "detected": "שיפוט מזוהה:",
       "default": "שיפוט ברירת מחדל:",
+      "jurisdiction": "שיפוט:",
+      "showMore": "הצגת עוד",
+      "showLess": "הצגת פחות",
       "disclaimer": "למידע בלבד, לא ייעוץ משפטי. יש לאמת חובות עדכניות עם יועץ משפטי מקומי.",
       "uae": {
         "label": "דובאי, איחוד האמירויות",
@@ -254,7 +292,9 @@
       "available": "זמין",
       "vault": "כספת",
       "idle": "ממתין"
-    }
+    },
+    "xrplNetwork": "רשת XRPL",
+    "detailsOpen": "פרטים פתוחים"
   },
   "footer": {
     "privacy": "פרטיות",

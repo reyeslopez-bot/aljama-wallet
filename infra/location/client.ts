@@ -25,3 +25,27 @@ export function onLocationConsentChange(handler: () => void) {
   window.addEventListener(LOCATION_CONSENT_EVENT, handler)
   return () => window.removeEventListener(LOCATION_CONSENT_EVENT, handler)
 }
+
+export function canUseGeolocation() {
+  if (!hasWindow()) return false
+
+  const policy = (
+    document as Document & {
+      permissionsPolicy?: { allowsFeature?: (feature: string) => boolean }
+      featurePolicy?: { allowsFeature?: (feature: string) => boolean }
+    }
+  ).permissionsPolicy ??
+    (
+      document as Document & {
+        featurePolicy?: { allowsFeature?: (feature: string) => boolean }
+      }
+    ).featurePolicy
+
+  if (!policy?.allowsFeature) return true
+
+  try {
+    return policy.allowsFeature('geolocation')
+  } catch {
+    return true
+  }
+}

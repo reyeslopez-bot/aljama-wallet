@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
+import { formatDateShort, formatDateTime24, formatTime24 } from '@/lib/time-format'
 
 type MarketAsset = {
   id: string
@@ -34,6 +35,7 @@ const COLORS: Record<string, string> = {
 }
 
 type ViewOption = 'all' | 'xrpl' | 'reference'
+type TimelineTick = { index: number; timestamp: number }
 
 function normalizeSeries(series: number[]): number[] {
   if (series.length === 0) return []
@@ -69,6 +71,28 @@ function formatUsd(value: number) {
   })
 }
 
+function seriesIndexToTimestamp(updatedAt: string | null | undefined, index: number, pointCount: number): number | null {
+  if (!updatedAt || pointCount < 2) return null
+  const end = new Date(updatedAt).getTime()
+  if (!Number.isFinite(end)) return null
+  const start = end - 24 * 60 * 60 * 1_000
+  const ratio = Math.min(Math.max(index / (pointCount - 1), 0), 1)
+  return Math.round(start + ratio * (end - start))
+}
+
+function buildTimelineTicks(updatedAt: string | null | undefined, pointCount: number): TimelineTick[] {
+  if (!updatedAt || pointCount < 2) return []
+  const points = pointCount - 1
+  const indexes = Array.from(new Set([0, Math.round(points / 3), Math.round((points * 2) / 3), points]))
+  return indexes
+    .map((index) => {
+      const timestamp = seriesIndexToTimestamp(updatedAt, index, pointCount)
+      if (!timestamp) return null
+      return { index, timestamp }
+    })
+    .filter((tick): tick is TimelineTick => tick !== null)
+}
+
 export default function XrplMarketPanel() {
   useComponentTelemetry('XrplMarketPanel')
   const t = useTranslations('market')
@@ -86,6 +110,7 @@ export default function XrplMarketPanel() {
     snapshot: null,
     view: 'all',
   })
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
 
   const loadSnapshot = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }))
@@ -130,11 +155,40 @@ export default function XrplMarketPanel() {
     return { normalizedSeries, min, max }
   }, [visibleAssets])
 
+  const pointCount = useMemo(
+    () => Math.max(0, ...normalized.normalizedSeries.map((asset) => asset.series.length)),
+    [normalized.normalizedSeries],
+  )
+
+  const timelineTicks = useMemo(
+    () => buildTimelineTicks(state.snapshot?.updatedAt, pointCount),
+    [state.snapshot?.updatedAt, pointCount],
+  )
+
+  const hoverSnapshot = useMemo(() => {
+    if (hoverIndex === null || !state.snapshot || pointCount < 2) return null
+    const timestamp = seriesIndexToTimestamp(state.snapshot.updatedAt, hoverIndex, pointCount)
+    if (!timestamp) return null
+    return {
+      timestamp,
+      rows: visibleAssets.map((asset) => {
+        const safeIndex = Math.min(hoverIndex, Math.max(asset.series.length - 1, 0))
+        const pointPrice = asset.series[safeIndex] ?? asset.priceUsd
+        const explicitName = asset.symbol === 'XRP' ? 'Ripple' : asset.name
+        return { ...asset, pointPrice, explicitName }
+      }),
+    }
+  }, [hoverIndex, pointCount, state.snapshot, visibleAssets])
+
   const viewOptions = [
     { id: 'all', label: t('viewAll') },
     { id: 'xrpl', label: t('viewXrpl') },
     { id: 'reference', label: t('viewReference') },
   ] as const
+
+  const hoverLineX = hoverIndex !== null && pointCount > 1
+    ? (hoverIndex / (pointCount - 1)) * 100
+    : null
 
   return (
     <section className="surface-panel panel-glow-rose relative p-7 sm:p-8">
@@ -172,7 +226,7 @@ export default function XrplMarketPanel() {
           ))}
           <span className="ml-auto text-[11px] text-ivory/40">
             {state.snapshot?.updatedAt
-              ? `${t('updated')} ${new Date(state.snapshot.updatedAt).toLocaleTimeString()}`
+              ? `${t('updated')} ${formatTime24(state.snapshot.updatedAt)}`
               : ''}
           </span>
         </div>
@@ -184,7 +238,19 @@ export default function XrplMarketPanel() {
             <p className="text-sm text-red-300">{state.error}</p>
           ) : (
             <div className="space-y-4">
-              <svg viewBox="0 0 100 48" className="h-32 w-full">
+              <svg
+                viewBox="0 0 100 48"
+                className="h-32 w-full"
+                onMouseMove={(event) => {
+                  if (pointCount < 2) return
+                  const rect = event.currentTarget.getBoundingClientRect()
+                  if (!rect.width) return
+                  const ratio = (event.clientX - rect.left) / rect.width
+                  const clamped = Math.min(Math.max(ratio, 0), 1)
+                  setHoverIndex(Math.round(clamped * (pointCount - 1)))
+                }}
+                onMouseLeave={() => setHoverIndex(null)}
+              >
                 <defs>
                   <linearGradient id="marketGlow" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stopColor="#6fa0d9" stopOpacity="0.35" />
@@ -193,6 +259,17 @@ export default function XrplMarketPanel() {
                   </linearGradient>
                 </defs>
                 <rect x="0" y="0" width="100" height="48" fill="url(#marketGlow)" opacity="0.08" />
+                {hoverLineX !== null ? (
+                  <line
+                    x1={hoverLineX}
+                    y1={3}
+                    x2={hoverLineX}
+                    y2={45}
+                    stroke="rgba(240,215,160,0.45)"
+                    strokeWidth="0.45"
+                    strokeDasharray="1.2 1.1"
+                  />
+                ) : null}
                 {normalized.normalizedSeries.map((asset) => {
                   const path = buildPath(asset.series, normalized.min, normalized.max)
                   if (!path) return null
@@ -209,6 +286,22 @@ export default function XrplMarketPanel() {
                 })}
               </svg>
 
+              {timelineTicks.length > 0 ? (
+                <div className="grid grid-cols-4 gap-2 text-[10px] text-ivory/45">
+                  {timelineTicks.map((tick, index) => (
+                    <div
+                      key={`${tick.index}-${tick.timestamp}`}
+                      className={`flex flex-col ${index === timelineTicks.length - 1 ? 'items-end' : 'items-start'}`}
+                    >
+                      <span>{formatTime24(tick.timestamp)}</span>
+                      <span className="text-[9px] uppercase tracking-[0.1em] text-ivory/35">
+                        {formatDateShort(tick.timestamp)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
               <div className="flex flex-wrap items-center gap-3 text-xs text-ivory/60">
                 {visibleAssets.map((asset) => (
                   <span key={asset.id} className="inline-flex items-center gap-2">
@@ -216,10 +309,30 @@ export default function XrplMarketPanel() {
                       className="h-2 w-2 rounded-full"
                       style={{ backgroundColor: COLORS[asset.symbol] ?? '#ffffff' }}
                     />
-                    {asset.symbol}
+                    {(asset.symbol === 'XRP' ? 'Ripple' : asset.name)} ({asset.symbol})
                   </span>
                 ))}
               </div>
+
+              {hoverSnapshot ? (
+                <div className="surface-soft rounded-2xl border border-white/10 p-3 text-[11px] text-ivory/75">
+                  <p className="font-semibold uppercase tracking-[0.16em] text-ivory/55">
+                    {t('pointAt')} {formatDateTime24(hoverSnapshot.timestamp)}
+                  </p>
+                  <div className="mt-2 space-y-1.5">
+                    {hoverSnapshot.rows.map((asset) => (
+                      <div key={`${asset.id}-${hoverSnapshot.timestamp}`} className="flex items-center justify-between gap-3">
+                        <span className="truncate text-ivory/65">
+                          {asset.marketGroup === 'xrpl' ? t('table.xrpl') : t('table.reference')} · {asset.explicitName} ({asset.symbol})
+                        </span>
+                        <span className="font-semibold text-ivory">{formatUsd(asset.pointPrice)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[11px] text-ivory/45">{t('hoverHint')}</p>
+              )}
             </div>
           )}
         </div>

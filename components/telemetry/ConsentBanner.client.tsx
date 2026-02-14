@@ -1,64 +1,91 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getTelemetryConsent, setTelemetryConsent, type TelemetryConsent } from '@/infra/telemetry/client'
-import { getLocationConsent, setLocationConsent, type LocationConsent } from '@/infra/location/client'
+import { getTelemetryConsent, setTelemetryConsent } from '@/infra/telemetry/client'
+import {
+  canUseGeolocation,
+  getLocationConsent,
+  setLocationConsent,
+} from '@/infra/location/client'
 import { useTranslations } from 'next-intl'
 import TextScramble from '@/components/ui/TextScramble.client'
 
+const CONSENT_PROMPT_VERSION = '2026-02'
+const CONSENT_PROMPT_KEY = 'aljama.consent.prompt.version'
+
 export default function ConsentBanner() {
   const t = useTranslations('consent')
-  const [telemetryConsent, setTelemetry] = useState<TelemetryConsent>('unset')
-  const [locationConsent, setLocation] = useState<LocationConsent>('unset')
+  const [open, setOpen] = useState(false)
+  const [ready, setReady] = useState(false)
   const [requesting, setRequesting] = useState(false)
 
   useEffect(() => {
-    setTelemetry(getTelemetryConsent())
-    setLocation(getLocationConsent())
+    const nextTelemetry = getTelemetryConsent()
+    const nextLocation = getLocationConsent()
+
+    if (typeof window !== 'undefined') {
+      const seenPromptVersion = window.localStorage.getItem(CONSENT_PROMPT_KEY)
+      const shouldPrompt =
+        seenPromptVersion !== CONSENT_PROMPT_VERSION ||
+        nextTelemetry === 'unset' ||
+        nextLocation === 'unset'
+      setOpen(shouldPrompt)
+    }
+    setReady(true)
   }, [])
 
-  if (telemetryConsent !== 'unset' && locationConsent !== 'unset') return null
+  if (!ready || !open) return null
+
+  function closePrompt() {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(CONSENT_PROMPT_KEY, CONSENT_PROMPT_VERSION)
+    }
+    setOpen(false)
+  }
 
   function rejectAll() {
     setTelemetryConsent('denied')
     setLocationConsent('denied')
-    setTelemetry('denied')
-    setLocation('denied')
+    closePrompt()
   }
 
   function essentialOnly() {
     // "Essential" keeps only required app functionality and disables optional location + telemetry.
     setTelemetryConsent('denied')
     setLocationConsent('denied')
-    setTelemetry('denied')
-    setLocation('denied')
+    closePrompt()
   }
 
   function allowAll() {
     setTelemetryConsent('granted')
-    setTelemetry('granted')
     setRequesting(true)
 
-    if (!('geolocation' in navigator)) {
+    if (!canUseGeolocation() || !('geolocation' in navigator)) {
       setLocationConsent('denied')
-      setLocation('denied')
       setRequesting(false)
+      closePrompt()
       return
     }
 
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        setLocationConsent('granted')
-        setLocation('granted')
-        setRequesting(false)
-      },
-      () => {
-        setLocationConsent('denied')
-        setLocation('denied')
-        setRequesting(false)
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 },
-    )
+    try {
+      navigator.geolocation.getCurrentPosition(
+        () => {
+          setLocationConsent('granted')
+          setRequesting(false)
+          closePrompt()
+        },
+        () => {
+          setLocationConsent('denied')
+          setRequesting(false)
+          closePrompt()
+        },
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 },
+      )
+    } catch {
+      setLocationConsent('denied')
+      setRequesting(false)
+      closePrompt()
+    }
   }
 
   return (
@@ -71,7 +98,13 @@ export default function ConsentBanner() {
       >
         <div className="space-y-5">
           <p className="text-sm uppercase tracking-[0.22em] text-saffron/70">{t('eyebrow')}</p>
-          <TextScramble text={t('title')} ariaLabel={t('title')} className="font-display tracking-tight" />
+          <TextScramble
+            text={t('title')}
+            ariaLabel={t('title')}
+            className="font-display tracking-tight"
+            color="rgb(240, 215, 160)"
+            fontWeight={600}
+          />
           <div className="max-w-2xl text-lg text-white/75">{t('text')}</div>
           <ul className="space-y-2 text-base text-white/70">
             <li>{t('essentialDetail')}</li>
@@ -85,7 +118,7 @@ export default function ConsentBanner() {
             type="button"
             onClick={rejectAll}
             disabled={requesting}
-            className="rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white/70 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full border border-white/25 bg-white/15 px-5 py-2.5 text-sm font-semibold text-ivory transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t('rejectAll')}
           </button>
@@ -93,7 +126,7 @@ export default function ConsentBanner() {
             type="button"
             onClick={essentialOnly}
             disabled={requesting}
-            className="rounded-full border border-lapis/40 bg-lapis/20 px-5 py-2.5 text-sm font-semibold text-lapis transition hover:bg-lapis/30 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full border border-[#7fa3c1]/70 bg-gradient-to-r from-[#8fbfe3]/80 via-[#6e9fc5]/80 to-[#5a8d88]/80 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#5c8db4]/30 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t('essentialOnly')}
           </button>

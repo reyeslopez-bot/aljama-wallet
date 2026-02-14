@@ -9,7 +9,12 @@
     "menu": "القائمة",
     "active": "نشط",
     "language": "اللغة",
-    "signIn": "تسجيل الدخول"
+    "signIn": "تسجيل الدخول",
+    "themeToggle": "تبديل وضع الألوان",
+    "themeLight": "الوضع الفاتح",
+    "themeDark": "الوضع الداكن",
+    "themeLightShort": "ف",
+    "themeDarkShort": "د"
   },
   "home": {
     "hero": {
@@ -51,14 +56,34 @@
     "badgeCustody": "تدفق الحيازة",
     "badgeReady": "جاهز للاستخدام",
     "badgeSessionOnly": "جلسة فقط",
-    "passwordLabel": "كلمة المرور",
+    "passwordLabel": "عبارة المرور",
     "passwordTag": "تشفير",
     "passwordPlaceholder": "أنشئ عبارة يسهل تذكرها",
+    "passphraseRequired": "عبارة المرور مطلوبة",
+    "passphraseTooWeak": "عبارة المرور ضعيفة. استخدم 16+ حرفاً مع أحرف كبيرة/صغيرة ورقم ورمز وتجنب الأنماط المتوقعة.",
+    "generatePassphrase": "توليد عبارة مرور",
+    "strengthLabel": "قوة عبارة المرور",
+    "strengthHint": "الحد الأدنى 16 حرفاً، الموصى به 20+، والقوي 32+.",
+    "strength": {
+      "weak": "ضعيف",
+      "good": "جيد",
+      "strong": "قوي"
+    },
+    "ruleLength": "على الأقل 16 حرفاً",
+    "ruleUpper": "يحتوي على أحرف كبيرة (A-Z)",
+    "ruleLower": "يحتوي على أحرف صغيرة (a-z)",
+    "ruleNumber": "يحتوي على أرقام (0-9)",
+    "ruleSpecial": "يحتوي على رموز خاصة (!@#$%^&*)",
+    "rulePattern": "بدون أنماط شائعة أو متكررة",
     "button": "إنشاء محفظة",
     "tagEncrypted": "نسخة الجلسة مشفّرة",
-    "tagPrivate": "احتفظ بكلمة المرور سرية",
+    "tagPrivate": "احتفظ بعبارة المرور سرية",
     "emptyTitle": "لم يتم إنشاء محفظة بعد",
     "emptyBody": "استخدم عبارة سهلة التذكر. فهي تشفّر نسخة الجلسة المحلية.",
+    "passphraseOfferTitle": "عبارة المرور المشفرة جاهزة",
+    "passphraseOfferBody": "عبارة المرور مخفية للحماية. انسخها واحتفظ بها خارج الإنترنت.",
+    "copyPassphrase": "نسخ عبارة المرور",
+    "copiedPassphrase": "تم نسخ عبارة المرور",
     "readyTitle": "المحفظة جاهزة",
     "readyBody": "أبقِ هذا التبويب مفتوحاً؛ النسخة المحلية تبقى هنا.",
     "addressLabel": "العنوان",
@@ -121,13 +146,13 @@
     },
     "targeted": "مستهدف",
     "disclaimer": "معلومات فقط. ليست مطالبة شهادة.",
-    "signupTitle": "التسجيل",
-    "signupBody": "احصل على تحديثات الإطلاق ونشرات الأمان.",
+    "signupTitle": "ملف خصوصية محلي",
+    "signupBody": "لا يتم جمع البريد الإلكتروني هنا. احفظ فقط ملف الامتثال المحلي للمنطقة.",
     "emailPlaceholder": "you@company.com",
-    "signupButton": "انضم للتحديثات",
-    "signupSending": "جارٍ الإرسال…",
-    "signupSuccess": "شكراً — تم إضافتك.",
-    "signupError": "فشل التسجيل. حاول مرة أخرى.",
+    "signupButton": "حفظ ملف المنطقة",
+    "signupSending": "جارٍ الحفظ…",
+    "signupSuccess": "تم حفظ ملف المنطقة محلياً.",
+    "signupError": "فشل الحفظ. حاول مرة أخرى.",
     "emailError": "أدخل بريداً إلكترونياً صحيحاً."
   },
   "connectWallet": {
@@ -151,14 +176,22 @@
   "xrpl": {
     "eyebrow": "XRPL + Ledger",
     "title": "جاهز لـ XRP Ledger",
-    "body": "لقطة اختبار من بذرة XRPL التطويرية على الخادم. اسحب الأرصدة عند الطلب.",
+    "body": "اختر بيئة XRPL، راجع نقاط النهاية، واسحب لقطات الحساب عند الطلب.",
     "statusSyncing": "جارٍ المزامنة",
     "statusOnline": "متصل",
     "loading": "جارٍ جلب حساب XRPL…",
-    "accountTitle": "حساب اختبار",
+    "accountTitle": "حساب الشبكة المحددة",
     "balanceLabel": "الرصيد",
     "empty": "لا توجد بيانات XRPL محمّلة.",
-    "refresh": "تحديث لقطة XRPL"
+    "refresh": "تحديث لقطة XRPL",
+    "networkSelectorLabel": "اختيار الشبكة",
+    "networkSelectorHint": "شبكة Mainnet تستخدم XRP الحقيقي. شبكات الاختبار/التطوير غير إنتاجية وقد تتم إعادة ضبطها.",
+    "networkTypeMainnet": "إنتاج",
+    "networkTypeNonProduction": "غير إنتاج",
+    "selectedNetwork": "الشبكة المحددة",
+    "mainnetWarning": "تم اختيار Mainnet: أموال حقيقية ومعاملات غير قابلة للعكس ومخاطر إنتاج.",
+    "resetWarning": "قد تتم إعادة ضبط هذه الشبكة دون إنذار. اعتبر الأرصدة أموال اختبار مؤقتة.",
+    "openFaucet": "فتح الصنبور"
   },
   "market": {
     "eyebrow": "لقطة السوق",
@@ -179,7 +212,9 @@
       "xrpl": "XRPL",
       "reference": "مرجعي"
     },
-    "refresh": "تحديث لقطة السوق"
+    "refresh": "تحديث لقطة السوق",
+    "pointAt": "النقطة عند",
+    "hoverHint": "مرّر فوق الرسم لفحص أصول XRPL والأصول الكبرى."
   },
   "map": {
     "label": "الخريطة",
@@ -195,6 +230,9 @@
       "title": "اللوائح المحلية",
       "detected": "الاختصاص المكتشف:",
       "default": "الاختصاص الافتراضي:",
+      "jurisdiction": "الاختصاص:",
+      "showMore": "عرض المزيد",
+      "showLess": "عرض أقل",
       "disclaimer": "لأغراض معلوماتية فقط وليس نصيحة قانونية. تحقق من الالتزامات الحالية مع مستشار قانوني محلي.",
       "uae": {
         "label": "دبي، الإمارات",
@@ -254,7 +292,9 @@
       "available": "متاح",
       "vault": "الخزنة",
       "idle": "خامل"
-    }
+    },
+    "xrplNetwork": "شبكة XRPL",
+    "detailsOpen": "التفاصيل مفتوحة"
   },
   "footer": {
     "privacy": "الخصوصية",

@@ -11,7 +11,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang={locale} dir={dir}>
-      <body className="min-h-screen flex flex-col antialiased text-foreground bg-surface">
+      <body className="dark min-h-screen flex flex-col antialiased text-foreground bg-surface">
         {children}
       </body>
     </html>

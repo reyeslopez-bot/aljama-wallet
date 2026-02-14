@@ -65,7 +65,7 @@ describe('CreateWalletPanel', () => {
     const { getByPlaceholderText, getByRole, getByText } = render(<CreateWalletPanel />)
 
     fireEvent.change(getByPlaceholderText('Create a passphrase you will remember'), {
-      target: { value: 'VeryStrongPassphrase!' },
+      target: { value: 'VeryStrongPassphrase1!' },
     })
     fireEvent.click(getByRole('button', { name: 'Create wallet' }))
 
@@ -81,5 +81,28 @@ describe('CreateWalletPanel', () => {
 
     const buyWithCard = getByRole('link', { name: 'Buy with card' }) as HTMLAnchorElement
     expect(buyWithCard.getAttribute('href')).toContain('walletAddress=rCreateWalletAddress')
+  })
+
+  it('offers generated encrypted passphrase without requiring email', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+
+    const { getByRole, getByPlaceholderText, getByText } = render(<CreateWalletPanel />)
+
+    fireEvent.click(getByRole('button', { name: 'Generate Passphrase' }))
+
+    const input = getByPlaceholderText('Create a passphrase you will remember') as HTMLInputElement
+    expect(input.value.length).toBeGreaterThanOrEqual(32)
+    expect(getByText('Strong')).toBeTruthy()
+    expect(getByText('Encrypted passphrase ready')).toBeTruthy()
+
+    fireEvent.click(getByRole('button', { name: 'Copy passphrase' }))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalled()
+    })
   })
 })

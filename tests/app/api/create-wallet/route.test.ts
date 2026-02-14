@@ -32,6 +32,8 @@ function buildRequest(body: Record<string, unknown>) {
 }
 
 describe('app/api/create-wallet route', () => {
+  const strongPassphrase = 'T7!qL2@rP5#tV8$mN3&xH4'
+
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
@@ -70,7 +72,7 @@ describe('app/api/create-wallet route', () => {
     })
 
     const { POST } = await import('@/app/api/create-wallet/route')
-    const res = await POST(buildRequest({ password: 'passphrase-123' }))
+    const res = await POST(buildRequest({ password: strongPassphrase }))
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
@@ -98,7 +100,7 @@ describe('app/api/create-wallet route', () => {
     })
 
     const { POST } = await import('@/app/api/create-wallet/route')
-    const res = await POST(buildRequest({ password: 'passphrase-123' }))
+    const res = await POST(buildRequest({ password: strongPassphrase }))
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({
@@ -122,7 +124,7 @@ describe('app/api/create-wallet route', () => {
     mockCreateWalletRecord.mockRejectedValue(new Error('db down'))
 
     const { POST } = await import('@/app/api/create-wallet/route')
-    const res = await POST(buildRequest({ password: 'passphrase-123' }))
+    const res = await POST(buildRequest({ password: strongPassphrase }))
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
@@ -131,5 +133,18 @@ describe('app/api/create-wallet route', () => {
       encrypted: 'enc',
       mode: 'session-only',
     })
+  })
+
+  it('returns 400 for weak passphrase', async () => {
+    const { POST } = await import('@/app/api/create-wallet/route')
+
+    const res = await POST(buildRequest({ password: 'Password123' }))
+
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toMatchObject({
+      ok: false,
+      code: 'password_too_short',
+    })
+    expect(mockCreateEncryptedWallet).not.toHaveBeenCalled()
   })
 })

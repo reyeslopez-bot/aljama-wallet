@@ -9,7 +9,12 @@
     "menu": "Menu",
     "active": "Active",
     "language": "Language",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "themeToggle": "Toggle color theme",
+    "themeLight": "Light mode",
+    "themeDark": "Dark mode",
+    "themeLightShort": "L",
+    "themeDarkShort": "D"
   },
   "home": {
     "hero": {
@@ -51,14 +56,34 @@
     "badgeCustody": "Custody flow",
     "badgeReady": "Ready to use",
     "badgeSessionOnly": "Session-only",
-    "passwordLabel": "Password",
+    "passwordLabel": "Passphrase",
     "passwordTag": "Encrypt",
     "passwordPlaceholder": "Create a passphrase you will remember",
+    "passphraseRequired": "Passphrase is required",
+    "passphraseTooWeak": "Passphrase is too weak. Use 16+ chars with upper/lowercase, number, special, and no predictable patterns.",
+    "generatePassphrase": "Generate Passphrase",
+    "strengthLabel": "Passphrase Strength",
+    "strengthHint": "Minimum 16 chars, recommended 20+, strong 32+.",
+    "strength": {
+      "weak": "Weak",
+      "good": "Good",
+      "strong": "Strong"
+    },
+    "ruleLength": "At least 16 characters",
+    "ruleUpper": "Contains uppercase letters (A-Z)",
+    "ruleLower": "Contains lowercase letters (a-z)",
+    "ruleNumber": "Contains numbers (0-9)",
+    "ruleSpecial": "Contains special chars (!@#$%^&*)",
+    "rulePattern": "No common or repeated patterns",
     "button": "Create wallet",
     "tagEncrypted": "Session copy encrypted",
-    "tagPrivate": "Keep the password private",
+    "tagPrivate": "Keep the passphrase private",
     "emptyTitle": "No wallet created yet",
     "emptyBody": "Use a memorable phrase. It encrypts your local session copy.",
+    "passphraseOfferTitle": "Encrypted passphrase ready",
+    "passphraseOfferBody": "Passphrase is hidden for security. Copy it and store it offline.",
+    "copyPassphrase": "Copy passphrase",
+    "copiedPassphrase": "Passphrase copied",
     "readyTitle": "Wallet ready",
     "readyBody": "Keep this tab open; your session copy stays local.",
     "addressLabel": "Address",
@@ -121,13 +146,13 @@
     },
     "targeted": "Targeted",
     "disclaimer": "Informational only. Not a certification claim.",
-    "signupTitle": "Sign up",
-    "signupBody": "Get launch updates and security briefings.",
+    "signupTitle": "Privacy-safe profile",
+    "signupBody": "No email is collected here. Save only your local region compliance profile.",
     "emailPlaceholder": "you@company.com",
-    "signupButton": "Join updates",
-    "signupSending": "Sending…",
-    "signupSuccess": "Thanks — you’re on the list.",
-    "signupError": "Signup failed. Try again.",
+    "signupButton": "Save region profile",
+    "signupSending": "Saving…",
+    "signupSuccess": "Region profile saved locally.",
+    "signupError": "Save failed. Try again.",
     "emailError": "Enter a valid email."
   },
   "connectWallet": {
@@ -151,14 +176,22 @@
   "xrpl": {
     "eyebrow": "XRPL + Ledger",
     "title": "XRP Ledger ready",
-    "body": "Testnet snapshot from the server-side XRPL dev seed. Pull balances on demand.",
+    "body": "Choose XRPL environment, inspect endpoints, and pull account snapshots on demand.",
     "statusSyncing": "Syncing",
     "statusOnline": "Online",
     "loading": "Fetching XRPL dev account…",
-    "accountTitle": "Testnet dev account",
+    "accountTitle": "Selected network account",
     "balanceLabel": "Balance",
     "empty": "No XRPL data loaded.",
-    "refresh": "Refresh XRPL snapshot"
+    "refresh": "Refresh XRPL snapshot",
+    "networkSelectorLabel": "Network Selection",
+    "networkSelectorHint": "Mainnet uses real XRP. Test/dev networks are non-production and may reset.",
+    "networkTypeMainnet": "Production",
+    "networkTypeNonProduction": "Non-production",
+    "selectedNetwork": "Selected network",
+    "mainnetWarning": "Mainnet selected: real funds, irreversible transactions, and production risk.",
+    "resetWarning": "This network may reset without warning. Treat balances as temporary testing funds.",
+    "openFaucet": "Open faucet"
   },
   "market": {
     "eyebrow": "Market Snapshot",
@@ -179,7 +212,9 @@
       "xrpl": "XRPL",
       "reference": "Reference"
     },
-    "refresh": "Refresh market snapshot"
+    "refresh": "Refresh market snapshot",
+    "pointAt": "Point at",
+    "hoverHint": "Hover chart to inspect XRPL and major assets."
   },
   "map": {
     "label": "Map",
@@ -195,6 +230,9 @@
       "title": "Local Regulations",
       "detected": "Detected jurisdiction:",
       "default": "Default jurisdiction:",
+      "jurisdiction": "Jurisdiction:",
+      "showMore": "Show more",
+      "showLess": "Show less",
       "disclaimer": "Informational only, not legal advice. Confirm current obligations with local counsel.",
       "uae": {
         "label": "Dubai, UAE",
@@ -254,7 +292,9 @@
       "available": "Available",
       "vault": "Vault",
       "idle": "Idle"
-    }
+    },
+    "xrplNetwork": "XRPL network",
+    "detailsOpen": "Details open"
   },
   "footer": {
     "privacy": "Privacy",

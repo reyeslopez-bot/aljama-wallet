@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, fireEvent, waitFor } from '@testing-library/react'
+import { render, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, beforeEach } from 'vitest'
 import RegionCompliancePanel from '@/components/home/RegionCompliancePanel.client'
 
@@ -40,15 +40,10 @@ describe('RegionCompliancePanel', () => {
       configurable: true,
     })
 
-    ;(globalThis as { fetch?: typeof fetch }).fetch = async () =>
-      ({
-        ok: true,
-        json: async () => ({ ok: true }),
-      }) as Response
   })
 
-  it('persists region selection and email locally', async () => {
-    const { getByLabelText, getByText, getByPlaceholderText } = render(
+  it('persists region selection and saves local profile without email capture', async () => {
+    const { getByLabelText, getByText, queryByPlaceholderText } = render(
       <RegionCompliancePanel />,
     )
 
@@ -56,13 +51,37 @@ describe('RegionCompliancePanel', () => {
     fireEvent.change(select, { target: { value: 'eu' } })
     expect(window.localStorage.getItem('aljama.region')).toBe('eu')
 
-    const emailInput = getByPlaceholderText('you@company.com') as HTMLInputElement
-    fireEvent.change(emailInput, { target: { value: 'test@example.com' } })
-    fireEvent.click(getByText('Join updates'))
+    expect(queryByPlaceholderText('you@company.com')).toBeNull()
+    fireEvent.click(getByText('Save region profile'))
 
     await waitFor(() => {
-      expect(window.localStorage.getItem('aljama.signupEmail')).toBe('test@example.com')
-      expect(getByText('Thanks — you’re on the list.')).toBeTruthy()
+      expect(window.localStorage.getItem('aljama.region.profileEnabled')).toBe('true')
+      expect(getByText('Region profile saved locally.')).toBeTruthy()
     })
+  })
+
+  it('does not show saved message on load unless save was clicked in this session', () => {
+    window.localStorage.setItem('aljama.region', 'us')
+    window.localStorage.setItem('aljama.region.profileEnabled', 'true')
+
+    const { queryByText } = render(<RegionCompliancePanel />)
+
+    expect(queryByText('Region profile saved locally.')).toBeNull()
+  })
+
+  it('syncs selected region when map jurisdiction updates it', () => {
+    const { getByLabelText } = render(<RegionCompliancePanel />)
+
+    act(() => {
+      window.localStorage.setItem('aljama.region', 'mena')
+      window.dispatchEvent(
+        new CustomEvent('aljama:region-sync', {
+          detail: { region: 'mena' },
+        }),
+      )
+    })
+
+    const select = getByLabelText('Region') as HTMLSelectElement
+    expect(select.value).toBe('mena')
   })
 })

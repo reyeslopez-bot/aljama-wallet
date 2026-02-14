@@ -21,15 +21,9 @@ export function ConnectWalletPanel() {
   const setConnectWalletStatus = useDynamicInfoStore((s) => s.setConnectWalletStatus)
   const setConnectedWallet = useDynamicInfoStore((s) => s.setConnectedWallet)
 
-  const hasInjected =
-    typeof window !== 'undefined' &&
-    Boolean((window as Window & { ethereum?: unknown }).ethereum)
-
   const readyConnectors = connectors.filter(
     (item) =>
-      item.id === 'injected'
-        ? hasInjected && (item as { ready?: boolean }).ready !== false
-        : (item as { ready?: boolean }).ready !== false,
+      (item as { ready?: boolean }).ready !== false,
   )
   const injectedConnector = readyConnectors.find((item) => item.id === 'injected')
   const walletConnectConnector = readyConnectors.find((item) => item.id === 'walletConnect')

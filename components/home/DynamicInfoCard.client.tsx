@@ -5,6 +5,9 @@ import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useTranslations } from 'next-intl'
+import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
+import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
+import { formatTime24 } from '@/lib/time-format'
 
 function formatShortAddress(address: string) {
   const trimmed = address.trim()
@@ -29,10 +32,12 @@ function IconButton(props: {
   label: string
   onClick?: () => void
   href?: string
+  isLight?: boolean
   children: ReactNode
 }) {
-  const className =
-    'inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-ivory/70 transition hover:bg-white/10 hover:text-ivory focus:outline-none focus:ring-2 focus:ring-saffron/30'
+  const className = props.isLight
+    ? 'inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#7fa3c1]/45 bg-white/70 text-[#35506c] transition hover:bg-white hover:text-[#1d2f45] focus:outline-none focus:ring-2 focus:ring-[#5c8db4]/35'
+    : 'inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-ivory/70 transition hover:bg-white/10 hover:text-ivory focus:outline-none focus:ring-2 focus:ring-saffron/30'
 
   if (props.href) {
     return (
@@ -110,6 +115,7 @@ export default function DynamicInfoCard() {
   const t = useTranslations('infoCard')
   const [hovered, setHovered] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
+  const [isLightTheme, setIsLightTheme] = useState(false)
 
   const user = useDynamicInfoStore((s) => s.user)
   const wallet = useDynamicInfoStore((s) => s.wallet)
@@ -119,20 +125,27 @@ export default function DynamicInfoCard() {
   const trackingError = useDynamicInfoStore((s) => s.trackingError)
   const lastEvent = useDynamicInfoStore((s) => s.lastEvent)
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
+  const selectedXrplNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
 
   useEffect(() => {
     setNow(new Date())
-    const t = setInterval(() => setNow(new Date()), 30_000)
+    const t = setInterval(() => setNow(new Date()), 1_000)
     return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const syncTheme = () => setIsLightTheme(document.body.classList.contains('light'))
+    syncTheme()
+    const observer = new MutationObserver(syncTheme)
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
   }, [])
 
   const timeLabel = useMemo(
     () => {
-      if (!now) return '--:--'
-      return now.toLocaleTimeString(undefined, {
-        hour: 'numeric',
-        minute: '2-digit',
-      })
+      if (!now) return '--:--:--'
+      return formatTime24(now)
     },
     [now],
   )
@@ -169,6 +182,12 @@ export default function DynamicInfoCard() {
   }, [user?.role, wallet.chainName, wallet.connectorName, wallet.connectedAddress, wallet.createdAddress])
 
   const copyText = wallet.connectedAddress ?? wallet.createdAddress
+  const selectedXrplNetwork = XRPL_NETWORKS_BY_ID[selectedXrplNetworkId]
+  const xrplBadgeTone = selectedXrplNetwork.isProduction
+    ? 'bg-red-400'
+    : selectedXrplNetwork.canResetWithoutWarning
+      ? 'bg-amber-300'
+      : 'bg-emerald-400'
 
   return (
     <motion.aside
@@ -182,7 +201,11 @@ export default function DynamicInfoCard() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#c7794a] via-[#e0bf7f] to-[#4b9577] p-[1px]">
-                <div className="flex h-full w-full items-center justify-center rounded-full bg-black/80 text-xs font-semibold text-ivory/80">
+                <div
+                  className={`flex h-full w-full items-center justify-center rounded-full text-xs font-semibold ${
+                    isLightTheme ? 'bg-white/85 text-[#1d2f45]/90' : 'bg-black/80 text-ivory/80'
+                  }`}
+                >
                   {(primaryLine[0] ?? 'G').toUpperCase()}
                 </div>
               </div>
@@ -212,6 +235,17 @@ export default function DynamicInfoCard() {
               <span className="font-semibold text-ivory/80">{t('signal')}:</span> {lastEvent.message}
             </div>
           ) : null}
+
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px]">
+            <span className="uppercase tracking-[0.16em] text-ivory/55">{t('xrplNetwork')}</span>
+            <a
+              href="#xrpl-network"
+              className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 font-semibold tracking-wide text-ivory/85 transition hover:bg-white/10"
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${xrplBadgeTone}`} />
+              {selectedXrplNetwork.name}
+            </a>
+          </div>
         </div>
 
         <div className="p-3">
@@ -260,6 +294,7 @@ export default function DynamicInfoCard() {
                   <div className="flex items-center gap-2">
                     <IconButton
                       label="Copy Address"
+                      isLight={isLightTheme}
                       onClick={() => {
                         if (!copyText) return
                         void navigator.clipboard.writeText(copyText)
@@ -268,18 +303,32 @@ export default function DynamicInfoCard() {
                     >
                       <CopyIcon />
                     </IconButton>
-                    <IconButton label="X" href="https://x.com">
+                    <IconButton label="X" href="https://x.com" isLight={isLightTheme}>
                       <XIcon />
                     </IconButton>
-                    <IconButton label="LinkedIn" href="https://linkedin.com">
+                    <IconButton label="LinkedIn" href="https://linkedin.com" isLight={isLightTheme}>
                       <LinkedinIcon />
                     </IconButton>
-                    <IconButton label="GitHub" href="https://github.com">
+                    <IconButton label="GitHub" href="https://github.com" isLight={isLightTheme}>
                       <GithubIcon />
                     </IconButton>
                   </div>
 
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-ivory/40">{t('hoverView')}</div>
+                  <div
+                    aria-hidden="true"
+                    className={`h-5 w-px ${
+                      isLightTheme ? 'bg-gradient-to-b from-transparent via-[#7fa3c1]/45 to-transparent' : 'bg-gradient-to-b from-transparent via-white/25 to-transparent'
+                    }`}
+                  />
+                  <div
+                    className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.2em] ${
+                      isLightTheme
+                        ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/75'
+                        : 'border-white/10 bg-white/5 text-ivory/45'
+                    }`}
+                  >
+                    {t('detailsOpen')}
+                  </div>
                 </div>
               </motion.div>
             ) : (
@@ -292,18 +341,31 @@ export default function DynamicInfoCard() {
                 className="flex items-center justify-between"
               >
                 <div className="flex items-center gap-2">
-                  <IconButton label="X" href="https://x.com">
+                  <IconButton label="X" href="https://x.com" isLight={isLightTheme}>
                     <XIcon />
                   </IconButton>
-                  <IconButton label="LinkedIn" href="https://linkedin.com">
+                  <IconButton label="LinkedIn" href="https://linkedin.com" isLight={isLightTheme}>
                     <LinkedinIcon />
                   </IconButton>
-                  <IconButton label="GitHub" href="https://github.com">
+                  <IconButton label="GitHub" href="https://github.com" isLight={isLightTheme}>
                     <GithubIcon />
                   </IconButton>
                 </div>
 
-                <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-wide text-ivory/70">
+                <div
+                  aria-hidden="true"
+                  className={`h-5 w-px ${
+                    isLightTheme ? 'bg-gradient-to-b from-transparent via-[#7fa3c1]/45 to-transparent' : 'bg-gradient-to-b from-transparent via-white/25 to-transparent'
+                  }`}
+                />
+
+                <div
+                  className={`rounded-full border px-3 py-1 text-[11px] font-semibold tracking-wide ${
+                    isLightTheme
+                      ? 'border-[#7fa3c1]/45 bg-white/70 text-[#36516d]/85'
+                      : 'border-white/10 bg-white/5 text-ivory/70'
+                  }`}
+                >
                   {t('expand')}
                 </div>
               </motion.div>

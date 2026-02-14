@@ -4,6 +4,8 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
+import { canUseGeolocation } from '@/infra/location/client'
+import { formatTime24 } from '@/lib/time-format'
 
 type GeoState =
   | { status: 'idle' }
@@ -24,45 +26,49 @@ export default function CurrentLocation() {
 
   const request = React.useCallback(() => {
     if (locked) return
-    if (!('geolocation' in navigator)) {
-      setState({ status: 'error', message: 'Geolocation not supported in this browser.' })
+    if (!canUseGeolocation() || !('geolocation' in navigator)) {
+      setState({ status: 'error', message: 'Geolocation is blocked by browser policy or not supported.' })
       return
     }
 
     setState({ status: 'loading' })
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setState({
-          status: 'ready',
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          timestamp: pos.timestamp,
-        })
-      },
-      (err) => {
-        // Common cases:
-        // 1 PERMISSION_DENIED
-        // 2 POSITION_UNAVAILABLE
-        // 3 TIMEOUT
-        const msg =
-          err.code === 1
-            ? 'Permission denied. Allow location for this site in browser settings.'
-            : err.code === 2
-              ? 'Position unavailable.'
-              : err.code === 3
-                ? 'Location request timed out.'
-                : err.message
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setState({
+            status: 'ready',
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            timestamp: pos.timestamp,
+          })
+        },
+        (err) => {
+          // Common cases:
+          // 1 PERMISSION_DENIED
+          // 2 POSITION_UNAVAILABLE
+          // 3 TIMEOUT
+          const msg =
+            err.code === 1
+              ? 'Permission denied. Allow location for this site in browser settings.'
+              : err.code === 2
+                ? 'Position unavailable.'
+                : err.code === 3
+                  ? 'Location request timed out.'
+                  : err.message
 
-        setState({ status: 'error', message: msg })
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10_000,
-        maximumAge: 15_000,
-      },
-    )
+          setState({ status: 'error', message: msg })
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10_000,
+          maximumAge: 15_000,
+        },
+      )
+    } catch {
+      setState({ status: 'error', message: 'Geolocation is blocked by browser policy or not supported.' })
+    }
   }, [locked])
 
   const copy = React.useCallback(async () => {
@@ -106,7 +112,7 @@ export default function CurrentLocation() {
               </div>
               <div className="mt-1 text-xs text-ivory/60">
                 {t('accuracy')}: {state.accuracy ? `${Math.round(state.accuracy)}m` : '—'} · {t('updated')}{' '}
-                {new Date(state.timestamp).toLocaleTimeString()}
+                {formatTime24(state.timestamp)}
               </div>
             </div>
 

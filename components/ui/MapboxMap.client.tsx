@@ -1,10 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import mapboxgl from 'mapbox-gl'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import {
+  canUseGeolocation,
   getLocationConsent,
   onLocationConsentChange,
   setLocationConsent,
@@ -20,8 +20,14 @@ type Coords = {
 }
 
 type RegulatoryRegion = 'uae' | 'israel' | 'eu' | 'us' | 'global'
+type UiRegion = 'us' | 'eu' | 'mena' | 'apac' | 'latam'
+type MapboxModule = typeof import('mapbox-gl')
+type MapboxMapInstance = import('mapbox-gl').Map
+type MapboxMarkerInstance = import('mapbox-gl').Marker
 
 const DEFAULT_CENTER = { lat: 25.204849, lng: 55.270783 } // Dubai fallback
+const REGION_KEY = 'aljama.region'
+const REGION_SYNC_EVENT = 'aljama:region-sync'
 
 function resolveRegulatoryRegion(lat: number, lng: number): RegulatoryRegion {
   if (lat >= 22 && lat <= 27.5 && lng >= 51 && lng <= 57) return 'uae'
@@ -31,14 +37,23 @@ function resolveRegulatoryRegion(lat: number, lng: number): RegulatoryRegion {
   return 'global'
 }
 
+function resolveUiRegion(lat: number, lng: number, regulatoryRegion: RegulatoryRegion): UiRegion {
+  if (regulatoryRegion === 'us') return 'us'
+  if (regulatoryRegion === 'eu') return 'eu'
+  if (regulatoryRegion === 'uae' || regulatoryRegion === 'israel') return 'mena'
+  if (lat >= -56 && lat <= 33 && lng >= -118 && lng <= -34) return 'latam'
+  return 'apac'
+}
+
 export default function MapboxMap() {
   const t = useTranslations('map')
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === 'unauthenticated'
   const containerRef = React.useRef<HTMLDivElement | null>(null)
-  const mapRef = React.useRef<mapboxgl.Map | null>(null)
-  const markerRef = React.useRef<mapboxgl.Marker | null>(null)
+  const mapRef = React.useRef<MapboxMapInstance | null>(null)
+  const markerRef = React.useRef<MapboxMarkerInstance | null>(null)
+  const mapboxModuleRef = React.useRef<MapboxModule | null>(null)
   const autoRequestedRef = React.useRef(false)
 
   const [coords, setCoords] = React.useState<Coords>({
@@ -52,14 +67,26 @@ export default function MapboxMap() {
   const [mapReady, setMapReady] = React.useState(false)
   const [mapError, setMapError] = React.useState<string | null>(null)
   const [locationConsent, setLocationConsentState] = React.useState<LocationConsent>('unset')
+  const [isLightTheme, setIsLightTheme] = React.useState(false)
+  const [showRegulations, setShowRegulations] = React.useState(false)
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+  const mapStyle = isLightTheme ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11'
 
   React.useEffect(() => {
     setLocationConsentState(getLocationConsent())
     return onLocationConsentChange(() => {
       setLocationConsentState(getLocationConsent())
     })
+  }, [])
+
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return
+    const syncTheme = () => setIsLightTheme(document.body.classList.contains('light'))
+    syncTheme()
+    const observer = new MutationObserver(syncTheme)
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
   }, [])
 
   React.useEffect(() => {
@@ -72,34 +99,51 @@ export default function MapboxMap() {
     if (!containerRef.current) return
     if (mapRef.current) return // prevent re-init
 
-    mapboxgl.accessToken = token
+    let cancelled = false
+    const initMap = async () => {
+      try {
+        const loaded = mapboxModuleRef.current ?? (await import('mapbox-gl'))
+        if (cancelled) return
+        mapboxModuleRef.current = loaded
 
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
-      zoom: 10.5,
-      attributionControl: true,
-      pitchWithRotate: false,
-      dragRotate: false,
-      interactive: false,
-    })
+        const mapboxgl = loaded.default
+        mapboxgl.accessToken = token
 
-    map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right')
-    map.on('load', () => {
-      setMapReady(true)
-      map.resize()
-    })
-    map.on('error', (event) => {
-      console.warn('mapbox error', event?.error)
-      setStatus('error')
-      setError('Map tiles unavailable. Check Mapbox token or network.')
-      setMapError('Map tiles unavailable. Check Mapbox token or network.')
-    })
+        const map = new mapboxgl.Map({
+          container: containerRef.current!,
+          style: mapStyle,
+          center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
+          zoom: 10.5,
+          attributionControl: true,
+          pitchWithRotate: false,
+          dragRotate: false,
+          interactive: false,
+        })
 
-    mapRef.current = map
+        map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right')
+        map.on('load', () => {
+          setMapReady(true)
+          map.resize()
+        })
+        map.on('error', (event) => {
+          console.warn('mapbox error', event?.error)
+          setStatus('error')
+          setError('Map tiles unavailable. Check Mapbox token or network.')
+          setMapError('Map tiles unavailable. Check Mapbox token or network.')
+        })
+
+        mapRef.current = map
+      } catch (initError) {
+        console.warn('mapbox init error', initError)
+        setStatus('error')
+        setError('Map tiles unavailable. Check Mapbox token or network.')
+        setMapError('Map tiles unavailable. Check Mapbox token or network.')
+      }
+    }
+    void initMap()
 
     return () => {
+      cancelled = true
       mapRef.current?.remove()
       mapRef.current = null
       markerRef.current = null
@@ -108,7 +152,14 @@ export default function MapboxMap() {
 
   React.useEffect(() => {
     const map = mapRef.current
-    if (!map) return
+    if (!map?.setStyle) return
+    map.setStyle(mapStyle)
+  }, [mapStyle])
+
+  React.useEffect(() => {
+    const map = mapRef.current
+    const mapboxgl = mapboxModuleRef.current?.default
+    if (!map || !mapboxgl) return
 
     const lngLat: [number, number] = [coords.lng, coords.lat]
 
@@ -131,42 +182,49 @@ export default function MapboxMap() {
     if (!force && locationConsent !== 'granted') return
     setError(null)
 
-    if (!('geolocation' in navigator)) {
+    if (!canUseGeolocation() || !('geolocation' in navigator)) {
       setStatus('error')
-      setError('Geolocation not supported in this browser.')
+      setError('Geolocation is blocked by browser policy or not supported.')
+      setLocationConsent('denied')
       return
     }
 
     setStatus('loading')
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          timestamp: pos.timestamp,
-          source: 'device',
-        })
-        setLocationConsent('granted')
-        setStatus('ready')
-      },
-      (err) => {
-        const msg =
-          err.code === 1
-            ? 'Permission denied. Allow location for this site.'
-            : err.code === 2
-              ? 'Position unavailable.'
-              : err.code === 3
-                ? 'Location request timed out.'
-                : err.message
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setCoords({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            timestamp: pos.timestamp,
+            source: 'device',
+          })
+          setLocationConsent('granted')
+          setStatus('ready')
+        },
+        (err) => {
+          const msg =
+            err.code === 1
+              ? 'Permission denied. Allow location for this site.'
+              : err.code === 2
+                ? 'Position unavailable.'
+                : err.code === 3
+                  ? 'Location request timed out.'
+                  : err.message
 
-        if (err.code === 1) setLocationConsent('denied')
-        setStatus('error')
-        setError(msg)
-      },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 15_000 },
-    )
+          if (err.code === 1) setLocationConsent('denied')
+          setStatus('error')
+          setError(msg)
+        },
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 15_000 },
+      )
+    } catch {
+      setLocationConsent('denied')
+      setStatus('error')
+      setError('Geolocation is blocked by browser policy or not supported.')
+    }
   }, [locked, locationConsent])
 
   React.useEffect(() => {
@@ -181,6 +239,26 @@ export default function MapboxMap() {
     () => resolveRegulatoryRegion(coords.lat, coords.lng),
     [coords.lat, coords.lng],
   )
+  const uiRegion = React.useMemo(
+    () => resolveUiRegion(coords.lat, coords.lng, regulatoryRegion),
+    [coords.lat, coords.lng, regulatoryRegion],
+  )
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const previous = window.localStorage.getItem(REGION_KEY)
+    if (previous === uiRegion) return
+    window.localStorage.setItem(REGION_KEY, uiRegion)
+    window.dispatchEvent(
+      new CustomEvent(REGION_SYNC_EVENT, {
+        detail: { region: uiRegion },
+      }),
+    )
+  }, [uiRegion])
+
+  React.useEffect(() => {
+    setShowRegulations(false)
+  }, [regulatoryRegion])
 
   return (
     <div className="space-y-4">
@@ -191,19 +269,14 @@ export default function MapboxMap() {
           <p className="text-sm text-ivory/70">
             {status === 'idle' && (
               <>
-                {locationConsent === 'denied' ? t('blocked') : t('idle')}{' '}
-                <span className="text-ivory">
-                  {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
-                </span>
+                {locationConsent === 'denied' ? t('blocked') : t('idle')}
               </>
             )}
             {status === 'loading' && t('loading')}
             {status === 'ready' && (
               <>
                 {t('centered')}{' '}
-                <span className="text-ivory">
-                  {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
-                </span>
+                <span className="text-ivory">{t(`laws.${regulatoryRegion}.label`)}</span>
                 {coords.accuracy ? ` · ±${Math.round(coords.accuracy)}m` : null}
               </>
             )}
@@ -221,9 +294,21 @@ export default function MapboxMap() {
         </button>
       </div>
 
-      <div className="relative w-full overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-2xl shadow-black/40 backdrop-blur-xl">
+      <div
+        className={`relative w-full overflow-hidden rounded-3xl border backdrop-blur-xl ${
+          isLightTheme
+            ? 'border-[#7fa3c1]/40 bg-white/70 shadow-2xl shadow-[#7fa3c1]/25'
+            : 'border-white/10 bg-black/60 shadow-2xl shadow-black/40'
+        }`}
+      >
         <div ref={containerRef} className="h-[260px] w-full md:h-[320px]" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40" />
+        <div
+          className={`pointer-events-none absolute inset-0 ${
+            isLightTheme
+              ? 'bg-gradient-to-b from-white/35 via-transparent to-white/45'
+              : 'bg-gradient-to-b from-black/20 via-transparent to-black/40'
+          }`}
+        />
         {!mapReady && !mapError ? (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-ivory/60">
             {t('loadingTiles')}
@@ -238,15 +323,26 @@ export default function MapboxMap() {
       <div className="surface-soft p-4 text-sm text-ivory/70">
         <p className="text-xs uppercase tracking-[0.16em] text-ivory/50">{t('laws.title')}</p>
         <p className="mt-2 text-xs text-ivory/60">
-          {coords.source === 'device' ? t('laws.detected') : t('laws.default')}{' '}
+          {t('laws.jurisdiction')}{' '}
           <span className="text-ivory">{t(`laws.${regulatoryRegion}.label`)}</span>
         </p>
-        <ul className="mt-3 space-y-2 text-xs text-ivory/60">
-          <li>{t(`laws.${regulatoryRegion}.item1`)}</li>
-          <li>{t(`laws.${regulatoryRegion}.item2`)}</li>
-          <li>{t(`laws.${regulatoryRegion}.item3`)}</li>
-        </ul>
-        <p className="mt-3 text-[11px] text-ivory/45">{t('laws.disclaimer')}</p>
+        <button
+          type="button"
+          onClick={() => setShowRegulations((open) => !open)}
+          className="mt-3 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10"
+        >
+          {showRegulations ? t('laws.showLess') : t('laws.showMore')}
+        </button>
+        {showRegulations && (
+          <>
+            <ul className="mt-3 space-y-2 text-xs text-ivory/60">
+              <li>{t(`laws.${regulatoryRegion}.item1`)}</li>
+              <li>{t(`laws.${regulatoryRegion}.item2`)}</li>
+              <li>{t(`laws.${regulatoryRegion}.item3`)}</li>
+            </ul>
+            <p className="mt-3 text-[11px] text-ivory/45">{t('laws.disclaimer')}</p>
+          </>
+        )}
       </div>
       {locked && (
         <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
