@@ -8,6 +8,7 @@ const TELEMETRY_KEYS = [
   'aljama.telemetry.consent',
   'aljama.telemetry.deviceId',
   'aljama.telemetry.sessionId',
+  'aljama.location.consent',
 ]
 const STORAGE_KEYS = [
   'site_secure_gate_v1',

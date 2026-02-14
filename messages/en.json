@@ -183,13 +183,50 @@
   },
   "map": {
     "label": "Map",
-    "idle": "Click “Use my location” to center the map on you.",
-    "loading": "Requesting location…",
+    "idle": "Default center is Dubai while location access is pending.",
+    "blocked": "Location access is currently off. Click “Use my location” to request again.",
+    "loading": "Requesting location...",
     "centered": "Centered at",
     "error": "Map error.",
     "useLocation": "Use my location",
-    "loadingTiles": "Loading map tiles…",
-    "offline": "Map offline"
+    "loadingTiles": "Loading map tiles...",
+    "offline": "Map offline",
+    "laws": {
+      "title": "Local Regulations",
+      "detected": "Detected jurisdiction:",
+      "default": "Default jurisdiction:",
+      "disclaimer": "Informational only, not legal advice. Confirm current obligations with local counsel.",
+      "uae": {
+        "label": "Dubai, UAE",
+        "item1": "Virtual asset activities may require VARA licensing in Dubai.",
+        "item2": "Customer due diligence and AML controls are typically required for custodial flows.",
+        "item3": "Marketing and token promotion can require pre-approval in regulated cases."
+      },
+      "israel": {
+        "label": "Israel",
+        "item1": "Virtual asset services can trigger registration or licensing duties with local authorities.",
+        "item2": "AML and record-keeping controls apply where financial services are offered.",
+        "item3": "Consumer disclosures should clearly describe risks and custody boundaries."
+      },
+      "eu": {
+        "label": "European Union",
+        "item1": "MiCA rules may apply to crypto-asset services and public offerings.",
+        "item2": "GDPR obligations apply when processing personal data and location signals.",
+        "item3": "Travel Rule and AML package requirements can apply to transfers and custodial services."
+      },
+      "us": {
+        "label": "United States",
+        "item1": "State-level money transmission rules may apply depending on custody and transfer activity.",
+        "item2": "Federal AML/BSA obligations can apply to virtual asset service operators.",
+        "item3": "Token marketing and listings may trigger securities-law analysis."
+      },
+      "global": {
+        "label": "Multi-jurisdiction",
+        "item1": "Check local virtual asset licensing rules before offering services.",
+        "item2": "Implement AML/KYC controls aligned with the operating jurisdiction.",
+        "item3": "Document user disclosures, risk notices, and data-handling practices."
+      }
+    }
   },
   "location": {
     "label": "Current Location",
@@ -226,9 +263,16 @@
     "rights": "All rights reserved."
   },
   "consent": {
-    "text": "We use telemetry to improve reliability and UX (performance, navigation, and feature usage). You can opt out at any time.",
-    "decline": "Decline",
-    "accept": "Accept"
+    "title": "Allow Experience Services",
+    "text": "Before we identify your session, choose whether to enable experience services for this visit.",
+    "locationDetail": "Location access centers maps and loads local regulatory context.",
+    "telemetryDetail": "Telemetry helps improve reliability, performance, and feature quality.",
+    "requesting": "Waiting for browser location permission...",
+    "decline": "Reject all",
+    "accept": "Allow all",
+    "rejectAll": "Reject all",
+    "acceptAll": "Allow all",
+    "allowAll": "Allow all"
   },
   "wallet": {
     "connect": "Connect",

@@ -18,7 +18,7 @@ const nextConfig = {
       {
         key: "Permissions-Policy",
         value:
-          "camera=(), microphone=(), geolocation=(), payment=(), usb=(), screen-wake-lock=(), interest-cohort=()",
+          "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), screen-wake-lock=(), interest-cohort=()",
       },
       { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
       { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
