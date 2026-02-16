@@ -84,14 +84,14 @@ export default function HomeContent() {
         </div>
       </section>
 
-      {/* ================= CREATE ================= */}
-      <section id="create" className="scroll-mt-28">
-        <CreateWalletPanel />
-      </section>
-
-      {/* ================= CONNECT ================= */}
-      <section id="connect" className="scroll-mt-28">
-        <ConnectWalletPanel />
+      {/* ================= CREATE + CONNECT ================= */}
+      <section className="grid gap-20 lg:grid-cols-2">
+        <div id="create" className="scroll-mt-28">
+          <CreateWalletPanel />
+        </div>
+        <div id="connect" className="scroll-mt-28">
+          <ConnectWalletPanel />
+        </div>
       </section>
 
       {/* ================= XRPL ================= */}

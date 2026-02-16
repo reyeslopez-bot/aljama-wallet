@@ -141,8 +141,13 @@ export default function Navbar() {
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
         <Link
           href={`/${locale}`}
-          className="font-display text-xl font-semibold tracking-[0.18em] transition"
-          style={{ color: isLight ? '#1d2f45' : 'rgb(var(--ivory))' }}
+          className="font-display text-xl font-black uppercase tracking-[0.14em] transition sm:text-2xl"
+          style={{
+            color: isLight ? '#b06f2f' : '#e8bf78',
+            textShadow: isLight
+              ? '0 1px 0 rgba(255,241,214,0.5), 0 6px 14px rgba(176,111,47,0.28)'
+              : '0 1px 0 rgba(255,244,222,0.45), 0 0 18px rgba(232,191,120,0.42)',
+          }}
         >
           {BRAND.name}
         </Link>
