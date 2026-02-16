@@ -5,7 +5,6 @@ function toDate(value: Date | number | string): Date {
 const TIME_24_FORMATTER = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit',
   minute: '2-digit',
-  second: '2-digit',
   hour12: false,
 })
 
@@ -19,13 +18,12 @@ const DATE_TIME_24_FORMATTER = new Intl.DateTimeFormat(undefined, {
   day: '2-digit',
   hour: '2-digit',
   minute: '2-digit',
-  second: '2-digit',
   hour12: false,
 })
 
 export function formatTime24(value: Date | number | string): string {
   const date = toDate(value)
-  if (Number.isNaN(date.getTime())) return '--:--:--'
+  if (Number.isNaN(date.getTime())) return '--:--'
   return TIME_24_FORMATTER.format(date)
 }
 

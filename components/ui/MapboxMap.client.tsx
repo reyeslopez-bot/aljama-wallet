@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { useSession } from 'next-auth/react'
 import {
   canUseGeolocation,
   getLocationConsent,
@@ -47,9 +46,6 @@ function resolveUiRegion(lat: number, lng: number, regulatoryRegion: RegulatoryR
 
 export default function MapboxMap() {
   const t = useTranslations('map')
-  const tAuth = useTranslations('auth')
-  const { status: sessionStatus } = useSession()
-  const locked = sessionStatus === 'unauthenticated'
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const mapRef = React.useRef<MapboxMapInstance | null>(null)
   const markerRef = React.useRef<MapboxMarkerInstance | null>(null)
@@ -74,7 +70,6 @@ export default function MapboxMap() {
   const mapStyle = isLightTheme ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11'
 
   React.useEffect(() => {
-    setLocationConsentState(getLocationConsent())
     return onLocationConsentChange(() => {
       setLocationConsentState(getLocationConsent())
     })
@@ -173,13 +168,8 @@ export default function MapboxMap() {
     map.flyTo({ center: lngLat, zoom: targetZoom, essential: true })
   }, [coords])
 
-  const requestLocation = React.useCallback((force = false) => {
-    if (locked) {
-      setStatus('idle')
-      setError(null)
-      return
-    }
-    if (!force && locationConsent !== 'granted') return
+  const requestLocation = React.useCallback(() => {
+    if (locationConsent !== 'granted') return
     setError(null)
 
     if (!canUseGeolocation() || !('geolocation' in navigator)) {
@@ -225,15 +215,14 @@ export default function MapboxMap() {
       setStatus('error')
       setError('Geolocation is blocked by browser policy or not supported.')
     }
-  }, [locked, locationConsent])
+  }, [locationConsent])
 
   React.useEffect(() => {
-    if (locked) return
     if (autoRequestedRef.current) return
     if (locationConsent !== 'granted') return
     autoRequestedRef.current = true
     requestLocation()
-  }, [locked, locationConsent, requestLocation])
+  }, [locationConsent, requestLocation])
 
   const regulatoryRegion = React.useMemo(
     () => resolveRegulatoryRegion(coords.lat, coords.lng),
@@ -286,8 +275,8 @@ export default function MapboxMap() {
 
         <button
           type="button"
-          onClick={() => requestLocation(true)}
-          disabled={locked}
+          onClick={requestLocation}
+          disabled={status === 'loading' || locationConsent !== 'granted'}
           className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {t('useLocation')}
@@ -344,11 +333,6 @@ export default function MapboxMap() {
           </>
         )}
       </div>
-      {locked && (
-        <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
-          {tAuth('unlockActions')}
-        </p>
-      )}
     </div>
   )
 }

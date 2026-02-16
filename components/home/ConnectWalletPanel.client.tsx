@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useConnection, useConnect, useConnectors, useDisconnect } from 'wagmi'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
@@ -18,6 +18,7 @@ export function ConnectWalletPanel() {
   const connectors = useConnectors()
   const { mutate: connect, isPending, error: connectError } = useConnect()
   const { mutate: disconnect } = useDisconnect()
+  const [hydrated, setHydrated] = useState(false)
   const setConnectWalletStatus = useDynamicInfoStore((s) => s.setConnectWalletStatus)
   const setConnectedWallet = useDynamicInfoStore((s) => s.setConnectedWallet)
 
@@ -28,16 +29,23 @@ export function ConnectWalletPanel() {
   const injectedConnector = readyConnectors.find((item) => item.id === 'injected')
   const walletConnectConnector = readyConnectors.find((item) => item.id === 'walletConnect')
   const preferredConnector = injectedConnector ?? walletConnectConnector ?? readyConnectors[0]
-  const canConnect = Boolean(preferredConnector)
-  const connectLabel = isConnected ? t('buttonDisconnect') : t('buttonConnect')
-  const statusLabel = !canConnect
-    ? t('status.noConnector')
-    : isConnected
-      ? t('status.connected')
-      : t('status.ready')
+  const canConnect = hydrated ? Boolean(preferredConnector) : true
+  const displayConnected = hydrated ? isConnected : false
+  const connectLabel = displayConnected ? t('buttonDisconnect') : t('buttonConnect')
+  const statusLabel = !hydrated
+    ? t('status.ready')
+    : !canConnect
+      ? t('status.noConnector')
+      : displayConnected
+        ? t('status.connected')
+        : t('status.ready')
 
   useEffect(() => {
-    if (locked || !isConnected || !address) {
+    setHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (!hydrated || locked || !isConnected || !address) {
       setConnectedWallet({ address: null })
       if (!isPending) setConnectWalletStatus('idle')
       return
@@ -54,6 +62,7 @@ export function ConnectWalletPanel() {
     address,
     chain?.id,
     chain?.name,
+    hydrated,
     isConnected,
     isPending,
     setConnectedWallet,
@@ -79,7 +88,7 @@ export function ConnectWalletPanel() {
 
       <div className="relative mt-6 space-y-4">
         <div className="surface-inner p-4">
-          {isConnected ? (
+          {displayConnected ? (
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-[0.16em] text-jade/80">
                 {t('linkedTitle')}
@@ -106,7 +115,7 @@ export function ConnectWalletPanel() {
           onClick={() => {
             if (locked) return
             if (!preferredConnector) return
-            if (isConnected) {
+            if (displayConnected) {
               setConnectWalletStatus('pending')
               disconnect()
               return
@@ -125,7 +134,7 @@ export function ConnectWalletPanel() {
           </p>
         )}
 
-        {!canConnect ? (
+        {hydrated && !canConnect ? (
           <p className="text-xs text-saffron/80">{t('noConnectorNote')}</p>
         ) : null}
 

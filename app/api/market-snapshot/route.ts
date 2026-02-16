@@ -23,7 +23,8 @@ type MarketSnapshot = {
 }
 
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3'
-const MAX_POINTS = 24
+const DAYS_WINDOW = 30
+const MAX_POINTS = 30
 const CACHE_TTL_MS = 60_000
 
 const ASSETS = [
@@ -79,9 +80,12 @@ function downsample(prices: number[]): number[] {
 }
 
 function fallbackSnapshot(): MarketSnapshot {
-  const seed = [1, 1.02, 0.99, 1.03, 1.01, 1.04, 1.02, 1.06, 1.03, 1.05, 1.04, 1.07, 1.06, 1.08, 1.07, 1.06, 1.05, 1.04, 1.05, 1.03, 1.02, 1.01, 1.02, 1.03]
   const assets = ASSETS.map((asset, index) => {
-    const jitter = seed.map((v) => v + (index * 0.002))
+    const jitter = Array.from({ length: MAX_POINTS }, (_, day) => {
+      const trend = 1 + day * 0.0016
+      const wave = Math.sin((day + 1) * 0.38 + index * 0.45) * 0.026
+      return trend + wave + index * 0.0018
+    })
     const last = jitter[jitter.length - 1] ?? 1
     const first = jitter[0] ?? 1
     return {
@@ -101,7 +105,7 @@ function fallbackSnapshot(): MarketSnapshot {
 }
 
 async function fetchAssetSeries(assetId: string): Promise<number[]> {
-  const url = `${COINGECKO_BASE}/coins/${assetId}/market_chart?vs_currency=usd&days=1`
+  const url = `${COINGECKO_BASE}/coins/${assetId}/market_chart?vs_currency=usd&days=${DAYS_WINDOW}`
   const res = await fetch(url, { next: { revalidate: 60 } })
   if (!res.ok) throw new Error(`Market fetch failed for ${assetId}`)
   const json = (await res.json()) as { prices?: [number, number][] }

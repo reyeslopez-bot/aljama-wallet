@@ -122,14 +122,13 @@ export default function DynamicInfoCard() {
   const createStatus = useDynamicInfoStore((s) => s.createWalletStatus)
   const connectStatus = useDynamicInfoStore((s) => s.connectWalletStatus)
   const trackingStatus = useDynamicInfoStore((s) => s.trackingStatus)
-  const trackingError = useDynamicInfoStore((s) => s.trackingError)
   const lastEvent = useDynamicInfoStore((s) => s.lastEvent)
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
   const selectedXrplNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
 
   useEffect(() => {
     setNow(new Date())
-    const t = setInterval(() => setNow(new Date()), 1_000)
+    const t = setInterval(() => setNow(new Date()), 30_000)
     return () => clearInterval(t)
   }, [])
 
@@ -144,7 +143,7 @@ export default function DynamicInfoCard() {
 
   const timeLabel = useMemo(
     () => {
-      if (!now) return '--:--:--'
+      if (!now) return '--:--'
       return formatTime24(now)
     },
     [now],
@@ -182,6 +181,18 @@ export default function DynamicInfoCard() {
   }, [user?.role, wallet.chainName, wallet.connectorName, wallet.connectedAddress, wallet.createdAddress])
 
   const copyText = wallet.connectedAddress ?? wallet.createdAddress
+  const vaultSessionLabel = useMemo(() => {
+    if (wallet.connectedAddress) return t('status.available')
+    if (connectStatus === 'pending') return t('status.syncing')
+    if (connectStatus === 'error') return t('status.action')
+    if (wallet.createdAddress) return t('status.vault')
+    return t('status.idle')
+  }, [connectStatus, t, wallet.connectedAddress, wallet.createdAddress])
+
+  const vaultNetworkLabel = wallet.chainName ?? (wallet.connectedAddress ? 'EVM' : '—')
+  const vaultConnectorLabel =
+    wallet.connectorName ?? (wallet.connectedAddress ? t('unknownConnector') : '—')
+
   const selectedXrplNetwork = XRPL_NETWORKS_BY_ID[selectedXrplNetworkId]
   const xrplBadgeTone = selectedXrplNetwork.isProduction
     ? 'bg-red-400'
@@ -274,18 +285,15 @@ export default function DynamicInfoCard() {
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-ivory/50">{t('network')}</span>
-                      <span className="truncate text-ivory/80">{wallet.chainName ?? '—'}</span>
+                      <span className="truncate text-ivory/80">{vaultNetworkLabel}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-ivory/50">{t('connector')}</span>
-                      <span className="truncate text-ivory/80">{wallet.connectorName ?? '—'}</span>
+                      <span className="text-ivory/50">{t('connectionMethod')}</span>
+                      <span className="truncate text-ivory/80">{vaultConnectorLabel}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-ivory/50">{t('tracking')}</span>
-                      <span className="text-ivory/80">
-                        {trackingStatus}
-                        {trackingStatus === 'error' && trackingError ? `: ${trackingError}` : ''}
-                      </span>
+                      <span className="text-ivory/50">{t('sessionStatus')}</span>
+                      <span className="text-ivory/80">{vaultSessionLabel}</span>
                     </div>
                   </div>
                 </div>
@@ -320,15 +328,17 @@ export default function DynamicInfoCard() {
                       isLightTheme ? 'bg-gradient-to-b from-transparent via-[#7fa3c1]/45 to-transparent' : 'bg-gradient-to-b from-transparent via-white/25 to-transparent'
                     }`}
                   />
-                  <div
-                    className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.2em] ${
+                  <a
+                    href="#xrpl-network"
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.16em] transition ${
                       isLightTheme
-                        ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/75'
-                        : 'border-white/10 bg-white/5 text-ivory/45'
+                        ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
+                        : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
                     }`}
                   >
-                    {t('detailsOpen')}
-                  </div>
+                    <span className={`h-1.5 w-1.5 rounded-full ${xrplBadgeTone}`} />
+                    {selectedXrplNetwork.name}
+                  </a>
                 </div>
               </motion.div>
             ) : (

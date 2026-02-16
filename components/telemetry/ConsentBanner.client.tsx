@@ -10,8 +10,8 @@ import {
 import { useTranslations } from 'next-intl'
 import TextScramble from '@/components/ui/TextScramble.client'
 
-const CONSENT_PROMPT_VERSION = '2026-02'
-const CONSENT_PROMPT_KEY = 'aljama.consent.prompt.version'
+const CONSENT_PROMPT_VERSION = '2026-03'
+const CONSENT_PROMPT_SESSION_KEY = `aljama.consent.prompt.session.${CONSENT_PROMPT_VERSION}`
 
 export default function ConsentBanner() {
   const t = useTranslations('consent')
@@ -20,13 +20,12 @@ export default function ConsentBanner() {
   const [requesting, setRequesting] = useState(false)
 
   useEffect(() => {
-    const nextTelemetry = getTelemetryConsent()
-    const nextLocation = getLocationConsent()
-
     if (typeof window !== 'undefined') {
-      const seenPromptVersion = window.localStorage.getItem(CONSENT_PROMPT_KEY)
+      const seenPromptInSession = window.sessionStorage.getItem(CONSENT_PROMPT_SESSION_KEY)
+      const nextTelemetry = getTelemetryConsent()
+      const nextLocation = getLocationConsent()
       const shouldPrompt =
-        seenPromptVersion !== CONSENT_PROMPT_VERSION ||
+        seenPromptInSession !== 'seen' ||
         nextTelemetry === 'unset' ||
         nextLocation === 'unset'
       setOpen(shouldPrompt)
@@ -38,7 +37,7 @@ export default function ConsentBanner() {
 
   function closePrompt() {
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(CONSENT_PROMPT_KEY, CONSENT_PROMPT_VERSION)
+      window.sessionStorage.setItem(CONSENT_PROMPT_SESSION_KEY, 'seen')
     }
     setOpen(false)
   }

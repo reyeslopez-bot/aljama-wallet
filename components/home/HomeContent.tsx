@@ -9,6 +9,7 @@ import { ConnectWalletPanel } from '@/components/home/ConnectWalletPanel.client'
 import { XrplPanel } from '@/components/home/XrplPanel.client'
 import XrplMarketPanel from '@/components/home/XrplMarketPanel.client'
 import RegionCompliancePanel from '@/components/home/RegionCompliancePanel.client'
+import ShareDock from '@/components/home/ShareDock.client'
 import ClientTrackWallet from '@/infra/utils/ClientTrackWallet'
 import { BRAND } from '@/constants/brand'
 import DynamicInfoCard from '@/components/home/DynamicInfoCard.client'
@@ -113,6 +114,9 @@ export default function HomeContent() {
         <XrplPanel />
         <XrplMarketPanel />
       </section>
+
+      {/* ================= SHARE ================= */}
+      <ShareDock />
     </div>
   )
 }

@@ -196,7 +196,7 @@
   "market": {
     "eyebrow": "Market Snapshot",
     "title": "XRPL vs. majors",
-    "body": "Normalized 24h index. Reference prices are cross-chain and may not be issued on XRPL.",
+    "body": "Normalized 30d index. Reference prices are cross-chain and may not be issued on XRPL.",
     "badgeFallback": "Fallback data",
     "badgeLive": "Live",
     "viewAll": "All",
@@ -207,14 +207,18 @@
     "table": {
       "asset": "Asset",
       "price": "Price",
-      "change": "24h",
+      "change": "30d",
       "network": "Network",
       "xrpl": "XRPL",
       "reference": "Reference"
     },
     "refresh": "Refresh market snapshot",
     "pointAt": "Point at",
-    "hoverHint": "Hover chart to inspect XRPL and major assets."
+    "hoverHint": "Hover chart to inspect XRPL and major assets.",
+    "zoomHint": "Trackpad scroll to zoom · double-click to reset",
+    "zoomed": "Zoomed window",
+    "fullWindow": "Full 24h window",
+    "zoomReset": "Double-click chart to reset zoom"
   },
   "map": {
     "label": "Map",
@@ -235,7 +239,7 @@
       "showLess": "Show less",
       "disclaimer": "Informational only, not legal advice. Confirm current obligations with local counsel.",
       "uae": {
-        "label": "Dubai, UAE",
+        "label": "UAE - Dubai",
         "item1": "Virtual asset activities may require VARA licensing in Dubai.",
         "item2": "Customer due diligence and AML controls are typically required for custodial flows.",
         "item3": "Marketing and token promotion can require pre-approval in regulated cases."
@@ -294,7 +298,10 @@
       "idle": "Idle"
     },
     "xrplNetwork": "XRPL network",
-    "detailsOpen": "Details open"
+    "detailsOpen": "Details open",
+    "connectionMethod": "Connection method",
+    "sessionStatus": "Session status",
+    "unknownConnector": "Wallet connector"
   },
   "footer": {
     "privacy": "Privacy",
@@ -358,5 +365,17 @@
   },
   "notFound": {
     "goHome": "Go home"
+  },
+  "share": {
+    "eyebrow": "Share",
+    "title": "Text Scramble",
+    "body": "Share this page with your team, users, or community.",
+    "x": "Share on X",
+    "linkedin": "Share on LinkedIn",
+    "facebook": "Share on Facebook",
+    "whatsapp": "Share on WhatsApp",
+    "email": "Share by Email",
+    "copy": "Copy link",
+    "copied": "Copied"
   }
 }

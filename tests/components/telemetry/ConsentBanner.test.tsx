@@ -53,6 +53,7 @@ describe('ConsentBanner', () => {
     vi.clearAllMocks()
     telemetryState.consent = 'unset'
     locationState.consent = 'unset'
+    window.sessionStorage.clear()
   })
 
   it('allow all stores consent, requests geolocation, and dismisses the popup', async () => {

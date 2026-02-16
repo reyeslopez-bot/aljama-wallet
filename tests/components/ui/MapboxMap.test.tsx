@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import MapboxMap from '@/components/ui/MapboxMap.client'
-import { useSession } from 'next-auth/react'
 
 const locationState = vi.hoisted(() => ({
   consent: 'granted' as 'granted' | 'denied' | 'unset',
 }))
 const setLocationConsentMock = vi.hoisted(() => vi.fn())
+const locationConsentListener = vi.hoisted(() => ({
+  handler: null as null | (() => void),
+}))
 
 vi.mock('mapbox-gl', () => ({
   default: {
@@ -31,11 +33,16 @@ vi.mock('mapbox-gl', () => ({
 vi.mock('@/infra/location/client', () => ({
   canUseGeolocation: () => true,
   getLocationConsent: () => locationState.consent,
-  onLocationConsentChange: () => () => {},
+  onLocationConsentChange: (handler: () => void) => {
+    locationConsentListener.handler = handler
+    return () => {
+      if (locationConsentListener.handler === handler) {
+        locationConsentListener.handler = null
+      }
+    }
+  },
   setLocationConsent: setLocationConsentMock,
 }))
-
-const mockedUseSession = vi.mocked(useSession)
 
 describe('MapboxMap', () => {
   beforeEach(() => {
@@ -66,13 +73,10 @@ describe('MapboxMap', () => {
 
     vi.clearAllMocks()
     locationState.consent = 'granted'
-    mockedUseSession.mockReturnValue({
-      data: { user: { id: 'test-user', email: 'test@example.com' } },
-      status: 'authenticated',
-    } as any)
+    locationConsentListener.handler = null
   })
 
-  it('requests location on mount and updates jurisdiction copy', async () => {
+  it('keeps Dubai jurisdiction until location consent flow has allowed tracking', async () => {
     const getCurrentPosition = vi.fn((success: PositionCallback) =>
       success({
         coords: {
@@ -91,9 +95,9 @@ describe('MapboxMap', () => {
     const { getByText, getAllByText } = render(<MapboxMap />)
 
     await waitFor(() => {
-      expect(getCurrentPosition).toHaveBeenCalled()
+      expect(getCurrentPosition).not.toHaveBeenCalled()
       expect(getByText('Jurisdiction:')).toBeTruthy()
-      expect(getAllByText('United States').length).toBeGreaterThan(0)
+      expect(getAllByText('UAE - Dubai').length).toBeGreaterThan(0)
     })
   })
 
@@ -114,6 +118,14 @@ describe('MapboxMap', () => {
     })
 
     const { getByRole, getByText } = render(<MapboxMap />)
+    act(() => {
+      locationConsentListener.handler?.()
+    })
+
+    await waitFor(() => {
+      const button = getByRole('button', { name: 'Use my location' }) as HTMLButtonElement
+      expect(button.disabled).toBe(false)
+    })
 
     fireEvent.click(getByRole('button', { name: 'Use my location' }))
 
@@ -123,17 +135,13 @@ describe('MapboxMap', () => {
     })
   })
 
-  it('disables location button when unauthenticated', () => {
+  it('keeps location button hidden behind permissions when consent is denied', () => {
     locationState.consent = 'denied'
-    mockedUseSession.mockReturnValue({
-      data: null,
-      status: 'unauthenticated',
-    } as any)
 
-    const { getByRole, getByText } = render(<MapboxMap />)
+    const { getByRole, queryByText } = render(<MapboxMap />)
 
     const button = getByRole('button', { name: 'Use my location' }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
-    expect(getByText('Sign in to unlock actions.')).toBeTruthy()
+    expect(queryByText('Sign in to unlock actions.')).toBeNull()
   })
 })

@@ -1,12 +1,12 @@
 // components/home/XrplMarketPanel.client.tsx
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState, type WheelEvent } from 'react'
 import { motion } from 'framer-motion'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
-import { formatDateShort, formatDateTime24, formatTime24 } from '@/lib/time-format'
+import { formatDateTime24, formatTime24 } from '@/lib/time-format'
 
 type MarketAsset = {
   id: string
@@ -36,6 +36,11 @@ const COLORS: Record<string, string> = {
 
 type ViewOption = 'all' | 'xrpl' | 'reference'
 type TimelineTick = { index: number; timestamp: number }
+type ZoomWindow = { start: number; end: number }
+
+const CHART_WIDTH = 100
+const CHART_HEIGHT = 48
+const CHART_PADDING = 4
 
 function normalizeSeries(series: number[]): number[] {
   if (series.length === 0) return []
@@ -44,20 +49,21 @@ function normalizeSeries(series: number[]): number[] {
   return series.map((value) => value / safeFirst)
 }
 
-function buildPath(series: number[], min: number, max: number) {
-  if (series.length < 2) return ''
-  const width = 100
-  const height = 48
-  const padding = 4
+function buildPath(series: number[], min: number, max: number, startIndex: number, endIndex: number) {
+  if (series.length < 2 || endIndex <= startIndex) return ''
+  const safeStart = Math.min(Math.max(startIndex, 0), series.length - 2)
+  const safeEnd = Math.min(Math.max(endIndex, safeStart + 1), series.length - 1)
   const span = max - min || 1
-  return series
-    .map((value, index) => {
-      const x = (index / (series.length - 1)) * width
+  const indexSpan = safeEnd - safeStart
+  const points = series.slice(safeStart, safeEnd + 1)
+  return points
+    .map((value, offset) => {
+      const x = (offset / indexSpan) * CHART_WIDTH
       const y =
-        height -
-        padding -
-        ((value - min) / span) * (height - padding * 2)
-      return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
+        CHART_HEIGHT -
+        CHART_PADDING -
+        ((value - min) / span) * (CHART_HEIGHT - CHART_PADDING * 2)
+      return `${offset === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
     })
     .join(' ')
 }
@@ -71,19 +77,40 @@ function formatUsd(value: number) {
   })
 }
 
+function formatTimelineDate(timestamp: number, zoomed: boolean) {
+  return new Intl.DateTimeFormat('en-US', zoomed
+    ? { weekday: 'short', month: 'short', day: 'numeric' }
+    : { month: 'short', day: 'numeric' }).format(timestamp)
+}
+
 function seriesIndexToTimestamp(updatedAt: string | null | undefined, index: number, pointCount: number): number | null {
   if (!updatedAt || pointCount < 2) return null
   const end = new Date(updatedAt).getTime()
   if (!Number.isFinite(end)) return null
-  const start = end - 24 * 60 * 60 * 1_000
+  const start = end - 30 * 24 * 60 * 60 * 1_000
   const ratio = Math.min(Math.max(index / (pointCount - 1), 0), 1)
   return Math.round(start + ratio * (end - start))
 }
 
-function buildTimelineTicks(updatedAt: string | null | undefined, pointCount: number): TimelineTick[] {
+function buildTimelineTicks(
+  updatedAt: string | null | undefined,
+  pointCount: number,
+  startIndex: number,
+  endIndex: number,
+): TimelineTick[] {
   if (!updatedAt || pointCount < 2) return []
-  const points = pointCount - 1
-  const indexes = Array.from(new Set([0, Math.round(points / 3), Math.round((points * 2) / 3), points]))
+  const safeStart = Math.max(startIndex, 0)
+  const safeEnd = Math.min(endIndex, pointCount - 1)
+  const span = safeEnd - safeStart
+  if (span < 1) return []
+  const indexes = Array.from(
+    new Set([
+      safeStart,
+      Math.round(safeStart + span / 3),
+      Math.round(safeStart + (span * 2) / 3),
+      safeEnd,
+    ]),
+  )
   return indexes
     .map((index) => {
       const timestamp = seriesIndexToTimestamp(updatedAt, index, pointCount)
@@ -99,6 +126,7 @@ export default function XrplMarketPanel() {
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === 'unauthenticated'
+  const chartClipId = useId().replace(/:/g, '')
   const [state, setState] = useState<{
     loading: boolean
     error: string | null
@@ -111,6 +139,7 @@ export default function XrplMarketPanel() {
     view: 'all',
   })
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+  const [zoomWindow, setZoomWindow] = useState<ZoomWindow | null>(null)
 
   const loadSnapshot = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }))
@@ -143,30 +172,111 @@ export default function XrplMarketPanel() {
     return state.snapshot.assets.filter((asset) => asset.marketGroup === state.view)
   }, [state.snapshot, state.view])
 
-  const normalized = useMemo(() => {
-    const normalizedSeries = visibleAssets.map((asset) => ({
-      symbol: asset.symbol,
-      color: COLORS[asset.symbol] ?? '#ffffff',
-      series: normalizeSeries(asset.series),
-    }))
-    const values = normalizedSeries.flatMap((asset) => asset.series)
-    const min = values.length ? Math.min(...values) : 0.9
-    const max = values.length ? Math.max(...values) : 1.1
-    return { normalizedSeries, min, max }
-  }, [visibleAssets])
+  const normalizedSeries = useMemo(
+    () =>
+      visibleAssets.map((asset) => ({
+        symbol: asset.symbol,
+        color: COLORS[asset.symbol] ?? '#ffffff',
+        series: normalizeSeries(asset.series),
+      })),
+    [visibleAssets],
+  )
 
   const pointCount = useMemo(
-    () => Math.max(0, ...normalized.normalizedSeries.map((asset) => asset.series.length)),
-    [normalized.normalizedSeries],
+    () => Math.max(0, ...normalizedSeries.map((asset) => asset.series.length)),
+    [normalizedSeries],
+  )
+
+  const chartWindow = useMemo(() => {
+    const maxIndex = Math.max(pointCount - 1, 0)
+    if (maxIndex < 1) return { start: 0, end: 0, isZoomed: false }
+    if (!zoomWindow) return { start: 0, end: maxIndex, isZoomed: false }
+    const start = Math.min(Math.max(zoomWindow.start, 0), maxIndex - 1)
+    const end = Math.min(Math.max(zoomWindow.end, start + 1), maxIndex)
+    return { start, end, isZoomed: start > 0 || end < maxIndex }
+  }, [pointCount, zoomWindow])
+
+  const normalizedRange = useMemo(() => {
+    const values = normalizedSeries.flatMap((asset) => {
+      const safeStart = Math.min(chartWindow.start, asset.series.length - 1)
+      const safeEnd = Math.min(chartWindow.end, asset.series.length - 1)
+      if (safeStart < 0 || safeEnd < safeStart) return []
+      return asset.series.slice(safeStart, safeEnd + 1)
+    })
+    const min = values.length ? Math.min(...values) : 0.9
+    const max = values.length ? Math.max(...values) : 1.1
+    return { min, max }
+  }, [chartWindow.end, chartWindow.start, normalizedSeries])
+
+  useEffect(() => {
+    setZoomWindow((prev) => {
+      if (!prev) return null
+      const maxIndex = Math.max(pointCount - 1, 0)
+      if (maxIndex < 1) return null
+      const start = Math.min(Math.max(prev.start, 0), maxIndex - 1)
+      const end = Math.min(Math.max(prev.end, start + 1), maxIndex)
+      if (start === 0 && end === maxIndex) return null
+      if (start === prev.start && end === prev.end) return prev
+      return { start, end }
+    })
+    setHoverIndex((prev) => {
+      if (prev === null) return null
+      if (pointCount < 1) return null
+      return Math.min(prev, pointCount - 1)
+    })
+  }, [pointCount])
+
+  const onChartWheel = useCallback(
+    (event: WheelEvent<SVGSVGElement>) => {
+      if (pointCount < 4) return
+      if (!event.deltaY) return
+      event.preventDefault()
+
+      const maxIndex = pointCount - 1
+      const currentStart = chartWindow.start
+      const currentEnd = chartWindow.end
+      const currentSpan = currentEnd - currentStart
+      if (currentSpan < 1) return
+
+      const rect = event.currentTarget.getBoundingClientRect()
+      if (!rect.width) return
+
+      const ratio = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1)
+      const zoomIn = event.deltaY < 0
+      const minSpan = Math.min(Math.max(5, Math.floor(maxIndex * 0.1)), maxIndex)
+      const nextSpanUnclamped = Math.round(currentSpan * (zoomIn ? 0.82 : 1.2))
+      const nextSpan = Math.min(Math.max(nextSpanUnclamped, minSpan), maxIndex)
+
+      if (nextSpan >= maxIndex) {
+        setZoomWindow(null)
+        return
+      }
+
+      const anchorIndex = currentStart + ratio * currentSpan
+      let nextStart = Math.round(anchorIndex - ratio * nextSpan)
+      let nextEnd = nextStart + nextSpan
+
+      if (nextStart < 0) {
+        nextStart = 0
+        nextEnd = nextSpan
+      } else if (nextEnd > maxIndex) {
+        nextEnd = maxIndex
+        nextStart = maxIndex - nextSpan
+      }
+
+      setZoomWindow({ start: nextStart, end: nextEnd })
+    },
+    [chartWindow.end, chartWindow.start, pointCount],
   )
 
   const timelineTicks = useMemo(
-    () => buildTimelineTicks(state.snapshot?.updatedAt, pointCount),
-    [state.snapshot?.updatedAt, pointCount],
+    () => buildTimelineTicks(state.snapshot?.updatedAt, pointCount, chartWindow.start, chartWindow.end),
+    [chartWindow.end, chartWindow.start, state.snapshot?.updatedAt, pointCount],
   )
 
   const hoverSnapshot = useMemo(() => {
     if (hoverIndex === null || !state.snapshot || pointCount < 2) return null
+    if (hoverIndex < chartWindow.start || hoverIndex > chartWindow.end) return null
     const timestamp = seriesIndexToTimestamp(state.snapshot.updatedAt, hoverIndex, pointCount)
     if (!timestamp) return null
     return {
@@ -186,9 +296,13 @@ export default function XrplMarketPanel() {
     { id: 'reference', label: t('viewReference') },
   ] as const
 
-  const hoverLineX = hoverIndex !== null && pointCount > 1
-    ? (hoverIndex / (pointCount - 1)) * 100
-    : null
+  const hoverLineX =
+    hoverIndex !== null &&
+    chartWindow.end > chartWindow.start &&
+    hoverIndex >= chartWindow.start &&
+    hoverIndex <= chartWindow.end
+      ? ((hoverIndex - chartWindow.start) / (chartWindow.end - chartWindow.start)) * CHART_WIDTH
+      : null
 
   return (
     <section className="surface-panel panel-glow-rose relative p-7 sm:p-8">
@@ -239,17 +353,22 @@ export default function XrplMarketPanel() {
           ) : (
             <div className="space-y-4">
               <svg
-                viewBox="0 0 100 48"
-                className="h-32 w-full"
+                viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+                className="h-40 w-full md:h-48"
                 onMouseMove={(event) => {
                   if (pointCount < 2) return
                   const rect = event.currentTarget.getBoundingClientRect()
                   if (!rect.width) return
                   const ratio = (event.clientX - rect.left) / rect.width
                   const clamped = Math.min(Math.max(ratio, 0), 1)
-                  setHoverIndex(Math.round(clamped * (pointCount - 1)))
+                  const next = Math.round(
+                    chartWindow.start + clamped * (chartWindow.end - chartWindow.start),
+                  )
+                  setHoverIndex(next)
                 }}
                 onMouseLeave={() => setHoverIndex(null)}
+                onWheel={onChartWheel}
+                onDoubleClick={() => setZoomWindow(null)}
               >
                 <defs>
                   <linearGradient id="marketGlow" x1="0" y1="0" x2="1" y2="0">
@@ -257,33 +376,56 @@ export default function XrplMarketPanel() {
                     <stop offset="50%" stopColor="#e0bf7f" stopOpacity="0.35" />
                     <stop offset="100%" stopColor="#4b9577" stopOpacity="0.35" />
                   </linearGradient>
-                </defs>
-                <rect x="0" y="0" width="100" height="48" fill="url(#marketGlow)" opacity="0.08" />
-                {hoverLineX !== null ? (
-                  <line
-                    x1={hoverLineX}
-                    y1={3}
-                    x2={hoverLineX}
-                    y2={45}
-                    stroke="rgba(240,215,160,0.45)"
-                    strokeWidth="0.45"
-                    strokeDasharray="1.2 1.1"
-                  />
-                ) : null}
-                {normalized.normalizedSeries.map((asset) => {
-                  const path = buildPath(asset.series, normalized.min, normalized.max)
-                  if (!path) return null
-                  return (
-                    <path
-                      key={asset.symbol}
-                      d={path}
-                      fill="none"
-                      stroke={asset.color}
-                      strokeWidth="1.6"
-                      opacity="0.9"
+                  <clipPath id={chartClipId}>
+                    <rect
+                      x={0}
+                      y={CHART_PADDING}
+                      width={CHART_WIDTH}
+                      height={CHART_HEIGHT - CHART_PADDING * 2}
                     />
-                  )
-                })}
+                  </clipPath>
+                </defs>
+                <rect
+                  x="0"
+                  y="0"
+                  width={CHART_WIDTH}
+                  height={CHART_HEIGHT}
+                  fill="url(#marketGlow)"
+                  opacity="0.08"
+                />
+                <g clipPath={`url(#${chartClipId})`}>
+                  {hoverLineX !== null ? (
+                    <line
+                      x1={hoverLineX}
+                      y1={CHART_PADDING}
+                      x2={hoverLineX}
+                      y2={CHART_HEIGHT - CHART_PADDING}
+                      stroke="rgba(240,215,160,0.45)"
+                      strokeWidth="0.45"
+                      strokeDasharray="1.2 1.1"
+                    />
+                  ) : null}
+                  {normalizedSeries.map((asset) => {
+                    const path = buildPath(
+                      asset.series,
+                      normalizedRange.min,
+                      normalizedRange.max,
+                      chartWindow.start,
+                      chartWindow.end,
+                    )
+                    if (!path) return null
+                    return (
+                      <path
+                        key={asset.symbol}
+                        d={path}
+                        fill="none"
+                        stroke={asset.color}
+                        strokeWidth="1.6"
+                        opacity="0.9"
+                      />
+                    )
+                  })}
+                </g>
               </svg>
 
               {timelineTicks.length > 0 ? (
@@ -293,13 +435,16 @@ export default function XrplMarketPanel() {
                       key={`${tick.index}-${tick.timestamp}`}
                       className={`flex flex-col ${index === timelineTicks.length - 1 ? 'items-end' : 'items-start'}`}
                     >
-                      <span>{formatTime24(tick.timestamp)}</span>
-                      <span className="text-[9px] uppercase tracking-[0.1em] text-ivory/35">
-                        {formatDateShort(tick.timestamp)}
-                      </span>
+                      <span>{formatTimelineDate(tick.timestamp, chartWindow.isZoomed)}</span>
                     </div>
                   ))}
                 </div>
+              ) : null}
+
+              {chartWindow.isZoomed ? (
+                <p className="text-[10px] uppercase tracking-[0.14em] text-ivory/40">
+                  {t('zoomReset')}
+                </p>
               ) : null}
 
               <div className="flex flex-wrap items-center gap-3 text-xs text-ivory/60">
