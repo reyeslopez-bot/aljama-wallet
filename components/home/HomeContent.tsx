@@ -3,7 +3,6 @@
 // Server Component (NO 'use client')
 import MapboxMap from '@/components/ui/MapboxMap.client'
 import { CreateWalletPanel } from '@/components/home/CreateWalletPanel'
-import { FeatureShowcase } from '@/components/home/FeatureShowcase'
 import HomeActionButtons from '@/components/home/HomeActionButtons.client'
 import { ConnectWalletPanel } from '@/components/home/ConnectWalletPanel.client'
 import { XrplPanel } from '@/components/home/XrplPanel.client'
@@ -17,7 +16,6 @@ import { useTranslations } from 'next-intl'
 
 const SURFACE = 'surface-panel'
 const SURFACE_SOFT = 'surface-soft'
-const SURFACE_INNER = 'surface-inner'
 
 export default function HomeContent() {
   const tHome = useTranslations('home')
@@ -87,26 +85,13 @@ export default function HomeContent() {
       </section>
 
       {/* ================= CREATE ================= */}
-      <section id="create" className="grid scroll-mt-28 gap-20 lg:grid-cols-2">
+      <section id="create" className="scroll-mt-28">
         <CreateWalletPanel />
-        <FeatureShowcase />
       </section>
 
       {/* ================= CONNECT ================= */}
-      <section id="connect" className="grid scroll-mt-28 gap-20 lg:grid-cols-2">
+      <section id="connect" className="scroll-mt-28">
         <ConnectWalletPanel />
-        <div className={`${SURFACE} panel-glow-rose p-10 md:p-12`}>
-          <div className="space-y-6">
-            <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{tHome('vaultIntel.label')}</p>
-            <h3 className="font-display text-2xl font-semibold text-ivory">{tHome('vaultIntel.title')}</h3>
-            <p className="text-sm text-ivory/70">{tHome('vaultIntel.body')}</p>
-            <div className={`${SURFACE_INNER} p-6`}>
-              <p className="text-xs uppercase tracking-wider text-ivory/45">{tHome('vaultIntel.statusLabel')}</p>
-              <p className="mt-3 text-2xl font-semibold text-ivory">{tHome('vaultIntel.statusValue')}</p>
-              <p className="mt-1 text-sm text-ivory/60">{tHome('vaultIntel.statusDetail')}</p>
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* ================= XRPL ================= */}

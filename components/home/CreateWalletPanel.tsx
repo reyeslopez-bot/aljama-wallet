@@ -143,7 +143,8 @@ export function CreateWalletPanel() {
   const tActions = useTranslations('actions')
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus === 'unauthenticated'
+  const locked = sessionStatus !== 'authenticated'
+  const showUnlockMessage = sessionStatus === 'unauthenticated'
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -216,6 +217,7 @@ export function CreateWalletPanel() {
     event.preventDefault()
 
     if (locked) {
+      if (sessionStatus === 'loading') return
       setError(tAuth('unlockActions'))
       setStatus('error')
       return
@@ -347,7 +349,7 @@ export function CreateWalletPanel() {
           </div>
         </div>
 
-        {locked && (
+        {showUnlockMessage && (
           <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
             {tAuth('unlockActions')}
           </p>

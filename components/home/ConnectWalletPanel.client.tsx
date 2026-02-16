@@ -13,7 +13,8 @@ export function ConnectWalletPanel() {
   const t = useTranslations('connectWallet')
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus === 'unauthenticated'
+  const locked = sessionStatus !== 'authenticated'
+  const showUnlockMessage = sessionStatus === 'unauthenticated'
   const { address, isConnected, chain, connector: accountConnector } = useConnection()
   const connectors = useConnectors()
   const { mutate: connect, isPending, error: connectError } = useConnect()
@@ -128,7 +129,7 @@ export function ConnectWalletPanel() {
           {isPending ? t('buttonConnecting') : connectLabel}
         </motion.button>
 
-        {locked && (
+        {showUnlockMessage && (
           <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
             {tAuth('unlockActions')}
           </p>

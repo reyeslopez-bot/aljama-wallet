@@ -1,14 +1,21 @@
 // components/home/RegionCompliancePanel.client.tsx
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 
 type RegionOption = {
   value: string
   label: string
+  detail: string
+}
+
+type ComplianceOption = {
+  value: 'gdpr' | 'soc2' | 'iso'
+  title: string
   detail: string
 }
 
@@ -25,8 +32,10 @@ export default function RegionCompliancePanel() {
   useComponentTelemetry('RegionCompliancePanel')
   const t = useTranslations('region')
   const tAuth = useTranslations('auth')
+  const locale = useLocale()
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus === 'unauthenticated'
+  const locked = sessionStatus !== 'authenticated'
+  const showUnlockMessage = sessionStatus === 'unauthenticated'
   const [region, setRegion] = useState<string>('us')
   const [saved, setSaved] = useState(false)
 
@@ -38,10 +47,10 @@ export default function RegionCompliancePanel() {
     { value: 'latam', label: t('regions.latam'), detail: t('regionDetail.latam') },
   ]
 
-  const compliance = [
-    { title: t('compliance.gdpr'), detail: t('compliance.gdprDetail') },
-    { title: t('compliance.soc2'), detail: t('compliance.soc2Detail') },
-    { title: t('compliance.iso'), detail: t('compliance.isoDetail') },
+  const compliance: ComplianceOption[] = [
+    { value: 'gdpr', title: t('compliance.gdpr'), detail: t('compliance.gdprDetail') },
+    { value: 'soc2', title: t('compliance.soc2'), detail: t('compliance.soc2Detail') },
+    { value: 'iso', title: t('compliance.iso'), detail: t('compliance.isoDetail') },
   ]
 
   useEffect(() => {
@@ -126,9 +135,22 @@ export default function RegionCompliancePanel() {
                 <p className="text-sm font-semibold text-ivory">{item.title}</p>
                 <p className="text-xs text-ivory/50">{item.detail}</p>
               </div>
-              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-ivory/60">
-                {t('targeted')}
-              </span>
+              {locked ? (
+                <span
+                  title={tAuth('unlockActions')}
+                  className="cursor-not-allowed rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-ivory/40 opacity-70"
+                >
+                  {t('targeted')}
+                </span>
+              ) : (
+                <Link
+                  href={`/${locale}/compliance?target=${item.value}`}
+                  aria-label={`${item.title} details`}
+                  className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-ivory/60 transition hover:border-saffron/30 hover:bg-saffron/10 hover:text-ivory focus:outline-none focus:ring-2 focus:ring-saffron/35"
+                >
+                  {t('targeted')}
+                </Link>
+              )}
             </div>
           ))}
         </div>
@@ -156,7 +178,7 @@ export default function RegionCompliancePanel() {
             {t('signupButton')}
           </button>
         </div>
-        {locked && (
+        {showUnlockMessage && (
           <p className="mt-2 text-xs uppercase tracking-[0.18em] text-ivory/50">
             {tAuth('unlockActions')}
           </p>
