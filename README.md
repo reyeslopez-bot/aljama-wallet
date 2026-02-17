@@ -1,309 +1,335 @@
 # Aljama Wallet
 
-**Aljama Wallet** is a secure, Middle Eastern–themed Web3 wallet built with Next.js, WAGMI, and Ethers.js, containerized with Podman/Docker for consistent development and production environments.
+Aljama Wallet is a Next.js 16 application for encrypted custody and wallet operations, with production-focused EVM flows and an initial XRPL integration layer.
 
----
+This README reflects the repository state as of February 17, 2026.
 
-## Table of Contents
+## Product Snapshot
 
-1. [Project Overview](#project-overview)
-2. [Features](#features)
-3. [Tech Stack & Architecture](#tech-stack--architecture)
-4. [Prerequisites](#prerequisites)
-5. [Installation & Setup](#installation--setup)
-6. [Development Workflow](#development-workflow)
-7. [Configuration & Environment Variables](#configuration--environment-variables)
-8. [Scripts & Commands](#scripts--commands)
-9. [Directory Structure](#directory-structure)
-10. [Newcomer Guide (Codebase Tour)](#newcomer-guide-codebase-tour)
-11. [Testing](#testing)
-12. [Deployment](#deployment)
-13. [Contributing](#contributing)
-14. [License](#license)
-15. [Acknowledgements](#acknowledgements)
+| Area | Status | Notes |
+| --- | --- | --- |
+| EVM custody | Implemented | Wallet creation, encrypted storage, and server-side send pipeline |
+| Auth and access control | Implemented | NextAuth credentials + invite-gated registration |
+| Security controls | Implemented | Origin checks, rate limits, idempotency, risk scoring, key fingerprinting |
+| Telemetry and tracking | Implemented | API-backed telemetry + wallet connection tracking |
+| XRPL network and account visibility | Implemented | Network selector, endpoint inspector, dev-account snapshot |
+| XRPL/RWA/RWT assets | Not implemented yet | No trustline or issued asset portfolio flow yet |
+| XRPL NFT operations | Not implemented yet | No mint/list/buy/sell flow yet |
+| XRPL trading | Not implemented yet | No OfferCreate/NFToken offer execution flow yet |
 
----
+## What Is In This Repo Today
 
-## Project Overview
+- Landing and wallet UX with locale support (`en`, `ar`, `he`) via `next-intl`.
+- Invite-gated credentials auth with `next-auth`.
+- Wallet creation flow that returns an encrypted session payload and optionally persists custody records.
+- EVM connection flow (injected wallet and WalletConnect, depending on env config).
+- Server-side transaction send route with:
+  - session auth
+  - origin allowlist checks
+  - per-route rate limiting
+  - idempotency key reservation
+  - ownership checks
+  - transfer risk scoring and decision logging
+- Token read route backed by Alchemy (`/api/tokens-wallet`).
+- XRPL panel for:
+  - selecting XRPL network presets
+  - copying RPC/WSS/explorer endpoints
+  - pulling a dev-account XRP balance snapshot from `/api/xrpl/dev-account`
+- XRPL market panel with 30-day normalized snapshots from `/api/market-snapshot`.
+- Dual database model:
+  - CockroachDB for custody wallet and transaction records
+  - Postgres for auth, telemetry, summaries, transfer logs, risk decisions, and signup records
 
-Aljama Wallet aims to deliver a seamless, culturally resonant wallet experience for users in Middle Eastern and global markets. It integrates best-in-class security practices with an intuitive UI/UX inspired by desert and dune motifs. Key goals:
+## Current XRPL Scope
 
-* **Security First:** Leverage WAGMI & Ethers.js for audited blockchain interactions.
-* **Container Consistency:** Use Podman or Docker for deterministic builds across environments.
-* **Modular UI:** Tailwind CSS + custom Middle Eastern aesthetic.
+Implemented now:
+- `lib/xrpl-networks.ts`: XRPL network catalog (mainnet, testnet, devnet, xahau-testnet, batch-devnet, lending-devnet).
+- `infra/xrpl/client.ts`: shared XRPL client factory and seed wallet derivation.
+- `lib/xrpl.ts`: dev-account balance lookup with account-not-found handling.
+- `app/api/xrpl/dev-account/route.ts`: network-validated API route with optional internal-token gate in strict mode.
+- `components/home/XrplPanel.client.tsx`: network selector + account snapshot UI.
+- `components/home/XrplMarketPanel.client.tsx`: market visualization (not on-ledger execution).
 
-## Features
+Not implemented yet:
+- XRPL trustline management (`TrustSet`).
+- XRPL issued asset portfolio retrieval for RWA/RWT assets (`account_lines` based holdings).
+- XRPL NFT lifecycle (`NFTokenMint`, `NFTokenCreateOffer`, `NFTokenAcceptOffer`, `NFTokenBurn`).
+- XRPL order-book trade flow (`OfferCreate`/`OfferCancel`) with execution tracking.
 
-* **Create**, **Unlock**, and **Import** wallets via mnemonic or private key.
-* **Secure storage** of encrypted keys in local encrypted storage.
-* **Network switching** between Ethereum Mainnet, Testnets, and custom RPCs.
-* **Transaction history** display and simple on-chain interactions.
-* **Themed UI** components (cards, buttons) aligned with Aladdin-inspired typography.
+## Next 5 XRPL Tasks (RWT Assets, NFTs, Trading)
 
-## Tech Stack & Architecture
+1. Build XRPL issued-asset portfolio foundation (RWA/RWT ready).
+   - Add `/api/xrpl/account-assets` that merges XRP balance plus `account_lines` trustline balances.
+   - Normalize assets as `{ currency, issuer, value, limit, qualityIn, qualityOut }`.
+   - Add issuer allowlist config (`XRPL_ALLOWED_ISSUERS`) and strict validation rules.
+   - Create `XrplAssetsPanel` UI beside the existing XRPL panel.
 
-* **Next.js (App Router):** Server-side rendering and API routes
-* **React 18 + TypeScript:** Strongly-typed components and hooks
-* **WAGMI & Ethers.js:** Blockchain connectivity and wallet management
-* **Tailwind CSS:** Utility-first styling, custom `aladin` font integration
-* **Containerized workflow (Podman/Docker):** Multi-stage image for dev & prod
-* **pnpm:** Fast, deterministic package management
-* **Playwright:** End-to-end UI testing
-* **GitHub Actions:** CI for lint, build, and test
+2. Add trustline lifecycle and issuer onboarding.
+   - Add signed `TrustSet` route (`/api/xrpl/trustline/set`) with session auth, origin checks, rate limits, and idempotency.
+   - Reuse risk controls from `app/api/wallet/send/route.ts` for pre-broadcast policy checks.
+   - Add UI flow to set/remove trust limits for RWT issuers.
+   - Persist trustline actions in a dedicated XRPL transfer/log model for auditability.
+
+3. Add XRPL NFT read and mint flows.
+   - Add `/api/xrpl/nfts` (read holdings via `account_nfts`) and `/api/xrpl/nft/mint` (`NFTokenMint`).
+   - Add metadata fetch with allowlisted URI schemes and safe fallback rendering.
+   - Add a wallet NFT gallery component with pagination and basic filters.
+   - Add API and component tests for invalid payloads, auth failure, and network mismatch behavior.
+
+4. Add trading execution primitives for tokens and NFTs.
+   - Token trading: implement quote + execution for `OfferCreate`/`OfferCancel`.
+   - NFT trading: implement list/buy/cancel using `NFTokenCreateOffer`, `NFTokenAcceptOffer`, and `NFTokenCancelOffer`.
+   - Add a unified `xrpTxSubmit` service abstraction with idempotency, tx hash tracking, and retry policy.
+   - Store lifecycle states (`submitted`, `validated`, `failed`) with ledger index and metadata.
+
+5. Ship a single XRPL Trade Desk UI for RWT assets and NFTs.
+   - Build one panel showing:
+     - RWT holdings
+     - live order-book context
+     - NFT listings/offers
+     - signed action history
+   - Add region/compliance policy hooks so risky issuers or disallowed markets are blocked early.
+   - Emit telemetry and analytics events for create-offer, cancel-offer, accept-offer, and trustline changes.
+
+## Architecture
+
+### Frontend
+
+- Next.js App Router with localized routes under `app/[locale]`.
+- Primary page composition in `components/home/*`.
+- Auth-aware action gating via `next-auth` session state.
+- State management with Zustand (example: XRPL network persistence in `infra/state/xrplNetworkStore.ts`).
+
+### API Layer
+
+- Route handlers under `app/api/*`.
+- Validation and error shaping via Zod and shared security helpers.
+- Security utilities in `lib/security/*`:
+  - runtime strict mode checks
+  - origin validation
+  - internal token verification
+  - response helpers
+  - in-memory rate limiting
+
+### Data Layer
+
+- `prisma/crdb/schema.prisma` for custody wallet and transaction records.
+- `prisma/pg/schema.prisma` for auth/session plus telemetry and risk-related records.
+- Clients:
+  - `lib/prisma-crdb.ts`
+  - `lib/prisma-pg.ts`
+
+### Service Layer
+
+- Wallet custody and tx recording: `services/wallet.service.ts`
+- Risk and transfer logs: `services/transfer-risk.service.ts`, `services/transfer-log.service.ts`
+- Telemetry and wallet tracking: `services/telemetry.service.ts`, `services/track-wallet.service.ts`
+
+## API Surface
+
+| Route | Method | Auth | Purpose |
+| --- | --- | --- | --- |
+| `/api/auth/register` | `POST` | No session, invite token required | Register credentials user |
+| `/api/auth/[...nextauth]` | `GET/POST` | NextAuth flow | Credentials sign-in/session |
+| `/api/auth/config` | `GET` | Public | Returns auth UI flags |
+| `/api/create-wallet` | `POST` | Session required | Create wallet + encrypted payload, optional custody persistence |
+| `/api/wallets` | `GET` | Session required | List admin/all or user-owned wallets |
+| `/api/wallet/send` | `POST` | Session required | Policy/risk-gated EVM send flow |
+| `/api/tokens-wallet` | `GET` | Public | Fetch ERC-20 token balances via Alchemy |
+| `/api/xrpl/dev-account` | `GET` | Internal token in strict mode | XRPL dev-account balance snapshot |
+| `/api/market-snapshot` | `GET` | Public | XRPL and reference asset market snapshot |
+| `/api/telemetry` | `POST` | Public | Persist telemetry events |
+| `/api/track-wallet` | `POST` | Public | Persist wallet connection tracking events |
+| `/api/signup` | `POST` | Public | Save region/signup metadata |
+| `/api/_debug/env` | `GET` | Internal token in strict mode | Debug env availability flags |
+| `/api/test-db` | `GET` | Disabled in prod | Development DB connectivity check |
+
+## Security Model
+
+Important behavior:
+- `SECURITY_STRICT_MODE=true` enables strict origin and rate-limit behavior (also forced in production).
+- Sensitive routes enforce origin allowlist through `SECURITY_ALLOWED_ORIGINS`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_SITE_URL`.
+- Internal routes can require `INTERNAL_API_TOKEN`.
+- Wallet key material is encrypted with versioned keys and optional fingerprint enforcement.
+- Transfer routes include policy approval and configurable risk scoring before broadcast.
+
+See:
+- `docs/security-hardening.md`
+- `docs/security-assessment-2026-02-17.md`
 
 ## Prerequisites
 
-* **Podman (v4+)** or **Docker (24+)**
-* **Node.js v18+**
-* **pnpm** (or npm/yarn if you adjust commands)
-* **GNU Make** (optional, for makefile targets)
+- Node.js `>=24.x` (project engine requirement)
+- pnpm `10.x`
+- Optional but recommended: Podman or Docker for consistent local runtime
+- Optional local DBs: Postgres + CockroachDB (helper script included)
 
-## Installation & Setup
+## Local Setup
 
-1. **Clone the repository**
-
-   ```bash
-   git clone https://github.com/reyeslopez-bot/aljama-wallet.git
-   cd aljama-wallet
-   ```
-
-2. **Install dependencies**
-
-   ```bash
-   pnpm install
-   ```
-
-3. **Environment Variables**
-
-   Copy `.env.example` to `.env` (or `.env.local`) and fill in the values:
-
-   ```ini
-   NEXT_PUBLIC_ALCHEMY_API_KEY=<ALCHEMY_KEY>
-   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<WALLETCONNECT_PROJECT_ID>
-   EVM_RPC_URL=<RPC_URL>
-   WALLET_DAILY_LIMIT_WEI=<DAILY_LIMIT_WEI>
-   WALLET_ALLOWED_CHAIN_IDS=<CHAIN_ID_LIST>
-   WALLET_ENCRYPTION_KEY_ACTIVE_VERSION=1
-   WALLET_ENCRYPTION_KEY_V1=<64_HEX_CHARS>
-   WALLET_ENCRYPTION_KEY_FINGERPRINT_V1=<SHA256_HEX>
-   COCKROACH_URL=postgresql://USER:PASSWORD@HOST:PORT/defaultdb?sslmode=require
-   POSTGRES_URL=postgresql://USER:PASSWORD@HOST:PORT/dbname
-   ```
-
-## Development Workflow
-
-### Running in Container
+1. Install dependencies.
 
 ```bash
-# Auto-detects Podman or Docker, rebuilds as needed, and serves on port 2998
-./dev.sh
-
-# Override the exposed port (for both host and container)
-./dev.sh --port 3100
-
-# All Justfile recipes forward APP_PORT too
-just dev                  # equivalent to ./dev.sh (defaults to 2998)
-just dev port=3200        # launches on http://localhost:3200
-just preview port=3200    # open the matching browser tab
+pnpm install
 ```
 
-### Local Databases (Podman/Docker)
+2. Copy env template and fill required values.
 
 ```bash
-# Start Postgres + Cockroach locally
+cp .env.example .env
+```
+
+3. (Optional) Start local databases.
+
+```bash
 ./db.sh up
-
-# Optional: inspect status/logs
-./db.sh status
-./db.sh logs
-
-# Stop databases
-./db.sh down
-
-# Prisma schema sync (first run)
-pnpm prisma db push --config prisma.crdb.config.ts
-pnpm prisma db push --config prisma.pg.config.ts --accept-data-loss
 ```
 
-### Running Locally
+4. Run Prisma client generation.
 
 ```bash
-pnpm dev   # listens on http://localhost:2998 by default
+pnpm prisma:generate
 ```
 
-### Linting & Formatting
+5. Start app.
 
 ```bash
-pnpm lint      # ESLint
-pnpm format    # Prettier
+pnpm dev
 ```
 
-## Configuration & Environment Variables
+Default local URL:
+- `http://localhost:2998`
 
-See `docs/security-hardening.md` for key management, re-encryption, and risk scoring configuration.
-See `docs/payment-structure.md` for card on-ramp and on-chain transfer payment flow details.
-See `docs/security-assessment-2026-02-17.md` for the latest route security assessment summary.
+## Containerized Development
 
-| Key                                   | Description                               | Example |
-| ------------------------------------- | ----------------------------------------- | ------- |
-| `SECURITY_STRICT_MODE`                | Enforce strict auth/origin/rate limits    | `true` |
-| `SECURITY_ALLOWED_ORIGINS`            | Allowed request origins (CSV)             | `https://app.example.com` |
-| `NEXTAUTH_URL`                        | Canonical auth URL                        | `https://app.example.com` |
-| `NEXTAUTH_SECRET`                     | NextAuth session secret                   | `long-random-secret` |
-| `AUTH_INVITE_TOKEN`                   | Registration invite token                 | `invite-2026` |
-| `AUTH_ADMIN_EMAILS`                   | Admin emails (CSV)                        | `admin@example.com` |
-| `INTERNAL_API_TOKEN`                  | Internal/debug API token                  | `long-random-token` |
-| `MCP_INTERNAL_TOKEN`                  | MCP context server token                  | `long-random-token` |
-| `MCP_WALLET_SIGNER_TOKEN`             | MCP wallet signer token                   | `long-random-token` |
-| `RISK_AI_ENDPOINT`                    | Optional AI risk endpoint                 | `https://risk.example.com/score` |
-| `RISK_AI_TOKEN`                       | Bearer token for AI endpoint              | `long-random-token` |
-| `RISK_AI_REQUIRED`                    | Fail closed if AI unavailable             | `false` |
-| `RISK_AI_TIMEOUT_MS`                  | AI endpoint timeout                       | `1200` |
-| `RISK_VELOCITY_WINDOW_MS`             | Transfer velocity window (ms)             | `300000` |
-| `RISK_VELOCITY_MAX_TX`                | Max tx in window before scoring           | `5` |
-| `RISK_REVIEW_SCORE`                   | Score threshold for review                | `50` |
-| `RISK_DENY_SCORE`                     | Score threshold for deny                  | `80` |
-| `RISK_HIGH_AMOUNT_PCT`                | Limit % for high-amount scoring           | `0.5` |
-| `RISK_HIGH_AMOUNT_SCORE`              | Score added for high amount               | `30` |
-| `RISK_ABSOLUTE_WEI`                   | Absolute wei threshold                    | `1000000000000000000` |
-| `RISK_ABSOLUTE_SCORE`                 | Score added for absolute threshold        | `40` |
-| `RISK_NEW_DESTINATION_SCORE`          | Score for new destination                 | `10` |
-| `RISK_NEW_CHAIN_SCORE`                | Score for new chain                        | `10` |
-| `RISK_VELOCITY_SCORE`                 | Score for velocity                         | `25` |
-| `NEXT_PUBLIC_ALCHEMY_API_KEY`         | Enables faster RPC reads via Alchemy      | `v2_yourAlchemyKey` |
-| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`| Enables WalletConnect modal               | `123abc456def789ghi` |
-| `NEXT_PUBLIC_ONRAMP_URL_TEMPLATE`     | Card on-ramp URL (`{address}` placeholder optional) | `https://buy.example.com?walletAddress={address}` |
-| `ALCHEMY_API_KEY`                     | Server-side Alchemy key                   | `v2_serverAlchemyKey` |
-| `ALCHEMY_NETWORK`                     | Default Alchemy network                   | `eth-mainnet` |
-| `ALCHEMY_ALLOWED_NETWORKS`            | Allowed Alchemy networks (CSV)            | `eth-mainnet,base-mainnet` |
-| `EVM_RPC_URL`                         | JSON-RPC endpoint for internal signing    | `https://rpc.example` |
-| `WALLET_DAILY_LIMIT_WEI`              | Daily transfer limit (wei)                | `1000000000000000000` |
-| `WALLET_ALLOWED_CHAIN_IDS`            | Comma-separated allowed chains            | `1,8453,11155111` |
-| `WALLET_ENCRYPTION_KEY_ACTIVE_VERSION`| Active key version for AES-GCM vaults     | `1` |
-| `WALLET_ENCRYPTION_KEY_V1`            | 32-byte hex key for AES-GCM               | `64hexchars...` |
-| `WALLET_ENCRYPTION_KEY_FINGERPRINT_V1`| SHA-256 hex fingerprint for key check     | `sha256hex...` |
-| `WALLET_CRYPTO_ALLOW_LEGACY`          | Allow decrypting legacy vaults            | `false` |
-| `WALLET_KEY_PROVIDER`                | Key source (`env` or `file`)              | `env` |
-| `WALLET_KEY_FILE_V1`                 | File path for key material                | `/run/secrets/aljama-wallet-key-v1` |
-| `COCKROACH_URL`                       | Prisma datasource URL for CockroachDB OLTP| `postgresql://user:pass@host:26257/defaultdb?sslmode=require` |
-| `POSTGRES_URL`                        | Prisma datasource URL for Postgres OLAP   | `postgresql://user:pass@host:5432/analytics` |
+- `./dev.sh` starts the app in a Podman/Docker container.
+- `./prod.sh` builds and runs the production target image.
+- `just` wraps common workflows (`just dev`, `just db-up`, `just test`, `just build`).
 
-## Scripts & Commands
+Examples:
 
-* `./dev.sh` - Launch development container + server (supports `--port` and Podman/Docker auto-detect)
-* `./prod.sh` - Build and start production image (`--port`, `--runtime`, `--image-name`, ...)
-* `just dev` / `just prod` - Convenience wrappers that pass the correct defaults (ports, container names)
-* `just logs` - Tail container logs using whichever runtime is available
-* `pnpm dev` - Local development
-* `pnpm build` - Next.js production build
-* `pnpm start` - Serve built app
-* `pnpm test` - Run Vitest test suite
-* `pnpm lint` - Lint codebase
-* `pnpm format` - Format code
-* `pnpm security:migrate-wallet-keys` - Re-encrypt wallet vaults with active key
-
-## Directory Structure
-
-```
-/
-├─ app/                 # Next.js app router pages
-├─ components/          # Reusable React components
-├─ infra/               # Client-side utilities and hooks (wagmi tracking, unlock)
-├─ lib/                 # Utilities & API clients
-├─ prisma/              # Dual Prisma schemas (crdb/, pg/)
-├─ public/              # Static assets (fonts, images)
-├─ services/            # Placeholder service layer (wallet summaries)
-├─ tests/               # Vitest tests and helpers
-├─ dev.sh / prod.sh     # Root-level containerized dev/prod runners
-├─ justfile             # Just recipes for dev/prod/logs
-├─ .devcontainer/       # Devcontainer configuration for editors
-├─ .github/workflows/   # CI definitions
-└─ README.md            # This file
+```bash
+./dev.sh --port 3200
+just dev port=3200
+./prod.sh --port 8080
 ```
 
-## Newcomer Guide (Codebase Tour)
+## Environment Reference
 
-### App Entry + Routing
+Use `.env.example` as baseline. Important keys:
 
-* `app/layout.tsx` is the root layout, wires global styles + providers and wraps every route.  
-* `app/(site)` hosts the public marketing/home route (`page.tsx`).  
-* `app/(wallet)` hosts wallet UI routes and provides the themed layout shell.  
-* `app/Providers.client.tsx` + `app/Web3Providers.client.tsx` configure React Query + Wagmi client-side.  
-* `app/ClientOnly.tsx` is a helper to gate UI against hydration quirks.  
+### Core app/auth
 
-### UI + Wallet UX
+- `NEXTAUTH_URL`
+- `NEXTAUTH_SECRET`
+- `AUTH_INVITE_TOKEN`
+- `AUTH_ADMIN_EMAILS`
+- `SECURITY_STRICT_MODE`
+- `SECURITY_ALLOWED_ORIGINS`
 
-* `components/home/*` is the primary home page UI surface (wallet actions, XRPL panel, and login gate).  
-* `components/wallet/*` and `components/ui/*` host wallet-specific and shared UI atoms.  
-* `infra/state/walletStore.ts` holds the in-memory unlocked wallet state.  
+### Wallet custody and transfer
 
-### Wallet Logic + APIs
+- `WALLET_KEY_PROVIDER` (`env` or `file`)
+- `WALLET_KEY_FILE_V1` (when using file provider)
+- `WALLET_ENCRYPTION_KEY_ACTIVE_VERSION`
+- `WALLET_ENCRYPTION_KEY_V1`
+- `WALLET_ENCRYPTION_KEY_FINGERPRINT_V1`
+- `WALLET_CRYPTO_ALLOW_LEGACY`
+- `EVM_RPC_URL`
+- `WALLET_ALLOWED_CHAIN_IDS`
+- `WALLET_DAILY_LIMIT_WEI`
 
-* `lib/wallet.ts` contains the create/unlock flow and PBKDF2 + AES-GCM session encryption.  
-* `app/api/create-wallet/route.ts` creates an encrypted wallet payload.  
-* `app/api/track-wallet/route.ts` accepts wallet telemetry for dev observability.  
+### Risk engine
 
-### Data + Prisma
+- `RISK_VELOCITY_WINDOW_MS`
+- `RISK_VELOCITY_MAX_TX`
+- `RISK_REVIEW_SCORE`
+- `RISK_DENY_SCORE`
+- `RISK_HIGH_AMOUNT_PCT`
+- `RISK_HIGH_AMOUNT_SCORE`
+- `RISK_ABSOLUTE_WEI`
+- `RISK_ABSOLUTE_SCORE`
+- `RISK_NEW_DESTINATION_SCORE`
+- `RISK_NEW_CHAIN_SCORE`
+- `RISK_VELOCITY_SCORE`
+- `RISK_AI_ENDPOINT`
+- `RISK_AI_TOKEN`
+- `RISK_AI_REQUIRED`
+- `RISK_AI_TIMEOUT_MS`
 
-* `prisma/crdb/schema.prisma` is the OLTP schema (wallets + transactions).  
-* `prisma/pg/schema.prisma` is the OLAP schema (user + daily summaries).  
-* `infra/db/prisma-crdb.ts` and `infra/db/prisma-pg.ts` are the database client factories.  
-* `infra/utils/summary.service.ts` wraps the OLAP read path for summaries.  
+### XRPL
 
-### Messaging + Agents
+- `XRPL_DEV_SEED` (required for `/api/xrpl/dev-account`)
 
-* `infra/kafka/*` provides a Kafka REST producer/consumer client.  
-* `infra/agentic/*` holds agent orchestration, RAG, and wallet-policy logic.  
+### Token and Web3 UX
 
-### Runtime + Local Dev
+- `ALCHEMY_API_KEY`
+- `ALCHEMY_NETWORK`
+- `ALCHEMY_ALLOWED_NETWORKS`
+- `NEXT_PUBLIC_ALCHEMY_API_KEY`
+- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
+- `NEXT_PUBLIC_SITE_URL`
+- `NEXT_PUBLIC_ONRAMP_URL_TEMPLATE`
 
-* `dev.sh` and `prod.sh` are the Podman/Docker runners for local and production-like builds.  
-* `justfile` provides convenience wrappers for the shell scripts.  
-* `tests/*` contains Vitest suites and helpers.  
+### Internal/debug endpoints
 
-### Things to Learn Next
+- `INTERNAL_API_TOKEN`
+- `MCP_INTERNAL_TOKEN`
+- `MCP_WALLET_SIGNER_TOKEN`
 
-* Trace the wallet creation flow: `components/home/*` → `/api/create-wallet` → `lib/wallet.ts`.  
-* Review Wagmi + connector setup in `app/Web3Providers.client.tsx` and `infra/wagmi/wagmi.ts`.  
-* Learn how data is pulled from OLAP by reading `infra/utils/summary.service.ts` and the `pg` Prisma schema.  
-* Inspect Kafka agent wiring in `infra/agentic/kafka.ts` and the REST client in `infra/kafka/client.ts`.  
-* Extend tests in `tests/lib/*` and `tests/app/api/*` for new wallet flows.  
+### Database
 
-## Testing
+Runtime accepts either pair:
+- `CRDB_DATABASE_URL` or `COCKROACH_URL`
+- `PG_DATABASE_URL` or `POSTGRES_URL`
 
-1. Spin up the dev container or run locally.
-2. Execute:
+Note:
+- Prisma CLI configs use `CRDB_DATABASE_URL` and `PG_DATABASE_URL`.
+- If you only set fallback URLs (`COCKROACH_URL`, `POSTGRES_URL`), mirror them into the Prisma variables for migrations.
 
-   ```bash
-   pnpm test
-   ```
-3. Tests include basic wallet flows, network switching, and form validation.
+## Testing and Quality
 
-## Deployment
+Run the main checks:
 
-1. Build production image:
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
 
-   ```bash
-   ./prod.sh             # builds + runs on http://localhost:2999
-   ./prod.sh --port 8080 # expose production build on a custom port
-   ```
-2. Push to container registry (`podman push` or `docker push`, depending on the runtime).
-3. Deploy via your platform of choice (AWS ECS, Azure ACR, etc.).
+Test stack:
+- Vitest + Testing Library
+- Route tests for critical APIs (`wallet/send`, `wallets`, `auth/register`, `tokens-wallet`, `xrpl/dev-account`, and others)
 
-## Contributing
+## Project Layout
 
-1. Fork the repo.
-2. Create feature branch: `git checkout -b feature/my-feature`.
-3. Commit your changes and push.
-4. Open a PR describing your changes.
+```text
+.
+|- app/                    # App Router pages and API routes
+|- components/             # UI components and feature panels
+|- docs/                   # Security and payment docs
+|- hooks/                  # Client hooks
+|- infra/                  # Infra adapters (XRPL, telemetry, wagmi, state, kafka)
+|- lib/                    # Shared utilities, auth, security, db clients
+|- prisma/                 # Dual schemas (crdb and pg)
+|- services/               # Server-side service layer
+|- tests/                  # Vitest test suites
+|- dev.sh                  # Containerized dev runner
+|- db.sh                   # Local Postgres/Cockroach helper
+|- prod.sh                 # Containerized prod runner
+|- justfile                # Command shortcuts
+`- README.md
+```
 
-Please follow the [Code of Conduct](CODE_OF_CONDUCT.md) and review the [Contributing Guidelines](CONTRIBUTING.md).
+## Known Limitations
 
-## License
+- XRPL integration currently focuses on network/account visibility, not trading execution.
+- Market snapshot panel is charting-oriented and uses CoinGecko reference feeds, not on-ledger orderbook execution.
+- Card on-ramp flow is a redirect handoff; there is no webhook reconciliation or fiat ledger in-app yet.
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+## Additional Docs
 
-## Acknowledgements
-
-* Inspired by desert landscapes and traditional Middle Eastern patterns.
-* Thanks to the WAGMI and Next.js communities for open-source support.
+- `docs/security-hardening.md`
+- `docs/security-assessment-2026-02-17.md`
+- `docs/payment-structure.md`
+- `docs/cleanup-notes.md`

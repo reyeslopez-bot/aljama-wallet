@@ -7,6 +7,7 @@ import HomeActionButtons from '@/components/home/HomeActionButtons.client'
 import { ConnectWalletPanel } from '@/components/home/ConnectWalletPanel.client'
 import { XrplPanel } from '@/components/home/XrplPanel.client'
 import XrplMarketPanel from '@/components/home/XrplMarketPanel.client'
+import XrplTradeDesk from '@/components/home/XrplTradeDesk.client'
 import RegionCompliancePanel from '@/components/home/RegionCompliancePanel.client'
 import ShareDock from '@/components/home/ShareDock.client'
 import ClientTrackWallet from '@/infra/utils/ClientTrackWallet'
@@ -98,6 +99,10 @@ export default function HomeContent() {
       <section id="xrpl" className="grid scroll-mt-28 gap-20 lg:grid-cols-2">
         <XrplPanel />
         <XrplMarketPanel />
+      </section>
+
+      <section id="trade-desk" className="scroll-mt-28">
+        <XrplTradeDesk />
       </section>
 
       {/* ================= SHARE ================= */}
