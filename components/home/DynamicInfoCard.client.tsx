@@ -1,13 +1,14 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useAnimationControls } from 'framer-motion'
 import type { ReactNode } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useTranslations } from 'next-intl'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
 import { formatTime24 } from '@/lib/time-format'
+import { useSession } from 'next-auth/react'
 
 function formatShortAddress(address: string) {
   const trimmed = address.trim()
@@ -111,11 +112,27 @@ function CopyIcon() {
   )
 }
 
+type CardCorner = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
+
+const INFO_CARD_CORNER_KEY = 'aljama.infoCard.corner'
+const CARD_CORNERS: CardCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+
+function isCardCorner(value: string | null): value is CardCorner {
+  return Boolean(value && CARD_CORNERS.includes(value as CardCorner))
+}
+
 export default function DynamicInfoCard() {
   const t = useTranslations('infoCard')
+  const tCreate = useTranslations('createWallet')
+  const { status: sessionStatus } = useSession()
+  const locked = sessionStatus !== 'authenticated'
+  const showUnlockMessage = sessionStatus === 'unauthenticated'
   const [hovered, setHovered] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
   const [isLightTheme, setIsLightTheme] = useState(false)
+  const [corner, setCorner] = useState<CardCorner>('top-right')
+  const dragControls = useAnimationControls()
+  const cardRef = useRef<HTMLElement | null>(null)
 
   const user = useDynamicInfoStore((s) => s.user)
   const wallet = useDynamicInfoStore((s) => s.wallet)
@@ -140,6 +157,19 @@ export default function DynamicInfoCard() {
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const stored = window.localStorage.getItem(INFO_CARD_CORNER_KEY)
+    if (isCardCorner(stored)) {
+      setCorner(stored)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(INFO_CARD_CORNER_KEY, corner)
+  }, [corner])
 
   const timeLabel = useMemo(
     () => {
@@ -199,13 +229,51 @@ export default function DynamicInfoCard() {
     : selectedXrplNetwork.canResetWithoutWarning
       ? 'bg-amber-300'
       : 'bg-emerald-400'
+  const cardCornerClass = useMemo(() => {
+    if (corner === 'top-left') return 'left-4 top-20 sm:left-6 sm:top-24 lg:left-8 lg:top-24'
+    if (corner === 'bottom-left') return 'bottom-4 left-4 sm:bottom-6 sm:left-6 lg:bottom-8 lg:left-8'
+    if (corner === 'bottom-right') return 'bottom-4 right-4 sm:bottom-6 sm:right-6 lg:bottom-8 lg:right-8'
+    return 'right-4 top-20 sm:right-6 sm:top-24 lg:right-8 lg:top-24'
+  }, [corner])
+
+  const jumpToSection = useCallback((sectionId: 'create' | 'xrpl') => {
+    if (typeof document === 'undefined') return
+    const target = document.getElementById(sectionId)
+    if (!target) return
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
+  const snapToNearestCorner = useCallback(() => {
+    if (typeof window === 'undefined' || !cardRef.current) return
+    const rect = cardRef.current.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const horizontal = centerX < window.innerWidth / 2 ? 'left' : 'right'
+    const vertical = centerY < window.innerHeight / 2 ? 'top' : 'bottom'
+    const nextCorner = `${vertical}-${horizontal}` as CardCorner
+    setCorner(nextCorner)
+  }, [])
 
   return (
     <motion.aside
+      ref={cardRef}
       initial={false}
+      drag
+      dragMomentum={false}
+      dragElastic={0.08}
+      animate={dragControls}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
-      className="fixed right-4 top-20 z-50 w-[260px] select-none sm:right-6 sm:top-24 sm:w-[280px] lg:right-8 lg:top-24 lg:w-[300px]"
+      onDragEnd={() => {
+        snapToNearestCorner()
+        void dragControls.start({
+          x: 0,
+          y: 0,
+          transition: { type: 'spring', stiffness: 280, damping: 28, mass: 0.8 },
+        })
+      }}
+      whileDrag={{ scale: 1.01, cursor: 'grabbing' }}
+      className={`fixed z-50 w-[260px] cursor-grab select-none active:cursor-grabbing sm:w-[280px] lg:w-[300px] ${cardCornerClass}`}
     >
       <div className="surface-panel panel-glow-saffron rounded-[18px]">
         <div className="rounded-t-[18px] border-b border-white/10 bg-white/5 p-3">
@@ -249,13 +317,27 @@ export default function DynamicInfoCard() {
 
           <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px]">
             <span className="uppercase tracking-[0.16em] text-ivory/55">{t('xrplNetwork')}</span>
-            <a
-              href="#xrpl-network"
-              className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 font-semibold tracking-wide text-ivory/85 transition hover:bg-white/10"
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${xrplBadgeTone}`} />
-              {selectedXrplNetwork.name}
-            </a>
+            {locked ? (
+              <span
+                title={t('status.action')}
+                className="inline-flex cursor-not-allowed items-center gap-2 rounded-full border border-white/12 bg-white/5 px-2.5 py-1 font-semibold tracking-wide text-ivory/45"
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${xrplBadgeTone}`} />
+                {selectedXrplNetwork.name}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  jumpToSection('xrpl')
+                  pushEvent({ kind: 'info', message: `${t('xrplNetwork')}: ${selectedXrplNetwork.name}` })
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 font-semibold tracking-wide text-ivory/85 transition hover:bg-white/10"
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${xrplBadgeTone}`} />
+                {selectedXrplNetwork.name}
+              </button>
+            )}
           </div>
         </div>
 
@@ -298,15 +380,15 @@ export default function DynamicInfoCard() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2">
                     <IconButton
-                      label="Copy Address"
+                      label={tCreate('copyAddress')}
                       isLight={isLightTheme}
                       onClick={() => {
                         if (!copyText) return
                         void navigator.clipboard.writeText(copyText)
-                        pushEvent({ kind: 'success', message: 'Copied to clipboard.' })
+                        pushEvent({ kind: 'success', message: tCreate('copiedAddress') })
                       }}
                     >
                       <CopyIcon />
@@ -321,25 +403,24 @@ export default function DynamicInfoCard() {
                       <GithubIcon />
                     </IconButton>
                   </div>
-
-                  <div
-                    aria-hidden="true"
-                    className={`h-5 w-px ${
-                      isLightTheme ? 'bg-gradient-to-b from-transparent via-[#7fa3c1]/45 to-transparent' : 'bg-gradient-to-b from-transparent via-white/25 to-transparent'
-                    }`}
-                  />
-                  <a
-                    href="#xrpl-network"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      jumpToSection('create')
+                      pushEvent({ kind: 'info', message: tCreate('badgeCustody') })
+                    }}
                     className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.16em] transition ${
                       isLightTheme
                         ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
                         : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
                     }`}
                   >
-                    <span className={`h-1.5 w-1.5 rounded-full ${xrplBadgeTone}`} />
-                    {selectedXrplNetwork.name}
-                  </a>
+                    {tCreate('badgeCustody')}
+                  </button>
                 </div>
+                {showUnlockMessage ? (
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-ivory/45">{t('status.action')}</p>
+                ) : null}
               </motion.div>
             ) : (
               <motion.div

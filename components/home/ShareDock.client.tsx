@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import TextScramble from '@/components/ui/TextScramble.client'
 
 type ShareItem = {
   id: 'x' | 'linkedin' | 'facebook' | 'whatsapp' | 'email' | 'copy'
@@ -103,14 +102,6 @@ export default function ShareDock() {
         <div className="relative space-y-7">
           <div className="space-y-3 text-center">
             <p className="text-xs uppercase tracking-[0.22em] text-saffron/70">{t('eyebrow')}</p>
-            <TextScramble
-              text={shareTitle}
-              ariaLabel={shareTitle}
-              className="font-display tracking-tight"
-              color="rgb(240, 215, 160)"
-              fontSize={26}
-              fontWeight={650}
-            />
             <p className="mx-auto max-w-2xl text-sm text-ivory/70">{t('body')}</p>
           </div>
 

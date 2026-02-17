@@ -152,6 +152,18 @@
   p {
     line-height: 1.7;
   }
+
+  /* RTL locale defaults (he/ar): flush-right text without mirroring full layout */
+  html[data-locale-dir="rtl"] body {
+    text-align: right;
+  }
+
+  html[data-locale-dir="rtl"] input,
+  html[data-locale-dir="rtl"] textarea,
+  html[data-locale-dir="rtl"] select {
+    text-align: right;
+    direction: rtl;
+  }
 }
 
 /* =========================================================

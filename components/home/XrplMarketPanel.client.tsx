@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
-import { formatDateTime24, formatTime24 } from '@/lib/time-format'
+import { formatTime24 } from '@/lib/time-format'
 
 type MarketAsset = {
   id: string
@@ -81,6 +81,14 @@ function formatTimelineDate(timestamp: number, zoomed: boolean) {
   return new Intl.DateTimeFormat('en-US', zoomed
     ? { weekday: 'short', month: 'short', day: 'numeric' }
     : { month: 'short', day: 'numeric' }).format(timestamp)
+}
+
+function formatPointAtDate(timestamp: number) {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: '2-digit',
+  }).format(timestamp)
 }
 
 function seriesIndexToTimestamp(updatedAt: string | null | undefined, index: number, pointCount: number): number | null {
@@ -288,7 +296,7 @@ export default function XrplMarketPanel() {
         return { ...asset, pointPrice, explicitName }
       }),
     }
-  }, [hoverIndex, pointCount, state.snapshot, visibleAssets])
+  }, [chartWindow.end, chartWindow.start, hoverIndex, pointCount, state.snapshot, visibleAssets])
 
   const viewOptions = [
     { id: 'all', label: t('viewAll') },
@@ -296,13 +304,60 @@ export default function XrplMarketPanel() {
     { id: 'reference', label: t('viewReference') },
   ] as const
 
-  const hoverLineX =
-    hoverIndex !== null &&
-    chartWindow.end > chartWindow.start &&
-    hoverIndex >= chartWindow.start &&
-    hoverIndex <= chartWindow.end
-      ? ((hoverIndex - chartWindow.start) / (chartWindow.end - chartWindow.start)) * CHART_WIDTH
-      : null
+  const indexFromClientX = useCallback(
+    (clientX: number, rect: DOMRect) => {
+      if (!rect.width || chartWindow.end <= chartWindow.start) return null
+      const ratio = (clientX - rect.left) / rect.width
+      const clamped = Math.min(Math.max(ratio, 0), 1)
+      return Math.round(chartWindow.start + clamped * (chartWindow.end - chartWindow.start))
+    },
+    [chartWindow.end, chartWindow.start],
+  )
+
+  const hoverPoints = useMemo(() => {
+    if (
+      hoverIndex === null ||
+      chartWindow.end <= chartWindow.start ||
+      hoverIndex < chartWindow.start ||
+      hoverIndex > chartWindow.end
+    ) {
+      return []
+    }
+
+    const x = ((hoverIndex - chartWindow.start) / (chartWindow.end - chartWindow.start)) * CHART_WIDTH
+    const span = normalizedRange.max - normalizedRange.min || 1
+
+    return normalizedSeries
+      .map((asset) => {
+        const safeIndex = Math.min(hoverIndex, Math.max(asset.series.length - 1, 0))
+        const value = asset.series[safeIndex]
+        if (!Number.isFinite(value)) return null
+        const y =
+          CHART_HEIGHT -
+          CHART_PADDING -
+          ((value - normalizedRange.min) / span) * (CHART_HEIGHT - CHART_PADDING * 2)
+        return { key: asset.symbol, color: asset.color, x, y }
+      })
+      .filter((point): point is { key: string; color: string; x: number; y: number } => point !== null)
+  }, [
+    chartWindow.end,
+    chartWindow.start,
+    hoverIndex,
+    normalizedRange.max,
+    normalizedRange.min,
+    normalizedSeries,
+  ])
+
+  const moveHoverIndex = useCallback(
+    (delta: number) => {
+      if (pointCount < 2) return
+      setHoverIndex((prev) => {
+        const base = prev === null ? chartWindow.start : prev
+        return Math.min(Math.max(base + delta, chartWindow.start), chartWindow.end)
+      })
+    },
+    [chartWindow.end, chartWindow.start, pointCount],
+  )
 
   return (
     <section className="surface-panel panel-glow-rose relative p-7 sm:p-8">
@@ -352,81 +407,124 @@ export default function XrplMarketPanel() {
             <p className="text-sm text-red-300">{state.error}</p>
           ) : (
             <div className="space-y-4">
-              <svg
-                viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-                className="h-40 w-full md:h-48"
-                onMouseMove={(event) => {
-                  if (pointCount < 2) return
-                  const rect = event.currentTarget.getBoundingClientRect()
-                  if (!rect.width) return
-                  const ratio = (event.clientX - rect.left) / rect.width
-                  const clamped = Math.min(Math.max(ratio, 0), 1)
-                  const next = Math.round(
-                    chartWindow.start + clamped * (chartWindow.end - chartWindow.start),
-                  )
-                  setHoverIndex(next)
-                }}
-                onMouseLeave={() => setHoverIndex(null)}
-                onWheel={onChartWheel}
-                onDoubleClick={() => setZoomWindow(null)}
-              >
-                <defs>
-                  <linearGradient id="marketGlow" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#6fa0d9" stopOpacity="0.35" />
-                    <stop offset="50%" stopColor="#e0bf7f" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="#4b9577" stopOpacity="0.35" />
-                  </linearGradient>
-                  <clipPath id={chartClipId}>
-                    <rect
-                      x={0}
-                      y={CHART_PADDING}
-                      width={CHART_WIDTH}
-                      height={CHART_HEIGHT - CHART_PADDING * 2}
-                    />
-                  </clipPath>
-                </defs>
-                <rect
-                  x="0"
-                  y="0"
-                  width={CHART_WIDTH}
-                  height={CHART_HEIGHT}
-                  fill="url(#marketGlow)"
-                  opacity="0.08"
-                />
-                <g clipPath={`url(#${chartClipId})`}>
-                  {hoverLineX !== null ? (
-                    <line
-                      x1={hoverLineX}
-                      y1={CHART_PADDING}
-                      x2={hoverLineX}
-                      y2={CHART_HEIGHT - CHART_PADDING}
-                      stroke="rgba(240,215,160,0.45)"
-                      strokeWidth="0.45"
-                      strokeDasharray="1.2 1.1"
-                    />
-                  ) : null}
-                  {normalizedSeries.map((asset) => {
-                    const path = buildPath(
-                      asset.series,
-                      normalizedRange.min,
-                      normalizedRange.max,
-                      chartWindow.start,
-                      chartWindow.end,
-                    )
-                    if (!path) return null
-                    return (
-                      <path
-                        key={asset.symbol}
-                        d={path}
-                        fill="none"
-                        stroke={asset.color}
-                        strokeWidth="1.6"
-                        opacity="0.9"
+              <div className="-mx-2 sm:-mx-3 lg:-mx-4">
+                <svg
+                  viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+                  className="h-44 w-[calc(100%+1rem)] md:h-52 md:w-[calc(100%+1.5rem)] lg:w-[calc(100%+2rem)]"
+                  tabIndex={0}
+                  role="img"
+                  aria-label="Market trend chart"
+                  onMouseMove={(event) => {
+                    if (pointCount < 2) return
+                    const rect = event.currentTarget.getBoundingClientRect()
+                    const next = indexFromClientX(event.clientX, rect)
+                    if (next === null) return
+                    setHoverIndex(next)
+                  }}
+                  onClick={(event) => {
+                    if (pointCount < 2) return
+                    const rect = event.currentTarget.getBoundingClientRect()
+                    const next = indexFromClientX(event.clientX, rect)
+                    if (next === null) return
+                    setHoverIndex(next)
+                  }}
+                  onFocus={() => {
+                    if (pointCount < 2) return
+                    setHoverIndex((prev) => prev ?? chartWindow.start)
+                  }}
+                  onKeyDown={(event) => {
+                    if (pointCount < 2) return
+                    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+                      event.preventDefault()
+                      moveHoverIndex(1)
+                      return
+                    }
+                    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+                      event.preventDefault()
+                      moveHoverIndex(-1)
+                      return
+                    }
+                    if (event.key === 'Home') {
+                      event.preventDefault()
+                      setHoverIndex(chartWindow.start)
+                      return
+                    }
+                    if (event.key === 'End') {
+                      event.preventDefault()
+                      setHoverIndex(chartWindow.end)
+                    }
+                  }}
+                  onWheel={onChartWheel}
+                  onDoubleClick={() => setZoomWindow(null)}
+                >
+                  <defs>
+                    <linearGradient id="marketGlow" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#6fa0d9" stopOpacity="0.35" />
+                      <stop offset="50%" stopColor="#e0bf7f" stopOpacity="0.35" />
+                      <stop offset="100%" stopColor="#4b9577" stopOpacity="0.35" />
+                    </linearGradient>
+                    <clipPath id={chartClipId}>
+                      <rect
+                        x={0}
+                        y={CHART_PADDING}
+                        width={CHART_WIDTH}
+                        height={CHART_HEIGHT - CHART_PADDING * 2}
                       />
-                    )
-                  })}
-                </g>
-              </svg>
+                    </clipPath>
+                  </defs>
+                  <rect
+                    x="0"
+                    y="0"
+                    width={CHART_WIDTH}
+                    height={CHART_HEIGHT}
+                    fill="url(#marketGlow)"
+                    opacity="0.08"
+                  />
+                  <g clipPath={`url(#${chartClipId})`}>
+                    {normalizedSeries.map((asset) => {
+                      const path = buildPath(
+                        asset.series,
+                        normalizedRange.min,
+                        normalizedRange.max,
+                        chartWindow.start,
+                        chartWindow.end,
+                      )
+                      if (!path) return null
+                      return (
+                        <path
+                          key={asset.symbol}
+                          d={path}
+                          fill="none"
+                          stroke={asset.color}
+                          strokeWidth="1.6"
+                          opacity="0.9"
+                        />
+                      )
+                    })}
+                    {hoverPoints.map((point) => (
+                      <g key={`hover-${point.key}`}>
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          r="1.35"
+                          fill={point.color}
+                          stroke="rgba(255,255,255,0.92)"
+                          strokeWidth="0.38"
+                        />
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          r="2.1"
+                          fill="none"
+                          stroke={point.color}
+                          strokeOpacity="0.55"
+                          strokeWidth="0.28"
+                        />
+                      </g>
+                    ))}
+                  </g>
+                </svg>
+              </div>
 
               {timelineTicks.length > 0 ? (
                 <div className="grid grid-cols-4 gap-2 text-[10px] text-ivory/45">
@@ -462,7 +560,7 @@ export default function XrplMarketPanel() {
               {hoverSnapshot ? (
                 <div className="surface-soft rounded-2xl border border-white/10 p-3 text-[11px] text-ivory/75">
                   <p className="font-semibold uppercase tracking-[0.16em] text-ivory/55">
-                    {t('pointAt')} {formatDateTime24(hoverSnapshot.timestamp)}
+                    {t('pointAt')} {formatPointAtDate(hoverSnapshot.timestamp)}
                   </p>
                   <div className="mt-2 space-y-1.5">
                     {hoverSnapshot.rows.map((asset) => (

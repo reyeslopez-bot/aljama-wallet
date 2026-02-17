@@ -189,6 +189,11 @@
     "networkTypeMainnet": "Production",
     "networkTypeNonProduction": "Non-production",
     "selectedNetwork": "Selected network",
+    "copy": "Copy",
+    "copied": "Copied",
+    "openExplorer": "Open",
+    "endpointHint": "RPC and WSS are node endpoints used by wallet/API connections. They are not app routes.",
+    "explorerUnavailable": "This network does not expose a separate web explorer URL.",
     "mainnetWarning": "Mainnet selected: real funds, irreversible transactions, and production risk.",
     "resetWarning": "This network may reset without warning. Treat balances as temporary testing funds.",
     "openFaucet": "Open faucet"
@@ -368,7 +373,7 @@
   },
   "share": {
     "eyebrow": "Share",
-    "title": "Text Scramble",
+    "title": "Share",
     "body": "Share this page with your team, users, or community.",
     "x": "Share on X",
     "linkedin": "Share on LinkedIn",

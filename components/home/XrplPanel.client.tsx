@@ -41,6 +41,7 @@ export function XrplPanel() {
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === 'unauthenticated'
+  const [copiedEndpoint, setCopiedEndpoint] = useState<'rpc' | 'wss' | 'explorer' | null>(null)
 
   const selectedNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
   const setSelectedNetworkId = useXrplNetworkStore((s) => s.setSelectedNetworkId)
@@ -51,6 +52,7 @@ export function XrplPanel() {
     () => XRPL_NETWORKS_BY_ID[selectedNetworkId],
     [selectedNetworkId],
   )
+  const hasDedicatedExplorer = selectedNetwork.explorerUrl !== selectedNetwork.rpcUrl
 
   const loadAccount = useCallback(async () => {
     const requestId = ++requestIdRef.current
@@ -81,6 +83,23 @@ export function XrplPanel() {
   useEffect(() => {
     void loadAccount()
   }, [loadAccount])
+
+  useEffect(() => {
+    if (!copiedEndpoint) return
+    const timeout = window.setTimeout(() => setCopiedEndpoint(null), 1400)
+    return () => window.clearTimeout(timeout)
+  }, [copiedEndpoint])
+
+  const copyEndpoint = useCallback(async (kind: 'rpc' | 'wss' | 'explorer', value: string) => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopiedEndpoint(kind)
+    } catch {
+      // ignore clipboard failures
+    }
+  }, [])
 
   return (
     <section className="surface-panel panel-glow-lapis relative p-7 sm:p-8">
@@ -123,14 +142,14 @@ export function XrplPanel() {
                   key={network.id}
                   type="button"
                   onClick={() => setSelectedNetworkId(network.id)}
-                  className={`rounded-xl border px-3 py-2 text-left transition ${
+                  className={`flex min-h-[84px] flex-col items-center justify-center rounded-xl border px-3 py-2 text-center transition ${
                     active
                       ? 'border-saffron/45 bg-saffron/20 text-ivory'
                       : 'border-white/10 bg-black/30 text-ivory/75 hover:bg-white/10'
                   }`}
                 >
-                  <p className="text-sm font-semibold">{network.name}</p>
-                  <p className="text-[11px] uppercase tracking-[0.14em] text-ivory/60">
+                  <p className="text-sm font-semibold leading-tight">{network.name}</p>
+                  <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-ivory/60">
                     {network.isProduction
                       ? t('networkTypeMainnet')
                       : t('networkTypeNonProduction')}
@@ -147,34 +166,75 @@ export function XrplPanel() {
             </div>
 
             <div className="grid gap-2">
-              <a
-                href={selectedNetwork.rpcUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="truncate rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 font-mono text-[11px] text-ivory/80 transition hover:bg-white/10"
-                title={selectedNetwork.rpcUrl}
-              >
-                RPC: {selectedNetwork.rpcUrl}
-              </a>
-              <a
-                href={selectedNetwork.wsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="truncate rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 font-mono text-[11px] text-ivory/80 transition hover:bg-white/10"
-                title={selectedNetwork.wsUrl}
-              >
-                WSS: {selectedNetwork.wsUrl}
-              </a>
-              <a
-                href={selectedNetwork.explorerUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="truncate rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 font-mono text-[11px] text-ivory/80 transition hover:bg-white/10"
-                title={selectedNetwork.explorerUrl}
-              >
-                Explorer: {selectedNetwork.explorerUrl}
-              </a>
+              <div className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-ivory/55">RPC</span>
+                  <button
+                    type="button"
+                    onClick={() => void copyEndpoint('rpc', selectedNetwork.rpcUrl)}
+                    className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10"
+                  >
+                    {copiedEndpoint === 'rpc' ? t('copied') : t('copy')}
+                  </button>
+                </div>
+                <p className="mt-1 break-all select-all font-mono text-[11px] text-ivory/85">
+                  {selectedNetwork.rpcUrl}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-ivory/55">WSS</span>
+                  <button
+                    type="button"
+                    onClick={() => void copyEndpoint('wss', selectedNetwork.wsUrl)}
+                    className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10"
+                  >
+                    {copiedEndpoint === 'wss' ? t('copied') : t('copy')}
+                  </button>
+                </div>
+                <p className="mt-1 break-all select-all font-mono text-[11px] text-ivory/85">
+                  {selectedNetwork.wsUrl}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-ivory/55">Explorer</span>
+                  <div className="flex items-center gap-1.5">
+                    {hasDedicatedExplorer ? (
+                      <a
+                        href={selectedNetwork.explorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10"
+                      >
+                        {t('openExplorer')}
+                      </a>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => void copyEndpoint('explorer', selectedNetwork.explorerUrl)}
+                      className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10"
+                    >
+                      {copiedEndpoint === 'explorer' ? t('copied') : t('copy')}
+                    </button>
+                  </div>
+                </div>
+                <p className="mt-1 break-all select-all font-mono text-[11px] text-ivory/85">
+                  {selectedNetwork.explorerUrl}
+                </p>
+              </div>
             </div>
+
+            <p className="text-[11px] text-ivory/55">
+              {t('endpointHint')}
+            </p>
+            {!hasDedicatedExplorer ? (
+              <p className="text-[11px] text-ivory/50">
+                {t('explorerUnavailable')}
+              </p>
+            ) : null}
 
             {selectedNetwork.isProduction ? (
               <p className="rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-2 text-red-100">

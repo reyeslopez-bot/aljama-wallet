@@ -189,6 +189,11 @@
     "networkTypeMainnet": "إنتاج",
     "networkTypeNonProduction": "غير إنتاج",
     "selectedNetwork": "الشبكة المحددة",
+    "copy": "نسخ",
+    "copied": "تم النسخ",
+    "openExplorer": "فتح",
+    "endpointHint": "RPC وWSS هما نقاط نهاية للعُقد تُستخدم لاتصالات المحفظة/الواجهة البرمجية. وليسا مسارات داخل التطبيق.",
+    "explorerUnavailable": "هذه الشبكة لا توفر عنوان مستكشف ويب منفصل.",
     "mainnetWarning": "تم اختيار Mainnet: أموال حقيقية ومعاملات غير قابلة للعكس ومخاطر إنتاج.",
     "resetWarning": "قد تتم إعادة ضبط هذه الشبكة دون إنذار. اعتبر الأرصدة أموال اختبار مؤقتة.",
     "openFaucet": "فتح الصنبور"
@@ -368,7 +373,7 @@
   },
   "share": {
     "eyebrow": "مشاركة",
-    "title": "Text Scramble",
+    "title": "مشاركة",
     "body": "شارك هذه الصفحة مع الفريق أو المستخدمين أو المجتمع.",
     "x": "مشاركة على X",
     "linkedin": "مشاركة على LinkedIn",

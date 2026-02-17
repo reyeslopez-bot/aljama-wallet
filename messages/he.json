@@ -189,6 +189,11 @@
     "networkTypeMainnet": "פרודקשן",
     "networkTypeNonProduction": "לא פרודקשן",
     "selectedNetwork": "רשת נבחרת",
+    "copy": "העתקה",
+    "copied": "הועתק",
+    "openExplorer": "פתח",
+    "endpointHint": "RPC ו-WSS הם נקודות קצה לצמתים המשמשות לחיבורי ארנק/API. אלו אינם נתיבי אפליקציה.",
+    "explorerUnavailable": "הרשת הזו לא חושפת כתובת נפרדת ל-Web Explorer.",
     "mainnetWarning": "נבחר Mainnet: כספים אמיתיים, טרנזקציות בלתי הפיכות וסיכון פרודקשן.",
     "resetWarning": "הרשת הזו עלולה להתאפס ללא אזהרה. התייחסו ליתרות ככספי בדיקה זמניים.",
     "openFaucet": "פתיחת Faucet"
@@ -368,7 +373,7 @@
   },
   "share": {
     "eyebrow": "שיתוף",
-    "title": "טקסט דינמי",
+    "title": "שיתוף",
     "body": "שתפו את הדף הזה עם צוות, משתמשים או קהילה.",
     "x": "שיתוף ב־X",
     "linkedin": "שיתוף ב־LinkedIn",

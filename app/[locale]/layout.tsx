@@ -6,6 +6,7 @@ import { locales } from '@/i18n/routing'
 import { notFound } from 'next/navigation'
 import { getSession } from '@/lib/security/session'
 import { logError } from '@/lib/security/logging'
+import LocaleDocumentSync from '@/components/i18n/LocaleDocumentSync.client'
 
 export default async function LocaleLayout({
   children,
@@ -30,6 +31,7 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
+      <LocaleDocumentSync locale={locale} />
       <Providers session={session}>{children}</Providers>
     </NextIntlClientProvider>
   )
