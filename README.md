@@ -141,6 +141,8 @@ pnpm format    # Prettier
 ## Configuration & Environment Variables
 
 See `docs/security-hardening.md` for key management, re-encryption, and risk scoring configuration.
+See `docs/payment-structure.md` for card on-ramp and on-chain transfer payment flow details.
+See `docs/security-assessment-2026-02-17.md` for the latest route security assessment summary.
 
 | Key                                   | Description                               | Example |
 | ------------------------------------- | ----------------------------------------- | ------- |

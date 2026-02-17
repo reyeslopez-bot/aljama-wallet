@@ -45,3 +45,6 @@ Thumbs.db
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+.security-assessment-2023-10-17/
+.payment-structure

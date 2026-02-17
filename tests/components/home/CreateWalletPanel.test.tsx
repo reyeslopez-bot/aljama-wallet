@@ -24,6 +24,7 @@ describe('CreateWalletPanel', () => {
     vi.clearAllMocks()
     resetStore()
     sessionStorage.clear()
+    vi.stubEnv('NEXT_PUBLIC_ONRAMP_URL_TEMPLATE', '')
     mockedUseSession.mockReturnValue({
       data: { user: { id: 'test-user', email: 'test@example.com' } },
       status: 'authenticated',
@@ -32,6 +33,7 @@ describe('CreateWalletPanel', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
   })
 
   it('keeps create button disabled while unauthenticated', () => {
@@ -103,6 +105,39 @@ describe('CreateWalletPanel', () => {
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalled()
+    })
+  })
+
+  it('uses custom on-ramp template and hides default-provider notice', async () => {
+    vi.stubEnv(
+      'NEXT_PUBLIC_ONRAMP_URL_TEMPLATE',
+      'https://buy.example/checkout?dest={address}&network=base',
+    )
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        address: 'rCreateWalletAddress',
+        encrypted: 'encrypted-payload',
+        walletId: 'wallet-1',
+        mode: 'custody',
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByPlaceholderText, getByRole, queryByText } = render(<CreateWalletPanel />)
+
+    fireEvent.change(getByPlaceholderText('Create a passphrase you will remember'), {
+      target: { value: 'VeryStrongPassphrase1!' },
+    })
+    fireEvent.click(getByRole('button', { name: 'Create wallet' }))
+
+    await waitFor(() => {
+      const buyWithCard = getByRole('link', { name: 'Buy with card' }) as HTMLAnchorElement
+      expect(buyWithCard.getAttribute('href')).toBe(
+        'https://buy.example/checkout?dest=rCreateWalletAddress&network=base',
+      )
+      expect(queryByText(/Using a default card provider/i)).toBeNull()
     })
   })
 })

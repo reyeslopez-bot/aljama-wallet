@@ -7,6 +7,7 @@ import { persistEncryptedSession, persistWalletId } from '@/lib/storage/walletSe
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
+import { buildOnRampUrl, isUsingDefaultOnRampTemplate } from '@/lib/payment/onramp'
 
 type WalletPreview = {
   address: string
@@ -15,7 +16,6 @@ type WalletPreview = {
 type Status = 'idle' | 'pending' | 'success' | 'error'
 
 const DEPOSIT_NETWORKS = ['Ethereum', 'Base', 'Arbitrum', 'Optimism', 'Polygon']
-const DEFAULT_ONRAMP_URL_TEMPLATE = 'https://global.transak.com?walletAddress={address}'
 const MIN_PASSPHRASE_LENGTH = 16
 const RECOMMENDED_PASSPHRASE_LENGTH = 20
 const STRONG_PASSPHRASE_LENGTH = 32
@@ -126,17 +126,6 @@ function evaluatePassphrase(value: string): PassphraseValidation {
   }
 }
 
-function buildOnRampUrl(address: string): string {
-  const template = process.env.NEXT_PUBLIC_ONRAMP_URL_TEMPLATE?.trim() || DEFAULT_ONRAMP_URL_TEMPLATE
-
-  if (template.includes('{address}')) {
-    return template.replaceAll('{address}', encodeURIComponent(address))
-  }
-
-  const separator = template.includes('?') ? '&' : '?'
-  return `${template}${separator}walletAddress=${encodeURIComponent(address)}`
-}
-
 export function CreateWalletPanel() {
   useComponentTelemetry('CreateWalletPanel')
   const t = useTranslations('createWallet')
@@ -158,8 +147,9 @@ export function CreateWalletPanel() {
 
   const passphraseValidation = useMemo(() => evaluatePassphrase(password), [password])
   const disabled = locked || status === 'pending' || !passphraseValidation.isValid
-  const usingDefaultOnRamp = !process.env.NEXT_PUBLIC_ONRAMP_URL_TEMPLATE?.trim()
-  const onRampUrl = walletPreview ? buildOnRampUrl(walletPreview.address) : undefined
+  const onRampTemplate = process.env.NEXT_PUBLIC_ONRAMP_URL_TEMPLATE
+  const usingDefaultOnRamp = isUsingDefaultOnRampTemplate(onRampTemplate)
+  const onRampUrl = walletPreview ? buildOnRampUrl(walletPreview.address, onRampTemplate) : undefined
   const strengthLevel = passphraseValidation.strength === 'strong' ? 3 : passphraseValidation.strength === 'good' ? 2 : 1
   const strengthFillWidth = strengthLevel === 3 ? '100%' : strengthLevel === 2 ? '66%' : '33%'
   const strengthFillTone =
