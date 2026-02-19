@@ -112,11 +112,13 @@ export default function Navbar() {
     return hashIndex === -1 ? '' : href.slice(hashIndex)
   }
 
-  const menuItems = [
-    { label: t('overview'), href: `/${locale}/#overview` },
-    { label: t('create'), href: `/${locale}/#create` },
-    { label: t('connect'), href: `/${locale}/#connect` },
-    { label: t('xrpl'), href: `/${locale}/#xrpl` },
+  const menuGroups = [
+    [{ label: t('overview'), href: `/${locale}/#overview` }],
+    [
+      { label: t('create'), href: `/${locale}/#create` },
+      { label: t('connect'), href: `/${locale}/#connect` },
+    ],
+    [{ label: t('xrpl'), href: `/${locale}/#xrpl` }],
   ]
 
   return (
@@ -153,28 +155,41 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-1 md:flex">
-            {menuItems.map((item) => {
-              const itemHash = getHashFromHref(item.href)
-              const isActive = itemHash ? itemHash === activeHash : pathname === item.href
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`rounded-full px-4 py-2 text-sm font-medium tracking-wide transition ${
-                    isActive
-                      ? isLight
-                        ? 'border border-[#7fa3c1]/45 bg-[#7fb0d9]/30 text-[#1e3248]'
-                        : 'bg-saffron/20 text-ivory'
-                      : isLight
-                        ? 'text-[#2f4863]/80 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
-                        : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              )
-            })}
+          <div className="hidden items-center md:flex">
+            {menuGroups.map((group, groupIndex) => (
+              <div
+                key={`desktop-menu-group-${groupIndex}`}
+                className={`flex items-center gap-1 ${
+                  groupIndex === 0
+                    ? ''
+                    : isLight
+                      ? 'ml-2 border-l border-[#7fa3c1]/35 pl-2'
+                      : 'ml-2 border-l border-white/12 pl-2'
+                }`}
+              >
+                {group.map((item) => {
+                  const itemHash = getHashFromHref(item.href)
+                  const isActive = itemHash ? itemHash === activeHash : pathname === item.href
+                  return (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      className={`rounded-full px-4 py-2 text-sm font-medium tracking-wide transition ${
+                        isActive
+                          ? isLight
+                            ? 'border border-[#7fa3c1]/45 bg-[#7fb0d9]/30 text-[#1e3248]'
+                            : 'bg-saffron/20 text-ivory'
+                          : isLight
+                            ? 'text-[#2f4863]/80 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                            : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  )
+                })}
+              </div>
+            ))}
           </div>
 
           <div className="relative md:hidden" ref={menuRef}>
@@ -204,28 +219,41 @@ export default function Navbar() {
                 }`}
                 role="menu"
               >
-                {menuItems.map((item) => {
-                  const itemHash = getHashFromHref(item.href)
-                  const isActive = itemHash ? itemHash === activeHash : pathname === item.href
-                  return (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      className={`block rounded-xl px-3 py-2 text-sm transition ${
-                        isActive
-                          ? isLight
-                            ? 'bg-[#7fb0d9]/30 text-[#1e3248]'
-                            : 'bg-saffron/20 text-ivory'
-                          : isLight
-                            ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
-                            : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
-                      }`}
-                      role="menuitem"
-                    >
-                      {item.label}
-                    </Link>
-                  )
-                })}
+                {menuGroups.map((group, groupIndex) => (
+                  <div
+                    key={`mobile-menu-group-${groupIndex}`}
+                    className={
+                      groupIndex === 0
+                        ? ''
+                        : isLight
+                          ? 'mt-2 border-t border-[#7fa3c1]/30 pt-2'
+                          : 'mt-2 border-t border-white/10 pt-2'
+                    }
+                  >
+                    {group.map((item) => {
+                      const itemHash = getHashFromHref(item.href)
+                      const isActive = itemHash ? itemHash === activeHash : pathname === item.href
+                      return (
+                        <Link
+                          key={item.label}
+                          href={item.href}
+                          className={`block rounded-xl px-3 py-2 text-sm transition ${
+                            isActive
+                              ? isLight
+                                ? 'bg-[#7fb0d9]/30 text-[#1e3248]'
+                                : 'bg-saffron/20 text-ivory'
+                              : isLight
+                                ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                                : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                          }`}
+                          role="menuitem"
+                        >
+                          {item.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                ))}
                 {!isAuthed && (
                   <Link
                     href={`/${locale}/login`}

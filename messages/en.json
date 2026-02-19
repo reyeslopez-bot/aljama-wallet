@@ -297,7 +297,7 @@
     "status": {
       "creating": "Creating",
       "syncing": "Syncing",
-      "action": "Action needed",
+      "action": "Needs review",
       "available": "Available",
       "vault": "Vault",
       "idle": "Idle"
@@ -317,10 +317,10 @@
   "consent": {
     "eyebrow": "Permissions",
     "title": "Allow Experience Services",
-    "text": "Before we identify your session, choose whether to enable experience services for this visit.",
-    "essentialDetail": "Essential only keeps core security, authentication, and app session functionality.",
-    "locationDetail": "Location access centers maps and loads local regulatory context.",
-    "telemetryDetail": "Telemetry helps improve reliability, performance, and feature quality.",
+    "text": "Before starting this session, choose which optional experience services to enable.",
+    "essentialDetail": "Essential only keeps security, authentication, and core session continuity.",
+    "locationDetail": "Location access centers maps and tailors local regulatory guidance.",
+    "telemetryDetail": "Telemetry helps improve reliability, performance, and release quality.",
     "requesting": "Waiting for browser location permission...",
     "decline": "Reject all",
     "accept": "Allow all",

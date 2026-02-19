@@ -253,7 +253,7 @@ export function XrplPanel() {
                 href={selectedNetwork.faucetUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-4 py-2 text-xs font-semibold tracking-wide text-white shadow-lg shadow-[#4b9577]/30 transition hover:brightness-105"
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-4 py-2 text-xs font-semibold tracking-wide text-ivory shadow-lg shadow-[#4b9577]/30 transition hover:brightness-105"
               >
                 {t('openFaucet')}
               </a>
@@ -288,7 +288,7 @@ export function XrplPanel() {
           whileTap={{ scale: 0.98 }}
           disabled={locked}
           onClick={() => void loadAccount()}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b9577]/30 transition focus:outline-none focus:ring-2 focus:ring-lapis/40 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-ivory shadow-lg shadow-[#4b9577]/30 transition focus:outline-none focus:ring-2 focus:ring-lapis/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {t('refresh')}
         </motion.button>

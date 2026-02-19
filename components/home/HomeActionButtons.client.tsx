@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { useSession } from "next-auth/react"
 
 type Btn =
-  | { kind: "anchor"; label: string; href: string; bg: string; fg: string }
+  | { kind: "anchor"; label: string; href: string; bg: string }
 
 const surface = (bg: string) => ({
   backgroundImage: bg,
@@ -30,21 +30,18 @@ export default function HomeActionButtons() {
       label: t("createWallet"),
       href: `/${locale}/#create`,
       bg: "linear-gradient(135deg, #f3d9aa 0%, #e0ad70 45%, #c67a4a 100%)",
-      fg: "#1B120A",
     },
     {
       kind: "anchor",
       label: t("connectWallet"),
       href: `/${locale}/#connect`,
       bg: "linear-gradient(135deg, #7fb0d9 0%, #5c8db4 50%, #4b7c79 100%)",
-      fg: "#F7F1E7",
     },
     {
       kind: "anchor",
       label: t("xrpl"),
       href: `/${locale}/#xrpl`,
       bg: "linear-gradient(135deg, #e8d2a2 0%, #c8ab72 50%, #a1804f 100%)",
-      fg: "#1C140B",
     },
   ]
 
@@ -69,16 +66,16 @@ export default function HomeActionButtons() {
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.98 }}
               transition={{ type: "spring", stiffness: 220, damping: 18 }}
-              className="flex h-[78px] w-full items-center justify-center px-10 text-[17px] font-semibold tracking-wide drop-shadow-[0_1px_0_rgba(255,255,255,0.35)] transition-all md:h-[86px] md:text-[18px]"
+              className="flex h-[78px] w-full items-center justify-center px-10 text-[17px] font-semibold tracking-wide text-ivory drop-shadow-[0_1px_0_rgba(0,0,0,0.45)] transition-all md:h-[86px] md:text-[18px]"
               style={surface(b.bg)}
             >
-              <span style={{ color: b.fg }}>{b.label}</span>
+              <span>{b.label}</span>
             </motion.div>
           </Link>
         ))}
       </div>
       {locked && (
-        <p className="mt-4 text-center text-xs uppercase tracking-[0.18em] text-ivory/50">
+        <p className="mt-4 text-center text-xs uppercase tracking-[0.18em] text-saffron/75">
           {tAuth("unlockActions")}
         </p>
       )}

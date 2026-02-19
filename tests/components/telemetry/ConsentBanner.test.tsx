@@ -4,6 +4,13 @@ import { fireEvent, render, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import ConsentBanner from '@/components/telemetry/ConsentBanner.client'
 
+vi.mock('next-auth/react', () => ({
+  useSession: () => ({
+    status: 'authenticated',
+    data: { user: { id: 'test-user' } },
+  }),
+}))
+
 const telemetryState = vi.hoisted(() => ({
   consent: 'unset' as 'granted' | 'denied' | 'unset',
 }))

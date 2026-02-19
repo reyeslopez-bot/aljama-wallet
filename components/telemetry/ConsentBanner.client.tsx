@@ -7,20 +7,121 @@ import {
   getLocationConsent,
   setLocationConsent,
 } from '@/infra/location/client'
+import { CONSENT_PROMPT_SESSION_KEY } from '@/infra/consent/constants'
 import { useTranslations } from 'next-intl'
 import TextScramble from '@/components/ui/TextScramble.client'
+import { useSession } from 'next-auth/react'
 
-const CONSENT_PROMPT_VERSION = '2026-03'
-const CONSENT_PROMPT_SESSION_KEY = `aljama.consent.prompt.session.${CONSENT_PROMPT_VERSION}`
+type ConsentDialogHeaderProps = {
+  eyebrow: string
+  title: string
+  body: string
+}
+
+function ConsentDialogHeader({ eyebrow, title, body }: ConsentDialogHeaderProps) {
+  return (
+    <header data-testid="consent-dialog-header" className="space-y-4">
+      <p className="text-sm uppercase tracking-[0.22em] text-saffron/70">{eyebrow}</p>
+      <TextScramble
+        text={title}
+        ariaLabel={title}
+        className="font-display text-ivory tracking-tight"
+        fontWeight={600}
+      />
+      <p className="max-w-2xl text-base leading-relaxed text-ivory/88 md:text-lg">{body}</p>
+    </header>
+  )
+}
+
+type ConsentPermissionListProps = {
+  essentialDetail: string
+  locationDetail: string
+  telemetryDetail: string
+}
+
+function ConsentPermissionList({
+  essentialDetail,
+  locationDetail,
+  telemetryDetail,
+}: ConsentPermissionListProps) {
+  return (
+    <ul
+      data-testid="consent-dialog-permissions"
+      className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-ivory/80 marker:text-saffron md:text-base"
+    >
+      <li>{essentialDetail}</li>
+      <li>{locationDetail}</li>
+      <li>{telemetryDetail}</li>
+    </ul>
+  )
+}
+
+type ConsentDialogActionsProps = {
+  requesting: boolean
+  rejectAllLabel: string
+  essentialOnlyLabel: string
+  allowAllLabel: string
+  onRejectAll: () => void
+  onEssentialOnly: () => void
+  onAllowAll: () => void
+}
+
+function ConsentDialogActions({
+  requesting,
+  rejectAllLabel,
+  essentialOnlyLabel,
+  allowAllLabel,
+  onRejectAll,
+  onEssentialOnly,
+  onAllowAll,
+}: ConsentDialogActionsProps) {
+  return (
+    <div data-testid="consent-dialog-actions" className="mt-7 flex flex-wrap items-center justify-end gap-3">
+      <button
+        type="button"
+        onClick={onRejectAll}
+        disabled={requesting}
+        className="rounded-full border border-[#6e7b90]/65 bg-gradient-to-r from-[#7d8aa0]/85 via-[#5e6b82]/85 to-[#465267]/85 px-5 py-2.5 text-sm font-semibold text-ivory shadow-lg shadow-[#425065]/30 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {rejectAllLabel}
+      </button>
+      <button
+        type="button"
+        onClick={onEssentialOnly}
+        disabled={requesting}
+        className="rounded-full border border-[#7fa3c1]/70 bg-gradient-to-r from-[#8fbfe3]/85 via-[#6e9fc5]/85 to-[#5a8d88]/85 px-5 py-2.5 text-sm font-semibold text-ivory shadow-lg shadow-[#5c8db4]/30 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {essentialOnlyLabel}
+      </button>
+      <button
+        type="button"
+        onClick={onAllowAll}
+        disabled={requesting}
+        className="rounded-full border border-emerald-300/55 bg-gradient-to-r from-emerald-400/90 via-emerald-500/88 to-teal-500/88 px-6 py-2.5 text-sm font-semibold text-ivory shadow-lg shadow-emerald-500/30 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {allowAllLabel}
+      </button>
+    </div>
+  )
+}
 
 export default function ConsentBanner() {
   const t = useTranslations('consent')
+  const { status: sessionStatus } = useSession()
   const [open, setOpen] = useState(false)
   const [ready, setReady] = useState(false)
   const [requesting, setRequesting] = useState(false)
+  const [isLoginRoute, setIsLoginRoute] = useState(false)
 
   useEffect(() => {
+    if (sessionStatus === 'loading') return
     if (typeof window !== 'undefined') {
+      if (sessionStatus !== 'authenticated') {
+        setOpen(false)
+        setReady(true)
+        return
+      }
+      setIsLoginRoute(/^\/(?:[^/]+\/)?login\/?$/.test(window.location.pathname))
       const seenPromptInSession = window.sessionStorage.getItem(CONSENT_PROMPT_SESSION_KEY)
       const nextTelemetry = getTelemetryConsent()
       const nextLocation = getLocationConsent()
@@ -31,9 +132,9 @@ export default function ConsentBanner() {
       setOpen(shouldPrompt)
     }
     setReady(true)
-  }, [])
+  }, [sessionStatus])
 
-  if (!ready || !open) return null
+  if (!ready || !open || isLoginRoute) return null
 
   function closePrompt() {
     if (typeof window !== 'undefined') {
@@ -93,51 +194,26 @@ export default function ConsentBanner() {
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-3xl rounded-[2rem] border border-white/10 bg-black/85 p-7 text-white/80 shadow-2xl shadow-black/50 backdrop-blur-xl md:p-10"
+        className="relative w-full max-w-3xl rounded-[2rem] border border-white/10 bg-black/85 p-7 text-ivory/80 shadow-2xl shadow-black/50 backdrop-blur-xl md:p-10"
       >
         <div className="space-y-5">
-          <p className="text-sm uppercase tracking-[0.22em] text-saffron/70">{t('eyebrow')}</p>
-          <TextScramble
-            text={t('title')}
-            ariaLabel={t('title')}
-            className="font-display tracking-tight"
-            color="rgb(240, 215, 160)"
-            fontWeight={600}
+          <ConsentDialogHeader eyebrow={t('eyebrow')} title={t('title')} body={t('text')} />
+          <ConsentPermissionList
+            essentialDetail={t('essentialDetail')}
+            locationDetail={t('locationDetail')}
+            telemetryDetail={t('telemetryDetail')}
           />
-          <div className="max-w-2xl text-lg text-white/75">{t('text')}</div>
-          <ul className="space-y-2 text-base text-white/70">
-            <li>{t('essentialDetail')}</li>
-            <li>{t('locationDetail')}</li>
-            <li>{t('telemetryDetail')}</li>
-          </ul>
-          {requesting ? <p className="text-sm text-white/55">{t('requesting')}</p> : null}
+          {requesting ? <p className="text-sm text-saffron/80">{t('requesting')}</p> : null}
         </div>
-        <div className="mt-7 flex flex-wrap items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={rejectAll}
-            disabled={requesting}
-            className="rounded-full border border-white/25 bg-white/15 px-5 py-2.5 text-sm font-semibold text-ivory transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {t('rejectAll')}
-          </button>
-          <button
-            type="button"
-            onClick={essentialOnly}
-            disabled={requesting}
-            className="rounded-full border border-[#7fa3c1]/70 bg-gradient-to-r from-[#8fbfe3]/80 via-[#6e9fc5]/80 to-[#5a8d88]/80 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#5c8db4]/30 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {t('essentialOnly')}
-          </button>
-          <button
-            type="button"
-            onClick={allowAll}
-            disabled={requesting}
-            className="rounded-full bg-emerald-500/90 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {t('allowAll')}
-          </button>
-        </div>
+        <ConsentDialogActions
+          requesting={requesting}
+          rejectAllLabel={t('rejectAll')}
+          essentialOnlyLabel={t('essentialOnly')}
+          allowAllLabel={t('allowAll')}
+          onRejectAll={rejectAll}
+          onEssentialOnly={essentialOnly}
+          onAllowAll={allowAll}
+        />
       </div>
     </div>
   )

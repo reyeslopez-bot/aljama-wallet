@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useTranslations } from 'next-intl'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
-import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
+import { XRPL_NETWORKS, XRPL_NETWORKS_BY_ID, type XrplNetworkId } from '@/lib/xrpl-networks'
 import { formatTime24 } from '@/lib/time-format'
 import { useSession } from 'next-auth/react'
 
@@ -123,9 +123,10 @@ function isCardCorner(value: string | null): value is CardCorner {
 
 export default function DynamicInfoCard() {
   const t = useTranslations('infoCard')
+  const tActions = useTranslations('actions')
+  const tAuth = useTranslations('auth')
   const tCreate = useTranslations('createWallet')
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== 'authenticated'
   const showUnlockMessage = sessionStatus === 'unauthenticated'
   const [hovered, setHovered] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
@@ -142,6 +143,7 @@ export default function DynamicInfoCard() {
   const lastEvent = useDynamicInfoStore((s) => s.lastEvent)
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
   const selectedXrplNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
+  const setSelectedXrplNetworkId = useXrplNetworkStore((s) => s.setSelectedNetworkId)
 
   useEffect(() => {
     setNow(new Date())
@@ -273,7 +275,7 @@ export default function DynamicInfoCard() {
         })
       }}
       whileDrag={{ scale: 1.01, cursor: 'grabbing' }}
-      className={`fixed z-50 w-[260px] cursor-grab select-none active:cursor-grabbing sm:w-[280px] lg:w-[300px] ${cardCornerClass}`}
+      className={`fixed z-50 w-[260px] cursor-grab active:cursor-grabbing sm:w-[280px] lg:w-[300px] ${cardCornerClass}`}
     >
       <div className="surface-panel panel-glow-saffron rounded-[18px]">
         <div className="rounded-t-[18px] border-b border-white/10 bg-white/5 p-3">
@@ -317,27 +319,32 @@ export default function DynamicInfoCard() {
 
           <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px]">
             <span className="uppercase tracking-[0.16em] text-ivory/55">{t('xrplNetwork')}</span>
-            {locked ? (
-              <span
-                title={t('status.action')}
-                className="inline-flex cursor-not-allowed items-center gap-2 rounded-full border border-white/12 bg-white/5 px-2.5 py-1 font-semibold tracking-wide text-ivory/45"
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${xrplBadgeTone}`} />
-                {selectedXrplNetwork.name}
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  jumpToSection('xrpl')
-                  pushEvent({ kind: 'info', message: `${t('xrplNetwork')}: ${selectedXrplNetwork.name}` })
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 font-semibold tracking-wide text-ivory/85">
+              <span className={`h-1.5 w-1.5 rounded-full ${xrplBadgeTone}`} />
+              <select
+                aria-label={t('xrplNetwork')}
+                value={selectedXrplNetworkId}
+                onPointerDown={(event) => event.stopPropagation()}
+                onChange={(event) => {
+                  const nextNetworkId = event.target.value as XrplNetworkId
+                  if (nextNetworkId === selectedXrplNetworkId) return
+                  setSelectedXrplNetworkId(nextNetworkId)
+                  pushEvent({
+                    kind: 'info',
+                    message: `${t('xrplNetwork')}: ${XRPL_NETWORKS_BY_ID[nextNetworkId].name}`,
+                  })
                 }}
-                className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 font-semibold tracking-wide text-ivory/85 transition hover:bg-white/10"
+                className={`cursor-pointer select-text bg-transparent text-[11px] font-semibold tracking-wide focus:outline-none ${
+                  isLightTheme ? 'text-[#1d2f45]/90' : 'text-ivory/85'
+                }`}
               >
-                <span className={`h-1.5 w-1.5 rounded-full ${xrplBadgeTone}`} />
-                {selectedXrplNetwork.name}
-              </button>
-            )}
+                {XRPL_NETWORKS.map((network) => (
+                  <option key={network.id} value={network.id} className="bg-black text-ivory">
+                    {network.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -407,7 +414,7 @@ export default function DynamicInfoCard() {
                     type="button"
                     onClick={() => {
                       jumpToSection('create')
-                      pushEvent({ kind: 'info', message: tCreate('badgeCustody') })
+                      pushEvent({ kind: 'info', message: tActions('createWallet') })
                     }}
                     className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.16em] transition ${
                       isLightTheme
@@ -415,11 +422,11 @@ export default function DynamicInfoCard() {
                         : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
                     }`}
                   >
-                    {tCreate('badgeCustody')}
+                    {tActions('createWallet')}
                   </button>
                 </div>
                 {showUnlockMessage ? (
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-ivory/45">{t('status.action')}</p>
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-ivory/45">{tAuth('unlockActions')}</p>
                 ) : null}
               </motion.div>
             ) : (

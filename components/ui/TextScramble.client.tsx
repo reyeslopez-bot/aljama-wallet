@@ -26,7 +26,7 @@ export default function TextScramble({
   text,
   ariaLabel,
   className,
-  color = 'rgb(0, 111, 255)',
+  color = 'currentColor',
   fontSize = 40,
   fontWeight = 700,
   durationMs = 950,

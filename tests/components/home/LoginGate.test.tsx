@@ -3,6 +3,7 @@
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { signIn } from 'next-auth/react'
+import { CONSENT_PROMPT_SESSION_KEY } from '@/infra/consent/constants'
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -20,6 +21,56 @@ const mockedSignIn = vi.mocked(signIn)
 
 describe('LoginGate', () => {
   beforeEach(() => {
+    const localStore = new Map<string, string>()
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        get length() {
+          return localStore.size
+        },
+        clear() {
+          localStore.clear()
+        },
+        getItem(key: string) {
+          return localStore.has(key) ? localStore.get(key)! : null
+        },
+        key(index: number) {
+          return Array.from(localStore.keys())[index] ?? null
+        },
+        removeItem(key: string) {
+          localStore.delete(key)
+        },
+        setItem(key: string, value: string) {
+          localStore.set(key, String(value))
+        },
+      },
+      configurable: true,
+    })
+
+    const sessionStore = new Map<string, string>()
+    Object.defineProperty(window, 'sessionStorage', {
+      value: {
+        get length() {
+          return sessionStore.size
+        },
+        clear() {
+          sessionStore.clear()
+        },
+        getItem(key: string) {
+          return sessionStore.has(key) ? sessionStore.get(key)! : null
+        },
+        key(index: number) {
+          return Array.from(sessionStore.keys())[index] ?? null
+        },
+        removeItem(key: string) {
+          sessionStore.delete(key)
+        },
+        setItem(key: string, value: string) {
+          sessionStore.set(key, String(value))
+        },
+      },
+      configurable: true,
+    })
+
     vi.clearAllMocks()
     mocks.pathname = '/en/login'
     mockedSignIn.mockResolvedValue({ error: null, ok: true } as any)
@@ -87,6 +138,55 @@ describe('LoginGate', () => {
       })
       expect(mocks.push).toHaveBeenCalledWith('/en')
     })
+
+    expect(window.localStorage.getItem('aljama.telemetry.consent')).toBe('denied')
+    expect(window.localStorage.getItem('aljama.location.consent')).toBe('denied')
+    expect(window.sessionStorage.getItem(CONSENT_PROMPT_SESSION_KEY)).toBe('seen')
+  })
+
+  it('applies allow-all permissions before login when selected', async () => {
+    const getCurrentPosition = vi.fn((success: PositionCallback) =>
+      success({
+        coords: {
+          latitude: 25.204849,
+          longitude: 55.270783,
+          accuracy: 20,
+        },
+        timestamp: 1700000000000,
+      } as GeolocationPosition),
+    )
+    Object.defineProperty(navigator, 'geolocation', {
+      value: { getCurrentPosition },
+      configurable: true,
+    })
+
+    const { getByPlaceholderText, getByRole } = render(<LoginGate showBackLink={false} />)
+
+    fireEvent.click(getByRole('button', { name: 'Allow all' }))
+    await waitFor(() => {
+      expect(getCurrentPosition).toHaveBeenCalled()
+    })
+    fireEvent.change(getByPlaceholderText('you@company.com'), {
+      target: { value: 'user@example.com' },
+    })
+    fireEvent.change(getByPlaceholderText('••••••••'), {
+      target: { value: 'AnyPassword123!' },
+    })
+
+    fireEvent.click(getByRole('button', { name: 'Sign in' }))
+
+    await waitFor(() => {
+      expect(mockedSignIn).toHaveBeenCalledWith('credentials', {
+        email: 'user@example.com',
+        password: 'AnyPassword123!',
+        redirect: false,
+      })
+      expect(mocks.push).toHaveBeenCalledWith('/en')
+    })
+
+    expect(window.localStorage.getItem('aljama.telemetry.consent')).toBe('granted')
+    expect(window.localStorage.getItem('aljama.location.consent')).toBe('granted')
+    expect(window.sessionStorage.getItem(CONSENT_PROMPT_SESSION_KEY)).toBe('seen')
   })
 
   it('submits register flow and then signs in', async () => {

@@ -320,7 +320,7 @@ export function CreateWalletPanel() {
               type="button"
               onClick={generatePassphrase}
               disabled={locked || status === 'pending'}
-              className={`${actionButtonClass} text-white shadow-lg shadow-[#4b7c79]/30 focus:ring-2 focus:ring-lapis/40`}
+              className={`${actionButtonClass} text-ivory shadow-lg shadow-[#4b7c79]/30 focus:ring-2 focus:ring-lapis/40`}
               style={{
                 backgroundImage:
                   'linear-gradient(to right in oklab, rgb(127, 176, 217) 0%, rgb(92, 141, 180) 50%, rgb(75, 124, 121) 100%)',
@@ -332,7 +332,7 @@ export function CreateWalletPanel() {
             <button
               type="submit"
               disabled={disabled}
-              className={`${actionButtonClass} bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] text-[#1c120a] shadow-lg shadow-[#c7794a]/30 focus:ring-2 focus:ring-saffron/30`}
+              className={`${actionButtonClass} bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] text-ivory shadow-lg shadow-[#c7794a]/30 focus:ring-2 focus:ring-saffron/30`}
             >
               {status === 'pending' ? tActions('creating') : t('button')}
             </button>
