@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { recordTrackWalletEvent } from '@/services/track-wallet.service'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { isAllowedOrigin } from '@/lib/security/origin'
 import { logError } from '@/lib/security/logging'
 
 export type TrackWalletEvent = {
@@ -33,6 +34,10 @@ const trackWalletSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    if (!isAllowedOrigin(req)) {
+      return errorJson(403, 'invalid_origin', 'INVALID_ORIGIN')
+    }
+
     const rateKey = buildRateLimitKey(req, null)
     const limit = rateLimit({
       bucket: 'track-wallet',

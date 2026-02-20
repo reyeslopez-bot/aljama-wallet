@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { upsertSignup } from '@/services/signup.service'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { readJsonBody } from '@/lib/security/request-body'
+import { isAllowedOrigin } from '@/lib/security/origin'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 
@@ -14,6 +16,10 @@ const signupSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    if (!isAllowedOrigin(req)) {
+      return errorJson(403, 'invalid_origin', 'INVALID_ORIGIN')
+    }
+
     const rateKey = buildRateLimitKey(req, null)
     const limit = rateLimit({
       bucket: 'signup',
@@ -31,7 +37,11 @@ export async function POST(req: Request) {
       )
     }
 
-    const body = await req.json().catch(() => ({}))
+    const bodyResult = await readJsonBody(req, { maxBytes: 4_096 })
+    if (!bodyResult.ok) {
+      return bodyResult.response
+    }
+    const body = bodyResult.data
     const parsed = signupSchema.safeParse(body)
     if (!parsed.success) {
       return errorJson(400, 'invalid_payload', 'Invalid signup payload', parsed.error.format())

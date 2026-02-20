@@ -3,6 +3,7 @@ import { requireSession } from '@/lib/security/session'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { readJsonBody } from '@/lib/security/request-body'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
 import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
@@ -45,7 +46,12 @@ export async function POST(req: Request) {
       )
     }
 
-    const body = await req.json().catch(() => ({}))
+    const bodyResult = await readJsonBody(req, { maxBytes: 8_192 })
+    if (!bodyResult.ok) {
+      return bodyResult.response
+    }
+
+    const body = bodyResult.data
     const parsed = schema.safeParse(body)
     if (!parsed.success) {
       return errorJson(400, 'invalid_payload', 'Invalid offer cancel payload', parsed.error.format())

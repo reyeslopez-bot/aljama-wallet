@@ -119,4 +119,29 @@ describe('XrplPanel', () => {
     })
     expect(fetchMock.mock.calls[1]?.[0]).toContain('network=mainnet')
   })
+
+  it('does not show a faucet action for testnet or devnet', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        account: { address: 'rNoFaucet', xrpBalance: '12.00' },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { queryByRole, getByRole } = render(<XrplPanel />)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+    expect(queryByRole('link', { name: 'Open faucet' })).toBeNull()
+
+    fireEvent.click(getByRole('button', { name: /^Devnet Non-production$/ }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+    expect(queryByRole('link', { name: 'Open faucet' })).toBeNull()
+  })
 })

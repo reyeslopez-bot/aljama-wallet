@@ -33,9 +33,10 @@ export async function GET(req: Request) {
     return errorJson(400, 'invalid_network', 'Invalid XRPL network')
   }
 
-  const limit = Number(searchParams.get('limit') ?? 20)
+  const rawLimit = Number(searchParams.get('limit') ?? 20)
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 20
   const records = await listXrplActions({
-    limit: Number.isFinite(limit) ? limit : 20,
+    limit,
     networkId: requestedNetwork ?? DEFAULT_XRPL_NETWORK_ID,
   })
 

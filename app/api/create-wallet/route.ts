@@ -8,6 +8,7 @@ import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { isStrictMode } from '@/lib/security/runtime'
 import { linkWalletToUser } from '@/services/wallet-ownership.service'
 import { errorJson } from '@/lib/security/api-response'
+import { readJsonBody } from '@/lib/security/request-body'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 
@@ -95,7 +96,12 @@ export async function POST(req: Request) {
       )
     }
 
-    const { password } = await req.json()
+    const bodyResult = await readJsonBody<{ password?: unknown }>(req, { maxBytes: 4_096 })
+    if (!bodyResult.ok) {
+      return bodyResult.response
+    }
+
+    const { password } = bodyResult.data
 
     if (!password || typeof password !== 'string' || !password.trim()) {
       return errorJson(400, 'password_required', 'Password is required')

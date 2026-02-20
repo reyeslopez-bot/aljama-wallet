@@ -105,24 +105,24 @@ export function XrplPanel() {
     <section className="surface-panel panel-glow-lapis relative p-7 sm:p-8">
       <div className="absolute inset-x-8 top-5 ornament-line" />
 
-      <header className="relative flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('eyebrow')}</p>
-          <h2 className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
+      <header className="relative space-y-3">
+        <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('eyebrow')}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-2xl font-semibold text-ivory sm:text-3xl">
             {t('title')}
           </h2>
-          <p className="text-sm text-ivory/70">{t('body')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70">
+              {state.loading ? t('statusSyncing') : t('statusOnline')}
+            </span>
+            <span
+              className={`rounded-full border px-3 py-1 text-[11px] font-semibold tracking-wide ${toneForNetwork(selectedNetwork)}`}
+            >
+              {selectedNetwork.name}
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70">
-            {state.loading ? t('statusSyncing') : t('statusOnline')}
-          </span>
-          <span
-            className={`rounded-full border px-3 py-1 text-[11px] font-semibold tracking-wide ${toneForNetwork(selectedNetwork)}`}
-          >
-            {selectedNetwork.name}
-          </span>
-        </div>
+        <p className="text-sm text-ivory/70">{t('body')}</p>
       </header>
 
       <div className="relative mt-6 space-y-4">
@@ -248,16 +248,6 @@ export function XrplPanel() {
               </p>
             ) : null}
 
-            {!selectedNetwork.isProduction && selectedNetwork.faucetUrl ? (
-              <a
-                href={selectedNetwork.faucetUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-4 py-2 text-xs font-semibold tracking-wide text-ivory shadow-lg shadow-[#4b9577]/30 transition hover:brightness-105"
-              >
-                {t('openFaucet')}
-              </a>
-            ) : null}
           </div>
         </div>
 

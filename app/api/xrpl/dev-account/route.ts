@@ -3,11 +3,29 @@ import { getDevXrplAccount } from '@/lib/xrpl'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { isStrictMode } from '@/lib/security/runtime'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 import { isXrplNetworkId, DEFAULT_XRPL_NETWORK_ID } from '@/lib/xrpl-networks'
 
 export async function GET(req: Request) {
+  const rateKey = buildRateLimitKey(req, null)
+  const limitState = rateLimit({
+    bucket: 'xrpl-dev-account',
+    key: rateKey,
+    limit: 60,
+    windowMs: 60_000,
+  })
+  if (!limitState.ok) {
+    return errorJson(
+      429,
+      'rate_limited',
+      'RATE_LIMITED',
+      { retryAfter: limitState.retryAfter },
+      { headers: { 'retry-after': String(limitState.retryAfter) } },
+    )
+  }
+
   if (isStrictMode) {
     const expected = process.env.INTERNAL_API_TOKEN?.trim()
     if (!expected) {

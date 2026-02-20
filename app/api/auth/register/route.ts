@@ -5,6 +5,7 @@ import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { isStrictMode } from '@/lib/security/runtime'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { readJsonBody } from '@/lib/security/request-body'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 
@@ -46,7 +47,12 @@ export async function POST(req: Request) {
       )
     }
 
-    const body = await req.json().catch(() => ({}))
+    const bodyResult = await readJsonBody(req, { maxBytes: 8_192 })
+    if (!bodyResult.ok) {
+      return bodyResult.response
+    }
+
+    const body = bodyResult.data
     const parsed = registerSchema.safeParse(body)
     if (!parsed.success) {
       return errorJson(400, 'invalid_payload', 'Invalid registration payload', parsed.error.format())

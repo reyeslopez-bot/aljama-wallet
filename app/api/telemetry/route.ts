@@ -4,6 +4,7 @@ import { recordTelemetryEvent } from '@/services/telemetry.service'
 import crypto from 'node:crypto'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { isAllowedOrigin } from '@/lib/security/origin'
 import { logError } from '@/lib/security/logging'
 
 const MAX_BODY_BYTES = 16_384
@@ -20,6 +21,10 @@ const telemetrySchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    if (!isAllowedOrigin(req)) {
+      return errorJson(403, 'invalid_origin', 'INVALID_ORIGIN')
+    }
+
     const rateKey = buildRateLimitKey(req, null)
     const limit = rateLimit({
       bucket: 'telemetry',

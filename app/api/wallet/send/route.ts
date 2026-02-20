@@ -13,6 +13,7 @@ import { isStrictMode } from '@/lib/security/runtime'
 import { assessTransferRisk } from '@/services/transfer-risk.service'
 import { recordTransferAttempt, updateTransferStatus } from '@/services/transfer-log.service'
 import { errorJson } from '@/lib/security/api-response'
+import { readJsonBody } from '@/lib/security/request-body'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 
@@ -161,7 +162,12 @@ export async function POST(req: Request) {
       )
     }
 
-    const body = await req.json()
+    const bodyResult = await readJsonBody(req, { maxBytes: 8_192 })
+    if (!bodyResult.ok) {
+      return bodyResult.response
+    }
+
+    const body = bodyResult.data
     const input = sendSchema.parse(body)
 
     const isAdmin = isAdminEmail(session.user?.email ?? null)
