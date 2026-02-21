@@ -1,17 +1,8 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, render, waitFor } from '@testing-library/react'
+import { fireEvent, render, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import MapboxMap from '@/components/ui/MapboxMap.client'
-import { CONSENT_MODE_KEY } from '@/infra/consent/constants'
-
-const locationState = vi.hoisted(() => ({
-  consent: 'granted' as 'granted' | 'denied' | 'unset',
-}))
-const setLocationConsentMock = vi.hoisted(() => vi.fn())
-const locationConsentListener = vi.hoisted(() => ({
-  handler: null as null | (() => void),
-}))
 
 vi.mock('mapbox-gl', () => ({
   default: {
@@ -22,6 +13,7 @@ vi.mock('mapbox-gl', () => ({
       getZoom = vi.fn(() => 10)
       flyTo = vi.fn()
       remove = vi.fn()
+      setStyle = vi.fn()
     },
     Marker: class {
       setLngLat = vi.fn(() => this)
@@ -30,19 +22,6 @@ vi.mock('mapbox-gl', () => ({
     NavigationControl: class {},
     accessToken: '',
   },
-}))
-vi.mock('@/infra/location/client', () => ({
-  canUseGeolocation: () => true,
-  getLocationConsent: () => locationState.consent,
-  onLocationConsentChange: (handler: () => void) => {
-    locationConsentListener.handler = handler
-    return () => {
-      if (locationConsentListener.handler === handler) {
-        locationConsentListener.handler = null
-      }
-    }
-  },
-  setLocationConsent: setLocationConsentMock,
 }))
 
 describe('MapboxMap', () => {
@@ -73,79 +52,96 @@ describe('MapboxMap', () => {
     })
 
     vi.clearAllMocks()
-    locationState.consent = 'granted'
-    locationConsentListener.handler = null
   })
 
-  it('keeps Dubai jurisdiction until location consent flow has allowed tracking', async () => {
-    const getCurrentPosition = vi.fn((success: PositionCallback) =>
-      success({
-        coords: {
-          latitude: 37.7749,
-          longitude: -122.4194,
-          accuracy: 20,
-        },
-        timestamp: 1700000000000,
-      } as GeolocationPosition),
+  it('keeps Dubai jurisdiction when network location falls back to default', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          location: {
+            source: 'default',
+            latitude: 25.204849,
+            longitude: 55.270783,
+            country: 'AE',
+            region: null,
+            city: 'Dubai',
+            timezone: 'Asia/Dubai',
+          },
+        }),
+      }),
     )
-    Object.defineProperty(navigator, 'geolocation', {
-      value: { getCurrentPosition },
-      configurable: true,
-    })
 
     const { getByText, getAllByText } = render(<MapboxMap />)
 
     await waitFor(() => {
-      expect(getCurrentPosition).not.toHaveBeenCalled()
       expect(getByText('Jurisdiction:')).toBeTruthy()
       expect(getAllByText('UAE - Dubai').length).toBeGreaterThan(0)
     })
   })
 
-  it('requests geolocation when location button is clicked', async () => {
-    window.localStorage.setItem('aljama.telemetry.consent', 'granted')
-    window.localStorage.setItem(CONSENT_MODE_KEY, 'allowAll')
+  it('refreshes using VPN/network location when the button is clicked', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          location: {
+            source: 'default',
+            latitude: 25.204849,
+            longitude: 55.270783,
+            country: 'AE',
+            region: null,
+            city: 'Dubai',
+            timezone: 'Asia/Dubai',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          location: {
+            source: 'network',
+            latitude: 31.7683,
+            longitude: 35.2137,
+            country: 'IL',
+            region: 'JM',
+            city: 'Jerusalem',
+            timezone: 'Asia/Jerusalem',
+          },
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
 
-    const getCurrentPosition = vi.fn((success: PositionCallback) =>
-      success({
-        coords: {
-          latitude: 12.345678,
-          longitude: 98.765432,
-          accuracy: 15,
-        },
-        timestamp: 1700000000000,
-      } as GeolocationPosition),
-    )
-    Object.defineProperty(navigator, 'geolocation', {
-      value: { getCurrentPosition },
-      configurable: true,
-    })
-
-    const { getByRole, getByText } = render(<MapboxMap />)
-    act(() => {
-      locationConsentListener.handler?.()
-    })
+    const { getByRole, getByText, getAllByText } = render(<MapboxMap />)
 
     await waitFor(() => {
-      const button = getByRole('button', { name: 'Use my location' }) as HTMLButtonElement
-      expect(button.disabled).toBe(false)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
-    fireEvent.click(getByRole('button', { name: 'Use my location' }))
+    fireEvent.click(getByRole('button', { name: 'Use network location' }))
 
     await waitFor(() => {
-      expect(getCurrentPosition).toHaveBeenCalled()
+      expect(fetchMock).toHaveBeenCalledTimes(2)
       expect(getByText(/Centered at/)).toBeTruthy()
+      expect(getAllByText('Israel').length).toBeGreaterThan(0)
     })
   })
 
-  it('keeps location button hidden behind permissions when consent is denied', () => {
-    locationState.consent = 'denied'
+  it('shows fallback error and keeps action enabled when lookup fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
 
-    const { getByRole, queryByText } = render(<MapboxMap />)
+    const { getByRole, getByText } = render(<MapboxMap />)
 
-    const button = getByRole('button', { name: 'Use my location' }) as HTMLButtonElement
-    expect(button.disabled).toBe(true)
-    expect(queryByText('Sign in to unlock actions.')).toBeNull()
+    await waitFor(() => {
+      expect(getByText('Network location unavailable. Using Dubai fallback.')).toBeTruthy()
+    })
+
+    const button = getByRole('button', { name: 'Use network location' }) as HTMLButtonElement
+    expect(button.disabled).toBe(false)
   })
 })

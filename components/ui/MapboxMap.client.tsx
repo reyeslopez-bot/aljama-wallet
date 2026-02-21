@@ -2,16 +2,6 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import {
-  canUseGeolocation,
-  getLocationConsent,
-  onLocationConsentChange,
-  setLocationConsent,
-  type LocationConsent,
-} from '@/infra/location/client'
-import { getTelemetryConsent, onTelemetryConsentChange, type TelemetryConsent } from '@/infra/telemetry/client'
-import { CONSENT_MODE_KEY } from '@/infra/consent/constants'
-import { setRuntimeLocationAccess } from '@/infra/location/runtime'
 
 type Coords = {
   lat: number
@@ -27,7 +17,18 @@ type MapboxModule = typeof import('mapbox-gl')
 type MapboxMapInstance = import('mapbox-gl').Map
 type MapboxMarkerInstance = import('mapbox-gl').Marker
 type GovSource = { label: string; href: string }
-type ConsentMode = 'allowAll' | 'essentialOnly' | 'rejectAll' | null
+type NetworkLocationResponse = {
+  ok: true
+  location: {
+    source: 'network' | 'default'
+    latitude: number
+    longitude: number
+    country: string | null
+    region: string | null
+    city: string | null
+    timezone: string
+  }
+}
 
 const DEFAULT_CENTER = { lat: 25.204849, lng: 55.270783 } // Dubai fallback
 const REGION_KEY = 'aljama.region'
@@ -85,70 +86,47 @@ export default function MapboxMap() {
   const [error, setError] = React.useState<string | null>(null)
   const [mapReady, setMapReady] = React.useState(false)
   const [mapError, setMapError] = React.useState<string | null>(null)
-  const [locationConsent, setLocationConsentState] = React.useState<LocationConsent>('unset')
-  const [telemetryConsent, setTelemetryConsentState] = React.useState<TelemetryConsent>('unset')
-  const [consentMode, setConsentMode] = React.useState<ConsentMode>(null)
+  const [networkCity, setNetworkCity] = React.useState<string | null>(null)
   const [isLightTheme, setIsLightTheme] = React.useState(false)
   const [showRegulations, setShowRegulations] = React.useState(false)
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
   const mapStyle = isLightTheme ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11'
 
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const syncLocationConsent = () => setLocationConsentState(getLocationConsent())
-    syncLocationConsent()
-    const unsubscribe = onLocationConsentChange(syncLocationConsent)
-    window.addEventListener('storage', syncLocationConsent)
-    window.addEventListener('focus', syncLocationConsent)
-    return () => {
-      unsubscribe()
-      window.removeEventListener('storage', syncLocationConsent)
-      window.removeEventListener('focus', syncLocationConsent)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const syncTelemetryConsent = () => setTelemetryConsentState(getTelemetryConsent())
-    syncTelemetryConsent()
-    const unsubscribe = onTelemetryConsentChange(syncTelemetryConsent)
-    window.addEventListener('storage', syncTelemetryConsent)
-    window.addEventListener('focus', syncTelemetryConsent)
-    return () => {
-      unsubscribe()
-      window.removeEventListener('storage', syncTelemetryConsent)
-      window.removeEventListener('focus', syncTelemetryConsent)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const syncConsentMode = () => {
-      const value = window.localStorage.getItem(CONSENT_MODE_KEY)
-      if (value === 'allowAll' || value === 'essentialOnly' || value === 'rejectAll') {
-        setConsentMode(value)
-      } else {
-        setConsentMode(null)
+  const requestNetworkLocation = React.useCallback(async () => {
+    setError(null)
+    setStatus('loading')
+    try {
+      const res = await fetch('/api/network-location', { method: 'GET', cache: 'no-store' })
+      const body = (await res.json()) as NetworkLocationResponse | { ok: false; error?: string }
+      if (!res.ok || !body.ok) {
+        throw new Error('Network location unavailable.')
       }
-    }
 
-    syncConsentMode()
-    window.addEventListener('storage', syncConsentMode)
-    window.addEventListener('focus', syncConsentMode)
-    return () => {
-      window.removeEventListener('storage', syncConsentMode)
-      window.removeEventListener('focus', syncConsentMode)
+      setCoords({
+        lat: body.location.latitude,
+        lng: body.location.longitude,
+        timestamp: Date.now(),
+        source: body.location.source === 'network' ? 'device' : 'default',
+      })
+      setNetworkCity(body.location.city)
+      setStatus('ready')
+    } catch {
+      setCoords({
+        lat: DEFAULT_CENTER.lat,
+        lng: DEFAULT_CENTER.lng,
+        timestamp: Date.now(),
+        source: 'default',
+      })
+      setNetworkCity(null)
+      setStatus('error')
+      setError('Network location unavailable. Using Dubai fallback.')
     }
   }, [])
 
-  const hasFullPermissions =
-    consentMode === 'allowAll' &&
-    telemetryConsent === 'granted' &&
-    locationConsent === 'granted'
+  React.useEffect(() => {
+    void requestNetworkLocation()
+  }, [requestNetworkLocation])
 
   React.useEffect(() => {
     if (typeof document === 'undefined') return
@@ -244,57 +222,8 @@ export default function MapboxMap() {
   }, [coords, mapReady])
 
   const requestLocation = React.useCallback(() => {
-    if (!hasFullPermissions) return
-    setError(null)
-
-    if (!canUseGeolocation() || !('geolocation' in navigator)) {
-      setStatus('error')
-      setError('Geolocation is blocked by browser policy or not supported.')
-      setRuntimeLocationAccess(false)
-      setLocationConsent('denied')
-      return
-    }
-
-    setStatus('loading')
-
-    try {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setCoords({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
-            timestamp: pos.timestamp,
-            source: 'device',
-          })
-          setRuntimeLocationAccess(true)
-          setLocationConsent('granted')
-          setStatus('ready')
-        },
-        (err) => {
-          const msg =
-            err.code === 1
-              ? 'Permission denied. Allow location for this site.'
-              : err.code === 2
-                ? 'Position unavailable.'
-                : err.code === 3
-                  ? 'Location request timed out.'
-                  : err.message
-
-          if (err.code === 1) setLocationConsent('denied')
-          setRuntimeLocationAccess(false)
-          setStatus('error')
-          setError(msg)
-        },
-        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 15_000 },
-      )
-    } catch {
-      setRuntimeLocationAccess(false)
-      setLocationConsent('denied')
-      setStatus('error')
-      setError('Geolocation is blocked by browser policy or not supported.')
-    }
-  }, [hasFullPermissions])
+    void requestNetworkLocation()
+  }, [requestNetworkLocation])
 
   const regulatoryRegion = React.useMemo(
     () => resolveRegulatoryRegion(coords.lat, coords.lng),
@@ -328,17 +257,13 @@ export default function MapboxMap() {
           <p className="text-xs uppercase tracking-[0.18em] text-saffron/70">{t('label')}</p>
 
           <p className="text-sm text-ivory/70">
-            {status === 'idle' && (
-              <>
-                {locationConsent === 'denied' ? t('blocked') : t('idle')}
-              </>
-            )}
+            {status === 'idle' && t('idle')}
             {status === 'loading' && t('loading')}
             {status === 'ready' && (
               <>
                 {t('centered')}{' '}
                 <span className="text-ivory">{t(`laws.${regulatoryRegion}.label`)}</span>
-                {coords.accuracy ? ` · ±${Math.round(coords.accuracy)}m` : null}
+                {networkCity ? ` · ${networkCity}` : null}
               </>
             )}
             {status === 'error' && (error ?? t('error'))}
@@ -348,10 +273,10 @@ export default function MapboxMap() {
         <button
           type="button"
           onClick={requestLocation}
-          disabled={status === 'loading' || !hasFullPermissions}
+          disabled={status === 'loading'}
           className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {t('useLocation')}
+          {t('useNetworkLocation')}
         </button>
       </div>
 

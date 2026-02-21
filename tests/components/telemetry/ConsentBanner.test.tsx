@@ -25,7 +25,6 @@ vi.mock('@/infra/telemetry/client', () => ({
   setTelemetryConsent: setTelemetryConsentMock,
 }))
 vi.mock('@/infra/location/client', () => ({
-  canUseGeolocation: () => true,
   getLocationConsent: () => locationState.consent,
   setLocationConsent: setLocationConsentMock,
 }))
@@ -63,29 +62,13 @@ describe('ConsentBanner', () => {
     window.sessionStorage.clear()
   })
 
-  it('allow all stores consent, requests geolocation, and dismisses the popup', async () => {
-    const getCurrentPosition = vi.fn((success: PositionCallback) =>
-      success({
-        coords: {
-          latitude: 25.204849,
-          longitude: 55.270783,
-          accuracy: 20,
-        },
-        timestamp: 1700000000000,
-      } as GeolocationPosition),
-    )
-    Object.defineProperty(navigator, 'geolocation', {
-      value: { getCurrentPosition },
-      configurable: true,
-    })
-
+  it('allow all stores consent and dismisses the popup', async () => {
     const { findByRole, queryByRole } = render(<ConsentBanner />)
 
     const accept = await findByRole('button', { name: 'Allow all' })
     fireEvent.click(accept)
 
     expect(setTelemetryConsentMock).toHaveBeenCalledWith('granted')
-    expect(getCurrentPosition).toHaveBeenCalled()
     expect(setLocationConsentMock).toHaveBeenCalledWith('granted')
 
     await waitFor(() => {
@@ -107,28 +90,12 @@ describe('ConsentBanner', () => {
   })
 
   it('essential only stores denied consent and dismisses the popup', async () => {
-    const getCurrentPosition = vi.fn((success: PositionCallback) =>
-      success({
-        coords: {
-          latitude: 25.204849,
-          longitude: 55.270783,
-          accuracy: 20,
-        },
-        timestamp: 1700000000000,
-      } as GeolocationPosition),
-    )
-    Object.defineProperty(navigator, 'geolocation', {
-      value: { getCurrentPosition },
-      configurable: true,
-    })
-
     const { findByRole, queryByRole } = render(<ConsentBanner />)
 
     fireEvent.click(await findByRole('button', { name: 'Essential only' }))
 
     expect(setTelemetryConsentMock).toHaveBeenCalledWith('denied')
-    expect(getCurrentPosition).toHaveBeenCalled()
-    expect(setLocationConsentMock).toHaveBeenCalledWith('granted')
+    expect(setLocationConsentMock).toHaveBeenCalledWith('denied')
 
     await waitFor(() => {
       expect(queryByRole('button', { name: 'Essential only' })).toBeNull()

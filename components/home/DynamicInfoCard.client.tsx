@@ -7,13 +7,8 @@ import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useTranslations } from 'next-intl'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
-import { formatTime24 } from '@/lib/time-format'
 import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
-import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
-import { getTelemetryConsent, onTelemetryConsentChange } from '@/infra/telemetry/client'
-import { CONSENT_MODE_KEY } from '@/infra/consent/constants'
-import { hasRuntimeLocationAccess, onRuntimeLocationAccessChange } from '@/infra/location/runtime'
 
 function formatShortAddress(address: string) {
   const trimmed = address.trim()
@@ -124,6 +119,28 @@ const CARD_CORNERS: CardCorner[] = ['top-left', 'top-right', 'bottom-left', 'bot
 const DUBAI_TIMEZONE = 'Asia/Dubai'
 const DUBAI_UTC_LABEL = 'UTC+04:00'
 
+function formatUtcOffsetForZone(date: Date, timeZone: string) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZoneName: 'shortOffset',
+    }).formatToParts(date)
+    const rawOffset = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT+0'
+    const normalized = rawOffset.replace('GMT', 'UTC')
+    const match = normalized.match(/^UTC([+-])(\d{1,2})(?::?(\d{2}))?$/)
+    if (!match) return normalized
+    const sign = match[1]
+    const hour = match[2].padStart(2, '0')
+    const minute = (match[3] ?? '00').padStart(2, '0')
+    return `UTC${sign}${hour}:${minute}`
+  } catch {
+    return DUBAI_UTC_LABEL
+  }
+}
+
 function isCardCorner(value: string | null): value is CardCorner {
   return Boolean(value && CARD_CORNERS.includes(value as CardCorner))
 }
@@ -136,10 +153,7 @@ export default function DynamicInfoCard() {
   const showUnlockMessage = sessionStatus === 'unauthenticated'
   const [hovered, setHovered] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
-  const [locationConsent, setLocationConsent] = useState<'granted' | 'denied' | 'unset'>('unset')
-  const [telemetryConsent, setTelemetryConsentState] = useState<'granted' | 'denied' | 'unset'>('unset')
-  const [consentMode, setConsentMode] = useState<'allowAll' | 'essentialOnly' | 'rejectAll' | null>(null)
-  const [runtimeLocationAccess, setRuntimeLocationAccessState] = useState(false)
+  const [networkTimezone, setNetworkTimezone] = useState(DUBAI_TIMEZONE)
   const [isLightTheme, setIsLightTheme] = useState(false)
   const [corner, setCorner] = useState<CardCorner>('top-right')
   const dragControls = useAnimationControls()
@@ -183,86 +197,42 @@ export default function DynamicInfoCard() {
   }, [corner])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const syncConsent = () => setLocationConsent(getLocationConsent())
-    syncConsent()
-    const unsubscribe = onLocationConsentChange(syncConsent)
-    window.addEventListener('storage', syncConsent)
-    window.addEventListener('focus', syncConsent)
-    return () => {
-      unsubscribe()
-      window.removeEventListener('storage', syncConsent)
-      window.removeEventListener('focus', syncConsent)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const syncConsent = () => setTelemetryConsentState(getTelemetryConsent())
-    syncConsent()
-    const unsubscribe = onTelemetryConsentChange(syncConsent)
-    window.addEventListener('storage', syncConsent)
-    window.addEventListener('focus', syncConsent)
-    return () => {
-      unsubscribe()
-      window.removeEventListener('storage', syncConsent)
-      window.removeEventListener('focus', syncConsent)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const syncMode = () => {
-      const value = window.localStorage.getItem(CONSENT_MODE_KEY)
-      if (value === 'allowAll' || value === 'essentialOnly' || value === 'rejectAll') {
-        setConsentMode(value)
-        return
+    let cancelled = false
+    const loadNetworkTimezone = async () => {
+      try {
+        const res = await fetch('/api/network-location', { method: 'GET', cache: 'no-store' })
+        const body = (await res.json()) as {
+          ok: boolean
+          location?: { timezone?: string | null }
+        }
+        if (!res.ok || !body.ok) return
+        const timezone = body.location?.timezone
+        if (!cancelled && typeof timezone === 'string' && timezone.trim()) {
+          setNetworkTimezone(timezone.trim())
+        }
+      } catch {
+        // keep Dubai fallback on network lookup failures
       }
-      setConsentMode(null)
     }
 
-    syncMode()
-    window.addEventListener('storage', syncMode)
-    window.addEventListener('focus', syncMode)
+    void loadNetworkTimezone()
     return () => {
-      window.removeEventListener('storage', syncMode)
-      window.removeEventListener('focus', syncMode)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const syncRuntimeLocation = () => setRuntimeLocationAccessState(hasRuntimeLocationAccess())
-    syncRuntimeLocation()
-    const unsubscribe = onRuntimeLocationAccessChange(syncRuntimeLocation)
-    window.addEventListener('focus', syncRuntimeLocation)
-    return () => {
-      unsubscribe()
-      window.removeEventListener('focus', syncRuntimeLocation)
+      cancelled = true
     }
   }, [])
 
   const timeLabel = useMemo(
     () => {
       if (!now) return '--:--'
-      const hasFullPermissions =
-        locationConsent === 'granted' &&
-        telemetryConsent === 'granted' &&
-        consentMode === 'allowAll' &&
-        runtimeLocationAccess
-
-      if (hasFullPermissions) {
-        return formatTime24(now)
-      }
-      const dubaiTime = new Intl.DateTimeFormat(undefined, {
+      const zonedTime = new Intl.DateTimeFormat(undefined, {
         hour: '2-digit',
         minute: '2-digit',
         hour12: false,
-        timeZone: DUBAI_TIMEZONE,
+        timeZone: networkTimezone,
       }).format(now)
-      return `${dubaiTime} ${DUBAI_UTC_LABEL}`
+      return `${zonedTime} ${formatUtcOffsetForZone(now, networkTimezone)}`
     },
-    [consentMode, locationConsent, now, runtimeLocationAccess, telemetryConsent],
+    [networkTimezone, now],
   )
 
   const statusTone: 'ok' | 'warn' | 'bad' | 'idle' = useMemo(() => {

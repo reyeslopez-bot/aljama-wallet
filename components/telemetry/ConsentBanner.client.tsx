@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { getTelemetryConsent, setTelemetryConsent } from '@/infra/telemetry/client'
 import {
-  canUseGeolocation,
   getLocationConsent,
   setLocationConsent,
 } from '@/infra/location/client'
@@ -163,38 +162,11 @@ export default function ConsentBanner() {
   ) {
     setConsentMode(mode)
     setTelemetryConsent(nextTelemetryConsent)
-    setRequesting(true)
-
-    if (!canUseGeolocation() || !('geolocation' in navigator)) {
-      setRuntimeLocationAccess(false)
-      setLocationConsent('denied')
-      setRequesting(false)
-      closePrompt()
-      return
-    }
-
-    try {
-      navigator.geolocation.getCurrentPosition(
-        () => {
-          setRuntimeLocationAccess(true)
-          setLocationConsent('granted')
-          setRequesting(false)
-          closePrompt()
-        },
-        () => {
-          setRuntimeLocationAccess(false)
-          setLocationConsent('denied')
-          setRequesting(false)
-          closePrompt()
-        },
-        { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 },
-      )
-    } catch {
-      setRuntimeLocationAccess(false)
-      setLocationConsent('denied')
-      setRequesting(false)
-      closePrompt()
-    }
+    const allowNetworkLocation = mode === 'allowAll' ? 'granted' : 'denied'
+    setRuntimeLocationAccess(false)
+    setLocationConsent(allowNetworkLocation)
+    setRequesting(false)
+    closePrompt()
   }
 
   function essentialOnly() {

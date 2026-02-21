@@ -5,11 +5,7 @@ import { signIn } from "next-auth/react"
 import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { getTelemetryConsent, setTelemetryConsent } from "@/infra/telemetry/client"
-import {
-  canUseGeolocation,
-  getLocationConsent,
-  setLocationConsent,
-} from "@/infra/location/client"
+import { getLocationConsent, setLocationConsent } from "@/infra/location/client"
 import { CONSENT_MODE_KEY, CONSENT_PROMPT_SESSION_KEY } from "@/infra/consent/constants"
 import { setRuntimeLocationAccess } from "@/infra/location/runtime"
 
@@ -55,7 +51,6 @@ export default function LoginGate({
   const [error, setError] = React.useState<string | null>(null)
   const [notice, setNotice] = React.useState<string | null>(null)
   const [consentPreset, setConsentPreset] = React.useState<ConsentPreset | null>(null)
-  const [requestingLocation, setRequestingLocation] = React.useState(false)
 
   const isStrongPassword = (value: string) => {
     if (value.length < 12) return false
@@ -118,44 +113,22 @@ export default function LoginGate({
         return
       }
 
-      setTelemetryConsent(preset === "allowAll" ? "granted" : "denied")
-      if (!canUseGeolocation() || !("geolocation" in navigator)) {
-        setRuntimeLocationAccess(false)
-        setLocationConsent("denied")
-        markConsentPromptSeen()
-        return
-      }
-
-      setRequestingLocation(true)
-      try {
-        const locationAllowed = await new Promise<boolean>((resolve) => {
-          try {
-            navigator.geolocation.getCurrentPosition(
-              () => resolve(true),
-              () => resolve(false),
-              { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 },
-            )
-          } catch {
-            resolve(false)
-          }
-        })
-        setRuntimeLocationAccess(locationAllowed)
-        setLocationConsent(locationAllowed ? "granted" : "denied")
-      } finally {
-        setRequestingLocation(false)
-        markConsentPromptSeen()
-      }
+      const enableNetworkLocation = preset === "allowAll"
+      setRuntimeLocationAccess(false)
+      setTelemetryConsent(enableNetworkLocation ? "granted" : "denied")
+      setLocationConsent(enableNetworkLocation ? "granted" : "denied")
+      markConsentPromptSeen()
     },
     [markConsentPromptSeen, setConsentMode],
   )
 
   const chooseConsentPreset = React.useCallback(
     async (preset: ConsentPreset) => {
-      if (busy || requestingLocation) return
+      if (busy) return
       setConsentPreset(preset)
       await applyConsentPreset(preset)
     },
-    [applyConsentPreset, busy, requestingLocation],
+    [applyConsentPreset, busy],
   )
 
   async function handleSubmit(e: React.FormEvent) {
@@ -337,7 +310,7 @@ export default function LoginGate({
                   key={option.id}
                   type="button"
                   onClick={() => void chooseConsentPreset(option.id)}
-                  disabled={busy || requestingLocation}
+                  disabled={busy}
                   className={`rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
                     consentPreset === option.id
                       ? "border-saffron/55 bg-saffron/18 text-ivory"
@@ -348,9 +321,6 @@ export default function LoginGate({
                 </button>
               ))}
             </div>
-            {requestingLocation ? (
-              <p className="text-[11px] text-saffron/80">{tConsent("requesting")}</p>
-            ) : null}
             <p className="text-[11px] text-ivory/52">{t("permissionsGateHint")}</p>
           </div>
 

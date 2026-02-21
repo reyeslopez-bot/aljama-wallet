@@ -145,27 +145,9 @@ describe('LoginGate', () => {
   })
 
   it('applies allow-all permissions before login when selected', async () => {
-    const getCurrentPosition = vi.fn((success: PositionCallback) =>
-      success({
-        coords: {
-          latitude: 25.204849,
-          longitude: 55.270783,
-          accuracy: 20,
-        },
-        timestamp: 1700000000000,
-      } as GeolocationPosition),
-    )
-    Object.defineProperty(navigator, 'geolocation', {
-      value: { getCurrentPosition },
-      configurable: true,
-    })
-
     const { getByPlaceholderText, getByRole } = render(<LoginGate showBackLink={false} />)
 
     fireEvent.click(getByRole('button', { name: 'Allow all' }))
-    await waitFor(() => {
-      expect(getCurrentPosition).toHaveBeenCalled()
-    })
     fireEvent.change(getByPlaceholderText('you@company.com'), {
       target: { value: 'user@example.com' },
     })

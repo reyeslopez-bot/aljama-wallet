@@ -6,7 +6,6 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import {
   getBasicContext,
   getDeviceId,
-  getLocationSnapshot,
   getSessionId,
   getTelemetryConsent,
   onTelemetryConsentChange,
@@ -19,6 +18,8 @@ type TelemetryContextValue = {
   track: (event: string, payload?: Record<string, unknown>) => void
 }
 
+type TelemetryContextSnapshot = Record<string, unknown>
+
 export const TelemetryContext = createContext<TelemetryContextValue>({
   consent: 'unset',
   track: () => {},
@@ -28,7 +29,7 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [consent, setConsent] = useState<TelemetryConsent>('unset')
-  const [context, setContext] = useState<Record<string, unknown>>({})
+  const [context, setContext] = useState<TelemetryContextSnapshot>({})
   const sessionStartRef = useRef<number>(Date.now())
   const pageStartRef = useRef<number>(Date.now())
   const lastPathRef = useRef<string>('')
@@ -50,12 +51,35 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
     const sessionId = getSessionId()
     if (!deviceId || !sessionId) return
 
-    const baseContext = getBasicContext()
+    const baseContext = getBasicContext() as TelemetryContextSnapshot
     setContext(baseContext)
 
     const init = async () => {
-      const location = await getLocationSnapshot()
-      const enriched = location ? { ...baseContext, location } : baseContext
+      let enriched: TelemetryContextSnapshot = baseContext
+      try {
+        const res = await fetch('/api/network-location', { method: 'GET', cache: 'no-store' })
+        const body = (await res.json()) as {
+          ok: boolean
+          location?: {
+            source: 'network' | 'default'
+            latitude: number
+            longitude: number
+            country: string | null
+            region: string | null
+            city: string | null
+            timezone: string
+          }
+        }
+        if (res.ok && body.ok && body.location) {
+          enriched = {
+            ...baseContext,
+            networkLocation: body.location,
+          }
+        }
+      } catch {
+        // keep base context if network location lookup fails
+      }
+
       setContext(enriched)
 
       await sendTelemetryEvent({

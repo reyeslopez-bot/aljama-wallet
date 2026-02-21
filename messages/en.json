@@ -230,12 +230,13 @@
   },
   "map": {
     "label": "Map",
-    "idle": "Default center is Dubai while location access is pending.",
+    "idle": "Default center is Dubai while network location is resolving.",
     "blocked": "Location access is currently off. Click “Use my location” to request again.",
-    "loading": "Requesting location...",
+    "loading": "Resolving network location...",
     "centered": "Centered at",
     "error": "Map error.",
     "useLocation": "Use my location",
+    "useNetworkLocation": "Use network location",
     "loadingTiles": "Loading map tiles...",
     "offline": "Map offline",
     "laws": {
