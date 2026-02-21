@@ -3,6 +3,7 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import MapboxMap from '@/components/ui/MapboxMap.client'
+import { CONSENT_MODE_KEY } from '@/infra/consent/constants'
 
 const locationState = vi.hoisted(() => ({
   consent: 'granted' as 'granted' | 'denied' | 'unset',
@@ -102,6 +103,9 @@ describe('MapboxMap', () => {
   })
 
   it('requests geolocation when location button is clicked', async () => {
+    window.localStorage.setItem('aljama.telemetry.consent', 'granted')
+    window.localStorage.setItem(CONSENT_MODE_KEY, 'allowAll')
+
     const getCurrentPosition = vi.fn((success: PositionCallback) =>
       success({
         coords: {

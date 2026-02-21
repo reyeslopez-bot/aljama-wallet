@@ -342,7 +342,6 @@ export function CreateWalletPanel() {
 
         {showUnlockMessage && (
           <UnlockActionsLink
-            label={tAuth('unlockActions')}
             className="text-xs uppercase tracking-[0.18em] text-ivory/50"
           />
         )}

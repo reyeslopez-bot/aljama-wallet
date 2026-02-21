@@ -20,7 +20,6 @@ function format(n: number) {
 
 export default function CurrentLocation() {
   const t = useTranslations('location')
-  const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === 'unauthenticated'
   const [state, setState] = React.useState<GeoState>({ status: 'idle' })
@@ -154,7 +153,6 @@ export default function CurrentLocation() {
       </button>
       {locked && (
         <UnlockActionsLink
-          label={tAuth('unlockActions')}
           className="text-xs uppercase tracking-[0.18em] text-ivory/50"
         />
       )}

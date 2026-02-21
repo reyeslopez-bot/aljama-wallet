@@ -39,7 +39,6 @@ function toneForNetwork(network: XrplNetwork) {
 export function XrplPanel() {
   useComponentTelemetry('XrplPanel')
   const t = useTranslations('xrpl')
-  const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === 'unauthenticated'
   const [copiedEndpoint, setCopiedEndpoint] = useState<'rpc' | 'wss' | 'explorer' | null>(null)
@@ -286,7 +285,6 @@ export function XrplPanel() {
 
         {locked && (
           <UnlockActionsLink
-            label={tAuth('unlockActions')}
             className="text-xs uppercase tracking-[0.18em] text-ivory/50"
           />
         )}

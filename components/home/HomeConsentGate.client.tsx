@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { useRouter } from 'next/navigation'
-import { getTelemetryConsent } from '@/infra/telemetry/client'
+import { getTelemetryConsent, hasRecognizedDevice } from '@/infra/telemetry/client'
 import { getLocationConsent } from '@/infra/location/client'
 
 type HomeConsentGateProps = {
@@ -23,7 +23,10 @@ export default function HomeConsentGate({ children }: HomeConsentGateProps) {
       telemetryConsent !== 'unset' && locationConsent !== 'unset'
 
     if (!hasAnsweredPermissions) {
-      router.replace(`/${locale}/login`)
+      const loginRoute = hasRecognizedDevice()
+        ? `/${locale}/login`
+        : `/${locale}/login?mode=register`
+      router.replace(loginRoute)
       return
     }
 
@@ -34,4 +37,3 @@ export default function HomeConsentGate({ children }: HomeConsentGateProps) {
 
   return <>{children}</>
 }
-

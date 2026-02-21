@@ -50,7 +50,7 @@ describe('HomeConsentGate', () => {
     )
 
     await waitFor(() => {
-      expect(mocks.replace).toHaveBeenCalledWith('/en/login')
+      expect(mocks.replace).toHaveBeenCalledWith('/en/login?mode=register')
     })
     expect(queryByText('home-content')).toBeNull()
   })
@@ -71,4 +71,3 @@ describe('HomeConsentGate', () => {
     expect(mocks.replace).not.toHaveBeenCalled()
   })
 })
-

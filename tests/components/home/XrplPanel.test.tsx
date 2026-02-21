@@ -90,7 +90,7 @@ describe('XrplPanel', () => {
 
     const refresh = getByRole('button', { name: 'Refresh XRPL snapshot' }) as HTMLButtonElement
     expect(refresh.disabled).toBe(true)
-    expect(getByText('Sign in to unlock actions.')).toBeTruthy()
+    expect(getByText('Sign up to unlock actions.')).toBeTruthy()
   })
 
   it('requests a new snapshot when switching network', async () => {

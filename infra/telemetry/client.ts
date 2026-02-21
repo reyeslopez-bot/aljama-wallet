@@ -55,6 +55,17 @@ export function getDeviceId(): string | null {
   return getOrCreateId(window.localStorage, DEVICE_ID_KEY)
 }
 
+export function hasRecognizedDevice(): boolean {
+  if (!hasWindow()) return false
+  try {
+    const storage = window.localStorage as { getItem?: (key: string) => string | null }
+    if (typeof storage.getItem !== 'function') return false
+    return Boolean(storage.getItem(DEVICE_ID_KEY))
+  } catch {
+    return false
+  }
+}
+
 export function getSessionId(): string | null {
   if (!hasWindow()) return null
   if (getTelemetryConsent() !== 'granted') return null

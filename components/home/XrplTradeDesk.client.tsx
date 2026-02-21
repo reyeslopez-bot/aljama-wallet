@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useTranslations } from 'next-intl'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { TelemetryContext } from '@/components/telemetry/TelemetryProvider.client'
@@ -106,7 +105,6 @@ function isXrpCurrency(currency: string): boolean {
 
 export default function XrplTradeDesk() {
   useComponentTelemetry('XrplTradeDesk')
-  const tAuth = useTranslations('auth')
   const { track } = useContext(TelemetryContext)
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
   const { status: sessionStatus } = useSession()
@@ -849,7 +847,6 @@ export default function XrplTradeDesk() {
 
         {locked ? (
           <UnlockActionsLink
-            label={tAuth('unlockActions')}
             className="text-xs uppercase tracking-[0.18em] text-ivory/50"
           />
         ) : null}

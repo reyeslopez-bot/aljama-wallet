@@ -49,7 +49,7 @@ describe('CreateWalletPanel', () => {
 
     expect(input.disabled).toBe(true)
     expect(button.disabled).toBe(true)
-    expect(getByText('Sign in to unlock actions.')).toBeTruthy()
+    expect(getByText('Sign up to unlock actions.')).toBeTruthy()
   })
 
   it('creates wallet and persists encrypted session on submit', async () => {

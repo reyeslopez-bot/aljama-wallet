@@ -107,12 +107,28 @@ describe('ConsentBanner', () => {
   })
 
   it('essential only stores denied consent and dismisses the popup', async () => {
+    const getCurrentPosition = vi.fn((success: PositionCallback) =>
+      success({
+        coords: {
+          latitude: 25.204849,
+          longitude: 55.270783,
+          accuracy: 20,
+        },
+        timestamp: 1700000000000,
+      } as GeolocationPosition),
+    )
+    Object.defineProperty(navigator, 'geolocation', {
+      value: { getCurrentPosition },
+      configurable: true,
+    })
+
     const { findByRole, queryByRole } = render(<ConsentBanner />)
 
     fireEvent.click(await findByRole('button', { name: 'Essential only' }))
 
     expect(setTelemetryConsentMock).toHaveBeenCalledWith('denied')
-    expect(setLocationConsentMock).toHaveBeenCalledWith('denied')
+    expect(getCurrentPosition).toHaveBeenCalled()
+    expect(setLocationConsentMock).toHaveBeenCalledWith('granted')
 
     await waitFor(() => {
       expect(queryByRole('button', { name: 'Essential only' })).toBeNull()

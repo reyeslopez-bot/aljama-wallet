@@ -19,7 +19,6 @@ export function ConnectWalletPanel() {
   useComponentTelemetry('ConnectWalletPanel')
   const t = useTranslations('connectWallet')
   const tInfo = useTranslations('infoCard')
-  const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus !== 'authenticated'
   const showUnlockMessage = sessionStatus === 'unauthenticated'
@@ -163,7 +162,6 @@ export function ConnectWalletPanel() {
 
         {showUnlockMessage && (
           <UnlockActionsLink
-            label={tAuth('unlockActions')}
             className="text-xs uppercase tracking-[0.18em] text-ivory/50"
           />
         )}

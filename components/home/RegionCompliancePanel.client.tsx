@@ -181,8 +181,7 @@ export default function RegionCompliancePanel() {
         </div>
         {showUnlockMessage && (
           <UnlockActionsLink
-            label={tAuth('unlockActions')}
-            className="mt-2 text-xs uppercase tracking-[0.18em] text-ivory/50"
+            className="mt-4 block text-xs uppercase tracking-[0.18em] text-ivory/50"
           />
         )}
         {saved && (

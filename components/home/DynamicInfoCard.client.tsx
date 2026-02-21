@@ -10,6 +10,10 @@ import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
 import { formatTime24 } from '@/lib/time-format'
 import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
+import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
+import { getTelemetryConsent, onTelemetryConsentChange } from '@/infra/telemetry/client'
+import { CONSENT_MODE_KEY } from '@/infra/consent/constants'
+import { hasRuntimeLocationAccess, onRuntimeLocationAccessChange } from '@/infra/location/runtime'
 
 function formatShortAddress(address: string) {
   const trimmed = address.trim()
@@ -117,6 +121,8 @@ type CardCorner = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
 
 const INFO_CARD_CORNER_KEY = 'aljama.infoCard.corner'
 const CARD_CORNERS: CardCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+const DUBAI_TIMEZONE = 'Asia/Dubai'
+const DUBAI_UTC_LABEL = 'UTC+04:00'
 
 function isCardCorner(value: string | null): value is CardCorner {
   return Boolean(value && CARD_CORNERS.includes(value as CardCorner))
@@ -125,12 +131,15 @@ function isCardCorner(value: string | null): value is CardCorner {
 export default function DynamicInfoCard() {
   const t = useTranslations('infoCard')
   const tActions = useTranslations('actions')
-  const tAuth = useTranslations('auth')
   const tCreate = useTranslations('createWallet')
   const { status: sessionStatus } = useSession()
   const showUnlockMessage = sessionStatus === 'unauthenticated'
   const [hovered, setHovered] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
+  const [locationConsent, setLocationConsent] = useState<'granted' | 'denied' | 'unset'>('unset')
+  const [telemetryConsent, setTelemetryConsentState] = useState<'granted' | 'denied' | 'unset'>('unset')
+  const [consentMode, setConsentMode] = useState<'allowAll' | 'essentialOnly' | 'rejectAll' | null>(null)
+  const [runtimeLocationAccess, setRuntimeLocationAccessState] = useState(false)
   const [isLightTheme, setIsLightTheme] = useState(false)
   const [corner, setCorner] = useState<CardCorner>('top-right')
   const dragControls = useAnimationControls()
@@ -173,12 +182,87 @@ export default function DynamicInfoCard() {
     window.localStorage.setItem(INFO_CARD_CORNER_KEY, corner)
   }, [corner])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const syncConsent = () => setLocationConsent(getLocationConsent())
+    syncConsent()
+    const unsubscribe = onLocationConsentChange(syncConsent)
+    window.addEventListener('storage', syncConsent)
+    window.addEventListener('focus', syncConsent)
+    return () => {
+      unsubscribe()
+      window.removeEventListener('storage', syncConsent)
+      window.removeEventListener('focus', syncConsent)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const syncConsent = () => setTelemetryConsentState(getTelemetryConsent())
+    syncConsent()
+    const unsubscribe = onTelemetryConsentChange(syncConsent)
+    window.addEventListener('storage', syncConsent)
+    window.addEventListener('focus', syncConsent)
+    return () => {
+      unsubscribe()
+      window.removeEventListener('storage', syncConsent)
+      window.removeEventListener('focus', syncConsent)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const syncMode = () => {
+      const value = window.localStorage.getItem(CONSENT_MODE_KEY)
+      if (value === 'allowAll' || value === 'essentialOnly' || value === 'rejectAll') {
+        setConsentMode(value)
+        return
+      }
+      setConsentMode(null)
+    }
+
+    syncMode()
+    window.addEventListener('storage', syncMode)
+    window.addEventListener('focus', syncMode)
+    return () => {
+      window.removeEventListener('storage', syncMode)
+      window.removeEventListener('focus', syncMode)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const syncRuntimeLocation = () => setRuntimeLocationAccessState(hasRuntimeLocationAccess())
+    syncRuntimeLocation()
+    const unsubscribe = onRuntimeLocationAccessChange(syncRuntimeLocation)
+    window.addEventListener('focus', syncRuntimeLocation)
+    return () => {
+      unsubscribe()
+      window.removeEventListener('focus', syncRuntimeLocation)
+    }
+  }, [])
+
   const timeLabel = useMemo(
     () => {
       if (!now) return '--:--'
-      return formatTime24(now)
+      const hasFullPermissions =
+        locationConsent === 'granted' &&
+        telemetryConsent === 'granted' &&
+        consentMode === 'allowAll' &&
+        runtimeLocationAccess
+
+      if (hasFullPermissions) {
+        return formatTime24(now)
+      }
+      const dubaiTime = new Intl.DateTimeFormat(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: DUBAI_TIMEZONE,
+      }).format(now)
+      return `${dubaiTime} ${DUBAI_UTC_LABEL}`
     },
-    [now],
+    [consentMode, locationConsent, now, runtimeLocationAccess, telemetryConsent],
   )
 
   const statusTone: 'ok' | 'warn' | 'bad' | 'idle' = useMemo(() => {
@@ -411,7 +495,6 @@ export default function DynamicInfoCard() {
                 </div>
                 {showUnlockMessage ? (
                   <UnlockActionsLink
-                    label={tAuth('unlockActions')}
                     className="text-[10px] uppercase tracking-[0.14em] text-ivory/45"
                   />
                 ) : null}

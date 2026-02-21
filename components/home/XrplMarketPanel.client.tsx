@@ -132,7 +132,6 @@ function buildTimelineTicks(
 export default function XrplMarketPanel() {
   useComponentTelemetry('XrplMarketPanel')
   const t = useTranslations('market')
-  const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === 'unauthenticated'
   const chartClipId = useId().replace(/:/g, '')
@@ -618,7 +617,6 @@ export default function XrplMarketPanel() {
 
         {locked && (
           <UnlockActionsLink
-            label={tAuth('unlockActions')}
             className="text-xs uppercase tracking-[0.18em] text-ivory/50"
           />
         )}

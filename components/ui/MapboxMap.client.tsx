@@ -9,6 +9,9 @@ import {
   setLocationConsent,
   type LocationConsent,
 } from '@/infra/location/client'
+import { getTelemetryConsent, onTelemetryConsentChange, type TelemetryConsent } from '@/infra/telemetry/client'
+import { CONSENT_MODE_KEY } from '@/infra/consent/constants'
+import { setRuntimeLocationAccess } from '@/infra/location/runtime'
 
 type Coords = {
   lat: number
@@ -24,6 +27,7 @@ type MapboxModule = typeof import('mapbox-gl')
 type MapboxMapInstance = import('mapbox-gl').Map
 type MapboxMarkerInstance = import('mapbox-gl').Marker
 type GovSource = { label: string; href: string }
+type ConsentMode = 'allowAll' | 'essentialOnly' | 'rejectAll' | null
 
 const DEFAULT_CENTER = { lat: 25.204849, lng: 55.270783 } // Dubai fallback
 const REGION_KEY = 'aljama.region'
@@ -70,7 +74,6 @@ export default function MapboxMap() {
   const mapRef = React.useRef<MapboxMapInstance | null>(null)
   const markerRef = React.useRef<MapboxMarkerInstance | null>(null)
   const mapboxModuleRef = React.useRef<MapboxModule | null>(null)
-  const autoRequestedRef = React.useRef(false)
 
   const [coords, setCoords] = React.useState<Coords>({
     lat: DEFAULT_CENTER.lat,
@@ -83,6 +86,8 @@ export default function MapboxMap() {
   const [mapReady, setMapReady] = React.useState(false)
   const [mapError, setMapError] = React.useState<string | null>(null)
   const [locationConsent, setLocationConsentState] = React.useState<LocationConsent>('unset')
+  const [telemetryConsent, setTelemetryConsentState] = React.useState<TelemetryConsent>('unset')
+  const [consentMode, setConsentMode] = React.useState<ConsentMode>(null)
   const [isLightTheme, setIsLightTheme] = React.useState(false)
   const [showRegulations, setShowRegulations] = React.useState(false)
 
@@ -90,10 +95,60 @@ export default function MapboxMap() {
   const mapStyle = isLightTheme ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11'
 
   React.useEffect(() => {
-    return onLocationConsentChange(() => {
-      setLocationConsentState(getLocationConsent())
-    })
+    if (typeof window === 'undefined') return
+
+    const syncLocationConsent = () => setLocationConsentState(getLocationConsent())
+    syncLocationConsent()
+    const unsubscribe = onLocationConsentChange(syncLocationConsent)
+    window.addEventListener('storage', syncLocationConsent)
+    window.addEventListener('focus', syncLocationConsent)
+    return () => {
+      unsubscribe()
+      window.removeEventListener('storage', syncLocationConsent)
+      window.removeEventListener('focus', syncLocationConsent)
+    }
   }, [])
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const syncTelemetryConsent = () => setTelemetryConsentState(getTelemetryConsent())
+    syncTelemetryConsent()
+    const unsubscribe = onTelemetryConsentChange(syncTelemetryConsent)
+    window.addEventListener('storage', syncTelemetryConsent)
+    window.addEventListener('focus', syncTelemetryConsent)
+    return () => {
+      unsubscribe()
+      window.removeEventListener('storage', syncTelemetryConsent)
+      window.removeEventListener('focus', syncTelemetryConsent)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const syncConsentMode = () => {
+      const value = window.localStorage.getItem(CONSENT_MODE_KEY)
+      if (value === 'allowAll' || value === 'essentialOnly' || value === 'rejectAll') {
+        setConsentMode(value)
+      } else {
+        setConsentMode(null)
+      }
+    }
+
+    syncConsentMode()
+    window.addEventListener('storage', syncConsentMode)
+    window.addEventListener('focus', syncConsentMode)
+    return () => {
+      window.removeEventListener('storage', syncConsentMode)
+      window.removeEventListener('focus', syncConsentMode)
+    }
+  }, [])
+
+  const hasFullPermissions =
+    consentMode === 'allowAll' &&
+    telemetryConsent === 'granted' &&
+    locationConsent === 'granted'
 
   React.useEffect(() => {
     if (typeof document === 'undefined') return
@@ -186,15 +241,16 @@ export default function MapboxMap() {
 
     const targetZoom = coords.source === 'device' ? Math.max(map.getZoom(), 14) : Math.max(map.getZoom(), 11.5)
     map.flyTo({ center: lngLat, zoom: targetZoom, essential: true })
-  }, [coords])
+  }, [coords, mapReady])
 
   const requestLocation = React.useCallback(() => {
-    if (locationConsent !== 'granted') return
+    if (!hasFullPermissions) return
     setError(null)
 
     if (!canUseGeolocation() || !('geolocation' in navigator)) {
       setStatus('error')
       setError('Geolocation is blocked by browser policy or not supported.')
+      setRuntimeLocationAccess(false)
       setLocationConsent('denied')
       return
     }
@@ -211,6 +267,7 @@ export default function MapboxMap() {
             timestamp: pos.timestamp,
             source: 'device',
           })
+          setRuntimeLocationAccess(true)
           setLocationConsent('granted')
           setStatus('ready')
         },
@@ -225,24 +282,19 @@ export default function MapboxMap() {
                   : err.message
 
           if (err.code === 1) setLocationConsent('denied')
+          setRuntimeLocationAccess(false)
           setStatus('error')
           setError(msg)
         },
         { enableHighAccuracy: true, timeout: 10_000, maximumAge: 15_000 },
       )
     } catch {
+      setRuntimeLocationAccess(false)
       setLocationConsent('denied')
       setStatus('error')
       setError('Geolocation is blocked by browser policy or not supported.')
     }
-  }, [locationConsent])
-
-  React.useEffect(() => {
-    if (autoRequestedRef.current) return
-    if (locationConsent !== 'granted') return
-    autoRequestedRef.current = true
-    requestLocation()
-  }, [locationConsent, requestLocation])
+  }, [hasFullPermissions])
 
   const regulatoryRegion = React.useMemo(
     () => resolveRegulatoryRegion(coords.lat, coords.lng),
@@ -296,7 +348,7 @@ export default function MapboxMap() {
         <button
           type="button"
           onClick={requestLocation}
-          disabled={status === 'loading' || locationConsent !== 'granted'}
+          disabled={status === 'loading' || !hasFullPermissions}
           className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {t('useLocation')}

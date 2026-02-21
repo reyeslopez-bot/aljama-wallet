@@ -73,7 +73,6 @@ describe('HomeActionButtons', () => {
     expect(create.tabIndex).toBe(-1)
     expect(connect.tabIndex).toBe(-1)
     expect(xrpl.tabIndex).toBe(-1)
-    expect(getByText('Sign in to unlock actions.')).toBeTruthy()
+    expect(getByText('Sign up to unlock actions.')).toBeTruthy()
   })
 })
-

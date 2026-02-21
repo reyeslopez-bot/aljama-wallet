@@ -8,6 +8,7 @@ import WalletButton from '@/components/wallet/ui/WalletButton'
 import { BRAND } from '@/constants/brand'
 import { useLocale, useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
+import { hasRecognizedDevice, onTelemetryConsentChange } from '@/infra/telemetry/client'
 
 const LANGUAGES = [
   { label: 'English', value: 'en' },
@@ -30,6 +31,7 @@ export default function Navbar() {
   const [languageOpen, setLanguageOpen] = useState(false)
   const [activeHash, setActiveHash] = useState('')
   const [theme, setTheme] = useState<ThemeMode>('dark')
+  const [recognizedDevice, setRecognizedDevice] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const languageRef = useRef<HTMLDivElement>(null)
 
@@ -102,6 +104,20 @@ export default function Navbar() {
   }, [])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    const syncRecognition = () => setRecognizedDevice(hasRecognizedDevice())
+    syncRecognition()
+    const unsubscribe = onTelemetryConsentChange(syncRecognition)
+    window.addEventListener('storage', syncRecognition)
+    window.addEventListener('focus', syncRecognition)
+    return () => {
+      unsubscribe()
+      window.removeEventListener('storage', syncRecognition)
+      window.removeEventListener('focus', syncRecognition)
+    }
+  }, [])
+
+  useEffect(() => {
     setMenuOpen(false)
     setLanguageOpen(false)
     setActiveHash(window.location.hash ?? '')
@@ -118,6 +134,8 @@ export default function Navbar() {
     [{ label: t('xrpl'), href: `/${locale}/#xrpl` }],
     [{ label: t('tradeDesk'), href: `/${locale}/#trade-desk` }],
   ]
+  const authCtaLabel = recognizedDevice ? t('signIn') : t('signUp')
+  const authCtaHref = recognizedDevice ? `/${locale}/login` : `/${locale}/login?mode=register`
 
   return (
     <nav
@@ -254,7 +272,7 @@ export default function Navbar() {
                 ))}
                 {!isAuthed && (
                   <Link
-                    href={`/${locale}/login`}
+                    href={authCtaHref}
                     className={`block rounded-xl px-3 py-2 text-sm transition ${
                       isLight
                         ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
@@ -262,7 +280,7 @@ export default function Navbar() {
                     }`}
                     role="menuitem"
                   >
-                    {t('signIn')}
+                    {authCtaLabel}
                   </Link>
                 )}
               </div>
@@ -376,14 +394,14 @@ export default function Navbar() {
 
           {!isAuthed && (
             <Link
-              href={`/${locale}/login`}
+              href={authCtaHref}
               className={`hidden rounded-full border px-4 py-2 text-sm font-medium transition md:inline-flex ${
                 isLight
                   ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
                   : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
               }`}
             >
-              {t('signIn')}
+              {authCtaLabel}
             </Link>
           )}
           {showWallet && <WalletButton />}

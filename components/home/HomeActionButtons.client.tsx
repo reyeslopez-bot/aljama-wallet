@@ -20,7 +20,6 @@ const surface = (bg: string) => ({
 
 export default function HomeActionButtons() {
   const t = useTranslations("actions")
-  const tAuth = useTranslations("auth")
   const locale = useLocale()
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === "unauthenticated"
@@ -77,7 +76,6 @@ export default function HomeActionButtons() {
       </div>
       {locked && (
         <UnlockActionsLink
-          label={tAuth('unlockActions')}
           className="mt-4 block w-full text-center text-xs uppercase tracking-[0.18em] text-saffron/75"
         />
       )}

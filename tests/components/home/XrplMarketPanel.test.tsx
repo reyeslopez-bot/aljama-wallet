@@ -124,6 +124,6 @@ describe('XrplMarketPanel', () => {
     expect(xrpl.disabled).toBe(true)
     expect(reference.disabled).toBe(true)
     expect(refresh.disabled).toBe(true)
-    expect(getByText('Sign in to unlock actions.')).toBeTruthy()
+    expect(getByText('Sign up to unlock actions.')).toBeTruthy()
   })
 })

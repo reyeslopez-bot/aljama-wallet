@@ -7,7 +7,8 @@ import {
   getLocationConsent,
   setLocationConsent,
 } from '@/infra/location/client'
-import { CONSENT_PROMPT_SESSION_KEY } from '@/infra/consent/constants'
+import { CONSENT_MODE_KEY, CONSENT_PROMPT_SESSION_KEY } from '@/infra/consent/constants'
+import { setRuntimeLocationAccess } from '@/infra/location/runtime'
 import { useTranslations } from 'next-intl'
 import TextScramble from '@/components/ui/TextScramble.client'
 import { useSession } from 'next-auth/react'
@@ -143,24 +144,29 @@ export default function ConsentBanner() {
     setOpen(false)
   }
 
+  function setConsentMode(mode: 'rejectAll' | 'essentialOnly' | 'allowAll') {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(CONSENT_MODE_KEY, mode)
+  }
+
   function rejectAll() {
+    setConsentMode('rejectAll')
+    setRuntimeLocationAccess(false)
     setTelemetryConsent('denied')
     setLocationConsent('denied')
     closePrompt()
   }
 
-  function essentialOnly() {
-    // "Essential" keeps only required app functionality and disables optional location + telemetry.
-    setTelemetryConsent('denied')
-    setLocationConsent('denied')
-    closePrompt()
-  }
-
-  function allowAll() {
-    setTelemetryConsent('granted')
+  function requestLocationPermission(
+    nextTelemetryConsent: 'granted' | 'denied',
+    mode: 'essentialOnly' | 'allowAll',
+  ) {
+    setConsentMode(mode)
+    setTelemetryConsent(nextTelemetryConsent)
     setRequesting(true)
 
     if (!canUseGeolocation() || !('geolocation' in navigator)) {
+      setRuntimeLocationAccess(false)
       setLocationConsent('denied')
       setRequesting(false)
       closePrompt()
@@ -170,11 +176,13 @@ export default function ConsentBanner() {
     try {
       navigator.geolocation.getCurrentPosition(
         () => {
+          setRuntimeLocationAccess(true)
           setLocationConsent('granted')
           setRequesting(false)
           closePrompt()
         },
         () => {
+          setRuntimeLocationAccess(false)
           setLocationConsent('denied')
           setRequesting(false)
           closePrompt()
@@ -182,10 +190,19 @@ export default function ConsentBanner() {
         { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 },
       )
     } catch {
+      setRuntimeLocationAccess(false)
       setLocationConsent('denied')
       setRequesting(false)
       closePrompt()
     }
+  }
+
+  function essentialOnly() {
+    requestLocationPermission('denied', 'essentialOnly')
+  }
+
+  function allowAll() {
+    requestLocationPermission('granted', 'allowAll')
   }
 
   return (
