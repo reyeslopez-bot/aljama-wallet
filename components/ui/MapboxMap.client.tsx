@@ -23,10 +23,30 @@ type UiRegion = 'us' | 'eu' | 'mena' | 'apac' | 'latam'
 type MapboxModule = typeof import('mapbox-gl')
 type MapboxMapInstance = import('mapbox-gl').Map
 type MapboxMarkerInstance = import('mapbox-gl').Marker
+type GovSource = { label: string; href: string }
 
 const DEFAULT_CENTER = { lat: 25.204849, lng: 55.270783 } // Dubai fallback
 const REGION_KEY = 'aljama.region'
 const REGION_SYNC_EVENT = 'aljama:region-sync'
+const GOV_SOURCES: Record<RegulatoryRegion, GovSource[]> = {
+  uae: [
+    { label: 'Dubai Virtual Assets Regulatory Authority (VARA)', href: 'https://www.vara.ae/' },
+  ],
+  israel: [
+    { label: 'Israel Securities Authority (ISA)', href: 'https://www.isa.gov.il/' },
+  ],
+  eu: [
+    { label: 'European Securities and Markets Authority (ESMA)', href: 'https://www.esma.europa.eu/' },
+    { label: 'EUR-Lex MiCA Regulation (EU) 2023/1114', href: 'https://eur-lex.europa.eu/eli/reg/2023/1114/oj' },
+  ],
+  us: [
+    { label: 'Financial Crimes Enforcement Network (FinCEN)', href: 'https://www.fincen.gov/' },
+    { label: 'U.S. Securities and Exchange Commission (SEC)', href: 'https://www.sec.gov/' },
+  ],
+  global: [
+    { label: 'Financial Action Task Force (FATF)', href: 'https://www.fatf-gafi.org/' },
+  ],
+}
 
 function resolveRegulatoryRegion(lat: number, lng: number): RegulatoryRegion {
   if (lat >= 22 && lat <= 27.5 && lng >= 51 && lng <= 57) return 'uae'
@@ -330,6 +350,23 @@ export default function MapboxMap() {
               <li>{t(`laws.${regulatoryRegion}.item3`)}</li>
             </ul>
             <p className="mt-3 text-[11px] text-ivory/45">{t('laws.disclaimer')}</p>
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-ivory/45">{t('laws.sourcesTitle')}</p>
+              <ul className="mt-2 space-y-1.5 text-[11px] text-ivory/65">
+                {GOV_SOURCES[regulatoryRegion].map((source) => (
+                  <li key={source.href}>
+                    <a
+                      href={source.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline decoration-white/25 underline-offset-2 transition hover:text-ivory hover:decoration-ivory/60"
+                    >
+                      {source.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </>
         )}
       </div>

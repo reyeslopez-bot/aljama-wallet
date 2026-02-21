@@ -7,10 +7,18 @@ import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
+import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
+
+function formatShortAddress(address: string | undefined): string {
+  if (!address) return '—'
+  if (address.length <= 16) return address
+  return `${address.slice(0, 8)}...${address.slice(-6)}`
+}
 
 export function ConnectWalletPanel() {
   useComponentTelemetry('ConnectWalletPanel')
   const t = useTranslations('connectWallet')
+  const tInfo = useTranslations('infoCard')
   const tAuth = useTranslations('auth')
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus !== 'authenticated'
@@ -33,6 +41,13 @@ export function ConnectWalletPanel() {
   const canConnect = hydrated ? Boolean(preferredConnector) : true
   const displayConnected = hydrated ? isConnected : false
   const connectLabel = displayConnected ? t('buttonDisconnect') : t('buttonConnect')
+  const activeAddress = displayConnected ? address : undefined
+  const activeChainLabel = displayConnected
+    ? chain?.name ?? (chain?.id ? `Chain ${chain.id}` : '—')
+    : '—'
+  const connectorLabel = displayConnected
+    ? accountConnector?.name ?? preferredConnector?.name ?? '—'
+    : preferredConnector?.name ?? t('status.noConnector')
   const statusLabel = !hydrated
     ? t('status.ready')
     : !canConnect
@@ -71,7 +86,7 @@ export function ConnectWalletPanel() {
   ])
 
   return (
-    <section className="surface-panel panel-glow-lapis relative p-7 sm:p-8">
+    <section className="surface-panel panel-glow-lapis relative h-full p-7 sm:p-8">
       <div className="absolute inset-x-8 top-5 ornament-line" />
 
       <header className="relative flex items-center justify-between gap-3">
@@ -88,6 +103,23 @@ export function ConnectWalletPanel() {
       </header>
 
       <div className="relative mt-6 space-y-4">
+        <div className="surface-soft rounded-2xl border border-white/10 bg-white/5 p-4 text-xs">
+          <div className="grid gap-2 text-ivory/75">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-ivory/50">{tInfo('wallet')}</span>
+              <span className="font-mono text-ivory/85">{formatShortAddress(activeAddress)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-ivory/50">{tInfo('network')}</span>
+              <span className="text-ivory/85">{activeChainLabel}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-ivory/50">{tInfo('connectionMethod')}</span>
+              <span className="text-ivory/85">{connectorLabel}</span>
+            </div>
+          </div>
+        </div>
+
         <div className="surface-inner p-4">
           {displayConnected ? (
             <div className="space-y-2">
@@ -130,9 +162,10 @@ export function ConnectWalletPanel() {
         </motion.button>
 
         {showUnlockMessage && (
-          <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
-            {tAuth('unlockActions')}
-          </p>
+          <UnlockActionsLink
+            label={tAuth('unlockActions')}
+            className="text-xs uppercase tracking-[0.18em] text-ivory/50"
+          />
         )}
 
         {hydrated && !canConnect ? (

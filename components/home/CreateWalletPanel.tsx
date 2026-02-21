@@ -8,6 +8,7 @@ import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import { buildOnRampUrl, isUsingDefaultOnRampTemplate } from '@/lib/payment/onramp'
+import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
 type WalletPreview = {
   address: string
@@ -340,9 +341,10 @@ export function CreateWalletPanel() {
         </div>
 
         {showUnlockMessage && (
-          <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
-            {tAuth('unlockActions')}
-          </p>
+          <UnlockActionsLink
+            label={tAuth('unlockActions')}
+            className="text-xs uppercase tracking-[0.18em] text-ivory/50"
+          />
         )}
 
         {passphraseValidation.hasValue && (

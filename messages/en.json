@@ -3,7 +3,9 @@
     "overview": "Overview",
     "create": "Create",
     "connect": "Connect",
+    "createConnect": "Create + Connect",
     "xrpl": "XRPL",
+    "tradeDesk": "Trade Desk",
     "about": "About",
     "contact": "Contact",
     "menu": "Menu",
@@ -26,8 +28,8 @@
       "mainnetValue": "EVM-first + XRPL-ready",
       "mainnetDetail": "Production EVM rails with XRPL network controls for multi-ledger operations.",
       "securityLabel": "Security model",
-      "securityValue": "Encrypted custody controls",
-      "securityDetail": "Policy-gated signing, scoped permissions, and auditable vault actions.",
+      "securityValue": "Encrypted custody",
+      "securityDetail": "Policy-gated signing and auditable actions.",
       "uxLabel": "UX philosophy",
       "uxValue": "Guided operational flows",
       "uxDetail": "Step-by-step actions with clear state, risk cues, and recovery paths."
@@ -242,6 +244,7 @@
       "jurisdiction": "Jurisdiction:",
       "showMore": "Show more",
       "showLess": "Show less",
+      "sourcesTitle": "Government sources",
       "disclaimer": "Informational only, not legal advice. Confirm current obligations with local counsel.",
       "uae": {
         "label": "UAE - Dubai",

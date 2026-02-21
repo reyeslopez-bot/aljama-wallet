@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import { canUseGeolocation } from '@/infra/location/client'
 import { formatTime24 } from '@/lib/time-format'
+import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
 type GeoState =
   | { status: 'idle' }
@@ -152,9 +153,10 @@ export default function CurrentLocation() {
         {t('useLocation')}
       </button>
       {locked && (
-        <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
-          {tAuth('unlockActions')}
-        </p>
+        <UnlockActionsLink
+          label={tAuth('unlockActions')}
+          className="text-xs uppercase tracking-[0.18em] text-ivory/50"
+        />
       )}
     </div>
   )

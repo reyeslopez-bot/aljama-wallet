@@ -106,7 +106,7 @@ describe('XrplTradeDesk', () => {
     })
 
     fireEvent.change(getByPlaceholderText('Issuer address'), { target: { value: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe' } })
-    fireEvent.change(getByPlaceholderText('Currency'), { target: { value: 'USD' } })
+    fireEvent.change(getByRole('combobox', { name: 'Trustline currency' }), { target: { value: 'USD' } })
     fireEvent.change(getByPlaceholderText('Limit'), { target: { value: '250' } })
 
     fireEvent.click(getByRole('button', { name: 'Submit Trustline' }))

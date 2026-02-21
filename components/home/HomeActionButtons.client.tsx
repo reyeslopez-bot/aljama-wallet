@@ -5,6 +5,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { useLocale, useTranslations } from "next-intl"
 import { useSession } from "next-auth/react"
+import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
 type Btn =
   | { kind: "anchor"; label: string; href: string; bg: string }
@@ -75,9 +76,10 @@ export default function HomeActionButtons() {
         ))}
       </div>
       {locked && (
-        <p className="mt-4 text-center text-xs uppercase tracking-[0.18em] text-saffron/75">
-          {tAuth("unlockActions")}
-        </p>
+        <UnlockActionsLink
+          label={tAuth('unlockActions')}
+          className="mt-4 block w-full text-center text-xs uppercase tracking-[0.18em] text-saffron/75"
+        />
       )}
     </div>
   )

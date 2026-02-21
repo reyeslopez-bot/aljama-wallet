@@ -7,6 +7,7 @@ import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import { formatTime24 } from '@/lib/time-format'
+import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
 type MarketAsset = {
   id: string
@@ -616,9 +617,10 @@ export default function XrplMarketPanel() {
         </motion.button>
 
         {locked && (
-          <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">
-            {tAuth('unlockActions')}
-          </p>
+          <UnlockActionsLink
+            label={tAuth('unlockActions')}
+            className="text-xs uppercase tracking-[0.18em] text-ivory/50"
+          />
         )}
       </div>
     </section>

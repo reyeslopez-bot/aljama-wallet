@@ -9,6 +9,7 @@ import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
 import { formatTime24 } from '@/lib/time-format'
 import { useSession } from 'next-auth/react'
+import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
 function formatShortAddress(address: string) {
   const trimmed = address.trim()
@@ -409,7 +410,10 @@ export default function DynamicInfoCard() {
                   </button>
                 </div>
                 {showUnlockMessage ? (
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-ivory/45">{tAuth('unlockActions')}</p>
+                  <UnlockActionsLink
+                    label={tAuth('unlockActions')}
+                    className="text-[10px] uppercase tracking-[0.14em] text-ivory/45"
+                  />
                 ) : null}
               </motion.div>
             ) : (

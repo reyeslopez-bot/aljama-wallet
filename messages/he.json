@@ -3,7 +3,9 @@
     "overview": "סקירה",
     "create": "יצירה",
     "connect": "חיבור",
+    "createConnect": "יצירה + חיבור",
     "xrpl": "XRPL",
+    "tradeDesk": "שולחן מסחר",
     "about": "אודות",
     "contact": "צור קשר",
     "menu": "תפריט",
@@ -242,6 +244,7 @@
       "jurisdiction": "שיפוט:",
       "showMore": "הצגת עוד",
       "showLess": "הצגת פחות",
+      "sourcesTitle": "מקורות ממשלתיים",
       "disclaimer": "למידע בלבד, לא ייעוץ משפטי. יש לאמת חובות עדכניות עם יועץ משפטי מקומי.",
       "uae": {
         "label": "איחוד האמירויות - דובאי",

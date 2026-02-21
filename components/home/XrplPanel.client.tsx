@@ -11,6 +11,7 @@ import {
   type XrplNetwork,
 } from '@/lib/xrpl-networks'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
+import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
 type XrplAccount = {
   address: string
@@ -284,7 +285,10 @@ export function XrplPanel() {
         </motion.button>
 
         {locked && (
-          <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">{tAuth('unlockActions')}</p>
+          <UnlockActionsLink
+            label={tAuth('unlockActions')}
+            className="text-xs uppercase tracking-[0.18em] text-ivory/50"
+          />
         )}
       </div>
     </section>

@@ -114,11 +114,9 @@ export default function Navbar() {
 
   const menuGroups = [
     [{ label: t('overview'), href: `/${locale}/#overview` }],
-    [
-      { label: t('create'), href: `/${locale}/#create` },
-      { label: t('connect'), href: `/${locale}/#connect` },
-    ],
+    [{ label: t('createConnect'), href: `/${locale}/#create` }],
     [{ label: t('xrpl'), href: `/${locale}/#xrpl` }],
+    [{ label: t('tradeDesk'), href: `/${locale}/#trade-desk` }],
   ]
 
   return (

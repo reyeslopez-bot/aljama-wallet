@@ -3,10 +3,12 @@
 import { motion } from 'framer-motion'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { useTranslations } from 'next-intl'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { TelemetryContext } from '@/components/telemetry/TelemetryProvider.client'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
+import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
 type AssetsResponse = {
   ok: true
@@ -104,6 +106,7 @@ function isXrpCurrency(currency: string): boolean {
 
 export default function XrplTradeDesk() {
   useComponentTelemetry('XrplTradeDesk')
+  const tAuth = useTranslations('auth')
   const { track } = useContext(TelemetryContext)
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
   const { status: sessionStatus } = useSession()
@@ -845,7 +848,10 @@ export default function XrplTradeDesk() {
         </motion.button>
 
         {locked ? (
-          <p className="text-xs uppercase tracking-[0.18em] text-ivory/50">Sign in to unlock actions.</p>
+          <UnlockActionsLink
+            label={tAuth('unlockActions')}
+            className="text-xs uppercase tracking-[0.18em] text-ivory/50"
+          />
         ) : null}
         {actionMessage ? <p className="text-sm text-jade">{actionMessage}</p> : null}
         {actionError ? <p className="text-sm text-red-300">{actionError}</p> : null}
