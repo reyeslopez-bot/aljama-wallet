@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useTranslations } from 'next-intl'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
-import { XRPL_NETWORKS, XRPL_NETWORKS_BY_ID, type XrplNetworkId } from '@/lib/xrpl-networks'
+import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
 import { formatTime24 } from '@/lib/time-format'
 import { useSession } from 'next-auth/react'
 
@@ -143,7 +143,6 @@ export default function DynamicInfoCard() {
   const lastEvent = useDynamicInfoStore((s) => s.lastEvent)
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
   const selectedXrplNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
-  const setSelectedXrplNetworkId = useXrplNetworkStore((s) => s.setSelectedNetworkId)
 
   useEffect(() => {
     setNow(new Date())
@@ -321,29 +320,13 @@ export default function DynamicInfoCard() {
             <span className="uppercase tracking-[0.16em] text-ivory/55">{t('xrplNetwork')}</span>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 font-semibold tracking-wide text-ivory/85">
               <span className={`h-1.5 w-1.5 rounded-full ${xrplBadgeTone}`} />
-              <select
-                aria-label={t('xrplNetwork')}
-                value={selectedXrplNetworkId}
-                onPointerDown={(event) => event.stopPropagation()}
-                onChange={(event) => {
-                  const nextNetworkId = event.target.value as XrplNetworkId
-                  if (nextNetworkId === selectedXrplNetworkId) return
-                  setSelectedXrplNetworkId(nextNetworkId)
-                  pushEvent({
-                    kind: 'info',
-                    message: `${t('xrplNetwork')}: ${XRPL_NETWORKS_BY_ID[nextNetworkId].name}`,
-                  })
-                }}
-                className={`cursor-pointer select-text bg-transparent text-[11px] font-semibold tracking-wide focus:outline-none ${
+              <span
+                className={`text-[11px] font-semibold tracking-wide ${
                   isLightTheme ? 'text-[#1d2f45]/90' : 'text-ivory/85'
                 }`}
               >
-                {XRPL_NETWORKS.map((network) => (
-                  <option key={network.id} value={network.id} className="bg-black text-ivory">
-                    {network.name}
-                  </option>
-                ))}
-              </select>
+                {selectedXrplNetwork.name}
+              </span>
             </div>
           </div>
         </div>

@@ -23,14 +23,14 @@
     },
     "stats": {
       "mainnetLabel": "Mainnet posture",
-      "mainnetValue": "EVM-first",
-      "mainnetDetail": "Wagmi + Ethers production stack",
+      "mainnetValue": "EVM-first + XRPL-ready",
+      "mainnetDetail": "Production EVM rails with XRPL network controls for multi-ledger operations.",
       "securityLabel": "Security model",
-      "securityValue": "Encrypted custody",
-      "securityDetail": "Policy-governed signing with vault controls",
+      "securityValue": "Encrypted custody controls",
+      "securityDetail": "Policy-gated signing, scoped permissions, and auditable vault actions.",
       "uxLabel": "UX philosophy",
-      "uxValue": "Guided flows",
-      "uxDetail": "Clear sequencing, minimal surface noise"
+      "uxValue": "Guided operational flows",
+      "uxDetail": "Step-by-step actions with clear state, risk cues, and recovery paths."
     },
     "vaultIntel": {
       "label": "Vault Intelligence",

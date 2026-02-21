@@ -22,6 +22,7 @@ type HeroStatBlock = {
   id: string
   label: string
   value: string
+  detail: string
 }
 
 type HeroOverviewSectionProps = {
@@ -56,6 +57,7 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
             <div key={stat.id} className={`${SURFACE_SOFT} p-5`}>
               <p className="text-[11px] uppercase tracking-[0.2em] text-saffron/80">{stat.label}</p>
               <p className="mt-3 text-2xl font-semibold text-ivory">{stat.value}</p>
+              <p className="mt-2 text-sm leading-relaxed text-ivory/72">{stat.detail}</p>
             </div>
           ))}
         </div>
@@ -119,16 +121,19 @@ export default function HomeContent() {
       id: 'mainnet',
       label: tHome('stats.mainnetLabel'),
       value: tHome('stats.mainnetValue'),
+      detail: tHome('stats.mainnetDetail'),
     },
     {
       id: 'security',
       label: tHome('stats.securityLabel'),
       value: tHome('stats.securityValue'),
+      detail: tHome('stats.securityDetail'),
     },
     {
       id: 'ux',
       label: tHome('stats.uxLabel'),
       value: tHome('stats.uxValue'),
+      detail: tHome('stats.uxDetail'),
     },
   ] satisfies HeroStatBlock[]
 

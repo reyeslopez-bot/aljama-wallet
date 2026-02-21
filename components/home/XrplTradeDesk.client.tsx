@@ -81,6 +81,27 @@ function shortHash(value: string | null | undefined): string {
   return `${value.slice(0, 8)}...${value.slice(-8)}`
 }
 
+type CurrencyOption = {
+  code: string
+  label: string
+}
+
+const TRADE_CURRENCY_OPTIONS: CurrencyOption[] = [
+  { code: 'XRP', label: 'XRP (Ripple)' },
+  { code: 'USD', label: 'USD (US Dollar)' },
+  { code: 'EUR', label: 'EUR (Euro)' },
+  { code: 'AED', label: 'AED (UAE Dirham)' },
+  { code: 'SAR', label: 'SAR (Saudi Riyal)' },
+  { code: 'JPY', label: 'JPY (Japanese Yen)' },
+  { code: 'XAU', label: 'XAU (Gold)' },
+]
+
+const ISSUED_CURRENCY_OPTIONS = TRADE_CURRENCY_OPTIONS.filter((option) => option.code !== 'XRP')
+
+function isXrpCurrency(currency: string): boolean {
+  return currency.trim().toUpperCase() === 'XRP'
+}
+
 export default function XrplTradeDesk() {
   useComponentTelemetry('XrplTradeDesk')
   const { track } = useContext(TelemetryContext)
@@ -203,13 +224,20 @@ export default function XrplTradeDesk() {
     setOffersLoading(true)
     setOffersError(null)
     try {
+      const takerGetsCurrency = pair.takerGetsCurrency.trim().toUpperCase()
+      const takerPaysCurrency = pair.takerPaysCurrency.trim().toUpperCase()
+
       const params = new URLSearchParams({
         network: selectedNetworkId,
-        takerGetsCurrency: pair.takerGetsCurrency,
-        takerPaysCurrency: pair.takerPaysCurrency,
+        takerGetsCurrency,
+        takerPaysCurrency,
       })
-      if (pair.takerGetsIssuer.trim()) params.set('takerGetsIssuer', pair.takerGetsIssuer.trim())
-      if (pair.takerPaysIssuer.trim()) params.set('takerPaysIssuer', pair.takerPaysIssuer.trim())
+      if (!isXrpCurrency(takerGetsCurrency) && pair.takerGetsIssuer.trim()) {
+        params.set('takerGetsIssuer', pair.takerGetsIssuer.trim())
+      }
+      if (!isXrpCurrency(takerPaysCurrency) && pair.takerPaysIssuer.trim()) {
+        params.set('takerPaysIssuer', pair.takerPaysIssuer.trim())
+      }
 
       const res = await fetch(`/api/xrpl/orderbook?${params.toString()}`)
       const body = (await res.json()) as OrderbookResponse | { ok: false; error: string }
@@ -307,6 +335,9 @@ export default function XrplTradeDesk() {
           <p className="text-sm text-ivory/70">
             Unified control surface for trustlines, NFT actions, and XRPL order flow.
           </p>
+          <p className="mt-1 text-xs text-ivory/55">
+            Currency selectors focus on XRP, USD, EUR, AED, SAR, JPY, and XAU.
+          </p>
         </div>
         <div className="text-right">
           <p className="text-xs uppercase tracking-[0.16em] text-ivory/50">Region</p>
@@ -360,29 +391,57 @@ export default function XrplTradeDesk() {
             </button>
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <input
+            <select
               value={pair.takerGetsCurrency}
-              onChange={(event) => setPair((prev) => ({ ...prev, takerGetsCurrency: event.target.value }))}
+              onChange={(event) => {
+                const currency = event.target.value
+                setPair((prev) => ({
+                  ...prev,
+                  takerGetsCurrency: currency,
+                  takerGetsIssuer: isXrpCurrency(currency) ? '' : prev.takerGetsIssuer,
+                }))
+              }}
               className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory"
-              placeholder="Taker Gets"
-            />
+              aria-label="Taker gets currency"
+            >
+              {TRADE_CURRENCY_OPTIONS.map((option) => (
+                <option key={`orderbook-gets-${option.code}`} value={option.code} className="bg-black text-ivory">
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <input
               value={pair.takerGetsIssuer}
               onChange={(event) => setPair((prev) => ({ ...prev, takerGetsIssuer: event.target.value }))}
-              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory"
-              placeholder="Gets issuer"
+              disabled={isXrpCurrency(pair.takerGetsCurrency)}
+              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder={isXrpCurrency(pair.takerGetsCurrency) ? 'No issuer for XRP' : 'Gets issuer'}
             />
-            <input
+            <select
               value={pair.takerPaysCurrency}
-              onChange={(event) => setPair((prev) => ({ ...prev, takerPaysCurrency: event.target.value }))}
+              onChange={(event) => {
+                const currency = event.target.value
+                setPair((prev) => ({
+                  ...prev,
+                  takerPaysCurrency: currency,
+                  takerPaysIssuer: isXrpCurrency(currency) ? '' : prev.takerPaysIssuer,
+                }))
+              }}
               className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory"
-              placeholder="Taker Pays"
-            />
+              aria-label="Taker pays currency"
+            >
+              {TRADE_CURRENCY_OPTIONS.map((option) => (
+                <option key={`orderbook-pays-${option.code}`} value={option.code} className="bg-black text-ivory">
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <input
               value={pair.takerPaysIssuer}
               onChange={(event) => setPair((prev) => ({ ...prev, takerPaysIssuer: event.target.value }))}
-              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory"
-              placeholder="Pays issuer"
+              disabled={isXrpCurrency(pair.takerPaysCurrency)}
+              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder={isXrpCurrency(pair.takerPaysCurrency) ? 'No issuer for XRP' : 'Pays issuer'}
             />
           </div>
           {offersLoading ? <p className="text-sm text-ivory/60">Loading orderbook...</p> : null}
@@ -493,12 +552,18 @@ export default function XrplTradeDesk() {
             className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
           />
           <div className="grid grid-cols-2 gap-2">
-            <input
+            <select
               value={trustlineForm.currency}
               onChange={(event) => setTrustlineForm((prev) => ({ ...prev, currency: event.target.value }))}
-              placeholder="Currency"
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
+              aria-label="Trustline currency"
+            >
+              {ISSUED_CURRENCY_OPTIONS.map((option) => (
+                <option key={`trustline-${option.code}`} value={option.code} className="bg-black text-ivory">
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <input
               value={trustlineForm.limit}
               onChange={(event) => setTrustlineForm((prev) => ({ ...prev, limit: event.target.value }))}
@@ -553,13 +618,17 @@ export default function XrplTradeDesk() {
             event.preventDefault()
             void submitAction('/api/xrpl/trade/offer/create', {
               takerGets: {
-                currency: offerForm.takerGetsCurrency,
-                issuer: offerForm.takerGetsIssuer || undefined,
+                currency: offerForm.takerGetsCurrency.trim().toUpperCase(),
+                issuer: isXrpCurrency(offerForm.takerGetsCurrency)
+                  ? undefined
+                  : offerForm.takerGetsIssuer || undefined,
                 value: offerForm.takerGetsValue,
               },
               takerPays: {
-                currency: offerForm.takerPaysCurrency,
-                issuer: offerForm.takerPaysIssuer || undefined,
+                currency: offerForm.takerPaysCurrency.trim().toUpperCase(),
+                issuer: isXrpCurrency(offerForm.takerPaysCurrency)
+                  ? undefined
+                  : offerForm.takerPaysIssuer || undefined,
                 value: offerForm.takerPaysValue,
               },
             }, 'offer_create')
@@ -567,17 +636,31 @@ export default function XrplTradeDesk() {
         >
           <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Create Token Offer</p>
           <div className="grid grid-cols-2 gap-2">
-            <input
+            <select
               value={offerForm.takerGetsCurrency}
-              onChange={(event) => setOfferForm((prev) => ({ ...prev, takerGetsCurrency: event.target.value }))}
-              placeholder="Gets currency"
+              onChange={(event) => {
+                const currency = event.target.value
+                setOfferForm((prev) => ({
+                  ...prev,
+                  takerGetsCurrency: currency,
+                  takerGetsIssuer: isXrpCurrency(currency) ? '' : prev.takerGetsIssuer,
+                }))
+              }}
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
+              aria-label="Offer gets currency"
+            >
+              {TRADE_CURRENCY_OPTIONS.map((option) => (
+                <option key={`offer-gets-${option.code}`} value={option.code} className="bg-black text-ivory">
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <input
               value={offerForm.takerGetsIssuer}
               onChange={(event) => setOfferForm((prev) => ({ ...prev, takerGetsIssuer: event.target.value }))}
-              placeholder="Gets issuer"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+              placeholder={isXrpCurrency(offerForm.takerGetsCurrency) ? 'No issuer for XRP' : 'Gets issuer'}
+              disabled={isXrpCurrency(offerForm.takerGetsCurrency)}
+              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
             />
             <input
               value={offerForm.takerGetsValue}
@@ -585,17 +668,31 @@ export default function XrplTradeDesk() {
               placeholder="Gets value"
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
-            <input
+            <select
               value={offerForm.takerPaysCurrency}
-              onChange={(event) => setOfferForm((prev) => ({ ...prev, takerPaysCurrency: event.target.value }))}
-              placeholder="Pays currency"
+              onChange={(event) => {
+                const currency = event.target.value
+                setOfferForm((prev) => ({
+                  ...prev,
+                  takerPaysCurrency: currency,
+                  takerPaysIssuer: isXrpCurrency(currency) ? '' : prev.takerPaysIssuer,
+                }))
+              }}
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
+              aria-label="Offer pays currency"
+            >
+              {TRADE_CURRENCY_OPTIONS.map((option) => (
+                <option key={`offer-pays-${option.code}`} value={option.code} className="bg-black text-ivory">
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <input
               value={offerForm.takerPaysIssuer}
               onChange={(event) => setOfferForm((prev) => ({ ...prev, takerPaysIssuer: event.target.value }))}
-              placeholder="Pays issuer"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+              placeholder={isXrpCurrency(offerForm.takerPaysCurrency) ? 'No issuer for XRP' : 'Pays issuer'}
+              disabled={isXrpCurrency(offerForm.takerPaysCurrency)}
+              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
             />
             <input
               value={offerForm.takerPaysValue}
