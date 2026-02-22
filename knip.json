@@ -1,18 +1,23 @@
 {
-    "entry": [
+  "entry": [
     "app/**/*.{ts,tsx}",
     "components/**/*.{ts,tsx}",
     "infra/**/*.{ts,tsx}",
     "lib/**/*.{ts,tsx}",
     "services/**/*.{ts,tsx}",
+    "scripts/**/*.{ts,tsx}",
+    "prisma/**/*.ts",
     "next.config.*"
-    ],
+  ],
   "ignore": [
     "node_modules/**",
     ".next/**",
     "tests/**",
-    "prisma/**",
+    "prisma/generated/**",
     "generated/**",
     "global.d.ts"
+  ],
+  "ignoreDependencies": [
+    "@walletconnect/ethereum-provider"
   ]
 }

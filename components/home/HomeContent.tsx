@@ -41,7 +41,7 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
       <div className="absolute inset-x-10 top-6 ornament-line" />
       <div className="absolute right-10 top-10 h-20 w-20 rotate-12 rounded-[28px] border border-white/10 bg-white/5 opacity-40" />
 
-      <div className="relative z-10 max-w-flex space-y-8">
+      <div className="relative z-10 w-full space-y-8">
         <p className="text-xs uppercase tracking-[0.35em] text-saffron/80">{BRAND.name}</p>
 
         <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight text-ivory sm:text-5xl">

@@ -4,7 +4,6 @@ import { createRequire } from "node:module";
 import process from "node:process";
 import createNextIntlPlugin from "next-intl/plugin";
 const require = createRequire(import.meta.url);
-const webpack = require("webpack");
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
@@ -38,7 +37,7 @@ const nextConfig = {
       },
     ];
   },
-  webpack: (config) => {
+  webpack: (config, { webpack }) => {
 
     config.resolve.alias = {
       ...(config.resolve.alias || {}),

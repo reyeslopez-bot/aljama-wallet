@@ -3,12 +3,12 @@ import { create } from 'zustand'
 type TrackingStatus = 'idle' | 'pending' | 'success' | 'error'
 type FlowStatus = 'idle' | 'pending' | 'success' | 'error'
 
-export type DynamicUserInfo = {
+type DynamicUserInfo = {
   name: string
   role: string
 }
 
-export type DynamicWalletInfo = {
+type DynamicWalletInfo = {
   createdAddress: string | null
   connectedAddress: string | null
   chainName: string | null
@@ -129,4 +129,3 @@ export const useDynamicInfoStore = create<DynamicInfoState & DynamicInfoActions>
       },
     })),
 }))
-

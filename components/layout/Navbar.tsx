@@ -290,19 +290,15 @@ export default function Navbar() {
           <button
             type="button"
             onClick={() => applyTheme(isLight ? 'dark' : 'light')}
-            className={`framer-w7ghp9 relative h-10 w-20 shrink-0 overflow-hidden rounded-full border px-1.5 transition focus:outline-none focus:ring-2 ${
+            className={`relative h-10 w-20 shrink-0 overflow-hidden rounded-full border px-1.5 transition focus:outline-none focus:ring-2 ${
               isLight
                 ? 'border-[#7fa3c1]/55 bg-white/80 focus:ring-[#5c8db4]/35'
                 : 'border-white/15 bg-white/10 focus:ring-saffron/30'
             }`}
-            data-framer-name="interaction"
-            data-highlight="true"
-            tabIndex={0}
             role="switch"
             aria-checked={isLight}
             aria-label={t('themeToggle')}
             title={isLight ? t('themeLight') : t('themeDark')}
-            style={{ opacity: 1 }}
           >
             <span className="sr-only">{t('themeToggle')}</span>
             <span
