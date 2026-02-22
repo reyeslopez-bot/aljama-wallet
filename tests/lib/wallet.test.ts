@@ -1,6 +1,11 @@
 // tests/lib/wallet.test.ts
 import { describe, it, expect } from 'vitest'
-import { encodeWalletToEncrypted, unlockWallet } from '@/lib/wallet'
+import {
+  deriveWalletFromMnemonic,
+  encodeWalletToEncrypted,
+  generateMnemonicWallet,
+  unlockWallet,
+} from '@/lib/wallet'
 import {
   mockEncryptedWallet,
   mockEncryptedWalletMissingMaterial,
@@ -83,5 +88,33 @@ describe('unlockWallet', () => {
         '   ',
       ),
     ).rejects.toThrow(/Password is required/)
+  })
+})
+
+describe('BIP-39 wallet derivation', () => {
+  it('generates a 24-word mnemonic by default', () => {
+    const wallet = generateMnemonicWallet()
+    expect(wallet.mnemonic.split(' ')).toHaveLength(24)
+    expect(wallet.derivationPath).toBe("m/44'/60'/0'/0/0")
+    expect(wallet.address).toMatch(/^0x[a-fA-F0-9]{40}$/)
+  })
+
+  it('supports valid BIP-39 word counts', () => {
+    const wallet = generateMnemonicWallet({ wordCount: 12 })
+    expect(wallet.wordCount).toBe(12)
+    expect(wallet.mnemonic.split(' ')).toHaveLength(12)
+  })
+
+  it('derives different wallets when mnemonic passphrase changes', () => {
+    const phrase = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
+
+    const withoutPassphrase = deriveWalletFromMnemonic({ mnemonic: phrase })
+    const withPassphrase = deriveWalletFromMnemonic({
+      mnemonic: phrase,
+      mnemonicPassphrase: 'Strong optional passphrase',
+    })
+
+    expect(withoutPassphrase.address).not.toBe(withPassphrase.address)
+    expect(withoutPassphrase.privateKey).not.toBe(withPassphrase.privateKey)
   })
 })

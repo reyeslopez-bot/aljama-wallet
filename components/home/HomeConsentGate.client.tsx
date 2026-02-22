@@ -24,7 +24,7 @@ export default function HomeConsentGate({ children }: HomeConsentGateProps) {
 
     if (!hasAnsweredPermissions) {
       const loginRoute = hasRecognizedDevice()
-        ? `/${locale}/login`
+        ? `/${locale}/login?mode=login`
         : `/${locale}/login?mode=register`
       router.replace(loginRoute)
       return

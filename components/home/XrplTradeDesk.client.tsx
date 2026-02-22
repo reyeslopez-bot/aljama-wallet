@@ -82,6 +82,10 @@ function shortHash(value: string | null | undefined): string {
   return `${value.slice(0, 8)}...${value.slice(-8)}`
 }
 
+function isMissingSignerConfig(message: string): boolean {
+  return /Missing XRPL signer seed/i.test(message)
+}
+
 type CurrencyOption = {
   code: string
   label: string
@@ -141,6 +145,7 @@ export default function XrplTradeDesk() {
   const [history, setHistory] = useState<ActionHistoryResponse['actions']>([])
   const [historyLoading, setHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  const [signerConfigError, setSignerConfigError] = useState<string | null>(null)
 
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -186,40 +191,66 @@ export default function XrplTradeDesk() {
   }, [])
 
   const loadAssets = useCallback(async () => {
+    if (signerConfigError) {
+      setAssetsLoading(false)
+      setAssetsError(signerConfigError)
+      setAssets([])
+      return
+    }
     setAssetsLoading(true)
     setAssetsError(null)
     try {
       const res = await fetch(`/api/xrpl/account-assets?network=${selectedNetworkId}`)
       const body = (await res.json()) as AssetsResponse | { ok: false; error: string }
       if (!res.ok || !body.ok) {
-        throw new Error('Failed to load XRPL assets')
+        throw new Error(body.ok ? 'Failed to load XRPL assets' : body.error)
       }
       setAssets(body.assets)
     } catch (error) {
-      setAssetsError(error instanceof Error ? error.message : 'Failed to load XRPL assets')
+      const message = error instanceof Error ? error.message : 'Failed to load XRPL assets'
+      if (isMissingSignerConfig(message)) {
+        const configMessage = 'XRPL signer is not configured on the server.'
+        setSignerConfigError(configMessage)
+        setAssetsError(configMessage)
+      } else {
+        setAssetsError(message)
+      }
       setAssets([])
     } finally {
       setAssetsLoading(false)
     }
-  }, [selectedNetworkId])
+  }, [selectedNetworkId, signerConfigError])
 
   const loadNfts = useCallback(async () => {
+    if (signerConfigError) {
+      setNftsLoading(false)
+      setNftsError(signerConfigError)
+      setNfts([])
+      return
+    }
     setNftsLoading(true)
     setNftsError(null)
     try {
       const res = await fetch(`/api/xrpl/nfts?network=${selectedNetworkId}&limit=24`)
       const body = (await res.json()) as NftsResponse | { ok: false; error: string }
       if (!res.ok || !body.ok) {
-        throw new Error('Failed to load XRPL NFTs')
+        throw new Error(body.ok ? 'Failed to load XRPL NFTs' : body.error)
       }
       setNfts(body.nfts)
     } catch (error) {
-      setNftsError(error instanceof Error ? error.message : 'Failed to load XRPL NFTs')
+      const message = error instanceof Error ? error.message : 'Failed to load XRPL NFTs'
+      if (isMissingSignerConfig(message)) {
+        const configMessage = 'XRPL signer is not configured on the server.'
+        setSignerConfigError(configMessage)
+        setNftsError(configMessage)
+      } else {
+        setNftsError(message)
+      }
       setNfts([])
     } finally {
       setNftsLoading(false)
     }
-  }, [selectedNetworkId])
+  }, [selectedNetworkId, signerConfigError])
 
   const loadOrderbook = useCallback(async () => {
     setOffersLoading(true)
@@ -227,23 +258,36 @@ export default function XrplTradeDesk() {
     try {
       const takerGetsCurrency = pair.takerGetsCurrency.trim().toUpperCase()
       const takerPaysCurrency = pair.takerPaysCurrency.trim().toUpperCase()
+      const takerGetsIssuer = pair.takerGetsIssuer.trim()
+      const takerPaysIssuer = pair.takerPaysIssuer.trim()
+
+      if (!isXrpCurrency(takerGetsCurrency) && !takerGetsIssuer) {
+        setOffers([])
+        setOffersError('Set an issuer for non-XRP taker gets currency.')
+        return
+      }
+      if (!isXrpCurrency(takerPaysCurrency) && !takerPaysIssuer) {
+        setOffers([])
+        setOffersError('Set an issuer for non-XRP taker pays currency.')
+        return
+      }
 
       const params = new URLSearchParams({
         network: selectedNetworkId,
         takerGetsCurrency,
         takerPaysCurrency,
       })
-      if (!isXrpCurrency(takerGetsCurrency) && pair.takerGetsIssuer.trim()) {
-        params.set('takerGetsIssuer', pair.takerGetsIssuer.trim())
+      if (!isXrpCurrency(takerGetsCurrency) && takerGetsIssuer) {
+        params.set('takerGetsIssuer', takerGetsIssuer)
       }
-      if (!isXrpCurrency(takerPaysCurrency) && pair.takerPaysIssuer.trim()) {
-        params.set('takerPaysIssuer', pair.takerPaysIssuer.trim())
+      if (!isXrpCurrency(takerPaysCurrency) && takerPaysIssuer) {
+        params.set('takerPaysIssuer', takerPaysIssuer)
       }
 
       const res = await fetch(`/api/xrpl/orderbook?${params.toString()}`)
       const body = (await res.json()) as OrderbookResponse | { ok: false; error: string }
       if (!res.ok || !body.ok) {
-        throw new Error('Failed to load XRPL orderbook')
+        throw new Error(body.ok ? 'Failed to load XRPL orderbook' : body.error)
       }
       setOffers(body.offers)
     } catch (error) {

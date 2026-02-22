@@ -6,7 +6,7 @@ type LoginPageProps = {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const query = await searchParams
-  const initialMode = query.mode === 'register' ? 'register' : 'login'
+  const initialMode = query.mode === 'login' ? 'login' : 'register'
 
   return <LoginGate showBackLink={false} initialMode={initialMode} />
 }

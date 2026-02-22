@@ -149,7 +149,7 @@ export default function DynamicInfoCard() {
   const t = useTranslations('infoCard')
   const tActions = useTranslations('actions')
   const tCreate = useTranslations('createWallet')
-  const { status: sessionStatus } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const showUnlockMessage = sessionStatus === 'unauthenticated'
   const [hovered, setHovered] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
@@ -160,6 +160,7 @@ export default function DynamicInfoCard() {
   const cardRef = useRef<HTMLElement | null>(null)
 
   const user = useDynamicInfoStore((s) => s.user)
+  const setUser = useDynamicInfoStore((s) => s.setUser)
   const wallet = useDynamicInfoStore((s) => s.wallet)
   const createStatus = useDynamicInfoStore((s) => s.createWalletStatus)
   const connectStatus = useDynamicInfoStore((s) => s.connectWalletStatus)
@@ -167,6 +168,20 @@ export default function DynamicInfoCard() {
   const lastEvent = useDynamicInfoStore((s) => s.lastEvent)
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
   const selectedXrplNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
+
+  useEffect(() => {
+    if (sessionStatus === 'loading') return
+    if (sessionStatus === 'authenticated') {
+      const email = session?.user?.email?.trim() ?? ''
+      const displayName = session?.user?.name?.trim() || (email ? email.split('@')[0] : t('status.available'))
+      setUser({
+        name: displayName,
+        role: email || t('status.available'),
+      })
+      return
+    }
+    setUser(null)
+  }, [session?.user?.email, session?.user?.name, sessionStatus, setUser, t])
 
   useEffect(() => {
     setNow(new Date())

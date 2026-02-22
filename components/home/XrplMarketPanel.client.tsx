@@ -27,12 +27,50 @@ type MarketSnapshot = {
   assets: MarketAsset[]
 }
 
-const COLORS: Record<string, string> = {
-  XRP: '#7a5cff',
-  BTC: '#f7931a',
-  ETH: '#627eea',
-  USDC: '#2775ca',
-  EURC: '#f4c542',
+type AssetPalette = {
+  stroke: string
+  fillStart: string
+  fillEnd: string
+  chipActiveBg: string
+  chipBorder: string
+}
+
+const ASSET_PALETTES: Record<string, AssetPalette> = {
+  XRP: {
+    stroke: '#6d5be2',
+    fillStart: 'rgba(109,91,226,0.5)',
+    fillEnd: 'rgba(109,91,226,0)',
+    chipActiveBg: 'rgba(109,91,226,0.22)',
+    chipBorder: 'rgba(178,167,250,0.8)',
+  },
+  BTC: {
+    stroke: '#f7931a',
+    fillStart: 'rgba(247,147,26,0.45)',
+    fillEnd: 'rgba(247,147,26,0)',
+    chipActiveBg: 'rgba(247,147,26,0.2)',
+    chipBorder: 'rgba(255,195,113,0.85)',
+  },
+  ETH: {
+    stroke: '#627eea',
+    fillStart: 'rgba(98,126,234,0.45)',
+    fillEnd: 'rgba(98,126,234,0)',
+    chipActiveBg: 'rgba(98,126,234,0.22)',
+    chipBorder: 'rgba(162,178,246,0.85)',
+  },
+  USDC: {
+    stroke: '#2775ca',
+    fillStart: 'rgba(39,117,202,0.42)',
+    fillEnd: 'rgba(39,117,202,0)',
+    chipActiveBg: 'rgba(39,117,202,0.22)',
+    chipBorder: 'rgba(120,179,236,0.8)',
+  },
+  EURC: {
+    stroke: '#f4c542',
+    fillStart: 'rgba(244,197,66,0.45)',
+    fillEnd: 'rgba(244,197,66,0)',
+    chipActiveBg: 'rgba(244,197,66,0.24)',
+    chipBorder: 'rgba(255,226,149,0.9)',
+  },
 }
 
 type ViewOption = 'all' | 'xrpl' | 'reference'
@@ -43,6 +81,18 @@ const CHART_WIDTH = 100
 const CHART_HEIGHT = 48
 const CHART_PADDING = 4
 
+function paletteForSymbol(symbol: string): AssetPalette {
+  return (
+    ASSET_PALETTES[symbol] ?? {
+      stroke: '#e4e7ec',
+      fillStart: 'rgba(228,231,236,0.25)',
+      fillEnd: 'rgba(228,231,236,0)',
+      chipActiveBg: 'rgba(228,231,236,0.2)',
+      chipBorder: 'rgba(228,231,236,0.7)',
+    }
+  )
+}
+
 function normalizeSeries(series: number[]): number[] {
   if (series.length === 0) return []
   const first = series[0] ?? 1
@@ -50,23 +100,52 @@ function normalizeSeries(series: number[]): number[] {
   return series.map((value) => value / safeFirst)
 }
 
-function buildPath(series: number[], min: number, max: number, startIndex: number, endIndex: number) {
-  if (series.length < 2 || endIndex <= startIndex) return ''
+type ChartPoint = {
+  x: number
+  y: number
+}
+
+function buildChartPoints(
+  series: number[],
+  min: number,
+  max: number,
+  startIndex: number,
+  endIndex: number,
+): ChartPoint[] {
+  if (series.length < 2 || endIndex <= startIndex) return []
   const safeStart = Math.min(Math.max(startIndex, 0), series.length - 2)
   const safeEnd = Math.min(Math.max(endIndex, safeStart + 1), series.length - 1)
   const span = max - min || 1
   const indexSpan = safeEnd - safeStart
   const points = series.slice(safeStart, safeEnd + 1)
+  return points.map((value, offset) => {
+    const x = (offset / indexSpan) * CHART_WIDTH
+    const y =
+      CHART_HEIGHT -
+      CHART_PADDING -
+      ((value - min) / span) * (CHART_HEIGHT - CHART_PADDING * 2)
+    return { x, y }
+  })
+}
+
+function buildPath(series: number[], min: number, max: number, startIndex: number, endIndex: number) {
+  const points = buildChartPoints(series, min, max, startIndex, endIndex)
+  if (points.length < 2) return ''
   return points
-    .map((value, offset) => {
-      const x = (offset / indexSpan) * CHART_WIDTH
-      const y =
-        CHART_HEIGHT -
-        CHART_PADDING -
-        ((value - min) / span) * (CHART_HEIGHT - CHART_PADDING * 2)
-      return `${offset === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
-    })
+    .map((point, offset) => `${offset === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
     .join(' ')
+}
+
+function buildAreaPath(series: number[], min: number, max: number, startIndex: number, endIndex: number) {
+  const points = buildChartPoints(series, min, max, startIndex, endIndex)
+  if (points.length < 2) return ''
+  const baseY = CHART_HEIGHT - CHART_PADDING
+  const head = points
+    .map((point) => `L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .join(' ')
+  const first = points[0]
+  const last = points[points.length - 1]
+  return `M ${first.x.toFixed(2)} ${baseY.toFixed(2)} ${head} L ${last.x.toFixed(2)} ${baseY.toFixed(2)} Z`
 }
 
 function formatUsd(value: number) {
@@ -89,6 +168,13 @@ function formatPointAtDate(timestamp: number) {
     weekday: 'short',
     month: 'short',
     day: '2-digit',
+  }).format(timestamp)
+}
+
+function formatRangeDate(timestamp: number) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
   }).format(timestamp)
 }
 
@@ -148,6 +234,7 @@ export default function XrplMarketPanel() {
   })
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const [zoomWindow, setZoomWindow] = useState<ZoomWindow | null>(null)
+  const [focusSymbol, setFocusSymbol] = useState<string | null>(null)
 
   const loadSnapshot = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }))
@@ -184,11 +271,21 @@ export default function XrplMarketPanel() {
     () =>
       visibleAssets.map((asset) => ({
         symbol: asset.symbol,
-        color: COLORS[asset.symbol] ?? '#ffffff',
+        name: asset.name,
+        marketGroup: asset.marketGroup,
+        palette: paletteForSymbol(asset.symbol),
         series: normalizeSeries(asset.series),
       })),
     [visibleAssets],
   )
+
+  useEffect(() => {
+    setFocusSymbol((prev) => {
+      if (!visibleAssets.length) return null
+      if (prev && visibleAssets.some((asset) => asset.symbol === prev)) return prev
+      return visibleAssets[0]?.symbol ?? null
+    })
+  }, [visibleAssets])
 
   const pointCount = useMemo(
     () => Math.max(0, ...normalizedSeries.map((asset) => asset.series.length)),
@@ -298,6 +395,14 @@ export default function XrplMarketPanel() {
     }
   }, [chartWindow.end, chartWindow.start, hoverIndex, pointCount, state.snapshot, visibleAssets])
 
+  const displayedRange = useMemo(() => {
+    if (!state.snapshot || pointCount < 2) return null
+    const start = seriesIndexToTimestamp(state.snapshot.updatedAt, chartWindow.start, pointCount)
+    const end = seriesIndexToTimestamp(state.snapshot.updatedAt, chartWindow.end, pointCount)
+    if (!start || !end) return null
+    return { start, end }
+  }, [chartWindow.end, chartWindow.start, pointCount, state.snapshot])
+
   const viewOptions = [
     { id: 'all', label: t('viewAll') },
     { id: 'xrpl', label: t('viewXrpl') },
@@ -336,7 +441,7 @@ export default function XrplMarketPanel() {
           CHART_HEIGHT -
           CHART_PADDING -
           ((value - normalizedRange.min) / span) * (CHART_HEIGHT - CHART_PADDING * 2)
-        return { key: asset.symbol, color: asset.color, x, y }
+        return { key: asset.symbol, color: asset.palette.stroke, x, y }
       })
       .filter((point): point is { key: string; color: string; x: number; y: number } => point !== null)
   }, [
@@ -407,135 +512,199 @@ export default function XrplMarketPanel() {
             <p className="text-sm text-red-300">{state.error}</p>
           ) : (
             <div className="space-y-4">
-              <div className="-mx-2 sm:-mx-3 lg:-mx-4">
-                <svg
-                  viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-                  className="h-44 w-[calc(100%+1rem)] md:h-52 md:w-[calc(100%+1.5rem)] lg:w-[calc(100%+2rem)]"
-                  tabIndex={0}
-                  role="img"
-                  aria-label="Market trend chart"
-                  onMouseMove={(event) => {
-                    if (pointCount < 2) return
-                    const rect = event.currentTarget.getBoundingClientRect()
-                    const next = indexFromClientX(event.clientX, rect)
-                    if (next === null) return
-                    setHoverIndex(next)
-                  }}
-                  onClick={(event) => {
-                    if (pointCount < 2) return
-                    const rect = event.currentTarget.getBoundingClientRect()
-                    const next = indexFromClientX(event.clientX, rect)
-                    if (next === null) return
-                    setHoverIndex(next)
-                  }}
-                  onFocus={() => {
-                    if (pointCount < 2) return
-                    setHoverIndex((prev) => prev ?? chartWindow.start)
-                  }}
-                  onKeyDown={(event) => {
-                    if (pointCount < 2) return
-                    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
-                      event.preventDefault()
-                      moveHoverIndex(1)
-                      return
-                    }
-                    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
-                      event.preventDefault()
-                      moveHoverIndex(-1)
-                      return
-                    }
-                    if (event.key === 'Home') {
-                      event.preventDefault()
-                      setHoverIndex(chartWindow.start)
-                      return
-                    }
-                    if (event.key === 'End') {
-                      event.preventDefault()
-                      setHoverIndex(chartWindow.end)
-                    }
-                  }}
-                  onWheel={onChartWheel}
-                  onDoubleClick={() => setZoomWindow(null)}
-                >
-                  <defs>
-                    <linearGradient id="marketGlow" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#6fa0d9" stopOpacity="0.35" />
-                      <stop offset="50%" stopColor="#e0bf7f" stopOpacity="0.35" />
-                      <stop offset="100%" stopColor="#4b9577" stopOpacity="0.35" />
-                    </linearGradient>
-                    <clipPath id={chartClipId}>
-                      <rect
-                        x={0}
-                        y={CHART_PADDING}
-                        width={CHART_WIDTH}
-                        height={CHART_HEIGHT - CHART_PADDING * 2}
-                      />
-                    </clipPath>
-                  </defs>
-                  <rect
-                    x="0"
-                    y="0"
-                    width={CHART_WIDTH}
-                    height={CHART_HEIGHT}
-                    fill="url(#marketGlow)"
-                    opacity="0.08"
-                  />
-                  <g clipPath={`url(#${chartClipId})`}>
-                    {normalizedSeries.map((asset) => {
-                      const path = buildPath(
-                        asset.series,
-                        normalizedRange.min,
-                        normalizedRange.max,
-                        chartWindow.start,
-                        chartWindow.end,
-                      )
-                      if (!path) return null
-                      return (
-                        <path
-                          key={asset.symbol}
-                          d={path}
-                          fill="none"
-                          stroke={asset.color}
-                          strokeWidth="1.6"
-                          opacity="0.9"
+              <div className="rounded-[30px] border border-white/10 bg-[#181818] p-4 shadow-[0_10px_22px_-12px_rgba(0,0,0,0.65)]">
+                <div className="flex flex-wrap items-end justify-between gap-2 pb-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-ivory/55">{t('chartLabel')}</p>
+                    <p className="text-sm font-semibold text-ivory">
+                      {displayedRange
+                        ? t('chartRange', {
+                            start: formatRangeDate(displayedRange.start),
+                            end: formatRangeDate(displayedRange.end),
+                          })
+                        : '--'}
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-ivory/55">{t('chartBase')}</p>
+                </div>
+
+                <div className="-mx-2 sm:-mx-3 lg:-mx-4">
+                  <svg
+                    viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+                    className="h-44 w-[calc(100%+1rem)] md:h-52 md:w-[calc(100%+1.5rem)] lg:w-[calc(100%+2rem)]"
+                    tabIndex={0}
+                    role="img"
+                    aria-label="Market trend chart"
+                    onMouseMove={(event) => {
+                      if (pointCount < 2) return
+                      const rect = event.currentTarget.getBoundingClientRect()
+                      const next = indexFromClientX(event.clientX, rect)
+                      if (next === null) return
+                      setHoverIndex(next)
+                    }}
+                    onClick={(event) => {
+                      if (pointCount < 2) return
+                      const rect = event.currentTarget.getBoundingClientRect()
+                      const next = indexFromClientX(event.clientX, rect)
+                      if (next === null) return
+                      setHoverIndex(next)
+                    }}
+                    onFocus={() => {
+                      if (pointCount < 2) return
+                      setHoverIndex((prev) => prev ?? chartWindow.start)
+                    }}
+                    onKeyDown={(event) => {
+                      if (pointCount < 2) return
+                      if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+                        event.preventDefault()
+                        moveHoverIndex(1)
+                        return
+                      }
+                      if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+                        event.preventDefault()
+                        moveHoverIndex(-1)
+                        return
+                      }
+                      if (event.key === 'Home') {
+                        event.preventDefault()
+                        setHoverIndex(chartWindow.start)
+                        return
+                      }
+                      if (event.key === 'End') {
+                        event.preventDefault()
+                        setHoverIndex(chartWindow.end)
+                      }
+                    }}
+                    onWheel={onChartWheel}
+                    onDoubleClick={() => setZoomWindow(null)}
+                  >
+                    <defs>
+                      <clipPath id={chartClipId}>
+                        <rect
+                          x={0}
+                          y={CHART_PADDING}
+                          width={CHART_WIDTH}
+                          height={CHART_HEIGHT - CHART_PADDING * 2}
                         />
-                      )
-                    })}
-                    {hoverPoints.map((point) => (
-                      <g key={`hover-${point.key}`}>
-                        <circle
-                          cx={point.x}
-                          cy={point.y}
-                          r="1.35"
-                          fill={point.color}
-                          stroke="rgba(255,255,255,0.92)"
-                          strokeWidth="0.38"
-                        />
-                        <circle
-                          cx={point.x}
-                          cy={point.y}
-                          r="2.1"
-                          fill="none"
-                          stroke={point.color}
-                          strokeOpacity="0.55"
-                          strokeWidth="0.28"
-                        />
-                      </g>
-                    ))}
-                  </g>
-                </svg>
+                      </clipPath>
+                      {normalizedSeries.map((asset) => (
+                        <linearGradient
+                          key={`grad-${asset.symbol}`}
+                          id={`${chartClipId}-${asset.symbol}-area`}
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop offset="0%" stopColor={asset.palette.fillStart} />
+                          <stop offset="100%" stopColor={asset.palette.fillEnd} />
+                        </linearGradient>
+                      ))}
+                    </defs>
+
+                    <g opacity="0.45">
+                      {Array.from({ length: 6 }).map((_, index) => {
+                        const x = ((index + 1) / 7) * CHART_WIDTH
+                        return (
+                          <line
+                            key={`grid-${index}`}
+                            x1={x}
+                            y1={0}
+                            x2={x}
+                            y2={CHART_HEIGHT}
+                            stroke="rgba(255,255,255,0.26)"
+                            strokeWidth="0.34"
+                            strokeDasharray="0.4 1.8"
+                            strokeLinecap="round"
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        )
+                      })}
+                    </g>
+
+                    <g clipPath={`url(#${chartClipId})`}>
+                      {normalizedSeries.map((asset) => {
+                        const areaPath = buildAreaPath(
+                          asset.series,
+                          normalizedRange.min,
+                          normalizedRange.max,
+                          chartWindow.start,
+                          chartWindow.end,
+                        )
+                        if (!areaPath) return null
+                        const active = focusSymbol === null || focusSymbol === asset.symbol
+                        return (
+                          <path
+                            key={`area-${asset.symbol}`}
+                            d={areaPath}
+                            fill={`url(#${chartClipId}-${asset.symbol}-area)`}
+                            opacity={active ? '0.36' : '0.16'}
+                          />
+                        )
+                      })}
+
+                      {normalizedSeries.map((asset) => {
+                        const path = buildPath(
+                          asset.series,
+                          normalizedRange.min,
+                          normalizedRange.max,
+                          chartWindow.start,
+                          chartWindow.end,
+                        )
+                        if (!path) return null
+                        const active = focusSymbol === null || focusSymbol === asset.symbol
+                        return (
+                          <path
+                            key={asset.symbol}
+                            d={path}
+                            fill="none"
+                            stroke={asset.palette.stroke}
+                            strokeWidth={active ? '1.9' : '1.3'}
+                            opacity={active ? '0.98' : '0.58'}
+                            strokeLinecap="round"
+                          />
+                        )
+                      })}
+
+                      {hoverPoints.map((point) => (
+                        <g key={`hover-${point.key}`}>
+                          <circle
+                            cx={point.x}
+                            cy={point.y}
+                            r="1.35"
+                            fill={point.color}
+                            stroke="rgba(255,255,255,0.92)"
+                            strokeWidth="0.38"
+                          />
+                          <circle
+                            cx={point.x}
+                            cy={point.y}
+                            r="2.1"
+                            fill="none"
+                            stroke={point.color}
+                            strokeOpacity="0.55"
+                            strokeWidth="0.28"
+                          />
+                        </g>
+                      ))}
+                    </g>
+                  </svg>
+                </div>
               </div>
 
               {timelineTicks.length > 0 ? (
-                <div className="grid grid-cols-4 gap-2 text-[10px] text-ivory/45">
-                  {timelineTicks.map((tick, index) => (
-                    <div
-                      key={`${tick.index}-${tick.timestamp}`}
-                      className={`flex flex-col ${index === timelineTicks.length - 1 ? 'items-end' : 'items-start'}`}
-                    >
-                      <span>{formatTimelineDate(tick.timestamp, chartWindow.isZoomed)}</span>
-                    </div>
-                  ))}
+                <div className="space-y-2">
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-ivory/45">{t('timelineLabel')}</p>
+                  <div className="grid grid-cols-4 gap-2 text-[10px] text-ivory/45">
+                    {timelineTicks.map((tick, index) => (
+                      <div
+                        key={`${tick.index}-${tick.timestamp}`}
+                        className={`flex flex-col ${index === timelineTicks.length - 1 ? 'items-end' : 'items-start'}`}
+                      >
+                        <span>{formatTimelineDate(tick.timestamp, chartWindow.isZoomed)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
 
@@ -545,16 +714,39 @@ export default function XrplMarketPanel() {
                 </p>
               ) : null}
 
-              <div className="flex flex-wrap items-center gap-3 text-xs text-ivory/60">
-                {visibleAssets.map((asset) => (
-                  <span key={asset.id} className="inline-flex items-center gap-2">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: COLORS[asset.symbol] ?? '#ffffff' }}
-                    />
-                    {(asset.symbol === 'XRP' ? 'Ripple' : asset.name)} ({asset.symbol})
-                  </span>
-                ))}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-ivory/45">{t('legendTitle')}</p>
+                  <p className="text-[10px] text-ivory/40">{t('legendHint')}</p>
+                </div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {normalizedSeries.map((asset) => {
+                    const active = focusSymbol === asset.symbol
+                    const explicitName = asset.symbol === 'XRP' ? 'Ripple' : asset.name
+                    const marketLabel = asset.marketGroup === 'xrpl' ? t('table.xrpl') : t('table.reference')
+                    return (
+                      <button
+                        key={`chip-${asset.symbol}`}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => setFocusSymbol(asset.symbol)}
+                        className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-60"
+                        style={{
+                          borderColor: active ? asset.palette.chipBorder : 'rgba(255,255,255,0.14)',
+                          backgroundColor: active ? asset.palette.chipActiveBg : 'rgba(255,255,255,0.08)',
+                          color: 'rgba(255,255,255,0.92)',
+                        }}
+                      >
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: asset.palette.stroke }}
+                        />
+                        <span>{explicitName} ({asset.symbol})</span>
+                        <span className="text-[10px] text-ivory/55">{marketLabel}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
               {hoverSnapshot ? (

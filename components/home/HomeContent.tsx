@@ -10,6 +10,7 @@ import XrplMarketPanel from '@/components/home/XrplMarketPanel.client'
 import XrplTradeDesk from '@/components/home/XrplTradeDesk.client'
 import RegionCompliancePanel from '@/components/home/RegionCompliancePanel.client'
 import ShareDock from '@/components/home/ShareDock.client'
+import TikTokFramerFeed from '@/components/home/TikTokFramerFeed.client'
 import ClientTrackWallet from '@/infra/utils/ClientTrackWallet'
 import { BRAND } from '@/constants/brand'
 import DynamicInfoCard from '@/components/home/DynamicInfoCard.client'
@@ -118,6 +119,19 @@ function ShareSection() {
   return <ShareDock />
 }
 
+function FooterCopyright() {
+  return (
+    <footer className="flex justify-center pt-4">
+      <span
+        aria-label="Copyright 2026 Aljama Wallet"
+        className="inline-block text-sm font-semibold tracking-[0.08em] text-saffron/75 sm:text-base"
+      >
+        © 2026 Aljama Wallet
+      </span>
+    </footer>
+  )
+}
+
 export default function HomeContent() {
   const tHome = useTranslations('home')
 
@@ -156,7 +170,9 @@ export default function HomeContent() {
       <WalletAccessSection />
       <XrplSection />
       <TradeDeskSection />
+      <TikTokFramerFeed />
       <ShareSection />
+      <FooterCopyright />
     </div>
   )
 }

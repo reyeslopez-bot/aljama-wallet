@@ -1,10 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { signIn } from "next-auth/react"
+import { signIn, useSession } from "next-auth/react"
 import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { getTelemetryConsent, setTelemetryConsent } from "@/infra/telemetry/client"
+import {
+  getTelemetryConsent,
+  hasRecognizedDevice,
+  setTelemetryConsent,
+} from "@/infra/telemetry/client"
 import { getLocationConsent, setLocationConsent } from "@/infra/location/client"
 import { CONSENT_MODE_KEY, CONSENT_PROMPT_SESSION_KEY } from "@/infra/consent/constants"
 import { setRuntimeLocationAccess } from "@/infra/location/runtime"
@@ -41,6 +45,7 @@ export default function LoginGate({
   const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
+  const { status: sessionStatus } = useSession()
 
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
@@ -51,6 +56,7 @@ export default function LoginGate({
   const [error, setError] = React.useState<string | null>(null)
   const [notice, setNotice] = React.useState<string | null>(null)
   const [consentPreset, setConsentPreset] = React.useState<ConsentPreset | null>(null)
+  const [recognizedDevice, setRecognizedDevice] = React.useState(false)
 
   const isStrongPassword = (value: string) => {
     if (value.length < 12) return false
@@ -70,10 +76,29 @@ export default function LoginGate({
     !password ||
     !isValidEmail ||
     (mode === "register" && (!inviteToken.trim() || !strongPassword))
+  const emailFieldId = "secure-gate-email"
+  const passwordFieldId = "secure-gate-password"
+  const inviteFieldId = "secure-gate-invite"
+
+  React.useEffect(() => {
+    if (sessionStatus !== "authenticated") return
+    router.replace(`/${locale}`)
+  }, [locale, router, sessionStatus])
 
   React.useEffect(() => {
     setMode(initialMode)
   }, [initialMode])
+
+  React.useEffect(() => {
+    setRecognizedDevice(hasRecognizedDevice())
+  }, [])
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    const hasExplicitMode = new URLSearchParams(window.location.search).has("mode")
+    if (hasExplicitMode) return
+    setMode(hasRecognizedDevice() ? "login" : "register")
+  }, [])
 
   React.useEffect(() => {
     const telemetryConsent = getTelemetryConsent()
@@ -130,6 +155,21 @@ export default function LoginGate({
     },
     [applyConsentPreset, busy],
   )
+
+  const continueWithoutAccount = React.useCallback(async () => {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const nextPreset = consentPreset ?? "essentialOnly"
+      setConsentPreset(nextPreset)
+      await applyConsentPreset(nextPreset)
+      router.push(`/${locale}`)
+    } finally {
+      setBusy(false)
+    }
+  }, [applyConsentPreset, busy, consentPreset, locale, router])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -212,18 +252,25 @@ export default function LoginGate({
     { label: "AR", value: "ar" },
   ]
 
-  const consentOptions: { id: ConsentPreset; label: string }[] = [
+  const permissionPresetOptions: { id: ConsentPreset; label: string }[] = [
     { id: "rejectAll", label: tConsent("rejectAll") },
     { id: "essentialOnly", label: tConsent("essentialOnly") },
     { id: "allowAll", label: tConsent("allowAll") },
   ]
+  const optionalServicesEnabled = consentPreset === "allowAll"
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-black/80 px-6 py-12">
+    <div
+      data-testid="secure-gate-root"
+      className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-black/80 px-6 py-12"
+    >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(closest-side_at_50%_50%,rgba(210,167,98,0.12),rgba(255,255,255,0.00)_62%)]" />
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_60%_40%,rgba(78,120,160,0.16),rgba(0,0,0,0)_60%)] blur-[20px]" />
 
-      <div className="surface-panel panel-glow-saffron relative w-full max-w-xl rounded-[2rem] p-8">
+      <div
+        data-testid="secure-gate-panel"
+        className="surface-panel panel-glow-saffron relative w-full max-w-xl rounded-[2rem] p-8"
+      >
         {showCloseButton && (
           <button
             type="button"
@@ -290,27 +337,54 @@ export default function LoginGate({
             {subtitle ?? t("subtitle")}
           </p>
           <p className="mt-1 text-xs text-ivory/55">{t("permissionsGateHint")}</p>
-          {mode === "register" ? (
+          {mode === "register" && !recognizedDevice ? (
             <p className="mt-1 text-xs text-saffron/80">{t("inviteRequired")}</p>
           ) : null}
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div className="surface-inner space-y-3 rounded-2xl border border-white/10 p-4">
+        <form data-testid="secure-gate-form" onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <div data-testid="secure-gate-permissions" className="surface-inner space-y-3 rounded-2xl border border-white/10 p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-saffron/80">{tConsent("eyebrow")}</p>
             <p className="text-xs text-ivory/65">{tConsent("text")}</p>
+            <div className="surface-soft flex items-center justify-between gap-3 rounded-xl border border-white/12 px-3 py-2.5">
+              <div>
+                <p className="text-xs uppercase tracking-[0.14em] text-ivory/72">{tConsent("optionalToggleLabel")}</p>
+                <p className="mt-1 text-[11px] text-ivory/55">{tConsent("optionalToggleHint")}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={optionalServicesEnabled}
+                data-testid="secure-gate-optional-services-switch"
+                onClick={() =>
+                  void chooseConsentPreset(optionalServicesEnabled ? "essentialOnly" : "allowAll")
+                }
+                disabled={busy}
+                className="relative h-7 w-12 rounded-full border border-white/20 bg-white/10 transition disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span
+                  className={`absolute top-0.5 h-[22px] w-[22px] rounded-full bg-white transition ${
+                    optionalServicesEnabled ? "left-6 bg-lapis" : "left-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="text-[11px] text-ivory/52">
+              {optionalServicesEnabled ? tConsent("optionalToggleOn") : tConsent("optionalToggleOff")}
+            </p>
             <ul className="space-y-1 text-[11px] text-ivory/60">
               <li>{tConsent("essentialDetail")}</li>
               <li>{tConsent("locationDetail")}</li>
               <li>{tConsent("telemetryDetail")}</li>
             </ul>
             <div className="grid gap-2 sm:grid-cols-3">
-              {consentOptions.map((option) => (
+              {permissionPresetOptions.map((option) => (
                 <button
                   key={option.id}
                   type="button"
                   onClick={() => void chooseConsentPreset(option.id)}
                   disabled={busy}
+                  data-testid={`secure-gate-permission-${option.id}`}
                   className={`rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
                     consentPreset === option.id
                       ? "border-saffron/55 bg-saffron/18 text-ivory"
@@ -321,13 +395,25 @@ export default function LoginGate({
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-ivory/52">{t("permissionsGateHint")}</p>
+            <p className="text-[11px] text-ivory/52">{tConsent("accountOptional")}</p>
+            <button
+              type="button"
+              onClick={() => void continueWithoutAccount()}
+              disabled={busy}
+              data-testid="secure-gate-continue-guest"
+              className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm font-semibold text-ivory/90 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy ? tConsent("acceptAndContinueLoading") : tConsent("acceptAndContinue")}
+            </button>
           </div>
 
-          <label className="block text-xs uppercase tracking-[0.16em] text-ivory/60">
+          <label htmlFor={emailFieldId} className="block text-xs uppercase tracking-[0.16em] text-ivory/60">
             {t("email")}
           </label>
           <input
+            id={emailFieldId}
+            name="secure_gate_email"
+            data-testid="secure-gate-email-input"
             className="surface-inner w-full px-4 py-3 text-base text-ivory placeholder:text-ivory/40 focus:border-saffron/50 focus:outline-none focus:ring-2 focus:ring-saffron/20"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -339,21 +425,25 @@ export default function LoginGate({
             <p className="text-[11px] text-saffron/80">{t("emailInvalid")}</p>
           )}
 
-          <label className="block pt-2 text-xs uppercase tracking-[0.16em] text-ivory/60">
+          <label htmlFor={passwordFieldId} className="block pt-2 text-xs uppercase tracking-[0.16em] text-ivory/60">
             {t("password")}
           </label>
           <div className="relative">
             <input
+              id={passwordFieldId}
+              name="secure_gate_password"
+              data-testid="secure-gate-password-input"
               className="surface-inner w-full px-4 py-3 pr-12 text-base text-ivory placeholder:text-ivory/40 focus:border-saffron/50 focus:outline-none focus:ring-2 focus:ring-saffron/20"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               type={showPw ? "text" : "password"}
-              autoComplete="current-password"
+              autoComplete={mode === "register" ? "new-password" : "current-password"}
             />
             <button
               type="button"
               onClick={() => setShowPw((v) => !v)}
+              data-testid="secure-gate-password-visibility"
               className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-white/5 p-2 text-ivory/70 transition hover:bg-white/10"
               aria-label={showPw ? "Hide password" : "Show password"}
             >
@@ -375,10 +465,13 @@ export default function LoginGate({
 
           {mode === "register" && (
             <>
-              <label className="block pt-2 text-xs uppercase tracking-[0.16em] text-ivory/60">
+              <label htmlFor={inviteFieldId} className="block pt-2 text-xs uppercase tracking-[0.16em] text-ivory/60">
                 {t("invite")}
               </label>
               <input
+                id={inviteFieldId}
+                name="secure_gate_invite_token"
+                data-testid="secure-gate-invite-input"
                 className="surface-inner w-full px-4 py-3 text-base text-ivory placeholder:text-ivory/40 focus:border-saffron/50 focus:outline-none focus:ring-2 focus:ring-saffron/20"
                 value={inviteToken}
                 onChange={(e) => setInviteToken(e.target.value)}
@@ -390,6 +483,7 @@ export default function LoginGate({
 
           <button
             type="submit"
+            data-testid="secure-gate-auth-submit"
             className="mt-2 w-full rounded-2xl border border-white/10 bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] px-4 py-3 text-base font-semibold text-ivory shadow-lg shadow-[#c7794a]/30 transition hover:from-[#f6e1b6] hover:to-[#d48755] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={disabled}
           >
@@ -408,17 +502,21 @@ export default function LoginGate({
           {error && <p className="text-xs text-red-300">{error}</p>}
           {notice && <p className="text-xs text-jade">{notice}</p>}
 
-          <button
-            type="button"
-            onClick={() => {
-              setMode((prev) => (prev === "login" ? "register" : "login"))
-              setError(null)
-              setNotice(null)
-            }}
-            className="text-xs uppercase tracking-[0.18em] text-ivory/60 transition hover:text-saffron"
-          >
-            {mode === "login" ? t("toggleToRegister") : t("toggleToLogin")}
-          </button>
+          <div data-testid="secure-gate-auth-mode-switch" className="text-center text-xs text-ivory/62">
+            <span>{mode === "register" ? t("alreadyHaveAccount") : t("needAccount")}</span>
+            {' '}
+            <button
+              type="button"
+              onClick={() => {
+                setMode((prev) => (prev === "login" ? "register" : "login"))
+                setError(null)
+                setNotice(null)
+              }}
+              className="font-semibold uppercase tracking-[0.12em] text-saffron transition hover:text-ivory"
+            >
+              {mode === "register" ? t("signIn") : t("register")}
+            </button>
+          </div>
 
           {showBackLink && (
             <div className="pt-2 text-center">

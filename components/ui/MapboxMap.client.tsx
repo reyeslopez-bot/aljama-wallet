@@ -6,9 +6,8 @@ import { useTranslations } from 'next-intl'
 type Coords = {
   lat: number
   lng: number
-  accuracy?: number
   timestamp: number
-  source: 'default' | 'device'
+  source: 'default' | 'network'
 }
 
 type RegulatoryRegion = 'uae' | 'israel' | 'eu' | 'us' | 'global'
@@ -107,7 +106,7 @@ export default function MapboxMap() {
         lat: body.location.latitude,
         lng: body.location.longitude,
         timestamp: Date.now(),
-        source: body.location.source === 'network' ? 'device' : 'default',
+        source: body.location.source === 'network' ? 'network' : 'default',
       })
       setNetworkCity(body.location.city)
       setStatus('ready')
@@ -217,7 +216,7 @@ export default function MapboxMap() {
       markerRef.current.setLngLat(lngLat)
     }
 
-    const targetZoom = coords.source === 'device' ? Math.max(map.getZoom(), 14) : Math.max(map.getZoom(), 11.5)
+    const targetZoom = Math.max(map.getZoom(), 11.5)
     map.flyTo({ center: lngLat, zoom: targetZoom, essential: true })
   }, [coords, mapReady])
 
@@ -259,7 +258,8 @@ export default function MapboxMap() {
           <p className="text-sm text-ivory/70">
             {status === 'idle' && t('idle')}
             {status === 'loading' && t('loading')}
-            {status === 'ready' && (
+            {status === 'ready' && coords.source === 'default' && t('idle')}
+            {status === 'ready' && coords.source !== 'default' && (
               <>
                 {t('centered')}{' '}
                 <span className="text-ivory">{t(`laws.${regulatoryRegion}.label`)}</span>
@@ -270,14 +270,16 @@ export default function MapboxMap() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={requestLocation}
-          disabled={status === 'loading'}
-          className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {t('useNetworkLocation')}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={requestLocation}
+            disabled={status === 'loading'}
+            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {t('refreshLocation')}
+          </button>
+        </div>
       </div>
 
       <div

@@ -1,4 +1,5 @@
 // lib/wallet.ts
+import { HDNodeWallet, Mnemonic, randomBytes } from 'ethers'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 
 export type UnlockWalletParams = {
@@ -22,6 +23,16 @@ const MIN_ITERATIONS = 200_000
 const SALT_BYTES = 16
 const IV_BYTES = 12
 const AAD_TEXT = 'aljama-wallet:v2'
+export const DEFAULT_BIP44_PATH = "m/44'/60'/0'/0/0"
+const BIP39_ENTROPY_BYTES_BY_WORD_COUNT = {
+  12: 16,
+  15: 20,
+  18: 24,
+  21: 28,
+  24: 32,
+} as const
+
+export type MnemonicWordCount = keyof typeof BIP39_ENTROPY_BYTES_BY_WORD_COUNT
 
 function isStrictBase64(input: string): boolean {
   const normalized = input.trim()
@@ -279,6 +290,78 @@ export async function unlockWallet({
 export type WalletMaterial = {
   address: string
   privateKey: string
+}
+
+export type MnemonicWalletMaterial = WalletMaterial & {
+  mnemonic: string
+  derivationPath: string
+  wordCount: MnemonicWordCount
+}
+
+type GenerateMnemonicWalletOptions = {
+  mnemonicPassphrase?: string
+  wordCount?: MnemonicWordCount
+  derivationPath?: string
+}
+
+type DeriveWalletFromMnemonicOptions = {
+  mnemonic: string
+  mnemonicPassphrase?: string
+  derivationPath?: string
+}
+
+function normalizeMnemonicPassphrase(passphrase?: string): string {
+  return passphrase?.trim() ?? ''
+}
+
+/**
+ * Generates BIP-39 mnemonic material and derives the first BIP-44 account.
+ * The derivation path defaults to m/44'/60'/0'/0/0.
+ */
+export function generateMnemonicWallet(
+  options: GenerateMnemonicWalletOptions = {},
+): MnemonicWalletMaterial {
+  const wordCount = options.wordCount ?? 24
+  const entropyBytes = BIP39_ENTROPY_BYTES_BY_WORD_COUNT[wordCount]
+  if (!entropyBytes) {
+    throw new Error('Unsupported BIP-39 word count')
+  }
+
+  const derivationPath = options.derivationPath?.trim() || DEFAULT_BIP44_PATH
+  const mnemonic = Mnemonic.fromEntropy(
+    randomBytes(entropyBytes),
+    normalizeMnemonicPassphrase(options.mnemonicPassphrase),
+  )
+  const account = HDNodeWallet.fromMnemonic(mnemonic, derivationPath)
+
+  return {
+    address: account.address,
+    privateKey: account.privateKey,
+    mnemonic: mnemonic.phrase,
+    derivationPath,
+    wordCount,
+  }
+}
+
+export function deriveWalletFromMnemonic(
+  options: DeriveWalletFromMnemonicOptions,
+): WalletMaterial {
+  const phrase = options.mnemonic.trim()
+  if (!phrase) {
+    throw new Error('Mnemonic is required')
+  }
+
+  const derivationPath = options.derivationPath?.trim() || DEFAULT_BIP44_PATH
+  const mnemonic = Mnemonic.fromPhrase(
+    phrase,
+    normalizeMnemonicPassphrase(options.mnemonicPassphrase),
+  )
+  const account = HDNodeWallet.fromMnemonic(mnemonic, derivationPath)
+
+  return {
+    address: account.address,
+    privateKey: account.privateKey,
+  }
 }
 
 export async function encodeWalletToEncrypted(

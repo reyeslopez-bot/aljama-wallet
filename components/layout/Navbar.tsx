@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import WalletButton from '@/components/wallet/ui/WalletButton'
 import { BRAND } from '@/constants/brand'
 import { useLocale, useTranslations } from 'next-intl'
-import { useSession } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
 import { hasRecognizedDevice, onTelemetryConsentChange } from '@/infra/telemetry/client'
 
 const LANGUAGES = [
@@ -25,7 +25,7 @@ export default function Navbar() {
   const locale = useLocale()
   const pathname = usePathname()
   const router = useRouter()
-  const { status } = useSession()
+  const { data: session, status } = useSession()
   const isAuthed = status === 'authenticated'
   const [menuOpen, setMenuOpen] = useState(false)
   const [languageOpen, setLanguageOpen] = useState(false)
@@ -135,7 +135,12 @@ export default function Navbar() {
     [{ label: t('tradeDesk'), href: `/${locale}/#trade-desk` }],
   ]
   const authCtaLabel = recognizedDevice ? t('signIn') : t('signUp')
-  const authCtaHref = recognizedDevice ? `/${locale}/login` : `/${locale}/login?mode=register`
+  const authCtaHref = recognizedDevice ? `/${locale}/login?mode=login` : `/${locale}/login?mode=register`
+  const accountLabel =
+    session?.user?.name?.trim() ||
+    session?.user?.email?.split('@')[0] ||
+    session?.user?.email ||
+    'Account'
 
   return (
     <nav
@@ -283,6 +288,23 @@ export default function Navbar() {
                     {authCtaLabel}
                   </Link>
                 )}
+                {isAuthed && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      void signOut({ callbackUrl: `/${locale}` })
+                    }}
+                    className={`block w-full rounded-xl px-3 py-2 text-left text-sm transition ${
+                      isLight
+                        ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                        : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                    }`}
+                    role="menuitem"
+                  >
+                    {t('signOut')}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -399,6 +421,32 @@ export default function Navbar() {
             >
               {authCtaLabel}
             </Link>
+          )}
+          {isAuthed && (
+            <div
+              className={`hidden rounded-full border px-3 py-2 text-xs font-semibold tracking-wide md:inline-flex ${
+                isLight
+                  ? 'border-[#7fa3c1]/45 bg-white/70 text-[#1f3348]'
+                  : 'border-white/15 bg-white/5 text-ivory/85'
+              }`}
+              title={`${t('signedIn')}: ${accountLabel}`}
+              aria-label={`${t('signedIn')}: ${accountLabel}`}
+            >
+              {accountLabel}
+            </div>
+          )}
+          {isAuthed && (
+            <button
+              type="button"
+              onClick={() => void signOut({ callbackUrl: `/${locale}` })}
+              className={`hidden rounded-full border px-4 py-2 text-sm font-medium transition md:inline-flex ${
+                isLight
+                  ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
+                  : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
+              }`}
+            >
+              {t('signOut')}
+            </button>
           )}
           {showWallet && <WalletButton />}
         </div>

@@ -44,7 +44,7 @@ export default function UnlockActionsLink({
   const ctaLabel = label ?? (
     resolvedMode === 'signup' ? tAuth('unlockActionsSignUp') : tAuth('unlockActions')
   )
-  const query = resolvedMode === 'signup' ? '?mode=register' : ''
+  const query = resolvedMode === 'signup' ? '?mode=register' : '?mode=login'
 
   return (
     <Link

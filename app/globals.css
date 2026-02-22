@@ -257,6 +257,15 @@
       inset 0 12px 24px rgb(0 0 0 / 0.4);
   }
 
+  .tiktok-feed {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .tiktok-feed::-webkit-scrollbar {
+    display: none;
+  }
+
   .ornament-line {
     height: 1px;
     background: linear-gradient(
