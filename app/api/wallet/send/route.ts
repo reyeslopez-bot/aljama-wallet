@@ -133,7 +133,7 @@ async function buildUnsignedTx(
   }
 }
 
-export async function POST(req: Request) {
+export async function sendWalletRequest(req: Request, walletIdOverride?: string) {
   let transferLogId: string | null = null
   try {
     const session = await requireSession()
@@ -168,7 +168,21 @@ export async function POST(req: Request) {
     }
 
     const body = bodyResult.data
-    const input = sendSchema.parse(body)
+    const bodyObject =
+      body && typeof body === 'object' && !Array.isArray(body)
+        ? (body as Record<string, unknown>)
+        : null
+
+    if (walletIdOverride && bodyObject && typeof bodyObject.walletId === 'string') {
+      if (bodyObject.walletId !== walletIdOverride) {
+        return errorJson(409, 'wallet_id_conflict', 'WALLET_ID_CONFLICT')
+      }
+    }
+
+    const input = sendSchema.parse({
+      ...(bodyObject ?? {}),
+      ...(walletIdOverride ? { walletId: walletIdOverride } : {}),
+    })
 
     const isAdmin = isAdminEmail(session.user?.email ?? null)
     if (!isAdmin) {
@@ -322,4 +336,8 @@ export async function POST(req: Request) {
       message,
     )
   }
+}
+
+export async function POST(req: Request) {
+  return sendWalletRequest(req)
 }
