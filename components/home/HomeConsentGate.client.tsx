@@ -2,38 +2,62 @@
 
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
-import { useRouter } from 'next/navigation'
-import { getTelemetryConsent, hasRecognizedDevice } from '@/infra/telemetry/client'
-import { getLocationConsent } from '@/infra/location/client'
+import ConsentEntryGate from '@/components/home/ConsentEntryGate.client'
+import {
+  CONSENT_PROMPT_SESSION_KEY,
+  CONSENT_SITE_ENTRY_SESSION_KEY,
+} from '@/infra/consent/constants'
+import {
+  getTelemetryConsent,
+  onTelemetryConsentChange,
+} from '@/infra/telemetry/client'
+import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
 
 type HomeConsentGateProps = {
   children: ReactNode
 }
 
 export default function HomeConsentGate({ children }: HomeConsentGateProps) {
-  const locale = useLocale()
-  const router = useRouter()
-  const [ready, setReady] = useState(false)
+  const [hasAnsweredPermissions, setHasAnsweredPermissions] = useState(false)
 
   useEffect(() => {
-    const telemetryConsent = getTelemetryConsent()
-    const locationConsent = getLocationConsent()
-    const hasAnsweredPermissions =
-      telemetryConsent !== 'unset' && locationConsent !== 'unset'
-
-    if (!hasAnsweredPermissions) {
-      const loginRoute = hasRecognizedDevice()
-        ? `/${locale}/login?mode=login`
-        : `/${locale}/login?mode=register`
-      router.replace(loginRoute)
-      return
+    const hasSeenPromptThisSession = () => {
+      if (typeof window === 'undefined') return false
+      return window.sessionStorage.getItem(CONSENT_PROMPT_SESSION_KEY) === 'seen'
+    }
+    const hasEnteredSiteThisSession = () => {
+      if (typeof window === 'undefined') return false
+      return window.sessionStorage.getItem(CONSENT_SITE_ENTRY_SESSION_KEY) === 'seen'
     }
 
-    setReady(true)
-  }, [locale, router])
+    const sync = () => {
+      const telemetryConsent = getTelemetryConsent()
+      const locationConsent = getLocationConsent()
+      const answered =
+        telemetryConsent !== 'unset' &&
+        locationConsent !== 'unset' &&
+        hasSeenPromptThisSession() &&
+        hasEnteredSiteThisSession()
+      setHasAnsweredPermissions(answered)
+    }
 
-  if (!ready) return null
+    sync()
+    const unsubscribeTelemetry = onTelemetryConsentChange(sync)
+    const unsubscribeLocation = onLocationConsentChange(sync)
+    window.addEventListener('focus', sync)
+    window.addEventListener('storage', sync)
+
+    return () => {
+      unsubscribeTelemetry()
+      unsubscribeLocation()
+      window.removeEventListener('focus', sync)
+      window.removeEventListener('storage', sync)
+    }
+  }, [])
+
+  if (!hasAnsweredPermissions) {
+    return <ConsentEntryGate />
+  }
 
   return <>{children}</>
 }

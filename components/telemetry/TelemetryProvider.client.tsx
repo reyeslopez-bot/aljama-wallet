@@ -12,6 +12,7 @@ import {
   sendTelemetryEvent,
   type TelemetryConsent,
 } from '@/infra/telemetry/client'
+import { getLocationConsent } from '@/infra/location/client'
 
 type TelemetryContextValue = {
   consent: TelemetryConsent
@@ -57,23 +58,25 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
     const init = async () => {
       let enriched: TelemetryContextSnapshot = baseContext
       try {
-        const res = await fetch('/api/network-location', { method: 'GET', cache: 'no-store' })
-        const body = (await res.json()) as {
-          ok: boolean
-          location?: {
-            source: 'network' | 'default'
-            latitude: number
-            longitude: number
-            country: string | null
-            region: string | null
-            city: string | null
-            timezone: string
+        if (getLocationConsent() === 'granted') {
+          const res = await fetch('/api/network-location', { method: 'GET', cache: 'no-store' })
+          const body = (await res.json()) as {
+            ok: boolean
+            location?: {
+              source: 'network' | 'default'
+              latitude: number
+              longitude: number
+              country: string | null
+              region: string | null
+              city: string | null
+              timezone: string
+            }
           }
-        }
-        if (res.ok && body.ok && body.location) {
-          enriched = {
-            ...baseContext,
-            networkLocation: body.location,
+          if (res.ok && body.ok && body.location) {
+            enriched = {
+              ...baseContext,
+              networkLocation: body.location,
+            }
           }
         }
       } catch {

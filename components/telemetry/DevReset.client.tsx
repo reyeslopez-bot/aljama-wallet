@@ -56,7 +56,14 @@ export default function DevReset() {
 
     const sessionKeys = collectKeys(
       window.sessionStorage,
-      ['wc2:', 'wagmi', 'rk-', 'walletconnect'],
+      [
+        'wc2:',
+        'wagmi',
+        'rk-',
+        'walletconnect',
+        'aljama.consent.prompt.session.',
+        'aljama.consent.site-entry.session.',
+      ],
       ['aljama.telemetry.sessionId'],
     )
     sessionKeys.forEach((key) => window.sessionStorage.removeItem(key))

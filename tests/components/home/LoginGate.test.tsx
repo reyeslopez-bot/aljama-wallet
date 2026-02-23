@@ -3,15 +3,15 @@
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { signIn } from 'next-auth/react'
-import { CONSENT_PROMPT_SESSION_KEY } from '@/infra/consent/constants'
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
+  replace: vi.fn(),
   pathname: '/en/login',
 }))
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mocks.push }),
+  useRouter: () => ({ push: mocks.push, replace: mocks.replace }),
   usePathname: () => mocks.pathname,
 }))
 
@@ -21,6 +21,8 @@ const mockedSignIn = vi.mocked(signIn)
 
 describe('LoginGate', () => {
   beforeEach(() => {
+    window.history.replaceState({}, '', '/en/login')
+
     const localStore = new Map<string, string>()
     Object.defineProperty(window, 'localStorage', {
       value: {
@@ -97,12 +99,27 @@ describe('LoginGate', () => {
     expect(mocks.push).toHaveBeenNthCalledWith(2, '/ar/login')
   })
 
-  it('closes to locale home when close button is clicked', () => {
+  it('shows sign-up subtitle in register mode', () => {
+    const { getByText } = render(<LoginGate showBackLink={false} initialMode="register" />)
+    expect(getByText('Sign up to continue.')).toBeTruthy()
+  })
+
+  it('shows close button and closes to locale home', () => {
     const { getByLabelText } = render(<LoginGate showBackLink={false} />)
 
     fireEvent.click(getByLabelText('Return to Home'))
 
     expect(mocks.push).toHaveBeenCalledWith('/en')
+  })
+
+  it('does not render permissions controls on auth gate', () => {
+    const { queryByTestId, queryByRole, queryByText } = render(<LoginGate showBackLink={false} />)
+
+    expect(queryByTestId('secure-gate-permissions')).toBeNull()
+    expect(queryByTestId('secure-gate-continue-guest')).toBeNull()
+    expect(queryByRole('switch')).toBeNull()
+    expect(queryByText('Allow all')).toBeNull()
+    expect(queryByText('Essential only')).toBeNull()
   })
 
   it('toggles password visibility button', () => {
@@ -119,7 +136,10 @@ describe('LoginGate', () => {
   })
 
   it('submits login form when sign-in button is enabled', async () => {
-    const { getByPlaceholderText, getByRole } = render(<LoginGate showBackLink={false} />)
+    window.history.replaceState({}, '', '/en/login?mode=login')
+    const { getByPlaceholderText, getByRole } = render(
+      <LoginGate showBackLink={false} initialMode="login" />,
+    )
 
     fireEvent.change(getByPlaceholderText('you@company.com'), {
       target: { value: 'user@example.com' },
@@ -138,37 +158,6 @@ describe('LoginGate', () => {
       })
       expect(mocks.push).toHaveBeenCalledWith('/en')
     })
-
-    expect(window.localStorage.getItem('aljama.telemetry.consent')).toBe('denied')
-    expect(window.localStorage.getItem('aljama.location.consent')).toBe('denied')
-    expect(window.sessionStorage.getItem(CONSENT_PROMPT_SESSION_KEY)).toBe('seen')
-  })
-
-  it('applies allow-all permissions before login when selected', async () => {
-    const { getByPlaceholderText, getByRole } = render(<LoginGate showBackLink={false} />)
-
-    fireEvent.click(getByRole('button', { name: 'Allow all' }))
-    fireEvent.change(getByPlaceholderText('you@company.com'), {
-      target: { value: 'user@example.com' },
-    })
-    fireEvent.change(getByPlaceholderText('••••••••'), {
-      target: { value: 'AnyPassword123!' },
-    })
-
-    fireEvent.click(getByRole('button', { name: 'Sign in' }))
-
-    await waitFor(() => {
-      expect(mockedSignIn).toHaveBeenCalledWith('credentials', {
-        email: 'user@example.com',
-        password: 'AnyPassword123!',
-        redirect: false,
-      })
-      expect(mocks.push).toHaveBeenCalledWith('/en')
-    })
-
-    expect(window.localStorage.getItem('aljama.telemetry.consent')).toBe('granted')
-    expect(window.localStorage.getItem('aljama.location.consent')).toBe('granted')
-    expect(window.sessionStorage.getItem(CONSENT_PROMPT_SESSION_KEY)).toBe('seen')
   })
 
   it('submits register flow and then signs in', async () => {
@@ -178,9 +167,9 @@ describe('LoginGate', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByRole, getByPlaceholderText } = render(<LoginGate showBackLink={false} />)
-
-    fireEvent.click(getByRole('button', { name: 'Need an invite? Sign up' }))
+    const { getByRole, getByPlaceholderText } = render(
+      <LoginGate showBackLink={false} initialMode="register" />,
+    )
 
     fireEvent.change(getByPlaceholderText('you@company.com'), {
       target: { value: 'newuser@example.com' },

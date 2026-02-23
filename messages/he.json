@@ -389,6 +389,7 @@
   "auth": {
     "title": "שער מאובטח",
     "subtitle": "התחברו כדי להמשיך.",
+    "subtitleRegister": "הירשמו כדי להמשיך.",
     "email": "אימייל",
     "password": "סיסמה",
     "invite": "טוקן הזמנה",

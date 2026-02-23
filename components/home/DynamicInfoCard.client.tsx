@@ -9,6 +9,7 @@ import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
 import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
+import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
 
 function formatShortAddress(address: string) {
   const trimmed = address.trim()
@@ -214,6 +215,13 @@ export default function DynamicInfoCard() {
   useEffect(() => {
     let cancelled = false
     const loadNetworkTimezone = async () => {
+      if (getLocationConsent() !== 'granted') {
+        if (!cancelled) {
+          setNetworkTimezone(DUBAI_TIMEZONE)
+        }
+        return
+      }
+
       try {
         const res = await fetch('/api/network-location', { method: 'GET', cache: 'no-store' })
         const body = (await res.json()) as {
@@ -231,8 +239,16 @@ export default function DynamicInfoCard() {
     }
 
     void loadNetworkTimezone()
+    const unsubscribe = onLocationConsentChange(() => {
+      void loadNetworkTimezone()
+    })
+    window.addEventListener('focus', loadNetworkTimezone)
+    window.addEventListener('storage', loadNetworkTimezone)
     return () => {
       cancelled = true
+      unsubscribe()
+      window.removeEventListener('focus', loadNetworkTimezone)
+      window.removeEventListener('storage', loadNetworkTimezone)
     }
   }, [])
 

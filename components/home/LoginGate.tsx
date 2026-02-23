@@ -4,14 +4,7 @@ import * as React from "react"
 import { signIn, useSession } from "next-auth/react"
 import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import {
-  getTelemetryConsent,
-  hasRecognizedDevice,
-  setTelemetryConsent,
-} from "@/infra/telemetry/client"
-import { getLocationConsent, setLocationConsent } from "@/infra/location/client"
-import { CONSENT_MODE_KEY, CONSENT_PROMPT_SESSION_KEY } from "@/infra/consent/constants"
-import { setRuntimeLocationAccess } from "@/infra/location/runtime"
+import { hasRecognizedDevice } from "@/infra/telemetry/client"
 
 type Props = {
   title?: string
@@ -26,8 +19,6 @@ type Props = {
   onClose?: () => void
 }
 
-type ConsentPreset = "rejectAll" | "essentialOnly" | "allowAll"
-
 export default function LoginGate({
   title,
   subtitle,
@@ -41,7 +32,6 @@ export default function LoginGate({
   onClose,
 }: Props) {
   const t = useTranslations("auth")
-  const tConsent = useTranslations("consent")
   const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
@@ -55,7 +45,6 @@ export default function LoginGate({
   const [mode, setMode] = React.useState<"login" | "register">(initialMode)
   const [error, setError] = React.useState<string | null>(null)
   const [notice, setNotice] = React.useState<string | null>(null)
-  const [consentPreset, setConsentPreset] = React.useState<ConsentPreset | null>(null)
   const [recognizedDevice, setRecognizedDevice] = React.useState(false)
 
   const isStrongPassword = (value: string) => {
@@ -100,77 +89,6 @@ export default function LoginGate({
     setMode(hasRecognizedDevice() ? "login" : "register")
   }, [])
 
-  React.useEffect(() => {
-    const telemetryConsent = getTelemetryConsent()
-    const locationConsent = getLocationConsent()
-
-    if (telemetryConsent === "granted") {
-      setConsentPreset("allowAll")
-      return
-    }
-
-    if (telemetryConsent === "denied" || locationConsent === "denied") {
-      setConsentPreset("essentialOnly")
-      return
-    }
-
-    setConsentPreset(null)
-  }, [])
-
-  const markConsentPromptSeen = React.useCallback(() => {
-    if (typeof window === "undefined") return
-    window.sessionStorage.setItem(CONSENT_PROMPT_SESSION_KEY, "seen")
-  }, [])
-
-  const setConsentMode = React.useCallback((mode: ConsentPreset) => {
-    if (typeof window === "undefined") return
-    window.localStorage.setItem(CONSENT_MODE_KEY, mode)
-  }, [])
-
-  const applyConsentPreset = React.useCallback(
-    async (preset: ConsentPreset) => {
-      setConsentMode(preset)
-      if (preset === "rejectAll") {
-        setRuntimeLocationAccess(false)
-        setTelemetryConsent("denied")
-        setLocationConsent("denied")
-        markConsentPromptSeen()
-        return
-      }
-
-      const enableNetworkLocation = preset === "allowAll"
-      setRuntimeLocationAccess(false)
-      setTelemetryConsent(enableNetworkLocation ? "granted" : "denied")
-      setLocationConsent(enableNetworkLocation ? "granted" : "denied")
-      markConsentPromptSeen()
-    },
-    [markConsentPromptSeen, setConsentMode],
-  )
-
-  const chooseConsentPreset = React.useCallback(
-    async (preset: ConsentPreset) => {
-      if (busy) return
-      setConsentPreset(preset)
-      await applyConsentPreset(preset)
-    },
-    [applyConsentPreset, busy],
-  )
-
-  const continueWithoutAccount = React.useCallback(async () => {
-    if (busy) return
-    setBusy(true)
-    setError(null)
-    setNotice(null)
-    try {
-      const nextPreset = consentPreset ?? "essentialOnly"
-      setConsentPreset(nextPreset)
-      await applyConsentPreset(nextPreset)
-      router.push(`/${locale}`)
-    } finally {
-      setBusy(false)
-    }
-  }, [applyConsentPreset, busy, consentPreset, locale, router])
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (disabled) return
@@ -178,14 +96,6 @@ export default function LoginGate({
     setError(null)
     setNotice(null)
     try {
-      const telemetryConsent = getTelemetryConsent()
-      const locationConsent = getLocationConsent()
-      if (telemetryConsent === "unset" || locationConsent === "unset") {
-        const nextConsentPreset = consentPreset ?? "essentialOnly"
-        setConsentPreset(nextConsentPreset)
-        await applyConsentPreset(nextConsentPreset)
-      }
-
       if (!isValidEmail) {
         setError(t("emailInvalid"))
         return
@@ -251,13 +161,7 @@ export default function LoginGate({
     { label: "HE", value: "he" },
     { label: "AR", value: "ar" },
   ]
-
-  const permissionPresetOptions: { id: ConsentPreset; label: string }[] = [
-    { id: "rejectAll", label: tConsent("rejectAll") },
-    { id: "essentialOnly", label: tConsent("essentialOnly") },
-    { id: "allowAll", label: tConsent("allowAll") },
-  ]
-  const optionalServicesEnabled = consentPreset === "allowAll"
+  const resolvedSubtitle = subtitle ?? (mode === "register" ? t("subtitleRegister") : t("subtitle"))
 
   return (
     <div
@@ -334,79 +238,14 @@ export default function LoginGate({
             {title ?? t("title")}
           </h2>
           <p className="mt-2 text-sm text-ivory/70">
-            {subtitle ?? t("subtitle")}
+            {resolvedSubtitle}
           </p>
-          <p className="mt-1 text-xs text-ivory/55">{t("permissionsGateHint")}</p>
           {mode === "register" && !recognizedDevice ? (
             <p className="mt-1 text-xs text-saffron/80">{t("inviteRequired")}</p>
           ) : null}
         </div>
 
         <form data-testid="secure-gate-form" onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div data-testid="secure-gate-permissions" className="surface-inner space-y-3 rounded-2xl border border-white/10 p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-saffron/80">{tConsent("eyebrow")}</p>
-            <p className="text-xs text-ivory/65">{tConsent("text")}</p>
-            <div className="surface-soft flex items-center justify-between gap-3 rounded-xl border border-white/12 px-3 py-2.5">
-              <div>
-                <p className="text-xs uppercase tracking-[0.14em] text-ivory/72">{tConsent("optionalToggleLabel")}</p>
-                <p className="mt-1 text-[11px] text-ivory/55">{tConsent("optionalToggleHint")}</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={optionalServicesEnabled}
-                data-testid="secure-gate-optional-services-switch"
-                onClick={() =>
-                  void chooseConsentPreset(optionalServicesEnabled ? "essentialOnly" : "allowAll")
-                }
-                disabled={busy}
-                className="relative h-7 w-12 rounded-full border border-white/20 bg-white/10 transition disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <span
-                  className={`absolute top-0.5 h-[22px] w-[22px] rounded-full bg-white transition ${
-                    optionalServicesEnabled ? "left-6 bg-lapis" : "left-0.5"
-                  }`}
-                />
-              </button>
-            </div>
-            <p className="text-[11px] text-ivory/52">
-              {optionalServicesEnabled ? tConsent("optionalToggleOn") : tConsent("optionalToggleOff")}
-            </p>
-            <ul className="space-y-1 text-[11px] text-ivory/60">
-              <li>{tConsent("essentialDetail")}</li>
-              <li>{tConsent("locationDetail")}</li>
-              <li>{tConsent("telemetryDetail")}</li>
-            </ul>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {permissionPresetOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => void chooseConsentPreset(option.id)}
-                  disabled={busy}
-                  data-testid={`secure-gate-permission-${option.id}`}
-                  className={`rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                    consentPreset === option.id
-                      ? "border-saffron/55 bg-saffron/18 text-ivory"
-                      : "border-white/12 bg-white/5 text-ivory/70 hover:bg-white/10"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-ivory/52">{tConsent("accountOptional")}</p>
-            <button
-              type="button"
-              onClick={() => void continueWithoutAccount()}
-              disabled={busy}
-              data-testid="secure-gate-continue-guest"
-              className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm font-semibold text-ivory/90 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {busy ? tConsent("acceptAndContinueLoading") : tConsent("acceptAndContinue")}
-            </button>
-          </div>
-
           <label htmlFor={emailFieldId} className="block text-xs uppercase tracking-[0.16em] text-ivory/60">
             {t("email")}
           </label>

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
 
 type Coords = {
   lat: number
@@ -88,6 +89,7 @@ export default function MapboxMap() {
   const [networkCity, setNetworkCity] = React.useState<string | null>(null)
   const [isLightTheme, setIsLightTheme] = React.useState(false)
   const [showRegulations, setShowRegulations] = React.useState(false)
+  const [locationEnabled, setLocationEnabled] = React.useState(false)
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
   const mapStyle = isLightTheme ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11'
@@ -124,8 +126,25 @@ export default function MapboxMap() {
   }, [])
 
   React.useEffect(() => {
+    const syncLocationConsent = () => {
+      setLocationEnabled(getLocationConsent() === 'granted')
+    }
+
+    syncLocationConsent()
+    const unsubscribe = onLocationConsentChange(syncLocationConsent)
+    window.addEventListener('storage', syncLocationConsent)
+    window.addEventListener('focus', syncLocationConsent)
+    return () => {
+      unsubscribe()
+      window.removeEventListener('storage', syncLocationConsent)
+      window.removeEventListener('focus', syncLocationConsent)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    if (!locationEnabled) return
     void requestNetworkLocation()
-  }, [requestNetworkLocation])
+  }, [locationEnabled, requestNetworkLocation])
 
   React.useEffect(() => {
     if (typeof document === 'undefined') return
@@ -221,8 +240,9 @@ export default function MapboxMap() {
   }, [coords, mapReady])
 
   const requestLocation = React.useCallback(() => {
+    if (!locationEnabled) return
     void requestNetworkLocation()
-  }, [requestNetworkLocation])
+  }, [locationEnabled, requestNetworkLocation])
 
   const regulatoryRegion = React.useMemo(
     () => resolveRegulatoryRegion(coords.lat, coords.lng),
@@ -256,17 +276,18 @@ export default function MapboxMap() {
           <p className="text-xs uppercase tracking-[0.18em] text-saffron/70">{t('label')}</p>
 
           <p className="text-sm text-ivory/70">
-            {status === 'idle' && t('idle')}
-            {status === 'loading' && t('loading')}
-            {status === 'ready' && coords.source === 'default' && t('idle')}
-            {status === 'ready' && coords.source !== 'default' && (
+            {!locationEnabled && t('blocked')}
+            {locationEnabled && status === 'idle' && t('idle')}
+            {locationEnabled && status === 'loading' && t('loading')}
+            {locationEnabled && status === 'ready' && coords.source === 'default' && t('idle')}
+            {locationEnabled && status === 'ready' && coords.source !== 'default' && (
               <>
                 {t('centered')}{' '}
                 <span className="text-ivory">{t(`laws.${regulatoryRegion}.label`)}</span>
                 {networkCity ? ` · ${networkCity}` : null}
               </>
             )}
-            {status === 'error' && (error ?? t('error'))}
+            {locationEnabled && status === 'error' && (error ?? t('error'))}
           </p>
         </div>
 
@@ -274,7 +295,7 @@ export default function MapboxMap() {
           <button
             type="button"
             onClick={requestLocation}
-            disabled={status === 'loading'}
+            disabled={status === 'loading' || !locationEnabled}
             className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t('refreshLocation')}

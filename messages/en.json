@@ -389,6 +389,7 @@
   "auth": {
     "title": "Secure Gate",
     "subtitle": "Sign in to continue.",
+    "subtitleRegister": "Sign up to continue.",
     "email": "Email",
     "password": "Password",
     "invite": "Invite token",
