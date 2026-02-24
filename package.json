@@ -13,6 +13,10 @@
     "eslint": "eslint .",
     "test": "NODE_ENV=test vitest --run",
     "test:watch": "NODE_ENV=test vitest",
+    "test:frontend:components": "NODE_ENV=test vitest --run tests/components/**/*.test.tsx",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "test:frontend": "pnpm test:frontend:components && pnpm test:e2e",
     "prisma:generate": "pnpm prisma:generate:crdb && pnpm prisma:generate:pg",
     "prisma:generate:crdb": "prisma generate --schema=prisma/crdb/schema.prisma",
     "prisma:generate:pg": "prisma generate --schema=prisma/pg/schema.prisma",
@@ -48,6 +52,7 @@
   "devDependencies": {
     "@eslint/js": "9.39.1",
     "@next/eslint-plugin-next": "16.1.0",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.1.17",
     "@testing-library/react": "16.3.2",
     "@types/node": "24.x",

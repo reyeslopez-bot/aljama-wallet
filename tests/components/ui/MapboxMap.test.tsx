@@ -55,6 +55,8 @@ describe('MapboxMap', () => {
   })
 
   it('keeps Dubai jurisdiction when network location falls back to default', async () => {
+    window.localStorage.setItem('aljama.location.consent', 'granted')
+
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -83,6 +85,8 @@ describe('MapboxMap', () => {
   })
 
   it('refreshes using VPN/network location when the button is clicked', async () => {
+    window.localStorage.setItem('aljama.location.consent', 'granted')
+
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -123,7 +127,7 @@ describe('MapboxMap', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
-    fireEvent.click(getByRole('button', { name: 'Use network location' }))
+    fireEvent.click(getByRole('button', { name: 'Refresh location' }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
@@ -133,6 +137,8 @@ describe('MapboxMap', () => {
   })
 
   it('shows fallback error and keeps action enabled when lookup fails', async () => {
+    window.localStorage.setItem('aljama.location.consent', 'granted')
+
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
 
     const { getByRole, getByText } = render(<MapboxMap />)
@@ -141,7 +147,7 @@ describe('MapboxMap', () => {
       expect(getByText('Network location unavailable. Using Dubai fallback.')).toBeTruthy()
     })
 
-    const button = getByRole('button', { name: 'Use network location' }) as HTMLButtonElement
+    const button = getByRole('button', { name: 'Refresh location' }) as HTMLButtonElement
     expect(button.disabled).toBe(false)
   })
 })

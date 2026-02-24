@@ -297,9 +297,19 @@ pnpm test
 pnpm build
 ```
 
+Frontend-focused checks:
+
+```bash
+pnpm test:frontend:components
+pnpm test:e2e
+pnpm test:frontend
+```
+
 Test stack:
 - Vitest + Testing Library
+- Playwright (functional browser checks, screenshots, load-time assertions)
 - Route tests for critical APIs (`wallet/send`, `wallets`, `auth/register`, `tokens-wallet`, `xrpl/dev-account`, and others)
+- CI matrix runs frontend checks concurrently across Linux, macOS, and Windows with Playwright sharding
 
 ## Project Layout
 
@@ -313,7 +323,7 @@ Test stack:
 |- lib/                    # Shared utilities, auth, security, db clients
 |- prisma/                 # Dual schemas (crdb and pg)
 |- services/               # Server-side service layer
-|- tests/                  # Vitest test suites
+|- tests/                  # Vitest + Playwright suites
 |- dev.sh                  # Containerized dev runner
 |- db.sh                   # Local Postgres/Cockroach helper
 |- prod.sh                 # Containerized prod runner

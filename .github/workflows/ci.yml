@@ -91,9 +91,75 @@ jobs:
           path: coverage
           if-no-files-found: ignore
 
+  # ─────────────────────────────────────────────
+  # 2) Frontend CI: component + e2e (OS matrix + sharding)
+  # ─────────────────────────────────────────────
+  frontend:
+    name: Frontend CI (${{ matrix.os }} · shard ${{ matrix.shard }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        shard: ['1/2', '2/2']
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Activate pnpm
+        run: corepack prepare pnpm@10.28.1 --activate
+
+      - name: Verify pnpm
+        run: pnpm -v
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser (Linux)
+        if: runner.os == 'Linux'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install Playwright browser (macOS/Windows)
+        if: runner.os != 'Linux'
+        run: pnpm exec playwright install chromium
+
+      - name: Frontend component tests (Vitest)
+        if: matrix.shard == '1/2'
+        run: pnpm test:frontend:components -- --reporter=github
+
+      - name: Frontend functional tests (Playwright)
+        env:
+          CI: true
+        run: pnpm test:e2e --project=chromium --shard=${{ matrix.shard }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.os }}-shard-${{ matrix.shard }}
+          path: playwright-report
+          if-no-files-found: ignore
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-${{ matrix.os }}-shard-${{ matrix.shard }}
+          path: test-results
+          if-no-files-found: ignore
 
   # ─────────────────────────────────────────────
-  # 2) Container CI: Podman + Just inside image
+  # 3) Container CI: Podman + Just inside image
   # ─────────────────────────────────────────────
   container:
     name: Container CI (Podman + Just)

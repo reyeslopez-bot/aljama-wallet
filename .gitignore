@@ -22,6 +22,11 @@ pnpm-debug.log*
 dist/
 out/
 
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/
+
 # Prisma
 prisma/cockroach-*
 cockroach-*/
