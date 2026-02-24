@@ -41,6 +41,10 @@ Core domains:
 - Route tests cover many high-risk paths.
 - Component and e2e tests exist.
 - Frontend CI runs concurrently across Linux/macOS/Windows with Playwright sharding.
+- Added dedicated Ubuntu multi-browser E2E (Chromium/Firefox/WebKit).
+- Added production-like real-backend E2E lane (built app, no route mocks).
+- Added macOS visual-baseline lane with screenshot diff assertions.
+- Added env-gated XRPL live integration tests for real network behavior checks.
 
 ## Corrected Documentation Reality
 
@@ -91,26 +95,23 @@ Improvements:
 5. Frontend test rigor and full-stack confidence
 
 Current gap:
-- Screenshots are attached but not baseline-diff asserted.
-- Browser coverage is limited.
-- Some end-to-end confidence relies on mocked APIs.
-- Performance checks are coarse.
+- Visual baseline diffing is now implemented behind explicit Playwright visual mode.
+- Multi-browser and production-like backend lanes are in CI.
+- Remaining gap is operational governance for snapshot baselines and tighter perf budgets.
 
 Improvements:
-- Add visual baseline diff checks for critical pages.
-- Expand browser matrix where practical.
-- Add production-like full-stack e2e paths with less mocking.
-- Track web performance budgets with clearer thresholds.
+- Keep baseline snapshots curated and reviewed as code artifacts.
+- Add stricter web-vitals style budgets and fail thresholds.
 
 6. XRPL integration realism in testing
 
 Current gap:
-- Many tests validate logic with mocks but do not fully exercise external behavior.
+- Mocked route coverage remains broad, and live XRPL integration coverage now exists behind env-gated CI.
+- Remaining gap is depth: more adversarial/failure permutations and longer-running stochastic suites.
 
 Improvements:
-- Add integration tests against controlled XRPL test environments.
-- Cover latency/timeouts, malformed payloads, and transient network failures.
-- Add adversarial/fuzz-style cases around submission and response handling.
+- Keep live testnet integration lanes enabled in CI where secrets/network allow.
+- Increase fuzz/adversarial breadth incrementally for submit/query paths.
 
 ## Prioritized Improvement Actions
 

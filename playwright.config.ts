@@ -1,7 +1,39 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3000)
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${PORT}`
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`
+const ENABLE_ALL_BROWSERS = process.env.PLAYWRIGHT_ALL_BROWSERS === 'true'
+const DISABLE_WEB_SERVER = process.env.PLAYWRIGHT_DISABLE_WEBSERVER === 'true'
+const WEB_SERVER_NODE_ENV = process.env.PLAYWRIGHT_NODE_ENV ?? 'test'
+const SERVER_COMMAND =
+  process.env.PLAYWRIGHT_SERVER_COMMAND ??
+  `pnpm exec next dev --turbopack --port ${PORT}`
+
+const projects = [
+  {
+    name: 'chromium',
+    use: {
+      ...devices['Desktop Chrome'],
+    },
+  },
+]
+
+if (ENABLE_ALL_BROWSERS) {
+  projects.push(
+    {
+      name: 'firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+      },
+    },
+    {
+      name: 'webkit',
+      use: {
+        ...devices['Desktop Safari'],
+      },
+    },
+  )
+}
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -10,6 +42,7 @@ export default defineConfig({
   expect: {
     timeout: 15_000,
   },
+  snapshotPathTemplate: '{testDir}/{testFilePath}-snapshots/{arg}-{projectName}-{platform}{ext}',
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI
     ? [['github'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
@@ -21,22 +54,17 @@ export default defineConfig({
     video: 'retain-on-failure',
     viewport: { width: 1440, height: 960 },
   },
-  webServer: {
-    command: `pnpm exec next dev --turbopack --port ${PORT}`,
-    port: PORT,
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
-    env: {
-      NODE_ENV: 'test',
-      NEXT_PUBLIC_MAPBOX_TOKEN: '',
-    },
-  },
-  projects: [
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
+  webServer: DISABLE_WEB_SERVER
+    ? undefined
+    : {
+      command: SERVER_COMMAND,
+      port: PORT,
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
+      env: {
+        NODE_ENV: WEB_SERVER_NODE_ENV,
+        NEXT_PUBLIC_MAPBOX_TOKEN: '',
       },
     },
-  ],
+  projects,
 })

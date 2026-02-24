@@ -18,6 +18,8 @@ Implemented:
   - account assets, orderbook, NFT read, and action history
 - Security ingestion + anomaly detection + alerting pipeline with queue adapters.
 - Frontend component and Playwright functional tests in CI across Linux, macOS, and Windows.
+- Dedicated multi-browser Playwright lane (Chromium/Firefox/WebKit) and production-like real-backend E2E lane.
+- Env-gated live XRPL integration test suite for real network behavior/failure modes.
 
 Removed:
 - `TikTokFramerFeed` landing-page section and related tests.
@@ -108,8 +110,8 @@ Known hardening gaps (priority):
 2. Distributed enforcement is partially complete: rate limits support Redis-backed shared counters, but idempotency and other controls still need centralized consistency across all paths.
 3. Forensic persistence is implemented for primary security/XRPL streams, but operational adoption still depends on production Postgres configuration and retention/archival verification.
 4. SOC integration is implemented at sink/payload level, but operational adoption still needs runbook ownership, on-call routing, and SOAR playbook validation in production.
-5. Frontend assurance should expand to baseline screenshot diffing, broader browser coverage, and production-like performance budgets.
-6. XRPL integration confidence should increase with higher-fidelity integration and failure-mode testing.
+5. Frontend visual baselines are implemented but still require baseline governance and periodic refresh policy in CI operations.
+6. XRPL live integration is now env-gated in CI; long-running adversarial/fuzz depth can still be expanded.
 
 See `docs/audit.md` for detailed findings and remediation plan.
 
@@ -142,6 +144,16 @@ pnpm test:e2e
 pnpm test:frontend
 ```
 
+Expanded assurance tests:
+```bash
+pnpm test:e2e:install:all
+PLAYWRIGHT_ALL_BROWSERS=true pnpm test:e2e:multi-browser
+PLAYWRIGHT_REAL_BACKEND=true PLAYWRIGHT_NODE_ENV=production PLAYWRIGHT_SERVER_COMMAND="pnpm build && pnpm start --port 3000" pnpm test:e2e:real-backend
+PLAYWRIGHT_VISUAL=true pnpm test:e2e:visual
+PLAYWRIGHT_VISUAL=true pnpm test:e2e:visual:update
+RUN_XRPL_INTEGRATION_TESTS=true pnpm test:integration:xrpl
+```
+
 ## CI
 
 GitHub Actions runs:
@@ -151,6 +163,10 @@ GitHub Actions runs:
   - `macos-latest`
   - `windows-latest`
 - Playwright sharding (`1/2`, `2/2`) for concurrent execution.
+- Frontend multi-browser lane on Ubuntu (`chromium`, `firefox`, `webkit`).
+- Frontend production-like lane on Ubuntu (`pnpm build && pnpm start`) with real backend E2E (no route mocks).
+- Frontend visual baseline diff lane on macOS (Chromium + snapshot assertions).
+- Env-gated XRPL live integration lane for testnet behavior checks.
 - Container CI path (Podman + `just` fallback commands).
 
 Workflow: `.github/workflows/ci.yml`

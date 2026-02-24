@@ -159,7 +159,222 @@ jobs:
           if-no-files-found: ignore
 
   # ─────────────────────────────────────────────
-  # 3) Container CI: Podman + Just inside image
+  # 3) Frontend CI: multi-browser (Chromium/Firefox/WebKit)
+  # ─────────────────────────────────────────────
+  frontend-multi-browser:
+    name: Frontend CI (Ubuntu · Multi-browser)
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Activate pnpm
+        run: corepack prepare pnpm@10.28.1 --activate
+
+      - name: Verify pnpm
+        run: pnpm -v
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+
+      - name: Multi-browser functional tests (Playwright)
+        env:
+          CI: true
+          PLAYWRIGHT_ALL_BROWSERS: 'true'
+        run: pnpm test:e2e:multi-browser
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-ubuntu-multi-browser
+          path: playwright-report
+          if-no-files-found: ignore
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-ubuntu-multi-browser
+          path: test-results
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────
+  # 4) Frontend CI: production-like real backend E2E
+  # ─────────────────────────────────────────────
+  frontend-prodlike:
+    name: Frontend CI (Ubuntu · Prod-like backend)
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Activate pnpm
+        run: corepack prepare pnpm@10.28.1 --activate
+
+      - name: Verify pnpm
+        run: pnpm -v
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Production-like backend + frontend E2E
+        env:
+          CI: true
+          PLAYWRIGHT_REAL_BACKEND: 'true'
+          PLAYWRIGHT_NODE_ENV: 'production'
+          PLAYWRIGHT_SERVER_COMMAND: pnpm build && pnpm start --port 3000
+          NEXTAUTH_SECRET: ci-prodlike-nextauth-secret
+          NEXTAUTH_URL: http://127.0.0.1:3000
+          XRPL_RPC_URL: ${{ env.XRPL_RPC_URL }}
+          XRPL_DEV_SEED: ${{ secrets.XRPL_DEV_SEED }}
+        run: pnpm test:e2e:real-backend
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-ubuntu-prodlike
+          path: playwright-report
+          if-no-files-found: ignore
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-ubuntu-prodlike
+          path: test-results
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────
+  # 5) Frontend CI: visual baseline diffs
+  # ─────────────────────────────────────────────
+  frontend-visual:
+    name: Frontend CI (macOS · Visual baselines)
+    runs-on: macos-latest
+    needs: build
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Activate pnpm
+        run: corepack prepare pnpm@10.28.1 --activate
+
+      - name: Verify pnpm
+        run: pnpm -v
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install chromium
+
+      - name: Visual baseline diff tests
+        env:
+          CI: true
+          PLAYWRIGHT_VISUAL: 'true'
+          PLAYWRIGHT_VISUAL_MAX_DIFF_RATIO: '0.02'
+        run: pnpm test:e2e:visual
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-macos-visual
+          path: playwright-report
+          if-no-files-found: ignore
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-macos-visual
+          path: test-results
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────
+  # 6) XRPL live integration (env-gated)
+  # ─────────────────────────────────────────────
+  xrpl-live-integration:
+    name: XRPL Live Integration (Testnet)
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ secrets.XRPL_DEV_SEED != '' }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Activate pnpm
+        run: corepack prepare pnpm@10.28.1 --activate
+
+      - name: Verify pnpm
+        run: pnpm -v
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Live XRPL integration tests
+        env:
+          RUN_XRPL_INTEGRATION_TESTS: 'true'
+          XRPL_INTEGRATION_NETWORK_ID: testnet
+          XRPL_INTEGRATION_REQUEST_TIMEOUT_MS: '12000'
+          XRPL_INTEGRATION_LATENCY_BUDGET_MS: '30000'
+          XRPL_INTEGRATION_FUZZ_CASES: '8'
+          CI: true
+          XRPL_RPC_URL: ${{ env.XRPL_RPC_URL }}
+          XRPL_DEV_SEED: ${{ secrets.XRPL_DEV_SEED }}
+        run: pnpm test:integration:xrpl -- --reporter=github
+
+  # ─────────────────────────────────────────────
+  # 7) Container CI: Podman + Just inside image
   # ─────────────────────────────────────────────
   container:
     name: Container CI (Podman + Just)

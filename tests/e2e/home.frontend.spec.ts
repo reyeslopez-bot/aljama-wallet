@@ -7,6 +7,8 @@ import {
 const HOME_ROUTE = '/en'
 const MAX_HOME_VISIBLE_MS = Number(process.env.MAX_HOME_VISIBLE_MS ?? 12_000)
 const MAX_DOM_CONTENT_LOADED_MS = Number(process.env.MAX_DOM_CONTENT_LOADED_MS ?? 10_000)
+const ENABLE_VISUAL_BASELINE = process.env.PLAYWRIGHT_VISUAL === 'true'
+const VISUAL_MAX_DIFF_PIXEL_RATIO = Number(process.env.PLAYWRIGHT_VISUAL_MAX_DIFF_RATIO ?? 0.01)
 
 async function attachLocatorScreenshot(
   testInfo: TestInfo,
@@ -22,6 +24,25 @@ async function attachLocatorScreenshot(
     await target.screenshot({ path, animations: 'disabled' })
   }
   await testInfo.attach(name, { path, contentType: 'image/png' })
+}
+
+async function assertVisualBaseline(page: Page, name: string, target: 'page' | ReturnType<Page['locator']>) {
+  if (!ENABLE_VISUAL_BASELINE) return
+
+  const fileName = `${name}.png`
+  if (target === 'page') {
+    await expect(page).toHaveScreenshot(fileName, {
+      animations: 'disabled',
+      fullPage: true,
+      maxDiffPixelRatio: VISUAL_MAX_DIFF_PIXEL_RATIO,
+    })
+    return
+  }
+
+  await expect(target).toHaveScreenshot(fileName, {
+    animations: 'disabled',
+    maxDiffPixelRatio: VISUAL_MAX_DIFF_PIXEL_RATIO,
+  })
 }
 
 async function mockHomeApi(page: Page) {
@@ -209,7 +230,13 @@ test('home functional checks: text, color, and screenshots', async ({ page }, te
     `home-overview-${testInfo.project.name}`,
     page.getByTestId('home-overview-section'),
   )
+  await assertVisualBaseline(
+    page,
+    'home-overview',
+    page.getByTestId('home-overview-section'),
+  )
   await attachLocatorScreenshot(testInfo, page, `home-full-page-${testInfo.project.name}`, 'page')
+  await assertVisualBaseline(page, 'home-full-page', 'page')
 })
 
 test('home load-time checks and wallet-section screenshot', async ({ page }, testInfo) => {
@@ -259,4 +286,5 @@ test('home load-time checks and wallet-section screenshot', async ({ page }, tes
     `home-wallet-section-${testInfo.project.name}`,
     walletSection,
   )
+  await assertVisualBaseline(page, 'home-wallet-section', walletSection)
 })

@@ -22,3 +22,17 @@ export async function getXrplClient(networkId: XrplNetworkId = DEFAULT_XRPL_NETW
 export function createXrplWalletFromSeed(seed: string): Wallet {
   return Wallet.fromSeed(seed)
 }
+
+export async function resetXrplClientsForTests(): Promise<void> {
+  const disconnects = Array.from(clients.values()).map(async (client) => {
+    try {
+      if (client.isConnected()) {
+        await client.disconnect()
+      }
+    } catch {
+      // best effort test cleanup
+    }
+  })
+  await Promise.all(disconnects)
+  clients.clear()
+}
