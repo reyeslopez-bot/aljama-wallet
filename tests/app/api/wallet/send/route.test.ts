@@ -11,6 +11,7 @@ const {
   mockIsAllowedOrigin,
   mockBuildRateLimitKey,
   mockRateLimit,
+  mockGetClientIp,
   mockReserveIdempotencyKey,
   mockUserOwnsWallet,
   mockAssessTransferRisk,
@@ -38,6 +39,7 @@ const {
   mockIsAllowedOrigin: vi.fn(),
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
+  mockGetClientIp: vi.fn(),
   mockReserveIdempotencyKey: vi.fn(),
   mockUserOwnsWallet: vi.fn(),
   mockAssessTransferRisk: vi.fn(),
@@ -79,6 +81,7 @@ vi.mock('@/lib/security/origin', () => ({
 vi.mock('@/lib/security/rate-limit', () => ({
   buildRateLimitKey: mockBuildRateLimitKey,
   rateLimit: mockRateLimit,
+  getClientIp: mockGetClientIp,
 }))
 
 vi.mock('@/services/idempotency.service', () => ({
@@ -166,6 +169,7 @@ describe('app/api/wallet/send route', () => {
     })
     mockIsAdminEmail.mockReturnValue(false)
     mockIsAllowedOrigin.mockReturnValue(true)
+    mockGetClientIp.mockReturnValue('127.0.0.1')
     mockBuildRateLimitKey.mockReturnValue('user:user-1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 9, resetAt: Date.now() + 60_000 })
     mockUserOwnsWallet.mockResolvedValue(true)

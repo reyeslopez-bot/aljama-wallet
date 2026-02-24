@@ -64,6 +64,129 @@ Optional AI scorer:
 - `RISK_AI_TOKEN`
 - `RISK_AI_REQUIRED=true` to fail closed in strict mode.
 
+## Breach-Assumed Detection and Alerting
+
+The app now records security signals across auth, telemetry, wallet tracking, internal debug access, and wallet send routes.
+
+Signal input interfaces:
+- Direct function path: `recordSecuritySignal(...)` for in-process route instrumentation.
+- Queue-backed service path: `ingestSecuritySignal(...)` / `ingestSecuritySignalsBatch(...)`.
+- Internal API path: `POST /api/security/signals` (token required) for external producers/event-bus forwarders.
+
+Queue adapter architecture:
+- Adapter contract:
+  - `enqueue(signal)`
+  - `dequeue(batchSize)`
+  - `ack(message)`
+  - `getStats()`
+- Concrete adapters:
+  - `InMemoryQueueAdapter` for local/dev and test flows
+  - `RedisQueueAdapter` (Redis Streams) for durable ingestion across process restarts
+- Backend selection:
+  - `SECURITY_SIGNAL_QUEUE_BACKEND=in_memory|redis`
+- Startup behavior:
+  - Redis backend performs a health check on boot.
+  - If Redis client/module is unavailable, adapter falls back to in-memory queue and logs an error.
+
+Ingestion resilience:
+- Optional normalization layer maps raw payloads (`status`, `ip`, `path`, `timestamp`) to canonical signal fields.
+- Backpressure controls with bounded queue depth and overflow strategy:
+  - `SECURITY_SIGNAL_QUEUE_OVERFLOW_STRATEGY=drop_oldest|reject_new`
+  - high/low watermark throttling:
+    - `SECURITY_SIGNAL_QUEUE_HIGH_WATER`
+    - `SECURITY_SIGNAL_QUEUE_LOW_WATER`
+- Retry controls for transient failures:
+  - `SECURITY_SIGNAL_QUEUE_MAX_RETRIES`
+  - `SECURITY_SIGNAL_QUEUE_RETRY_BASE_MS`
+  - `SECURITY_SIGNAL_QUEUE_RETRY_MAX_MS`
+
+Redis streams model:
+- stream key namespace: `security:signals` (configurable via `SECURITY_SIGNAL_REDIS_STREAM`)
+- producer: `XADD`
+- consumer group: `XGROUP CREATE ... detectionGroup`
+- workers: `XREADGROUP GROUP ...`
+- pending recovery: `XAUTOCLAIM` + `XPENDING`
+- queue visibility: `XLEN`, `XPENDING`, `XINFO GROUPS`
+
+Implemented anomaly classes:
+- Repetitive anomalies:
+  - velocity spikes per IP/source
+  - failure bursts
+  - multi-principal probing from a single IP (credential stuffing pattern)
+- Non-repetitive anomalies:
+  - impossible-travel geo jumps for the same session/device
+  - one-off probes of internal-only routes
+  - sensitive actions from a previously unseen country
+
+Rule-engine semantics:
+- Repetitive anomaly: repeated events crossing threshold in sliding windows.
+  - Example: `failure.burst` from one IP/source in configured window.
+- Non-repetitive anomaly: single event with intrinsically high risk score.
+  - Example: `probe.internal_route` unauthorized internal route hit.
+- Rule evaluation is stateful (window counters, identity geo history).
+- Rules are pluggable and runtime-configurable:
+  - enable list: `SECURITY_ANOMALY_RULES_ENABLED`
+  - disable list: `SECURITY_ANOMALY_RULES_DISABLED`
+- Scores map to alert severities (`low` → `critical`) and every repetitive rule includes time-series bucket details.
+
+Alert behavior:
+- Every anomaly is logged to server logs.
+- Duplicate definition: same `ruleId` + same `source` + same `fingerprint` in the dedup window.
+- Dedup key TTL prevents stale suppression and is configurable.
+- Duplicate escalation can re-page operators after repeated suppressed events.
+- Optional durable dedup state can be stored in Redis TTL keys to survive process restarts.
+- Optional webhook delivery can be enabled for SOC/on-call systems.
+
+Security anomaly configuration:
+- `SECURITY_ANOMALY_ALERT_MIN_SEVERITY`
+- `SECURITY_ANOMALY_SIGNAL_BUFFER`
+- `SECURITY_ANOMALY_EVENT_BUFFER`
+- `SECURITY_ANOMALY_RULES_ENABLED`
+- `SECURITY_ANOMALY_RULES_DISABLED`
+- `SECURITY_ANOMALY_VELOCITY_WINDOW_MS`
+- `SECURITY_ANOMALY_VELOCITY_THRESHOLD`
+- `SECURITY_ANOMALY_FAILURE_BURST_THRESHOLD`
+- `SECURITY_ANOMALY_PRINCIPAL_PROBE_THRESHOLD`
+- `SECURITY_ANOMALY_IMPOSSIBLE_TRAVEL_WINDOW_MS`
+- `SECURITY_ANOMALY_IMPOSSIBLE_TRAVEL_DISTANCE_KM`
+- `SECURITY_SIGNAL_QUEUE_MAX_DEPTH`
+- `SECURITY_SIGNAL_QUEUE_DRAIN_BATCH`
+- `SECURITY_SIGNAL_QUEUE_DEQUEUE_BATCH`
+- `SECURITY_SIGNAL_QUEUE_ACK_TIMEOUT_MS`
+- `SECURITY_SIGNAL_QUEUE_MAX_RETRIES`
+- `SECURITY_SIGNAL_QUEUE_RETRY_BASE_MS`
+- `SECURITY_SIGNAL_QUEUE_RETRY_MAX_MS`
+- `SECURITY_SIGNAL_QUEUE_OVERFLOW_STRATEGY`
+- `SECURITY_SIGNAL_QUEUE_HIGH_WATER`
+- `SECURITY_SIGNAL_QUEUE_LOW_WATER`
+- `SECURITY_SIGNAL_QUEUE_BACKEND`
+- `SECURITY_SIGNAL_REDIS_URL`
+- `SECURITY_SIGNAL_REDIS_STREAM`
+- `SECURITY_SIGNAL_REDIS_GROUP`
+- `SECURITY_SIGNAL_REDIS_CONSUMER`
+- `SECURITY_SIGNAL_REDIS_BLOCK_MS`
+- `SECURITY_SIGNAL_REDIS_MIN_IDLE_MS`
+
+Alert delivery configuration:
+- `SECURITY_ALERTS_API_TOKEN` (internal API read access)
+- `SECURITY_SIGNAL_INGEST_TOKEN` (internal API write access for signal ingestion)
+- `SECURITY_ALERT_WEBHOOK_URL`
+- `SECURITY_ALERT_WEBHOOK_MIN_SEVERITY`
+- `SECURITY_ALERT_DEDUP_WINDOW_MS`
+- `SECURITY_ALERT_DEDUP_TTL_MS`
+- `SECURITY_ALERT_DEDUP_BACKEND`
+- `SECURITY_ALERT_REDIS_URL`
+- `SECURITY_ALERT_REDIS_PREFIX`
+- `SECURITY_ALERT_DUPLICATE_ESCALATE_AFTER`
+- `SECURITY_ALERT_DUPLICATE_ESCALATE_EVERY`
+- `SECURITY_ALERT_MAX_BUFFER`
+- `SECURITY_ALERT_WEBHOOK_TIMEOUT_MS`
+
+Operational read endpoint:
+- `GET /api/security/anomalies` (internal token required)
+Operational write endpoint:
+- `POST /api/security/signals` (internal token required)
+
 ## Notes on Quantum Threats
 
 Current Ethereum ECDSA is not quantum-safe. This app can harden custody and policy controls, but cannot make on-chain signatures quantum-secure. A quantum-safe upgrade requires chain-level protocol changes.

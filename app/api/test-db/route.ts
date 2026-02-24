@@ -8,19 +8,65 @@ import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson } from '@/lib/security/api-response'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
+import { recordSecuritySignal } from '@/services/security-anomaly.service'
+import { extractRequestSignalContext } from '@/lib/security/request-signal'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req?: Request) {
+  const request = req ?? new Request('http://localhost')
+  const signalContext = extractRequestSignalContext(request)
+  const trackSignal = async (input: {
+    outcome: 'success' | 'failure' | 'blocked'
+    statusCode: number
+    details?: Record<string, unknown>
+  }) => {
+    try {
+      await recordSecuritySignal({
+        source: 'internal.test-db',
+        route: '/api/test-db',
+        outcome: input.outcome,
+        statusCode: input.statusCode,
+        ipHash: signalContext.ipHash,
+        country: signalContext.country,
+        latitude: signalContext.latitude,
+        longitude: signalContext.longitude,
+        userAgent: signalContext.userAgent,
+        details: input.details,
+      })
+    } catch (error) {
+      logError('test-db:signal', error)
+    }
+  }
+
+  const canBypassTokenCheck = (() => {
+    if (process.env.ALLOW_UNAUTH_DEBUG_ROUTES === 'true') return true
+    if (process.env.CI === 'true') return false
+    const url = new URL(request.url)
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+      return process.env.NODE_ENV !== 'production'
+    }
+    return false
+  })()
+
   const expected = process.env.INTERNAL_API_TOKEN?.trim()
-  if (isStrictMode && !expected) {
+  if ((isStrictMode || !canBypassTokenCheck) && !expected) {
+    await trackSignal({
+      outcome: 'blocked',
+      statusCode: 404,
+      details: { reason: 'disabled', missingInternalToken: true },
+    })
     return errorJson(404, 'disabled', 'DISABLED')
   }
-  if (expected && !hasValidInternalToken(req ?? new Request('http://localhost'), expected)) {
+  if (expected && !hasValidInternalToken(request, expected)) {
+    await trackSignal({
+      outcome: 'failure',
+      statusCode: 401,
+      details: { reason: 'unauthorized' },
+    })
     return errorJson(401, 'unauthorized', 'UNAUTHORIZED')
   }
 
-  const request = req ?? new Request('http://localhost')
   const rateKey = buildRateLimitKey(request, null)
   const limitState = rateLimit({
     bucket: 'test-db',
@@ -29,6 +75,11 @@ export async function GET(req?: Request) {
     windowMs: 60_000,
   })
   if (!limitState.ok) {
+    await trackSignal({
+      outcome: 'blocked',
+      statusCode: 429,
+      details: { reason: 'rate_limited', retryAfter: limitState.retryAfter },
+    })
     return errorJson(
       429,
       'rate_limited',
@@ -42,14 +93,29 @@ export async function GET(req?: Request) {
     process.env.NODE_ENV === 'production' ||
     (process.env.CI === 'true' && process.env.ENABLE_TEST_DB_ROUTE !== 'true')
   ) {
+    await trackSignal({
+      outcome: 'blocked',
+      statusCode: 404,
+      details: { reason: 'disabled_in_env' },
+    })
     return NextResponse.json({ ok: false, reason: 'disabled' }, { status: 404 })
   }
 
   try {
     const [wallets, summaries] = await Promise.all([getWallets(), getDailySummaries()])
+    await trackSignal({
+      outcome: 'success',
+      statusCode: 200,
+      details: { walletCount: wallets.length, summaryCount: summaries.length },
+    })
     return NextResponse.json({ wallets, summaries }, { headers: { 'cache-control': 'no-store' } })
   } catch (error) {
     logError('test-db', error)
+    await trackSignal({
+      outcome: 'failure',
+      statusCode: 500,
+      details: { reason: 'test_db_failed' },
+    })
     const message = getErrorMessage(error, 'Failed to fetch test data')
     return errorJson(500, 'test_db_failed', message)
   }

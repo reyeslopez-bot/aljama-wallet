@@ -6,12 +6,14 @@ const {
   mockBuildRateLimitKey,
   mockRateLimit,
   mockGetWalletTransactionsForUser,
+  mockIsAllowedOrigin,
 } = vi.hoisted(() => ({
   mockRequireSession: vi.fn(),
   mockIsAdminEmail: vi.fn(),
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
   mockGetWalletTransactionsForUser: vi.fn(),
+  mockIsAllowedOrigin: vi.fn(),
 }))
 
 class MockWalletBoundaryError extends Error {
@@ -31,6 +33,10 @@ vi.mock('@/lib/security/session', () => ({
 vi.mock('@/lib/security/rate-limit', () => ({
   buildRateLimitKey: mockBuildRateLimitKey,
   rateLimit: mockRateLimit,
+}))
+
+vi.mock('@/lib/security/origin', () => ({
+  isAllowedOrigin: mockIsAllowedOrigin,
 }))
 
 vi.mock('@/services/wallet-boundary.service', () => ({
@@ -55,6 +61,7 @@ describe('app/api/wallet/[id]/transactions route', () => {
     mockIsAdminEmail.mockReturnValue(false)
     mockBuildRateLimitKey.mockReturnValue('user:user-1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 119, resetAt: Date.now() + 60_000 })
+    mockIsAllowedOrigin.mockReturnValue(true)
     mockGetWalletTransactionsForUser.mockResolvedValue({
       walletId: 'wallet-1',
       items: [],
@@ -83,6 +90,18 @@ describe('app/api/wallet/[id]/transactions route', () => {
 
     expect(res.status).toBe(403)
     expect(body.code).toBe('forbidden')
+  })
+
+  it('returns 403 when origin is not allowed', async () => {
+    mockIsAllowedOrigin.mockReturnValue(false)
+    const { GET } = await import('@/app/api/wallet/[id]/transactions/route')
+    const req = new Request('http://localhost/api/wallet/wallet-1/transactions')
+
+    const res = await GET(req, buildContext('wallet-1'))
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.code).toBe('invalid_origin')
   })
 
   it('returns transactions page payload', async () => {

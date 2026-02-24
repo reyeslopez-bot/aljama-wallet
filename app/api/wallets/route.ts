@@ -5,6 +5,7 @@ import { requireSession, isAdminEmail } from "@/lib/security/session"
 import { getWalletIdsForUser } from "@/services/wallet-ownership.service"
 import { buildRateLimitKey, rateLimit } from "@/lib/security/rate-limit"
 import { errorJson } from "@/lib/security/api-response"
+import { isAllowedOrigin } from "@/lib/security/origin"
 
 export async function GET(req?: Request) {
   const session = await requireSession()
@@ -13,6 +14,9 @@ export async function GET(req?: Request) {
   }
 
   const request = req ?? new Request("http://localhost")
+  if (!isAllowedOrigin(request)) {
+    return errorJson(403, "invalid_origin", "INVALID_ORIGIN")
+  }
   const rateKey = buildRateLimitKey(request, session.user.id)
   const limit = rateLimit({
     bucket: "wallets",

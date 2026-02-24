@@ -5,9 +5,22 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prismaPg } from '@/lib/prisma-pg'
 import { findUserByEmail, usePgAuth } from '@/lib/auth/store'
 import { logError, logWarn } from '@/lib/security/logging'
+import { isStrictMode } from '@/lib/security/runtime'
 
 const usePg = usePgAuth()
-const nextAuthSecret = process.env.NEXTAUTH_SECRET ?? 'dev-secret-change-me'
+const configuredNextAuthSecret = process.env.NEXTAUTH_SECRET?.trim() ?? ''
+
+if (isStrictMode && !configuredNextAuthSecret) {
+  throw new Error('Missing NEXTAUTH_SECRET in strict mode')
+}
+
+const nextAuthSecret =
+  configuredNextAuthSecret ||
+  `dev-secret-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`
+
+if (!configuredNextAuthSecret) {
+  logWarn('next-auth:secret', new Error('Using ephemeral NEXTAUTH_SECRET fallback in non-strict mode'))
+}
 
 export const authOptions: NextAuthOptions = {
   secret: nextAuthSecret,

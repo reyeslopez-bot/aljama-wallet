@@ -1,11 +1,12 @@
 // app/api/telemetry/route.ts
 import { z } from 'zod'
 import { recordTelemetryEvent } from '@/services/telemetry.service'
-import crypto from 'node:crypto'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { logError } from '@/lib/security/logging'
+import { recordSecuritySignal } from '@/services/security-anomaly.service'
+import { extractRequestSignalContext } from '@/lib/security/request-signal'
 
 const MAX_BODY_BYTES = 16_384
 
@@ -20,8 +21,41 @@ const telemetrySchema = z.object({
 })
 
 export async function POST(req: Request) {
+  const signalContext = extractRequestSignalContext(req)
+  const trackSignal = async (input: {
+    outcome: 'success' | 'failure' | 'blocked'
+    statusCode: number
+    sessionId?: string | null
+    deviceId?: string | null
+    details?: Record<string, unknown>
+  }) => {
+    try {
+      await recordSecuritySignal({
+        source: 'telemetry.ingest',
+        route: '/api/telemetry',
+        outcome: input.outcome,
+        statusCode: input.statusCode,
+        ipHash: signalContext.ipHash,
+        sessionId: input.sessionId ?? null,
+        deviceId: input.deviceId ?? null,
+        country: signalContext.country,
+        latitude: signalContext.latitude,
+        longitude: signalContext.longitude,
+        userAgent: signalContext.userAgent,
+        details: input.details,
+      })
+    } catch (error) {
+      logError('telemetry:signal', error)
+    }
+  }
+
   try {
     if (!isAllowedOrigin(req)) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 403,
+        details: { reason: 'invalid_origin' },
+      })
       return errorJson(403, 'invalid_origin', 'INVALID_ORIGIN')
     }
 
@@ -33,35 +67,33 @@ export async function POST(req: Request) {
       windowMs: 60_000,
     })
     if (!limit.ok) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 429,
+        details: { reason: 'rate_limited', retryAfter: limit.retryAfter },
+      })
       return errorJson(429, 'rate_limited', 'Too many requests', {
         retryAfter: limit.retryAfter,
       })
     }
 
-    const ipHeader =
-      req.headers.get('x-forwarded-for') ??
-      req.headers.get('x-real-ip') ??
-      req.headers.get('cf-connecting-ip') ??
-      ''
-    const ip = ipHeader.split(',')[0]?.trim() || null
-    const ipHash = ip ? crypto.createHash('sha256').update(ip).digest('hex') : null
-
-    const geo = {
-      country: req.headers.get('x-vercel-ip-country') ?? null,
-      region: req.headers.get('x-vercel-ip-country-region') ?? null,
-      city: req.headers.get('x-vercel-ip-city') ?? null,
-      latitude: req.headers.get('x-vercel-ip-latitude') ?? null,
-      longitude: req.headers.get('x-vercel-ip-longitude') ?? null,
-      timezone: req.headers.get('x-vercel-ip-timezone') ?? null,
-    }
-
     const declaredSize = req.headers.get('content-length')
     if (declaredSize && Number(declaredSize) > MAX_BODY_BYTES) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 413,
+        details: { reason: 'payload_too_large', declaredSize: Number(declaredSize) },
+      })
       return errorJson(413, 'payload_too_large', 'Request body exceeds limit')
     }
 
     const raw = await req.text()
     if (raw.length > MAX_BODY_BYTES) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 413,
+        details: { reason: 'payload_too_large', observedSize: raw.length },
+      })
       return errorJson(413, 'payload_too_large', 'Request body exceeds limit')
     }
 
@@ -70,19 +102,36 @@ export async function POST(req: Request) {
       parsed = raw ? JSON.parse(raw) : {}
     } catch (error) {
       logError('telemetry:invalid_json', error)
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 400,
+        details: { reason: 'invalid_json' },
+      })
       return errorJson(400, 'invalid_json', 'Body must be valid JSON')
     }
 
     const validation = telemetrySchema.safeParse(parsed)
     if (!validation.success) {
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 400,
+        details: { reason: 'invalid_payload' },
+      })
       return errorJson(400, 'invalid_payload', 'Validation failed', validation.error.format())
     }
 
     const enrichedContext = {
       ...validation.data.context,
       server: {
-        ipHash,
-        geo,
+        ipHash: signalContext.ipHash,
+        geo: {
+          country: signalContext.country,
+          region: signalContext.region,
+          city: signalContext.city,
+          latitude: signalContext.latitude,
+          longitude: signalContext.longitude,
+          timezone: signalContext.timezone,
+        },
       },
     }
 
@@ -95,9 +144,25 @@ export async function POST(req: Request) {
       payload: validation.data.payload ?? null,
     })
 
+    await trackSignal({
+      outcome: 'success',
+      statusCode: 200,
+      sessionId: validation.data.sessionId,
+      deviceId: validation.data.deviceId,
+      details: {
+        event: validation.data.event,
+        path: validation.data.path ?? null,
+      },
+    })
+
     return okJson({})
   } catch (error) {
     logError('telemetry', error)
+    await trackSignal({
+      outcome: 'failure',
+      statusCode: 500,
+      details: { reason: 'server_error' },
+    })
     return errorJson(500, 'server_error', 'Unexpected error')
   }
 }

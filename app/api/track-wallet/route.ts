@@ -5,6 +5,8 @@ import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { logError } from '@/lib/security/logging'
+import { recordSecuritySignal } from '@/services/security-anomaly.service'
+import { extractRequestSignalContext } from '@/lib/security/request-signal'
 
 export type TrackWalletEvent = {
   address: string
@@ -33,8 +35,39 @@ const trackWalletSchema = z.object({
 })
 
 export async function POST(req: Request) {
+  const signalContext = extractRequestSignalContext(req)
+  const trackSignal = async (input: {
+    outcome: 'success' | 'failure' | 'blocked'
+    statusCode: number
+    principal?: string | null
+    details?: Record<string, unknown>
+  }) => {
+    try {
+      await recordSecuritySignal({
+        source: 'wallet.track',
+        route: '/api/track-wallet',
+        outcome: input.outcome,
+        statusCode: input.statusCode,
+        ipHash: signalContext.ipHash,
+        principal: input.principal ?? null,
+        country: signalContext.country,
+        latitude: signalContext.latitude,
+        longitude: signalContext.longitude,
+        userAgent: signalContext.userAgent,
+        details: input.details,
+      })
+    } catch (error) {
+      logError('track-wallet:signal', error)
+    }
+  }
+
   try {
     if (!isAllowedOrigin(req)) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 403,
+        details: { reason: 'invalid_origin' },
+      })
       return errorJson(403, 'invalid_origin', 'INVALID_ORIGIN')
     }
 
@@ -46,6 +79,11 @@ export async function POST(req: Request) {
       windowMs: 60_000,
     })
     if (!limit.ok) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 429,
+        details: { reason: 'rate_limited', retryAfter: limit.retryAfter },
+      })
       return errorJson(429, 'rate_limited', 'Too many requests', {
         retryAfter: limit.retryAfter,
       })
@@ -53,11 +91,21 @@ export async function POST(req: Request) {
 
     const declaredSize = req.headers.get('content-length')
     if (declaredSize && Number(declaredSize) > MAX_BODY_BYTES) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 413,
+        details: { reason: 'payload_too_large', declaredSize: Number(declaredSize) },
+      })
       return errorJson(413, 'payload_too_large', 'Request body exceeds limit')
     }
 
     const raw = await req.text()
     if (raw.length > MAX_BODY_BYTES) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 413,
+        details: { reason: 'payload_too_large', observedSize: raw.length },
+      })
       return errorJson(413, 'payload_too_large', 'Request body exceeds limit')
     }
 
@@ -66,11 +114,21 @@ export async function POST(req: Request) {
       parsed = raw ? JSON.parse(raw) : {}
     } catch (error) {
       logError('track-wallet:invalid_json', error)
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 400,
+        details: { reason: 'invalid_json' },
+      })
       return errorJson(400, 'invalid_json', 'Body must be valid JSON')
     }
 
     const validation = trackWalletSchema.safeParse(parsed)
     if (!validation.success) {
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 400,
+        details: { reason: 'invalid_payload' },
+      })
       return errorJson(400, 'invalid_payload', 'Validation failed', validation.error.format())
     }
 
@@ -91,9 +149,24 @@ export async function POST(req: Request) {
       receivedAt: event.receivedAt,
     })
 
+    await trackSignal({
+      outcome: 'success',
+      statusCode: 200,
+      principal: event.address,
+      details: {
+        chainId: event.chain.id ?? null,
+        connector: event.connector.id ?? null,
+      },
+    })
+
     return okJson({})
   } catch (error: unknown) {
     logError('track-wallet', error)
+    await trackSignal({
+      outcome: 'failure',
+      statusCode: 500,
+      details: { reason: 'server_error' },
+    })
     return errorJson(500, 'server_error', 'Unexpected error')
   }
 }

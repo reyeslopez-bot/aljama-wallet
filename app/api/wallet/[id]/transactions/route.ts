@@ -1,5 +1,6 @@
 import { errorJson, okJson } from '@/lib/security/api-response'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
+import { isAllowedOrigin } from '@/lib/security/origin'
 import { isAdminEmail, requireSession } from '@/lib/security/session'
 import { WalletBoundaryError, getWalletTransactionsForUser } from '@/services/wallet-boundary.service'
 
@@ -28,6 +29,9 @@ export async function GET(
   const session = await requireSession()
   if (!session) {
     return errorJson(401, 'unauthorized', 'UNAUTHORIZED')
+  }
+  if (!isAllowedOrigin(req)) {
+    return errorJson(403, 'invalid_origin', 'INVALID_ORIGIN')
   }
 
   const rateKey = buildRateLimitKey(req, session.user.id)

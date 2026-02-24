@@ -1,5 +1,3 @@
-import { isStrictMode } from './runtime'
-
 export type RateLimitResult =
   | { ok: true; remaining: number; resetAt: number }
   | { ok: false; retryAfter: number; resetAt: number }
@@ -18,12 +16,12 @@ if (!globalForRateLimit.rateLimitBuckets) {
 const MAX_BUCKETS = 10_000
 
 export function getClientIp(req: Request): string | null {
-  const forwarded = req.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0]?.trim() || null
-  const realIp = req.headers.get('x-real-ip')
-  if (realIp) return realIp.trim()
   const cfIp = req.headers.get('cf-connecting-ip')
   if (cfIp) return cfIp.trim()
+  const realIp = req.headers.get('x-real-ip')
+  if (realIp) return realIp.trim()
+  const forwarded = req.headers.get('x-forwarded-for')
+  if (forwarded) return forwarded.split(',')[0]?.trim() || null
   return null
 }
 
@@ -40,7 +38,7 @@ export function rateLimit(opts: {
   limit: number
   windowMs: number
 }): RateLimitResult {
-  if (!isStrictMode) {
+  if (process.env.SECURITY_DISABLE_RATE_LIMIT === 'true') {
     return { ok: true, remaining: opts.limit, resetAt: Date.now() + opts.windowMs }
   }
 

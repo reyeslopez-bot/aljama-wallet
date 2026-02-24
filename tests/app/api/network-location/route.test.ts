@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 function buildRequest(headers?: Record<string, string>) {
   return new Request('http://localhost/api/network-location', {
@@ -8,6 +8,10 @@ function buildRequest(headers?: Record<string, string>) {
 }
 
 describe('app/api/network-location route', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('returns network location from request headers when available', async () => {
     const { GET } = await import('@/app/api/network-location/route')
     const res = await GET(
@@ -36,6 +40,7 @@ describe('app/api/network-location route', () => {
   })
 
   it('falls back to Dubai when location headers are missing', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
     const { GET } = await import('@/app/api/network-location/route')
     const res = await GET(buildRequest())
 

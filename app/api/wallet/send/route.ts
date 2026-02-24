@@ -16,6 +16,8 @@ import { errorJson } from '@/lib/security/api-response'
 import { readJsonBody } from '@/lib/security/request-body'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
+import { recordSecuritySignal } from '@/services/security-anomaly.service'
+import { extractRequestSignalContext } from '@/lib/security/request-signal'
 
 export const dynamic = 'force-dynamic'
 
@@ -135,13 +137,50 @@ async function buildUnsignedTx(
 
 export async function sendWalletRequest(req: Request, walletIdOverride?: string) {
   let transferLogId: string | null = null
+  const signalContext = extractRequestSignalContext(req)
+  const trackSignal = async (input: {
+    outcome: 'success' | 'failure' | 'blocked'
+    statusCode: number
+    userId?: string | null
+    details?: Record<string, unknown>
+  }) => {
+    try {
+      await recordSecuritySignal({
+        source: 'wallet.send',
+        route: '/api/wallet/send',
+        outcome: input.outcome,
+        statusCode: input.statusCode,
+        ipHash: signalContext.ipHash,
+        userId: input.userId ?? null,
+        country: signalContext.country,
+        latitude: signalContext.latitude,
+        longitude: signalContext.longitude,
+        userAgent: signalContext.userAgent,
+        details: input.details,
+      })
+    } catch (error) {
+      logError('wallet-send:signal', error)
+    }
+  }
+
   try {
     const session = await requireSession()
     if (!session) {
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 401,
+        details: { reason: 'unauthorized' },
+      })
       return errorJson(401, 'unauthorized', 'UNAUTHORIZED')
     }
 
     if (!isAllowedOrigin(req)) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 403,
+        userId: session.user.id,
+        details: { reason: 'invalid_origin' },
+      })
       return errorJson(403, 'invalid_origin', 'INVALID_ORIGIN')
     }
 
@@ -153,6 +192,12 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       windowMs: 60_000,
     })
     if (!limit.ok) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 429,
+        userId: session.user.id,
+        details: { reason: 'rate_limited', retryAfter: limit.retryAfter },
+      })
       return errorJson(
         429,
         'rate_limited',
@@ -188,6 +233,12 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
     if (!isAdmin) {
       const owns = await userOwnsWallet(session.user.id, input.walletId)
       if (!owns) {
+        await trackSignal({
+          outcome: 'blocked',
+          statusCode: 403,
+          userId: session.user.id,
+          details: { reason: 'wallet_forbidden', walletId: input.walletId },
+        })
         return errorJson(403, 'forbidden', 'FORBIDDEN')
       }
     }
@@ -197,11 +248,27 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
 
     const allowedChains = parseAllowedChains()
     if (allowedChains.size > 0 && !allowedChains.has(input.chainId)) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 400,
+        userId: session.user.id,
+        details: { reason: 'chain_denied', chainId: input.chainId },
+      })
       return errorJson(400, 'chain_denied', 'CHAIN_DENIED')
     }
 
     const network = await provider.getNetwork()
     if (Number(network.chainId) !== input.chainId) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 400,
+        userId: session.user.id,
+        details: {
+          reason: 'chain_mismatch',
+          expectedChainId: input.chainId,
+          rpcChainId: Number(network.chainId),
+        },
+      })
       return errorJson(
         400,
         'chain_mismatch',
@@ -263,6 +330,18 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
         idempotencyKey: intent.idempotencyKey,
       })
 
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 403,
+        userId: session.user.id,
+        details: {
+          reason: risk.decision === 'deny' ? 'risk_denied' : 'risk_review',
+          score: risk.score,
+          reasons: risk.reasons,
+          walletId: intent.fromWalletId,
+        },
+      })
+
       return errorJson(
         403,
         risk.decision === 'deny' ? 'risk_denied' : 'risk_review',
@@ -310,6 +389,19 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       recorded = true
     }
 
+    await trackSignal({
+      outcome: 'success',
+      statusCode: 200,
+      userId: session.user.id,
+      details: {
+        walletId: intent.fromWalletId,
+        chainId: intent.chainId,
+        amountWei: intent.amountWei,
+        toAddress: intent.to,
+        txHash,
+      },
+    })
+
     return NextResponse.json({
       ok: true,
       walletId: intent.fromWalletId,
@@ -330,6 +422,14 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
     const message = getErrorMessage(error, 'Failed to send transaction')
     const status = message === 'IDEMPOTENCY_REPLAY' ? 409 : 400
     logError('wallet-send', error)
+    await trackSignal({
+      outcome: 'failure',
+      statusCode: status,
+      details: {
+        reason: message === 'IDEMPOTENCY_REPLAY' ? 'idempotency_replay' : 'send_failed',
+        message,
+      },
+    })
     return errorJson(
       status,
       message === 'IDEMPOTENCY_REPLAY' ? 'idempotency_replay' : 'send_failed',

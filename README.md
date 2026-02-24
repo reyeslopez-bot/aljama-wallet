@@ -140,6 +140,8 @@ Not implemented yet:
 | `/api/market-snapshot` | `GET` | Public | XRPL and reference asset market snapshot |
 | `/api/telemetry` | `POST` | Public | Persist telemetry events |
 | `/api/track-wallet` | `POST` | Public | Persist wallet connection tracking events |
+| `/api/security/signals` | `POST` | Internal token | Ingest security signals (single or batch) via queue-backed pipeline |
+| `/api/security/anomalies` | `GET` | Internal token | View recent security signals, anomalies, and alert outcomes |
 | `/api/signup` | `POST` | Public | Save region/signup metadata |
 | `/api/_debug/env` | `GET` | Internal token in strict mode | Debug env availability flags |
 | `/api/test-db` | `GET` | Disabled in prod | Development DB connectivity check |
@@ -224,7 +226,9 @@ Use `.env.example` as baseline. Important keys:
 - `AUTH_INVITE_TOKEN`
 - `AUTH_ADMIN_EMAILS`
 - `SECURITY_STRICT_MODE`
+- `SECURITY_DISABLE_RATE_LIMIT`
 - `SECURITY_ALLOWED_ORIGINS`
+- `ALLOW_UNAUTH_DEBUG_ROUTES`
 
 ### Wallet custody and transfer
 
@@ -255,6 +259,50 @@ Use `.env.example` as baseline. Important keys:
 - `RISK_AI_TOKEN`
 - `RISK_AI_REQUIRED`
 - `RISK_AI_TIMEOUT_MS`
+
+### Security anomaly and alert pipeline
+
+- `SECURITY_ALERTS_API_TOKEN`
+- `SECURITY_SIGNAL_INGEST_TOKEN`
+- `SECURITY_ALERT_WEBHOOK_URL`
+- `SECURITY_ALERT_WEBHOOK_MIN_SEVERITY`
+- `SECURITY_ALERT_DEDUP_WINDOW_MS`
+- `SECURITY_ALERT_DEDUP_TTL_MS`
+- `SECURITY_ALERT_DEDUP_BACKEND` (`memory` or `redis`)
+- `SECURITY_ALERT_REDIS_URL`
+- `SECURITY_ALERT_REDIS_PREFIX`
+- `SECURITY_ALERT_DUPLICATE_ESCALATE_AFTER`
+- `SECURITY_ALERT_DUPLICATE_ESCALATE_EVERY`
+- `SECURITY_ALERT_MAX_BUFFER`
+- `SECURITY_ALERT_WEBHOOK_TIMEOUT_MS`
+- `SECURITY_ANOMALY_ALERT_MIN_SEVERITY`
+- `SECURITY_ANOMALY_SIGNAL_BUFFER`
+- `SECURITY_ANOMALY_EVENT_BUFFER`
+- `SECURITY_ANOMALY_RULES_ENABLED`
+- `SECURITY_ANOMALY_RULES_DISABLED`
+- `SECURITY_ANOMALY_VELOCITY_WINDOW_MS`
+- `SECURITY_ANOMALY_VELOCITY_THRESHOLD`
+- `SECURITY_ANOMALY_FAILURE_BURST_THRESHOLD`
+- `SECURITY_ANOMALY_PRINCIPAL_PROBE_THRESHOLD`
+- `SECURITY_ANOMALY_IMPOSSIBLE_TRAVEL_WINDOW_MS`
+- `SECURITY_ANOMALY_IMPOSSIBLE_TRAVEL_DISTANCE_KM`
+- `SECURITY_SIGNAL_QUEUE_BACKEND` (`in_memory` or `redis`)
+- `SECURITY_SIGNAL_QUEUE_MAX_DEPTH`
+- `SECURITY_SIGNAL_QUEUE_DRAIN_BATCH`
+- `SECURITY_SIGNAL_QUEUE_DEQUEUE_BATCH`
+- `SECURITY_SIGNAL_QUEUE_ACK_TIMEOUT_MS`
+- `SECURITY_SIGNAL_QUEUE_MAX_RETRIES`
+- `SECURITY_SIGNAL_QUEUE_RETRY_BASE_MS`
+- `SECURITY_SIGNAL_QUEUE_RETRY_MAX_MS`
+- `SECURITY_SIGNAL_QUEUE_OVERFLOW_STRATEGY` (`drop_oldest` or `reject_new`)
+- `SECURITY_SIGNAL_QUEUE_HIGH_WATER`
+- `SECURITY_SIGNAL_QUEUE_LOW_WATER`
+- `SECURITY_SIGNAL_REDIS_URL`
+- `SECURITY_SIGNAL_REDIS_STREAM`
+- `SECURITY_SIGNAL_REDIS_GROUP`
+- `SECURITY_SIGNAL_REDIS_CONSUMER`
+- `SECURITY_SIGNAL_REDIS_BLOCK_MS`
+- `SECURITY_SIGNAL_REDIS_MIN_IDLE_MS`
 
 ### XRPL
 

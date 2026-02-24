@@ -8,6 +8,8 @@ import { errorJson, okJson } from '@/lib/security/api-response'
 import { readJsonBody } from '@/lib/security/request-body'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
+import { recordSecuritySignal } from '@/services/security-anomaly.service'
+import { extractRequestSignalContext } from '@/lib/security/request-signal'
 
 const passwordSchema = z
   .string()
@@ -25,8 +27,39 @@ const registerSchema = z.object({
 })
 
 export async function POST(req: Request) {
+  const signalContext = extractRequestSignalContext(req)
+  const trackSignal = async (input: {
+    outcome: 'success' | 'failure' | 'blocked'
+    statusCode: number
+    principal?: string | null
+    details?: Record<string, unknown>
+  }) => {
+    try {
+      await recordSecuritySignal({
+        source: 'auth.register',
+        route: '/api/auth/register',
+        outcome: input.outcome,
+        statusCode: input.statusCode,
+        ipHash: signalContext.ipHash,
+        principal: input.principal ?? null,
+        country: signalContext.country,
+        latitude: signalContext.latitude,
+        longitude: signalContext.longitude,
+        userAgent: signalContext.userAgent,
+        details: input.details,
+      })
+    } catch (error) {
+      logError('auth-register:signal', error)
+    }
+  }
+
   try {
     if (!isAllowedOrigin(req)) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 403,
+        details: { reason: 'invalid_origin' },
+      })
       return errorJson(403, 'invalid_origin', 'INVALID_ORIGIN')
     }
 
@@ -38,6 +71,11 @@ export async function POST(req: Request) {
       windowMs: 60_000,
     })
     if (!limit.ok) {
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 429,
+        details: { reason: 'rate_limited', retryAfter: limit.retryAfter },
+      })
       return errorJson(
         429,
         'rate_limited',
@@ -55,31 +93,66 @@ export async function POST(req: Request) {
     const body = bodyResult.data
     const parsed = registerSchema.safeParse(body)
     if (!parsed.success) {
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 400,
+        details: { reason: 'invalid_payload' },
+      })
       return errorJson(400, 'invalid_payload', 'Invalid registration payload', parsed.error.format())
     }
 
     const envInvite = process.env.AUTH_INVITE_TOKEN?.trim()
     const expectedInvite = envInvite ?? (isStrictMode ? null : 'demo-invite')
     if (!expectedInvite) {
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 503,
+        principal: parsed.data.email,
+        details: { reason: 'invite_token_missing' },
+      })
       return errorJson(503, 'invite_token_missing', 'INVITE_TOKEN_NOT_CONFIGURED')
     }
     const providedInvite = parsed.data.inviteToken.trim()
     if (providedInvite !== expectedInvite) {
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 401,
+        principal: parsed.data.email,
+        details: { reason: 'invalid_invite' },
+      })
       return errorJson(401, 'invalid_invite', 'Invalid invite token')
     }
 
     const email = parsed.data.email.trim().toLowerCase()
     const existing = await findUserByEmail(email)
     if (existing) {
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 409,
+        principal: email,
+        details: { reason: 'user_exists' },
+      })
       return errorJson(409, 'user_exists', 'User already exists')
     }
 
     const passwordHash = await hashPassword(parsed.data.password)
     const user = await createUser({ email, passwordHash })
 
+    await trackSignal({
+      outcome: 'success',
+      statusCode: 200,
+      principal: email,
+      details: { reason: 'registered' },
+    })
+
     return okJson({ user: { id: user.id, email: user.email } })
   } catch (error) {
     logError('auth-register', error)
+    await trackSignal({
+      outcome: 'failure',
+      statusCode: 500,
+      details: { reason: 'server_error' },
+    })
     const message =
       process.env.NODE_ENV !== 'production'
         ? getErrorMessage(error, 'Failed to register')

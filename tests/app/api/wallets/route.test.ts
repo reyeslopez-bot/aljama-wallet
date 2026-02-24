@@ -8,6 +8,7 @@ const {
   mockGetWalletIdsForUser,
   mockBuildRateLimitKey,
   mockRateLimit,
+  mockIsAllowedOrigin,
 } = vi.hoisted(() => ({
   mockGetWallets: vi.fn(),
   mockGetWalletsByIds: vi.fn(),
@@ -16,6 +17,7 @@ const {
   mockGetWalletIdsForUser: vi.fn(),
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
+  mockIsAllowedOrigin: vi.fn(),
 }))
 
 vi.mock('@/services/wallet.service', () => ({
@@ -37,6 +39,10 @@ vi.mock('@/lib/security/rate-limit', () => ({
   rateLimit: mockRateLimit,
 }))
 
+vi.mock('@/lib/security/origin', () => ({
+  isAllowedOrigin: mockIsAllowedOrigin,
+}))
+
 function buildRequest() {
   return new Request('http://localhost/api/wallets', {
     method: 'GET',
@@ -55,6 +61,7 @@ describe('app/api/wallets route', () => {
     mockIsAdminEmail.mockReturnValue(false)
     mockBuildRateLimitKey.mockReturnValue('user:user-1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 59, resetAt: Date.now() + 60_000 })
+    mockIsAllowedOrigin.mockReturnValue(true)
     mockGetWalletIdsForUser.mockResolvedValue(['wallet-1', 'wallet-2'])
     mockGetWalletsByIds.mockResolvedValue([
       { id: 'wallet-1', address: '0x1' },
@@ -91,6 +98,17 @@ describe('app/api/wallets route', () => {
     expect(res.status).toBe(429)
     expect(body.code).toBe('rate_limited')
     expect(res.headers.get('retry-after')).toBe('15')
+  })
+
+  it('returns 403 when origin is not allowed', async () => {
+    mockIsAllowedOrigin.mockReturnValue(false)
+    const { GET } = await import('@/app/api/wallets/route')
+
+    const res = await GET(buildRequest())
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.code).toBe('invalid_origin')
   })
 
   it('returns all wallets for admin users', async () => {

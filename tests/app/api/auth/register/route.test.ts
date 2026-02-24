@@ -6,6 +6,7 @@ const {
   mockFindUserByEmail,
   mockBuildRateLimitKey,
   mockRateLimit,
+  mockGetClientIp,
   mockIsAllowedOrigin,
 } = vi.hoisted(() => ({
   mockHashPassword: vi.fn(),
@@ -13,6 +14,7 @@ const {
   mockFindUserByEmail: vi.fn(),
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
+  mockGetClientIp: vi.fn(),
   mockIsAllowedOrigin: vi.fn(),
 }))
 
@@ -28,6 +30,7 @@ vi.mock('@/lib/auth/store', () => ({
 vi.mock('@/lib/security/rate-limit', () => ({
   buildRateLimitKey: mockBuildRateLimitKey,
   rateLimit: mockRateLimit,
+  getClientIp: mockGetClientIp,
 }))
 
 vi.mock('@/lib/security/origin', () => ({
@@ -56,6 +59,7 @@ describe('app/api/auth/register route', () => {
     vi.stubEnv('AUTH_INVITE_TOKEN', 'invite-123')
 
     mockIsAllowedOrigin.mockReturnValue(true)
+    mockGetClientIp.mockReturnValue('127.0.0.1')
     mockBuildRateLimitKey.mockReturnValue('ip:127.0.0.1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 9, resetAt: Date.now() + 60_000 })
     mockFindUserByEmail.mockResolvedValue(null)
