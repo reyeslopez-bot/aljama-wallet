@@ -1,10 +1,10 @@
 import { errorJson, okJson } from '@/lib/security/api-response'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { buildRateLimitKey, getRateLimitBackendHealth, rateLimit } from '@/lib/security/rate-limit'
-import { getSecurityAlerts } from '@/services/security-alert.service'
+import { getSecurityAlertsForensics } from '@/services/security-alert.service'
 import {
-  getRecentSecurityAnomalies,
-  getRecentSecuritySignals,
+  getRecentSecurityAnomaliesForensics,
+  getRecentSecuritySignalsForensics,
   getSecuritySignalQueueState,
   listSecurityAnomalyRules,
   recordSecuritySignal,
@@ -106,9 +106,9 @@ export async function GET(req: Request) {
 
   return okJson({
     generatedAt: new Date().toISOString(),
-    signals: getRecentSecuritySignals(signalsLimit),
-    anomalies: getRecentSecurityAnomalies(anomaliesLimit),
-    alerts: getSecurityAlerts(alertsLimit),
+    signals: await getRecentSecuritySignalsForensics(signalsLimit),
+    anomalies: await getRecentSecurityAnomaliesForensics(anomaliesLimit),
+    alerts: await getSecurityAlertsForensics(alertsLimit),
     queue: await getSecuritySignalQueueState(),
     rateLimit: getRateLimitBackendHealth(),
     rules: listSecurityAnomalyRules(),

@@ -6,11 +6,11 @@ const {
   mockRateLimit,
   mockGetRateLimitBackendHealth,
   mockGetClientIp,
-  mockGetRecentSecuritySignals,
-  mockGetRecentSecurityAnomalies,
+  mockGetRecentSecuritySignalsForensics,
+  mockGetRecentSecurityAnomaliesForensics,
   mockGetSecuritySignalQueueState,
   mockListSecurityAnomalyRules,
-  mockGetSecurityAlerts,
+  mockGetSecurityAlertsForensics,
   mockRecordSecuritySignal,
 } = vi.hoisted(() => ({
   mockHasValidInternalToken: vi.fn(),
@@ -18,11 +18,11 @@ const {
   mockRateLimit: vi.fn(),
   mockGetRateLimitBackendHealth: vi.fn(),
   mockGetClientIp: vi.fn(),
-  mockGetRecentSecuritySignals: vi.fn(),
-  mockGetRecentSecurityAnomalies: vi.fn(),
+  mockGetRecentSecuritySignalsForensics: vi.fn(),
+  mockGetRecentSecurityAnomaliesForensics: vi.fn(),
   mockGetSecuritySignalQueueState: vi.fn(),
   mockListSecurityAnomalyRules: vi.fn(),
-  mockGetSecurityAlerts: vi.fn(),
+  mockGetSecurityAlertsForensics: vi.fn(),
   mockRecordSecuritySignal: vi.fn(),
 }))
 
@@ -38,12 +38,12 @@ vi.mock('@/lib/security/rate-limit', () => ({
 }))
 
 vi.mock('@/services/security-alert.service', () => ({
-  getSecurityAlerts: mockGetSecurityAlerts,
+  getSecurityAlertsForensics: mockGetSecurityAlertsForensics,
 }))
 
 vi.mock('@/services/security-anomaly.service', () => ({
-  getRecentSecuritySignals: mockGetRecentSecuritySignals,
-  getRecentSecurityAnomalies: mockGetRecentSecurityAnomalies,
+  getRecentSecuritySignalsForensics: mockGetRecentSecuritySignalsForensics,
+  getRecentSecurityAnomaliesForensics: mockGetRecentSecurityAnomaliesForensics,
   getSecuritySignalQueueState: mockGetSecuritySignalQueueState,
   listSecurityAnomalyRules: mockListSecurityAnomalyRules,
   recordSecuritySignal: mockRecordSecuritySignal,
@@ -67,11 +67,11 @@ describe('app/api/security/anomalies route', () => {
       lastFailureAt: null,
       requireDistributed: false,
     })
-    mockGetRecentSecuritySignals.mockReturnValue([{ id: 'sig-1' }])
-    mockGetRecentSecurityAnomalies.mockReturnValue([{ id: 'anomaly-1' }])
+    mockGetRecentSecuritySignalsForensics.mockResolvedValue([{ id: 'sig-1' }])
+    mockGetRecentSecurityAnomaliesForensics.mockResolvedValue([{ id: 'anomaly-1' }])
     mockGetSecuritySignalQueueState.mockReturnValue({ depth: 0, draining: false, stats: {} })
     mockListSecurityAnomalyRules.mockReturnValue([{ id: 'rule-1' }])
-    mockGetSecurityAlerts.mockReturnValue([{ id: 'alert-1' }])
+    mockGetSecurityAlertsForensics.mockResolvedValue([{ id: 'alert-1' }])
     mockRecordSecuritySignal.mockResolvedValue({ signal: {}, anomalies: [] })
   })
 

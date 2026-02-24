@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearSecurityAnomalyStateForTests,
   getRecentSecuritySignals,
+  getRecentSecuritySignalsForensics,
   getSecuritySignalQueueState,
   ingestSecuritySignal,
   registerSecurityAnomalyRule,
@@ -259,5 +260,21 @@ describe('security-anomaly.service', () => {
     })
 
     expect(result.anomalies.some((item) => item.ruleId === 'custom.always')).toBe(true)
+  })
+
+  it('falls back to in-memory forensic reads when Postgres is not configured', async () => {
+    vi.stubEnv('PG_DATABASE_URL', '')
+    vi.stubEnv('POSTGRES_URL', '')
+
+    await recordSecuritySignal({
+      source: 'telemetry',
+      outcome: 'success',
+      statusCode: 200,
+      ipHash: 'ip-test-fallback',
+    })
+
+    const signals = await getRecentSecuritySignalsForensics(10)
+    expect(signals.length).toBeGreaterThan(0)
+    expect(signals[0]?.source).toBe('telemetry')
   })
 })

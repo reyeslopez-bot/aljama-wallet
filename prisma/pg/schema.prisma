@@ -170,3 +170,121 @@ model RiskDecision {
   @@index([userId, createdAt])
   @@index([action, createdAt])
 }
+
+model SecuritySignalEvent {
+  id         String   @id
+  source     String
+  route      String?
+  outcome    String
+  statusCode Int?
+  ipHash     String?
+  userId     String?
+  sessionId  String?
+  deviceId   String?
+  principal  String?
+  country    String?
+  latitude   Float?
+  longitude  Float?
+  userAgent  String?
+  transport  String
+  details    Json?
+  detectedAt DateTime
+  ingestedAt DateTime @default(now())
+
+  anomalies SecurityAnomalyEvent[]
+
+  @@index([detectedAt])
+  @@index([source, detectedAt])
+  @@index([outcome, detectedAt])
+  @@index([ipHash, detectedAt])
+}
+
+model SecurityAnomalyEvent {
+  id         String   @id
+  signalId   String
+  ruleId     String
+  ruleType   String
+  severity   String
+  repetitive Boolean
+  score      Int
+  summary    String
+  details    Json?
+  detectedAt DateTime
+  ingestedAt DateTime @default(now())
+
+  signal SecuritySignalEvent @relation(fields: [signalId], references: [id], onDelete: Cascade)
+
+  @@index([detectedAt])
+  @@index([ruleId, detectedAt])
+  @@index([severity, detectedAt])
+  @@index([signalId])
+}
+
+model SecurityAlertEvent {
+  id               String   @id
+  ruleId           String
+  source           String
+  severity         String
+  baseSeverity     String
+  priority         String
+  repetitive       Boolean
+  deduped          Boolean
+  duplicateCount   Int
+  dedupKey         String
+  dedupWindowMs    Int
+  dedupTtlMs       Int
+  dedupEscalated   Boolean
+  fingerprint      String
+  title            String
+  description      String
+  runbookId        String?
+  runbookUrl       String?
+  context          Json?
+  containmentActions Json?
+  delivered        Json?
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([severity, createdAt])
+  @@index([priority, createdAt])
+  @@index([ruleId, createdAt])
+  @@index([source, createdAt])
+}
+
+model XrplAction {
+  id             String   @id
+  action         String
+  status         String
+  userId         String?
+  networkId      String
+  account        String
+  idempotencyKey String
+  txHash         String?
+  engineResult   String?
+  details        Json?
+  createdAt      DateTime
+  updatedAt      DateTime
+
+  events XrplActionEvent[]
+
+  @@index([updatedAt])
+  @@index([networkId, updatedAt])
+  @@index([idempotencyKey])
+  @@index([userId, updatedAt])
+}
+
+model XrplActionEvent {
+  id           String   @id @default(cuid())
+  actionId     String
+  eventType    String
+  status       String
+  txHash       String?
+  engineResult String?
+  details      Json?
+  occurredAt   DateTime @default(now())
+
+  action XrplAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
+
+  @@index([actionId, occurredAt])
+  @@index([occurredAt])
+}

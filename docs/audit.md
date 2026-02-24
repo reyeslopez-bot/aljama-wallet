@@ -71,22 +71,22 @@ Improvements:
 3. Persistent forensic security state
 
 Current gap:
-- Some signal/anomaly/action state remains process-memory scoped.
+- Durable forensic persistence now exists for security signals/anomalies and XRPL action state/event history when Postgres is configured. In-memory buffers remain as fallback/cache.
 
 Improvements:
-- Persist security signals/anomalies in durable append-friendly storage.
-- Promote action history to a first-class persisted model where needed.
-- Define retention, archival, and query strategy for incident response.
+- Keep production deployments on Postgres-backed forensic mode (avoid memory-only runtime).
+- Validate retention and archival job operations in operations runbooks.
+- Add SOC queries/dashboards over forensic tables for incident replay workflows.
 
 4. Operational/SOC integration depth
 
 Current gap:
-- Webhook alerting exists, but SIEM/SOAR integration and automated response are limited.
+- SIEM/SOAR sinks, runbook metadata, prioritization, and optional containment requests are now implemented in the alert pipeline. Remaining gap is operational maturity (playbook ownership, routing, and validation in production).
 
 Improvements:
-- Add SIEM-compatible structured event sinks and correlation fields.
-- Map alerts to operational playbooks.
-- Add escalation routing and automated containment actions for selected high-severity events.
+- Keep sink routing enabled in production and validate payload compatibility with SOC tooling.
+- Assign runbook owners and escalation policies per mapped rule.
+- Exercise containment workflows in controlled drills and tune thresholds to avoid unsafe automation.
 
 5. Frontend test rigor and full-stack confidence
 
@@ -126,11 +126,11 @@ C. Forensic pipeline fortification
 - Persist and index security events for replay and investigation.
 
 D. SOC operationalization
-- Integrate with SIEM/SOAR and map alerts to response playbooks.
+- Validate SIEM/SOAR ingestion in production and harden operational playbooks/containment procedures.
 
 E. Assurance expansion
 - Increase frontend visual/perf confidence and backend-integrated e2e coverage.
 
 ## Bottom Line
 
-The platform is functionally substantial and security-aware. It is not yet a fully breach-assumed hardened operational platform until durability defaults, distributed consistency, forensic persistence, and SOC response integration are completed.
+The platform is functionally substantial and security-aware. It is not yet a fully breach-assumed hardened operational platform until durability defaults, distributed consistency, and production-grade SOC operations are consistently enforced.

@@ -50,7 +50,7 @@ Security Pipeline:
   - `InMemoryQueueAdapter`
   - `RedisQueueAdapter` (Redis Streams)
 - Rule engine for repetitive and non-repetitive anomalies.
-- Alert deduplication + severity escalation + optional webhook delivery.
+- Alert deduplication + severity escalation + SOC delivery sinks (webhook, SIEM JSON/CEF, SOAR) with runbook mapping and optional automated containment requests.
 
 ## API Surface (Key Routes)
 
@@ -100,12 +100,14 @@ Implemented controls:
 - Security anomaly scoring with repetitive and non-repetitive rules.
 - Alert dedup semantics with TTL windows and escalation.
 - Queue adapter health visibility with optional durable fail-closed mode (`SECURITY_SIGNAL_QUEUE_REQUIRE_DURABLE=true`).
+- Durable forensic persistence for security signals/anomalies and XRPL action state/event history (Postgres-backed).
+- Durable alert-event forensic persistence for SOC/audit replay (`SecurityAlertEvent`).
 
 Known hardening gaps (priority):
 1. Durable-by-default security ingestion still requires stronger failure semantics and explicit runtime guarantees.
 2. Distributed enforcement is partially complete: rate limits support Redis-backed shared counters, but idempotency and other controls still need centralized consistency across all paths.
-3. Forensic state persistence is incomplete for some in-memory buffers/maps.
-4. SOC integration needs SIEM/SOAR-grade sinks, runbooks, and automated containment.
+3. Forensic persistence is implemented for primary security/XRPL streams, but operational adoption still depends on production Postgres configuration and retention/archival verification.
+4. SOC integration is implemented at sink/payload level, but operational adoption still needs runbook ownership, on-call routing, and SOAR playbook validation in production.
 5. Frontend assurance should expand to baseline screenshot diffing, broader browser coverage, and production-like performance budgets.
 6. XRPL integration confidence should increase with higher-fidelity integration and failure-mode testing.
 
@@ -164,6 +166,13 @@ High-impact groups:
 - Security detection/alerts: `SECURITY_SIGNAL_*`, `SECURITY_ALERT_*`, `SECURITY_ANOMALY_*`, `SECURITY_RATE_LIMIT_*`
 - Risk engine: `RISK_*`
 - Data stores: `COCKROACH_URL`, `POSTGRES_URL`
+
+Production security baseline to set explicitly:
+- `SECURITY_FORENSIC_ARCHIVE_DIR` (for archival exports before retention deletes)
+- `SECURITY_FORENSIC_*_RETENTION_DAYS`
+- `SECURITY_ALERT_SIEM_URL` and `SECURITY_ALERT_SIEM_FORMAT`
+- `SECURITY_ALERT_SOAR_URL`
+- `SECURITY_ALERT_RUNBOOK_BASE_URL` or `SECURITY_ALERT_RUNBOOK_MAP`
 
 ## Documentation
 

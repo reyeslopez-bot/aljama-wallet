@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { prismaPg } from '@/lib/prisma-pg'
 import { logWarn } from '@/lib/security/logging'
 import type { Prisma } from '@/prisma/generated/pg'
+import { runForensicRetentionMaintenance } from '@/services/forensic-retention.service'
 
 export type XrplActionKind =
   | 'trustset'
@@ -70,14 +71,19 @@ function canUsePg() {
   return Boolean(process.env.PG_DATABASE_URL ?? process.env.POSTGRES_URL)
 }
 
+function toJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
+}
+
+function fromJsonRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
 function toPayload(record: XrplActionRecord) {
   return {
     ...record,
   }
-}
-
-function toJson(value: unknown): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
 }
 
 async function persistToTelemetry(event: 'xrpl_action_created' | 'xrpl_action_updated', record: XrplActionRecord) {
@@ -97,12 +103,132 @@ async function persistToTelemetry(event: 'xrpl_action_created' | 'xrpl_action_up
   }
 }
 
-function trimIfNeeded() {
+function cacheAction(record: XrplActionRecord) {
+  actions.set(record.id, record)
   if (actions.size <= MAX_ACTIONS) return
   const sorted = Array.from(actions.values()).sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt))
   const prune = sorted.slice(0, Math.max(0, sorted.length - MAX_ACTIONS))
   for (const item of prune) {
     actions.delete(item.id)
+  }
+}
+
+async function persistActionCreatedToDb(record: XrplActionRecord) {
+  if (!canUsePg()) return
+  try {
+    await prismaPg.$transaction([
+      prismaPg.xrplAction.create({
+        data: {
+          id: record.id,
+          action: record.action,
+          status: record.status,
+          userId: record.userId,
+          networkId: record.networkId,
+          account: record.account,
+          idempotencyKey: record.idempotencyKey,
+          txHash: record.txHash,
+          engineResult: record.engineResult,
+          details: record.details ? toJson(record.details) : undefined,
+          createdAt: new Date(record.createdAt),
+          updatedAt: new Date(record.updatedAt),
+        },
+      }),
+      prismaPg.xrplActionEvent.create({
+        data: {
+          actionId: record.id,
+          eventType: 'created',
+          status: record.status,
+          txHash: record.txHash,
+          engineResult: record.engineResult,
+          details: record.details ? toJson(record.details) : undefined,
+        },
+      }),
+    ])
+    void runForensicRetentionMaintenance()
+  } catch (error) {
+    logWarn('xrpl-action-log:db-create', error, { actionId: record.id })
+  }
+}
+
+async function persistActionUpdatedToDb(record: XrplActionRecord) {
+  if (!canUsePg()) return
+  try {
+    await prismaPg.$transaction([
+      prismaPg.xrplAction.update({
+        where: {
+          id: record.id,
+        },
+        data: {
+          status: record.status,
+          txHash: record.txHash,
+          engineResult: record.engineResult,
+          details: record.details ? toJson(record.details) : undefined,
+          updatedAt: new Date(record.updatedAt),
+        },
+      }),
+      prismaPg.xrplActionEvent.create({
+        data: {
+          actionId: record.id,
+          eventType: 'updated',
+          status: record.status,
+          txHash: record.txHash,
+          engineResult: record.engineResult,
+          details: record.details ? toJson(record.details) : undefined,
+        },
+      }),
+    ])
+    void runForensicRetentionMaintenance()
+  } catch (error) {
+    logWarn('xrpl-action-log:db-update', error, { actionId: record.id })
+  }
+}
+
+function rowToActionRecord(row: {
+  id: string
+  action: string
+  status: string
+  userId: string | null
+  networkId: string
+  account: string
+  idempotencyKey: string
+  txHash: string | null
+  engineResult: string | null
+  details: unknown
+  createdAt: Date
+  updatedAt: Date
+}): XrplActionRecord {
+  return {
+    id: row.id,
+    action: row.action as XrplActionKind,
+    status: row.status as XrplActionStatus,
+    userId: row.userId,
+    networkId: row.networkId,
+    account: row.account,
+    idempotencyKey: row.idempotencyKey,
+    txHash: row.txHash,
+    engineResult: row.engineResult,
+    details: fromJsonRecord(row.details),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }
+}
+
+async function getXrplActionFromDb(id: string): Promise<XrplActionRecord | null> {
+  if (!canUsePg()) return null
+
+  try {
+    const row = await prismaPg.xrplAction.findUnique({
+      where: {
+        id,
+      },
+    })
+    if (!row) return null
+    const record = rowToActionRecord(row)
+    cacheAction(record)
+    return record
+  } catch (error) {
+    logWarn('xrpl-action-log:db-find', error, { actionId: id })
+    return null
   }
 }
 
@@ -122,15 +248,23 @@ export async function createXrplAction(input: CreateActionInput): Promise<XrplAc
     createdAt: now,
     updatedAt: now,
   }
-  actions.set(record.id, record)
-  trimIfNeeded()
-  await persistToTelemetry('xrpl_action_created', record)
+  cacheAction(record)
+
+  await Promise.all([
+    persistActionCreatedToDb(record),
+    persistToTelemetry('xrpl_action_created', record),
+  ])
+
   return record
 }
 
 export async function updateXrplAction(input: UpdateActionInput): Promise<XrplActionRecord | null> {
-  const current = actions.get(input.id)
+  let current = actions.get(input.id) ?? null
+  if (!current) {
+    current = await getXrplActionFromDb(input.id)
+  }
   if (!current) return null
+
   const updated: XrplActionRecord = {
     ...current,
     status: input.status,
@@ -139,9 +273,24 @@ export async function updateXrplAction(input: UpdateActionInput): Promise<XrplAc
     details: input.details ?? current.details,
     updatedAt: new Date().toISOString(),
   }
-  actions.set(updated.id, updated)
-  await persistToTelemetry('xrpl_action_updated', updated)
+  cacheAction(updated)
+
+  await Promise.all([
+    persistActionUpdatedToDb(updated),
+    persistToTelemetry('xrpl_action_updated', updated),
+  ])
+
   return updated
+}
+
+function listFromMemory(params: { limit: number; networkId: string | null }): XrplActionRecord[] {
+  const { limit, networkId } = params
+  let records = Array.from(actions.values())
+  if (networkId) {
+    records = records.filter((item) => item.networkId === networkId)
+  }
+  records.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+  return records.slice(0, limit)
 }
 
 export async function listXrplActions(params?: {
@@ -151,11 +300,30 @@ export async function listXrplActions(params?: {
   const limit = Math.min(Math.max(params?.limit ?? 20, 1), 200)
   const networkId = params?.networkId?.trim() || null
 
-  let records = Array.from(actions.values())
-  if (networkId) {
-    records = records.filter((item) => item.networkId === networkId)
+  if (canUsePg()) {
+    try {
+      const rows = await prismaPg.xrplAction.findMany({
+        where: networkId
+          ? {
+              networkId,
+            }
+          : undefined,
+        orderBy: {
+          updatedAt: 'desc',
+        },
+        take: limit,
+      })
+      if (rows.length > 0) {
+        const records = rows.map((row) => rowToActionRecord(row))
+        for (const item of records) {
+          cacheAction(item)
+        }
+        return records
+      }
+    } catch (error) {
+      logWarn('xrpl-action-log:db-list', error, { networkId, limit })
+    }
   }
 
-  records.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-  return records.slice(0, limit)
+  return listFromMemory({ limit, networkId })
 }

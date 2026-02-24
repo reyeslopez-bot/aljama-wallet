@@ -122,4 +122,69 @@ describe('security-alert.service', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
+
+  it('delivers structured events to SIEM and SOAR with priority and runbook metadata', async () => {
+    vi.stubEnv('SECURITY_ALERT_SIEM_URL', 'https://siem.example.test/ingest')
+    vi.stubEnv('SECURITY_ALERT_SOAR_URL', 'https://soar.example.test/events')
+    vi.stubEnv('SECURITY_ALERT_SIEM_MIN_SEVERITY', 'medium')
+    vi.stubEnv('SECURITY_ALERT_SOAR_MIN_SEVERITY', 'high')
+    vi.stubEnv('SECURITY_ALERT_RUNBOOK_BASE_URL', 'https://runbooks.example.test/security')
+
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await emitSecurityAlert({
+      ruleId: 'failure.burst',
+      source: 'auth.register',
+      severity: 'high',
+      repetitive: true,
+      title: 'Failure burst detected',
+      description: 'Multiple failures detected',
+      fingerprint: 'ip-xyz',
+      context: { tenantId: 'tenant-1' },
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    const siemPayload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    const soarPayload = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))
+
+    expect(siemPayload.type).toBe('security.alert')
+    expect(siemPayload.priority).toBe('p2')
+    expect(siemPayload.runbook?.id).toBe('RB-AUTH-001')
+    expect(siemPayload.runbook?.url).toContain('auth-failure-burst')
+
+    expect(soarPayload.type).toBe('security.alert')
+    expect(soarPayload.priority).toBe('p2')
+    expect(soarPayload.source).toBe('auth.register')
+  })
+
+  it('sends containment requests to SOAR when containment policy matches', async () => {
+    vi.stubEnv('SECURITY_ALERT_SOAR_URL', 'https://soar.example.test/events')
+    vi.stubEnv('SECURITY_ALERT_AUTO_CONTAIN_ENABLED', 'true')
+    vi.stubEnv('SECURITY_ALERT_AUTO_CONTAIN_RULES', 'probe.internal_route')
+    vi.stubEnv('SECURITY_ALERT_CONTAINMENT_MIN_SEVERITY', 'critical')
+
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await emitSecurityAlert({
+      ruleId: 'probe.internal_route',
+      source: 'internal.test-db',
+      severity: 'critical',
+      repetitive: false,
+      title: 'Internal route probe',
+      description: 'Unauthorized attempt',
+      fingerprint: 'ip-probe',
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    const firstPayload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    const secondPayload = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))
+
+    expect(firstPayload.type).toBe('security.alert')
+    expect(secondPayload.type).toBe('security.containment.request')
+    expect(secondPayload.actions).toContain('block_source')
+  })
 })

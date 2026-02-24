@@ -156,7 +156,15 @@ Alert behavior:
 - Dedup key TTL prevents stale suppression and is configurable.
 - Duplicate escalation can re-page operators after repeated suppressed events.
 - Optional durable dedup state can be stored in Redis TTL keys to survive process restarts.
-- Optional webhook delivery can be enabled for SOC/on-call systems.
+- Alerts are enriched with SOC metadata:
+  - priority (`p1`-`p4`) derived from severity
+  - runbook mapping (`ruleId` -> runbook id/title/url)
+  - containment recommendation/actions
+- Delivery sinks:
+  - webhook sink for generic notifications
+  - SIEM sink with JSON or CEF payload formatting
+  - SOAR sink for incident workflow ingestion and optional auto-containment requests
+- Duplicate dispatch policy defaults to first + escalation checkpoints; can be overridden.
 
 Security anomaly configuration:
 - `SECURITY_ANOMALY_ALERT_MIN_SEVERITY`
@@ -194,6 +202,22 @@ Alert delivery configuration:
 - `SECURITY_SIGNAL_INGEST_TOKEN` (internal API write access for signal ingestion)
 - `SECURITY_ALERT_WEBHOOK_URL`
 - `SECURITY_ALERT_WEBHOOK_MIN_SEVERITY`
+- `SECURITY_ALERT_SIEM_URL`
+- `SECURITY_ALERT_SIEM_FORMAT` (`json` or `cef`)
+- `SECURITY_ALERT_SIEM_MIN_SEVERITY`
+- `SECURITY_ALERT_SIEM_TIMEOUT_MS`
+- `SECURITY_ALERT_SOAR_URL`
+- `SECURITY_ALERT_SOAR_MIN_SEVERITY`
+- `SECURITY_ALERT_SOAR_TIMEOUT_MS`
+- `SECURITY_ALERT_DISPATCH_ALL_DUPLICATES`
+- `SECURITY_ALERT_RUNBOOK_BASE_URL`
+- `SECURITY_ALERT_RUNBOOK_MAP` (JSON map override by rule id)
+- `SECURITY_ALERT_AUTO_CONTAIN_ENABLED`
+- `SECURITY_ALERT_AUTO_CONTAIN_REPETITIVE_ONLY`
+- `SECURITY_ALERT_AUTO_CONTAIN_RULES` (CSV rule ids)
+- `SECURITY_ALERT_CONTAINMENT_MIN_SEVERITY`
+- `SECURITY_ALERT_CONTAINMENT_TIMEOUT_MS`
+- `SECURITY_ALERT_CONTAINMENT_ACTION_MAP` (JSON map override by rule id)
 - `SECURITY_ALERT_DEDUP_WINDOW_MS`
 - `SECURITY_ALERT_DEDUP_TTL_MS`
 - `SECURITY_ALERT_DEDUP_BACKEND`
@@ -208,6 +232,43 @@ Operational read endpoint:
 - `GET /api/security/anomalies` (internal token required)
 Operational write endpoint:
 - `POST /api/security/signals` (internal token required)
+
+## Persistent Forensic State
+
+Security forensics now writes durable records to Postgres when configured (`PG_DATABASE_URL` or `POSTGRES_URL`):
+- `SecuritySignalEvent` for ingested/processed security signals.
+- `SecurityAnomalyEvent` for detected anomalies linked to source signal IDs.
+- `SecurityAlertEvent` for emitted alerts and delivery metadata.
+- `XrplAction` for canonical XRPL action state.
+- `XrplActionEvent` as append-only XRPL action ledger entries (`created`/`updated`).
+
+Read behavior:
+- `GET /api/security/anomalies` reads from durable forensic tables when available, with in-memory fallback.
+- `GET /api/xrpl/action-history` reads from durable `XrplAction` state when available, with in-memory fallback.
+
+Retention and archival policy:
+- `SECURITY_FORENSIC_SIGNAL_RETENTION_DAYS`
+- `SECURITY_FORENSIC_ANOMALY_RETENTION_DAYS`
+- `SECURITY_FORENSIC_ALERT_RETENTION_DAYS`
+- `SECURITY_FORENSIC_XRPL_EVENT_RETENTION_DAYS`
+- `SECURITY_FORENSIC_XRPL_ACTION_RETENTION_DAYS`
+- `SECURITY_FORENSIC_CLEANUP_INTERVAL_MS`
+- `SECURITY_FORENSIC_ARCHIVE_BATCH_SIZE`
+- `SECURITY_FORENSIC_ARCHIVE_DIR` (optional NDJSON archival before deletion)
+
+Maintenance runs opportunistically during forensic writes and is throttled by cleanup interval.
+
+Production baseline example:
+```bash
+SECURITY_FORENSIC_SIGNAL_RETENTION_DAYS=90
+SECURITY_FORENSIC_ANOMALY_RETENTION_DAYS=180
+SECURITY_FORENSIC_ALERT_RETENTION_DAYS=365
+SECURITY_FORENSIC_XRPL_EVENT_RETENTION_DAYS=365
+SECURITY_FORENSIC_XRPL_ACTION_RETENTION_DAYS=365
+SECURITY_FORENSIC_CLEANUP_INTERVAL_MS=3600000
+SECURITY_FORENSIC_ARCHIVE_BATCH_SIZE=1000
+SECURITY_FORENSIC_ARCHIVE_DIR=/var/log/aljama/forensics-archive
+```
 
 ## Notes on Quantum Threats
 

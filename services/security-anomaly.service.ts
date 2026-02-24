@@ -1,7 +1,13 @@
 import crypto from 'node:crypto'
 import { getErrorMessage } from '@/lib/security/errors'
+import { prismaPg } from '@/lib/prisma-pg'
 import { logError, logWarn } from '@/lib/security/logging'
+import type { Prisma } from '@/prisma/generated/pg'
 import { emitSecurityAlert, type SecurityAlertSeverity } from '@/services/security-alert.service'
+import {
+  clearForensicRetentionStateForTests,
+  runForensicRetentionMaintenance,
+} from '@/services/forensic-retention.service'
 import {
   createQueueAdapterFromEnv,
   getSecuritySignalQueueAdapterHealth,
@@ -249,6 +255,14 @@ function envInt(name: string, fallback: number): number {
   const parsed = Number(raw)
   if (!Number.isFinite(parsed)) return fallback
   return Math.max(0, Math.floor(parsed))
+}
+
+function canUsePg() {
+  return Boolean(process.env.PG_DATABASE_URL ?? process.env.POSTGRES_URL)
+}
+
+function toJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
 }
 
 function nextId(prefix: 'sig' | 'anomaly'): string {
@@ -934,6 +948,92 @@ function buildSignalRecord(input: SecuritySignalInput, transport: SecuritySignal
   }
 }
 
+function fromJsonRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return {}
+  }
+  return value as Record<string, unknown>
+}
+
+function toSignalTransport(value: string): SecuritySignalTransport {
+  if (value === 'direct' || value === 'api' || value === 'queue' || value === 'event_bus') {
+    return value
+  }
+  return 'queue'
+}
+
+function toSeverity(value: string): SecurityAlertSeverity {
+  if (value === 'low' || value === 'medium' || value === 'high' || value === 'critical') {
+    return value
+  }
+  return 'medium'
+}
+
+async function persistSignalToForensicStore(signal: SecuritySignalRecord) {
+  if (!canUsePg()) return
+
+  try {
+    await prismaPg.securitySignalEvent.create({
+      data: {
+        id: signal.id,
+        source: signal.source,
+        route: signal.route ?? null,
+        outcome: signal.outcome,
+        statusCode: signal.statusCode ?? null,
+        ipHash: signal.ipHash ?? null,
+        userId: signal.userId ?? null,
+        sessionId: signal.sessionId ?? null,
+        deviceId: signal.deviceId ?? null,
+        principal: signal.principal ?? null,
+        country: signal.country ?? null,
+        latitude: signal.latitude ?? null,
+        longitude: signal.longitude ?? null,
+        userAgent: signal.userAgent ?? null,
+        transport: signal.transport,
+        details: toJson(signal.details ?? {}),
+        detectedAt: new Date(signal.detectedAt),
+      },
+    })
+    void runForensicRetentionMaintenance()
+  } catch (error) {
+    logError('security-anomaly:forensic-signal-write', error, {
+      signalId: signal.id,
+      source: signal.source,
+    })
+  }
+}
+
+async function persistAnomaliesToForensicStore(anomalies: SecurityAnomalyRecord[]) {
+  if (!canUsePg() || anomalies.length === 0) return
+
+  try {
+    await prismaPg.$transaction(
+      anomalies.map((anomaly) =>
+        prismaPg.securityAnomalyEvent.create({
+          data: {
+            id: anomaly.id,
+            signalId: anomaly.signalId,
+            ruleId: anomaly.ruleId,
+            ruleType: anomaly.ruleType,
+            severity: anomaly.severity,
+            repetitive: anomaly.repetitive,
+            score: anomaly.score,
+            summary: anomaly.summary,
+            details: toJson(anomaly.details ?? {}),
+            detectedAt: new Date(anomaly.detectedAt),
+          },
+        }),
+      ),
+    )
+    void runForensicRetentionMaintenance()
+  } catch (error) {
+    logError('security-anomaly:forensic-anomaly-write', error, {
+      anomalyCount: anomalies.length,
+      ruleIds: anomalies.map((item) => item.ruleId),
+    })
+  }
+}
+
 async function processSecuritySignalInternal(
   input: SecuritySignalInput,
   transport: SecuritySignalTransport,
@@ -942,8 +1042,10 @@ async function processSecuritySignalInternal(
 
   signalBuffer.push(signal)
   trimBuffers()
+  await persistSignalToForensicStore(signal)
 
   const anomalies = evaluateRules(signal)
+  await persistAnomaliesToForensicStore(anomalies)
   for (const anomaly of anomalies) {
     await emitAnomaly(signal, anomaly)
   }
@@ -1288,6 +1390,85 @@ export function getRecentSecurityAnomalies(limit = 200): SecurityAnomalyRecord[]
   return anomalyBuffer.slice(-max).reverse()
 }
 
+export async function getRecentSecuritySignalsForensics(limit = 300): Promise<SecuritySignalRecord[]> {
+  const max = Number.isInteger(limit) && limit > 0 ? limit : 300
+  if (!canUsePg()) {
+    return getRecentSecuritySignals(max)
+  }
+
+  try {
+    const rows = await prismaPg.securitySignalEvent.findMany({
+      orderBy: {
+        detectedAt: 'desc',
+      },
+      take: max,
+    })
+
+    if (rows.length === 0) {
+      return getRecentSecuritySignals(max)
+    }
+
+    return rows.map((row) => ({
+      id: row.id,
+      source: row.source,
+      route: row.route,
+      outcome: row.outcome as SecuritySignalOutcome,
+      statusCode: row.statusCode,
+      ipHash: row.ipHash,
+      userId: row.userId,
+      sessionId: row.sessionId,
+      deviceId: row.deviceId,
+      principal: row.principal,
+      country: row.country,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      userAgent: row.userAgent,
+      details: fromJsonRecord(row.details),
+      detectedAt: row.detectedAt.getTime(),
+      transport: toSignalTransport(row.transport),
+    }))
+  } catch (error) {
+    logError('security-anomaly:forensic-signal-read', error)
+    return getRecentSecuritySignals(max)
+  }
+}
+
+export async function getRecentSecurityAnomaliesForensics(limit = 200): Promise<SecurityAnomalyRecord[]> {
+  const max = Number.isInteger(limit) && limit > 0 ? limit : 200
+  if (!canUsePg()) {
+    return getRecentSecurityAnomalies(max)
+  }
+
+  try {
+    const rows = await prismaPg.securityAnomalyEvent.findMany({
+      orderBy: {
+        detectedAt: 'desc',
+      },
+      take: max,
+    })
+
+    if (rows.length === 0) {
+      return getRecentSecurityAnomalies(max)
+    }
+
+    return rows.map((row) => ({
+      id: row.id,
+      ruleId: row.ruleId,
+      ruleType: row.ruleType as SecurityAnomalyRuleType,
+      severity: toSeverity(row.severity),
+      repetitive: row.repetitive,
+      score: row.score,
+      summary: row.summary,
+      details: fromJsonRecord(row.details),
+      signalId: row.signalId,
+      detectedAt: row.detectedAt.getTime(),
+    }))
+  } catch (error) {
+    logError('security-anomaly:forensic-anomaly-read', error)
+    return getRecentSecurityAnomalies(max)
+  }
+}
+
 export async function getSecuritySignalQueueState(): Promise<SecuritySignalQueueState> {
   const adapterHealth = getSecuritySignalQueueAdapterHealth()
   const highWatermark = queueHighWatermark()
@@ -1404,6 +1585,7 @@ export function clearSecurityAnomalyStateForTests() {
   queueControl.draining = false
   queueControl.throttled = false
   resetSecuritySignalQueueAdapterHealthForTests()
+  clearForensicRetentionStateForTests()
 
   pluginRules.clear()
 }
