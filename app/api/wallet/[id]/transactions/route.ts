@@ -35,7 +35,7 @@ export async function GET(
   }
 
   const rateKey = buildRateLimitKey(req, session.user.id)
-  const limitResult = rateLimit({
+  const limitResult = await rateLimit({
     bucket: 'wallet-transactions',
     key: rateKey,
     limit: 120,

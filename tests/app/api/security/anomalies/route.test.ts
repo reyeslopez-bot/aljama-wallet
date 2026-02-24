@@ -4,6 +4,7 @@ const {
   mockHasValidInternalToken,
   mockBuildRateLimitKey,
   mockRateLimit,
+  mockGetRateLimitBackendHealth,
   mockGetClientIp,
   mockGetRecentSecuritySignals,
   mockGetRecentSecurityAnomalies,
@@ -15,6 +16,7 @@ const {
   mockHasValidInternalToken: vi.fn(),
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
+  mockGetRateLimitBackendHealth: vi.fn(),
   mockGetClientIp: vi.fn(),
   mockGetRecentSecuritySignals: vi.fn(),
   mockGetRecentSecurityAnomalies: vi.fn(),
@@ -31,6 +33,7 @@ vi.mock('@/lib/security/internal-token', () => ({
 vi.mock('@/lib/security/rate-limit', () => ({
   buildRateLimitKey: mockBuildRateLimitKey,
   rateLimit: mockRateLimit,
+  getRateLimitBackendHealth: mockGetRateLimitBackendHealth,
   getClientIp: mockGetClientIp,
 }))
 
@@ -56,6 +59,14 @@ describe('app/api/security/anomalies route', () => {
     mockGetClientIp.mockReturnValue('127.0.0.1')
     mockBuildRateLimitKey.mockReturnValue('ip:127.0.0.1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 29, resetAt: Date.now() + 60_000 })
+    mockGetRateLimitBackendHealth.mockReturnValue({
+      requestedBackend: 'memory',
+      activeBackend: 'memory',
+      degraded: false,
+      reason: null,
+      lastFailureAt: null,
+      requireDistributed: false,
+    })
     mockGetRecentSecuritySignals.mockReturnValue([{ id: 'sig-1' }])
     mockGetRecentSecurityAnomalies.mockReturnValue([{ id: 'anomaly-1' }])
     mockGetSecuritySignalQueueState.mockReturnValue({ depth: 0, draining: false, stats: {} })
@@ -106,6 +117,14 @@ describe('app/api/security/anomalies route', () => {
     expect(body.anomalies).toEqual([{ id: 'anomaly-1' }])
     expect(body.alerts).toEqual([{ id: 'alert-1' }])
     expect(body.queue).toEqual({ depth: 0, draining: false, stats: {} })
+    expect(body.rateLimit).toEqual({
+      requestedBackend: 'memory',
+      activeBackend: 'memory',
+      degraded: false,
+      reason: null,
+      lastFailureAt: null,
+      requireDistributed: false,
+    })
     expect(body.rules).toEqual([{ id: 'rule-1' }])
   })
 })

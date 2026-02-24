@@ -10,7 +10,7 @@ import { isXrplNetworkId, DEFAULT_XRPL_NETWORK_ID } from '@/lib/xrpl-networks'
 
 export async function GET(req: Request) {
   const rateKey = buildRateLimitKey(req, null)
-  const limitState = rateLimit({
+  const limitState = await rateLimit({
     bucket: 'xrpl-dev-account',
     key: rateKey,
     limit: 60,

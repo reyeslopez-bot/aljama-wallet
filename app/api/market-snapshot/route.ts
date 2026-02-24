@@ -139,7 +139,7 @@ async function buildSnapshot(): Promise<MarketSnapshot> {
 export async function GET(req?: Request) {
   const request = req ?? new Request('http://localhost')
   const rateKey = buildRateLimitKey(request, null)
-  const limit = rateLimit({
+  const limit = await rateLimit({
     bucket: 'market-snapshot',
     key: rateKey,
     limit: 120,

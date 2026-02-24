@@ -8,7 +8,7 @@ import { getErrorMessage } from '@/lib/security/errors'
 
 export async function GET(req: Request) {
   const rateKey = buildRateLimitKey(req, null)
-  const limit = rateLimit({
+  const limit = await rateLimit({
     bucket: 'tokens-wallet',
     key: rateKey,
     limit: 60,

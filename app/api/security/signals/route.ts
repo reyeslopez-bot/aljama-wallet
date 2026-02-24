@@ -82,7 +82,7 @@ export async function POST(req: Request) {
   }
 
   const rateKey = buildRateLimitKey(req, null)
-  const limitState = rateLimit({
+  const limitState = await rateLimit({
     bucket: 'security-signals',
     key: rateKey,
     limit: 60,

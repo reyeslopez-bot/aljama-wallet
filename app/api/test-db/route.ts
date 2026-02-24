@@ -68,7 +68,7 @@ export async function GET(req?: Request) {
   }
 
   const rateKey = buildRateLimitKey(request, null)
-  const limitState = rateLimit({
+  const limitState = await rateLimit({
     bucket: 'test-db',
     key: rateKey,
     limit: 10,

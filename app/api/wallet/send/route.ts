@@ -185,7 +185,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
     }
 
     const rateKey = buildRateLimitKey(req, session.user?.id ?? null)
-    const limit = rateLimit({
+    const limit = await rateLimit({
       bucket: 'wallet-send',
       key: rateKey,
       limit: 10,

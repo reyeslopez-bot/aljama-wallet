@@ -1,6 +1,6 @@
 import { errorJson, okJson } from '@/lib/security/api-response'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
-import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
+import { buildRateLimitKey, getRateLimitBackendHealth, rateLimit } from '@/lib/security/rate-limit'
 import { getSecurityAlerts } from '@/services/security-alert.service'
 import {
   getRecentSecurityAnomalies,
@@ -68,7 +68,7 @@ export async function GET(req: Request) {
   }
 
   const rateKey = buildRateLimitKey(req, null)
-  const limitState = rateLimit({
+  const limitState = await rateLimit({
     bucket: 'security-anomalies',
     key: rateKey,
     limit: 30,
@@ -110,6 +110,7 @@ export async function GET(req: Request) {
     anomalies: getRecentSecurityAnomalies(anomaliesLimit),
     alerts: getSecurityAlerts(alertsLimit),
     queue: await getSecuritySignalQueueState(),
+    rateLimit: getRateLimitBackendHealth(),
     rules: listSecurityAnomalyRules(),
   })
 }

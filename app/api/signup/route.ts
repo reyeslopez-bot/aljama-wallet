@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     }
 
     const rateKey = buildRateLimitKey(req, null)
-    const limit = rateLimit({
+    const limit = await rateLimit({
       bucket: 'signup',
       key: rateKey,
       limit: 20,

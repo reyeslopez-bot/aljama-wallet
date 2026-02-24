@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     }
 
     const rateKey = buildRateLimitKey(req, null)
-    const limit = rateLimit({
+    const limit = await rateLimit({
       bucket: 'track-wallet',
       key: rateKey,
       limit: 60,

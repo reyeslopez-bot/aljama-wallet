@@ -18,7 +18,7 @@ export async function GET(req?: Request) {
     return errorJson(403, "invalid_origin", "INVALID_ORIGIN")
   }
   const rateKey = buildRateLimitKey(request, session.user.id)
-  const limit = rateLimit({
+  const limit = await rateLimit({
     bucket: "wallets",
     key: rateKey,
     limit: 60,

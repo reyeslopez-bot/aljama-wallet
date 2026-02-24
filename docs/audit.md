@@ -62,10 +62,10 @@ Improvements:
 2. True distributed enforcement (multi-instance consistency)
 
 Current gap:
-- In-memory behaviors for certain controls can diverge across instances.
+- Rate limiting now supports Redis-backed distributed counters, but additional controls can still diverge across instances where in-memory behavior remains.
 
 Improvements:
-- Use centralized stores for rate limits and idempotency where cross-instance guarantees are required.
+- Keep rate limiting in distributed mode for production and extend centralized backing to idempotency and related controls where cross-instance guarantees are required.
 - Use shared counters/keys so enforcement is globally consistent.
 
 3. Persistent forensic security state

@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     }
 
     const rateKey = buildRateLimitKey(req, session.user.id)
-    const limit = rateLimit({
+    const limit = await rateLimit({
       bucket: 'xrpl-account-assets',
       key: rateKey,
       limit: 60,

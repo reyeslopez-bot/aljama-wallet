@@ -94,6 +94,7 @@ Implemented controls:
 - Strict mode behavior in production.
 - Origin checks on sensitive routes.
 - Route-level rate limits.
+- Redis-backed distributed rate limiting with explicit fail-closed option (`SECURITY_RATE_LIMIT_REQUIRE_DISTRIBUTED=true`).
 - Idempotency key reservation for transaction submission paths.
 - Transfer risk scoring with configurable deny/review thresholds.
 - Security anomaly scoring with repetitive and non-repetitive rules.
@@ -102,7 +103,7 @@ Implemented controls:
 
 Known hardening gaps (priority):
 1. Durable-by-default security ingestion still requires stronger failure semantics and explicit runtime guarantees.
-2. Distributed enforcement is incomplete where in-memory fallbacks remain (rate limit/idempotency consistency across instances).
+2. Distributed enforcement is partially complete: rate limits support Redis-backed shared counters, but idempotency and other controls still need centralized consistency across all paths.
 3. Forensic state persistence is incomplete for some in-memory buffers/maps.
 4. SOC integration needs SIEM/SOAR-grade sinks, runbooks, and automated containment.
 5. Frontend assurance should expand to baseline screenshot diffing, broader browser coverage, and production-like performance budgets.
@@ -160,7 +161,7 @@ High-impact groups:
 - Auth and strict mode: `NEXTAUTH_*`, `SECURITY_*`, `AUTH_*`
 - Custody and transfer: `WALLET_*`, `EVM_RPC_URL`
 - XRPL: `XRPL_*`
-- Security detection/alerts: `SECURITY_SIGNAL_*`, `SECURITY_ALERT_*`, `SECURITY_ANOMALY_*`
+- Security detection/alerts: `SECURITY_SIGNAL_*`, `SECURITY_ALERT_*`, `SECURITY_ANOMALY_*`, `SECURITY_RATE_LIMIT_*`
 - Risk engine: `RISK_*`
 - Data stores: `COCKROACH_URL`, `POSTGRES_URL`
 

@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     }
 
     const rateKey = buildRateLimitKey(req, null)
-    const limit = rateLimit({
+    const limit = await rateLimit({
       bucket: 'telemetry',
       key: rateKey,
       limit: 120,

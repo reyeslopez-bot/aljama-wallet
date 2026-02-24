@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     }
 
     const rateKey = buildRateLimitKey(req, session.user.id)
-    const limitState = rateLimit({
+    const limitState = await rateLimit({
       bucket: 'xrpl-nfts',
       key: rateKey,
       limit: 60,

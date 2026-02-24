@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     }
 
     const rateKey = buildRateLimitKey(req, session.user?.id ?? null)
-    const limit = rateLimit({
+    const limit = await rateLimit({
       bucket: 'create-wallet',
       key: rateKey,
       limit: 10,

@@ -68,6 +68,24 @@ Optional AI scorer:
 
 The app now records security signals across auth, telemetry, wallet tracking, internal debug access, and wallet send routes.
 
+## Distributed Rate Limit Enforcement
+
+Rate limiting supports memory and Redis-backed distributed counters.
+
+Backend selection:
+- `SECURITY_RATE_LIMIT_BACKEND=memory|redis`
+- `SECURITY_RATE_LIMIT_REQUIRE_DISTRIBUTED=true|false`
+
+Redis settings:
+- `SECURITY_RATE_LIMIT_REDIS_URL` (falls back to `REDIS_URL`)
+- `SECURITY_RATE_LIMIT_PREFIX` (default: `security:rate-limit`)
+
+Behavior:
+- If `SECURITY_RATE_LIMIT_BACKEND=redis` and Redis is unavailable:
+  - with `SECURITY_RATE_LIMIT_REQUIRE_DISTRIBUTED=true`: rate limiting fails closed (requests are blocked).
+  - with `SECURITY_RATE_LIMIT_REQUIRE_DISTRIBUTED=false`: the app degrades to in-memory limits and marks degraded backend health.
+- Backend health is exposed in `GET /api/security/anomalies` under `rateLimit`.
+
 Signal input interfaces:
 - Direct function path: `recordSecuritySignal(...)` for in-process route instrumentation.
 - Queue-backed service path: `ingestSecuritySignal(...)` / `ingestSecuritySignalsBatch(...)`.
