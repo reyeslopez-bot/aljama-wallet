@@ -213,6 +213,34 @@ describe('security-anomaly.service', () => {
     expect(alerts.some((item) => item.ruleId === 'queue.backpressure.high_water')).toBe(true)
   })
 
+  it('rejects queued ingestion when durable backend is required but unavailable', async () => {
+    vi.stubEnv('SECURITY_SIGNAL_QUEUE_BACKEND', 'redis')
+    vi.stubEnv('SECURITY_SIGNAL_QUEUE_REQUIRE_DURABLE', 'true')
+    vi.stubEnv('SECURITY_SIGNAL_REDIS_URL', '')
+    vi.stubEnv('REDIS_URL', '')
+
+    const result = await ingestSecuritySignal(
+      {
+        source: 'telemetry',
+        outcome: 'success',
+      },
+      {
+        transport: 'queue',
+        enqueue: true,
+        drain: false,
+      },
+    )
+
+    expect(result.accepted).toBe(false)
+    expect(result.rejected).toBe(true)
+    expect(result.error).toContain('durable_queue_required')
+
+    const queueState = await getSecuritySignalQueueState()
+    expect(queueState.adapterHealth.degraded).toBe(true)
+    expect(queueState.adapterHealth.requireDurable).toBe(true)
+    expect(queueState.adapterError).toContain('durable_queue_required')
+  })
+
   it('supports pluggable anomaly rules', async () => {
     registerSecurityAnomalyRule({
       id: 'custom.always',

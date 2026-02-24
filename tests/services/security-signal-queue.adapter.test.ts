@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createQueueAdapterFromEnv,
+  getSecuritySignalQueueAdapterHealth,
   InMemoryQueueAdapter,
   RedisQueueAdapter,
+  resetSecuritySignalQueueAdapterHealthForTests,
   type QueueSignalPayload,
 } from '@/services/security-signal-queue.adapter'
 
@@ -191,6 +194,7 @@ describe('security-signal-queue adapters', () => {
   beforeEach(() => {
     vi.unstubAllEnvs()
     vi.useRealTimers()
+    resetSecuritySignalQueueAdapterHealthForTests()
   })
 
   it('supports enqueue -> dequeue -> ack on in-memory adapter', async () => {
@@ -272,5 +276,36 @@ describe('security-signal-queue adapters', () => {
     expect(second[0]?.id).toBe(first[0]?.id)
 
     await adapter.ack(second[0]!)
+  })
+
+  it('falls back to in-memory and marks degraded health when redis backend is unavailable', async () => {
+    vi.stubEnv('SECURITY_SIGNAL_QUEUE_BACKEND', 'redis')
+    vi.stubEnv('SECURITY_SIGNAL_REDIS_URL', '')
+    vi.stubEnv('REDIS_URL', '')
+    vi.stubEnv('SECURITY_SIGNAL_QUEUE_REQUIRE_DURABLE', 'false')
+
+    const adapter = await createQueueAdapterFromEnv()
+    const health = getSecuritySignalQueueAdapterHealth()
+
+    expect(adapter.backend).toBe('in_memory')
+    expect(health.requestedBackend).toBe('redis')
+    expect(health.activeBackend).toBe('in_memory')
+    expect(health.degraded).toBe(true)
+    expect(health.reason).toContain('SECURITY_SIGNAL_REDIS_URL')
+  })
+
+  it('fails closed when durable queue is required and redis backend is unavailable', async () => {
+    vi.stubEnv('SECURITY_SIGNAL_QUEUE_BACKEND', 'redis')
+    vi.stubEnv('SECURITY_SIGNAL_REDIS_URL', '')
+    vi.stubEnv('REDIS_URL', '')
+    vi.stubEnv('SECURITY_SIGNAL_QUEUE_REQUIRE_DURABLE', 'true')
+
+    await expect(createQueueAdapterFromEnv()).rejects.toThrow('durable_queue_required')
+    const health = getSecuritySignalQueueAdapterHealth()
+
+    expect(health.requestedBackend).toBe('redis')
+    expect(health.activeBackend).toBe('redis')
+    expect(health.degraded).toBe(true)
+    expect(health.requireDurable).toBe(true)
   })
 })

@@ -40,6 +40,15 @@ export type SecuritySignalQueueStats = {
   newestQueuedAt: number | null
 }
 
+export type SecuritySignalQueueAdapterHealth = {
+  requestedBackend: 'in_memory' | 'redis'
+  activeBackend: 'in_memory' | 'redis'
+  degraded: boolean
+  reason: string | null
+  lastFailureAt: number | null
+  requireDurable: boolean
+}
+
 export type SecuritySignalQueueEnqueueOptions = {
   transport?: SecuritySignalTransport
   retryCount?: number
@@ -68,6 +77,26 @@ type InMemoryQueueEntry = SecuritySignalQueueMessage & {
   availableAt: number
 }
 
+const globalForQueueAdapter = globalThis as unknown as {
+  securitySignalQueueAdapterHealth?: SecuritySignalQueueAdapterHealth
+}
+
+function defaultQueueAdapterHealth(): SecuritySignalQueueAdapterHealth {
+  return {
+    requestedBackend: 'in_memory',
+    activeBackend: 'in_memory',
+    degraded: false,
+    reason: null,
+    lastFailureAt: null,
+    requireDurable: false,
+  }
+}
+
+const adapterHealth = globalForQueueAdapter.securitySignalQueueAdapterHealth ?? defaultQueueAdapterHealth()
+if (!globalForQueueAdapter.securitySignalQueueAdapterHealth) {
+  globalForQueueAdapter.securitySignalQueueAdapterHealth = adapterHealth
+}
+
 function nextQueueId(prefix = 'queue'): string {
   if (globalThis.crypto?.randomUUID) return `${prefix}_${globalThis.crypto.randomUUID()}`
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`
@@ -79,6 +108,32 @@ function envInt(name: string, fallback: number): number {
   const parsed = Number(raw)
   if (!Number.isFinite(parsed)) return fallback
   return Math.max(0, Math.floor(parsed))
+}
+
+function envBool(name: string, fallback = false): boolean {
+  const raw = process.env[name]
+  if (!raw) return fallback
+  const normalized = raw.trim().toLowerCase()
+  if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on') {
+    return true
+  }
+  if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') {
+    return false
+  }
+  return fallback
+}
+
+function durableQueueRequired(): boolean {
+  return envBool('SECURITY_SIGNAL_QUEUE_REQUIRE_DURABLE', false)
+}
+
+function setQueueAdapterHealth(input: SecuritySignalQueueAdapterHealth) {
+  adapterHealth.requestedBackend = input.requestedBackend
+  adapterHealth.activeBackend = input.activeBackend
+  adapterHealth.degraded = input.degraded
+  adapterHealth.reason = input.reason
+  adapterHealth.lastFailureAt = input.lastFailureAt
+  adapterHealth.requireDurable = input.requireDurable
 }
 
 function queueOverflowStrategy(): 'drop_oldest' | 'reject_new' {
@@ -703,22 +758,69 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
 }
 
 export async function createQueueAdapterFromEnv(): Promise<SecuritySignalQueueAdapter> {
-  const backend = (process.env.SECURITY_SIGNAL_QUEUE_BACKEND ?? 'in_memory').trim().toLowerCase()
+  const backendRaw = (process.env.SECURITY_SIGNAL_QUEUE_BACKEND ?? 'in_memory').trim().toLowerCase()
+  const requestedBackend = backendRaw === 'redis' ? 'redis' : 'in_memory'
+  const requireDurable = durableQueueRequired()
 
-  if (backend === 'redis') {
+  if (requestedBackend === 'redis') {
     try {
       const adapter = RedisQueueAdapter.fromEnv()
       await adapter.getStats()
+      setQueueAdapterHealth({
+        requestedBackend,
+        activeBackend: 'redis',
+        degraded: false,
+        reason: null,
+        lastFailureAt: null,
+        requireDurable,
+      })
       return adapter
     } catch (error) {
+      const reason = getErrorMessage(error, 'redis_backend_unavailable')
       logError('security-signal:adapter', error, {
-        backend,
+        backend: requestedBackend,
+        requireDurable,
+        fallbackBackend: requireDurable ? 'none' : 'in_memory',
       })
+      setQueueAdapterHealth({
+        requestedBackend,
+        activeBackend: requireDurable ? 'redis' : 'in_memory',
+        degraded: true,
+        reason,
+        lastFailureAt: Date.now(),
+        requireDurable,
+      })
+      if (requireDurable) {
+        throw new Error(`durable_queue_required:${reason}`)
+      }
       return new InMemoryQueueAdapter()
     }
   }
 
+  setQueueAdapterHealth({
+    requestedBackend,
+    activeBackend: 'in_memory',
+    degraded: false,
+    reason: null,
+    lastFailureAt: null,
+    requireDurable,
+  })
   return new InMemoryQueueAdapter()
+}
+
+export function getSecuritySignalQueueAdapterHealth(): SecuritySignalQueueAdapterHealth {
+  return {
+    requestedBackend: adapterHealth.requestedBackend,
+    activeBackend: adapterHealth.activeBackend,
+    degraded: adapterHealth.degraded,
+    reason: adapterHealth.reason,
+    lastFailureAt: adapterHealth.lastFailureAt,
+    requireDurable: adapterHealth.requireDurable,
+  }
+}
+
+export function resetSecuritySignalQueueAdapterHealthForTests() {
+  setQueueAdapterHealth(defaultQueueAdapterHealth())
 }
 
 export function maybeResetQueueAdapterForTests(adapter: SecuritySignalQueueAdapter | null | undefined) {

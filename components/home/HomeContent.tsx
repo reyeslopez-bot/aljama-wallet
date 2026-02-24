@@ -10,7 +10,6 @@ import XrplMarketPanel from '@/components/home/XrplMarketPanel.client'
 import XrplTradeDesk from '@/components/home/XrplTradeDesk.client'
 import RegionCompliancePanel from '@/components/home/RegionCompliancePanel.client'
 import ShareDock from '@/components/home/ShareDock.client'
-import TikTokFramerFeed from '@/components/home/TikTokFramerFeed.client'
 import ClientTrackWallet from '@/infra/utils/ClientTrackWallet'
 import { BRAND } from '@/constants/brand'
 import DynamicInfoCard from '@/components/home/DynamicInfoCard.client'
@@ -170,7 +169,6 @@ export default function HomeContent() {
       <WalletAccessSection />
       <XrplSection />
       <TradeDeskSection />
-      <TikTokFramerFeed />
       <ShareSection />
       <FooterCopyright />
     </div>

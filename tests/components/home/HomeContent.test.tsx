@@ -48,10 +48,6 @@ vi.mock('@/components/home/ShareDock.client', () => ({
   default: () => <div data-testid="mock-share-dock" />,
 }))
 
-vi.mock('@/components/home/TikTokFramerFeed.client', () => ({
-  default: () => <div data-testid="mock-tiktok-feed" />,
-}))
-
 describe('HomeContent', () => {
   it('renders translated hero copy, structure, and color classes', () => {
     const { getByRole, getByText, getByTestId, getByLabelText } = render(<HomeContent />)
@@ -97,6 +93,5 @@ describe('HomeContent', () => {
     expect(getByTestId('mock-xrpl-trade-desk')).toBeTruthy()
     expect(getByTestId('mock-region-compliance-panel')).toBeTruthy()
     expect(getByTestId('mock-share-dock')).toBeTruthy()
-    expect(getByTestId('mock-tiktok-feed')).toBeTruthy()
   })
 })

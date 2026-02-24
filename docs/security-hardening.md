@@ -84,9 +84,12 @@ Queue adapter architecture:
   - `RedisQueueAdapter` (Redis Streams) for durable ingestion across process restarts
 - Backend selection:
   - `SECURITY_SIGNAL_QUEUE_BACKEND=in_memory|redis`
+  - `SECURITY_SIGNAL_QUEUE_REQUIRE_DURABLE=true|false`
 - Startup behavior:
   - Redis backend performs a health check on boot.
-  - If Redis client/module is unavailable, adapter falls back to in-memory queue and logs an error.
+  - If Redis client/module is unavailable:
+    - with `SECURITY_SIGNAL_QUEUE_REQUIRE_DURABLE=true`, queue initialization fails closed.
+    - with `SECURITY_SIGNAL_QUEUE_REQUIRE_DURABLE=false`, adapter falls back to in-memory and emits degraded health metadata.
 
 Ingestion resilience:
 - Optional normalization layer maps raw payloads (`status`, `ip`, `path`, `timestamp`) to canonical signal fields.
@@ -160,6 +163,7 @@ Security anomaly configuration:
 - `SECURITY_SIGNAL_QUEUE_HIGH_WATER`
 - `SECURITY_SIGNAL_QUEUE_LOW_WATER`
 - `SECURITY_SIGNAL_QUEUE_BACKEND`
+- `SECURITY_SIGNAL_QUEUE_REQUIRE_DURABLE`
 - `SECURITY_SIGNAL_REDIS_URL`
 - `SECURITY_SIGNAL_REDIS_STREAM`
 - `SECURITY_SIGNAL_REDIS_GROUP`

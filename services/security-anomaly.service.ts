@@ -4,7 +4,10 @@ import { logError, logWarn } from '@/lib/security/logging'
 import { emitSecurityAlert, type SecurityAlertSeverity } from '@/services/security-alert.service'
 import {
   createQueueAdapterFromEnv,
+  getSecuritySignalQueueAdapterHealth,
   maybeResetQueueAdapterForTests,
+  resetSecuritySignalQueueAdapterHealthForTests,
+  type SecuritySignalQueueAdapterHealth,
   type SecuritySignalQueueAdapter,
 } from '@/services/security-signal-queue.adapter'
 
@@ -123,6 +126,8 @@ export type SecuritySignalQueueState = {
   depth: number
   pending: number
   lag: number | null
+  adapterHealth: SecuritySignalQueueAdapterHealth
+  adapterError: string | null
   draining: boolean
   throttled: boolean
   highWatermark: number
@@ -849,6 +854,15 @@ async function currentQueueDepth(adapter: SecuritySignalQueueAdapter): Promise<n
   return stats.depth
 }
 
+async function queueDepthOrZero(adapter: SecuritySignalQueueAdapter | null): Promise<number> {
+  if (!adapter) return 0
+  try {
+    return await currentQueueDepth(adapter)
+  } catch {
+    return 0
+  }
+}
+
 async function applyQueueBackpressureGate(
   adapter: SecuritySignalQueueAdapter,
 ): Promise<{ allowed: boolean; queueLength: number }> {
@@ -1101,7 +1115,31 @@ export async function ingestSecuritySignal(
 ): Promise<SecuritySignalIngestResult> {
   const transport = options?.transport ?? 'queue'
   const shouldEnqueue = options?.enqueue ?? transport !== 'direct'
-  const adapter = await resolveQueueAdapter()
+  let adapter: SecuritySignalQueueAdapter | null = null
+  if (shouldEnqueue) {
+    try {
+      adapter = await resolveQueueAdapter()
+    } catch (error) {
+      queueStats.failed += 1
+      queueStats.rejected += 1
+      return {
+        accepted: false,
+        rejected: true,
+        dropped: false,
+        queued: false,
+        processed: false,
+        queueId: null,
+        queueLength: 0,
+        error: getErrorMessage(error, 'queue_adapter_unavailable'),
+      }
+    }
+  } else {
+    try {
+      adapter = await resolveQueueAdapter()
+    } catch {
+      adapter = null
+    }
+  }
 
   let normalized: SecuritySignalInput
   try {
@@ -1111,7 +1149,7 @@ export async function ingestSecuritySignal(
   } catch (error) {
     queueStats.rejected += 1
     const message = getErrorMessage(error, 'Invalid signal')
-    const queueLength = await currentQueueDepth(adapter)
+    const queueLength = await queueDepthOrZero(adapter)
     return {
       accepted: false,
       rejected: true,
@@ -1126,7 +1164,7 @@ export async function ingestSecuritySignal(
 
   if (!shouldEnqueue) {
     const result = await processSecuritySignalInternal(normalized, 'direct')
-    const queueLength = await currentQueueDepth(adapter)
+    const queueLength = await queueDepthOrZero(adapter)
     return {
       accepted: true,
       rejected: false,
@@ -1137,6 +1175,21 @@ export async function ingestSecuritySignal(
       queueLength,
       signalId: result.signal.id,
       anomalyCount: result.anomalies.length,
+    }
+  }
+
+  if (!adapter) {
+    queueStats.failed += 1
+    queueStats.rejected += 1
+    return {
+      accepted: false,
+      rejected: true,
+      dropped: false,
+      queued: false,
+      processed: false,
+      queueId: null,
+      queueLength: 0,
+      error: 'queue_adapter_unavailable',
     }
   }
 
@@ -1169,7 +1222,7 @@ export async function ingestSecuritySignal(
       await drainSecuritySignalQueue()
     }
 
-    const queueLength = await currentQueueDepth(adapter)
+    const queueLength = await queueDepthOrZero(adapter)
     return {
       accepted: true,
       rejected: false,
@@ -1181,7 +1234,7 @@ export async function ingestSecuritySignal(
     }
   } catch (error) {
     queueStats.rejected += 1
-    const queueLength = await currentQueueDepth(adapter)
+    const queueLength = await queueDepthOrZero(adapter)
     const message = getErrorMessage(error, 'queue_enqueue_failed')
     return {
       accepted: false,
@@ -1236,34 +1289,63 @@ export function getRecentSecurityAnomalies(limit = 200): SecurityAnomalyRecord[]
 }
 
 export async function getSecuritySignalQueueState(): Promise<SecuritySignalQueueState> {
-  const adapter = await resolveQueueAdapter()
-  const stats = await adapter.getStats()
+  const adapterHealth = getSecuritySignalQueueAdapterHealth()
   const highWatermark = queueHighWatermark()
   const lowWatermark = queueLowWatermark(highWatermark)
-  if (queueControl.throttled && stats.depth <= lowWatermark) {
-    queueControl.throttled = false
-  }
+  try {
+    const adapter = await resolveQueueAdapter()
+    const stats = await adapter.getStats()
+    if (queueControl.throttled && stats.depth <= lowWatermark) {
+      queueControl.throttled = false
+    }
 
-  return {
-    backend: stats.backend,
-    depth: stats.depth,
-    pending: stats.pending,
-    lag: stats.lag,
-    draining: queueControl.draining,
-    throttled: queueControl.throttled,
-    highWatermark,
-    lowWatermark,
-    oldestQueuedAt: stats.oldestQueuedAt,
-    newestQueuedAt: stats.newestQueuedAt,
-    stats: {
-      accepted: queueStats.accepted,
-      processed: queueStats.processed,
-      retried: queueStats.retried,
-      dropped: queueStats.dropped,
-      rejected: queueStats.rejected,
-      failed: queueStats.failed,
-      lastDrainAt: queueStats.lastDrainAt,
-    },
+    return {
+      backend: stats.backend,
+      depth: stats.depth,
+      pending: stats.pending,
+      lag: stats.lag,
+      adapterHealth,
+      adapterError: adapterHealth.degraded ? adapterHealth.reason : null,
+      draining: queueControl.draining,
+      throttled: queueControl.throttled,
+      highWatermark,
+      lowWatermark,
+      oldestQueuedAt: stats.oldestQueuedAt,
+      newestQueuedAt: stats.newestQueuedAt,
+      stats: {
+        accepted: queueStats.accepted,
+        processed: queueStats.processed,
+        retried: queueStats.retried,
+        dropped: queueStats.dropped,
+        rejected: queueStats.rejected,
+        failed: queueStats.failed,
+        lastDrainAt: queueStats.lastDrainAt,
+      },
+    }
+  } catch (error) {
+    return {
+      backend: adapterHealth.activeBackend,
+      depth: 0,
+      pending: 0,
+      lag: 0,
+      adapterHealth,
+      adapterError: getErrorMessage(error, adapterHealth.reason ?? 'queue_adapter_unavailable'),
+      draining: queueControl.draining,
+      throttled: queueControl.throttled,
+      highWatermark,
+      lowWatermark,
+      oldestQueuedAt: null,
+      newestQueuedAt: null,
+      stats: {
+        accepted: queueStats.accepted,
+        processed: queueStats.processed,
+        retried: queueStats.retried,
+        dropped: queueStats.dropped,
+        rejected: queueStats.rejected,
+        failed: queueStats.failed,
+        lastDrainAt: queueStats.lastDrainAt,
+      },
+    }
   }
 }
 
@@ -1321,6 +1403,7 @@ export function clearSecurityAnomalyStateForTests() {
   queueStats.lastDrainAt = null
   queueControl.draining = false
   queueControl.throttled = false
+  resetSecuritySignalQueueAdapterHealthForTests()
 
   pluginRules.clear()
 }

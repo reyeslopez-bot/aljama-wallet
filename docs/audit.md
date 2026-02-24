@@ -1,20 +1,136 @@
-# Aljama Wallet Codebase Audit
+# Aljama Wallet Security and Architecture Audit
 
-## Items fixed in this pass
-- `/api/track-wallet` now supports the POST flow used by the tracking hook and returns consistent validation details for both GET and POST.
-- `useUnlockWallet` now forwards the full `UnlockWalletParams` object to `unlockWallet`, eliminating the previous type cast that silently dropped the encrypted payload.
-- README directory structure now matches the current repository layout (root-level dev/prod scripts, `infra/`, dual Prisma schemas, placeholder services).
+Date: February 24, 2026
 
-## Outstanding gaps and recommended fixes
-- `unlockWallet` now uses PBKDF2 + AES-GCM (WebCrypto), so password-based unlocks are functional.
-- Wallet tracking currently only validates address format; no persistence, rate limiting, or analytics hand-off are present.
-- `tests/helpers/walletMocks.ts` is empty, forcing tests to reimplement fixtures.
-- Service and data layers are stubs (`services/wallet.service.ts`, `lib/getTokensByWallet.ts`), so UI flows will show empty results.
-- No XRPL (Ripple) support exists; only EVM tooling (wagmi/ethers) is present.
+## Executive Summary
 
-## XRPL integration hypothesis
-- Add an XRPL client layer using `xrpl` (Node) or `xrpl-client` (browser) with network config for livenet/testnet and secure WebSocket origins.
-- Provide an adapter in `infra/` for XRPL account connection and balance fetch, mirroring existing wagmi patterns (e.g., `useXRPLAccount`, `useXRPLLedger`), and expose it via `providers.tsx`.
-- Extend API routes for XRPL data (`/api/xrpl/account`, `/api/xrpl/transactions`) that proxy ledger RPCs server-side to avoid CORS and leak of secrets.
-- Normalize token models to include XRPL issued currencies (currency+issuer) alongside ERC-20 metadata so dashboards can render both.
-- Emit Kafka events for XRPL wallet lifecycle changes (creation/import, balance updates) to keep OLAP/PostgreSQL in sync.
+The application is materially beyond prototype stage. It now includes:
+- Production-oriented EVM custody and transfer controls.
+- Implemented XRPL action routes and Trade Desk workflows.
+- A security signal pipeline with anomaly detection and alert dedup/escalation.
+- Broad route/component/e2e test coverage and multi-OS frontend CI.
+
+Primary risk is no longer missing basic controls; it is consistency and operational depth at scale:
+- durability defaults,
+- distributed enforcement,
+- persistent forensic state,
+- SOC-grade response integration.
+
+## Scope Reviewed
+
+Core domains:
+- App routes in `app/api/*`
+- Security pipeline services in `services/security-*.ts`
+- Transfer risk and idempotency controls
+- XRPL execution and history services
+- Frontend testing and CI workflow
+- Documentation consistency
+
+## What Is Working Well
+
+1. Concrete preventive controls are in place
+- Origin checks, auth checks, rate limits, idempotency guards, and risk gating exist on sensitive routes.
+
+2. Security signal architecture is implemented
+- Input interfaces exist (direct service ingestion and token-gated ingestion API).
+- Queue adapter abstraction supports in-memory and Redis Streams backends.
+- Rule engine supports repetitive and non-repetitive semantics.
+- Alert service defines duplicate key semantics, dedup windows/TTL, and escalation behavior.
+
+3. Test and CI coverage is broad
+- Route tests cover many high-risk paths.
+- Component and e2e tests exist.
+- Frontend CI runs concurrently across Linux/macOS/Windows with Playwright sharding.
+
+## Corrected Documentation Reality
+
+Previous audit content was stale. Current codebase now includes implemented XRPL flows and security pipeline elements that older docs did not reflect.
+
+## What’s Missing (Priority) — Integrated into Improvements
+
+1. Durable-by-default security ingestion
+
+Current gap:
+- Durable queue mode is optional and can degrade to in-memory fallback, which risks signal loss during outages/restarts.
+
+Improvements:
+- Make durable backend selection explicit in production.
+- Fail closed or surface explicit degraded-state telemetry/alerts when durable backend is unavailable.
+- Keep durable adapter dependency explicit in runtime dependencies.
+- Add integration tests for backend failure, retry, and recovery behavior.
+
+2. True distributed enforcement (multi-instance consistency)
+
+Current gap:
+- In-memory behaviors for certain controls can diverge across instances.
+
+Improvements:
+- Use centralized stores for rate limits and idempotency where cross-instance guarantees are required.
+- Use shared counters/keys so enforcement is globally consistent.
+
+3. Persistent forensic security state
+
+Current gap:
+- Some signal/anomaly/action state remains process-memory scoped.
+
+Improvements:
+- Persist security signals/anomalies in durable append-friendly storage.
+- Promote action history to a first-class persisted model where needed.
+- Define retention, archival, and query strategy for incident response.
+
+4. Operational/SOC integration depth
+
+Current gap:
+- Webhook alerting exists, but SIEM/SOAR integration and automated response are limited.
+
+Improvements:
+- Add SIEM-compatible structured event sinks and correlation fields.
+- Map alerts to operational playbooks.
+- Add escalation routing and automated containment actions for selected high-severity events.
+
+5. Frontend test rigor and full-stack confidence
+
+Current gap:
+- Screenshots are attached but not baseline-diff asserted.
+- Browser coverage is limited.
+- Some end-to-end confidence relies on mocked APIs.
+- Performance checks are coarse.
+
+Improvements:
+- Add visual baseline diff checks for critical pages.
+- Expand browser matrix where practical.
+- Add production-like full-stack e2e paths with less mocking.
+- Track web performance budgets with clearer thresholds.
+
+6. XRPL integration realism in testing
+
+Current gap:
+- Many tests validate logic with mocks but do not fully exercise external behavior.
+
+Improvements:
+- Add integration tests against controlled XRPL test environments.
+- Cover latency/timeouts, malformed payloads, and transient network failures.
+- Add adversarial/fuzz-style cases around submission and response handling.
+
+## Prioritized Improvement Actions
+
+A. Durable mode reliability and observability
+- Enforce durable queue configuration in production.
+- Emit explicit health/degraded status for queue backend.
+- Add resilience tests for durable adapter startup/failure/recovery.
+
+B. Centralized distributed controls
+- Move critical rate-limit/idempotency enforcement to shared backing stores.
+
+C. Forensic pipeline fortification
+- Persist and index security events for replay and investigation.
+
+D. SOC operationalization
+- Integrate with SIEM/SOAR and map alerts to response playbooks.
+
+E. Assurance expansion
+- Increase frontend visual/perf confidence and backend-integrated e2e coverage.
+
+## Bottom Line
+
+The platform is functionally substantial and security-aware. It is not yet a fully breach-assumed hardened operational platform until durability defaults, distributed consistency, forensic persistence, and SOC response integration are completed.
