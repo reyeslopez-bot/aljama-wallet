@@ -35,11 +35,20 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Activate pnpm
-        run: corepack prepare pnpm@10.28.1 --activate
+      - name: Install pnpm
+        shell: bash
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if npm i -g pnpm@10.28.1; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Setup pnpm cache
         uses: actions/setup-node@v4
@@ -129,11 +138,20 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Activate pnpm
-        run: corepack prepare pnpm@10.28.1 --activate
+      - name: Install pnpm
+        shell: bash
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if npm i -g pnpm@10.28.1; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Setup pnpm cache
         uses: actions/setup-node@v4
@@ -211,11 +229,20 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Activate pnpm
-        run: corepack prepare pnpm@10.28.1 --activate
+      - name: Install pnpm
+        shell: bash
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if npm i -g pnpm@10.28.1; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Setup pnpm cache
         uses: actions/setup-node@v4
@@ -285,11 +312,20 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Activate pnpm
-        run: corepack prepare pnpm@10.28.1 --activate
+      - name: Install pnpm
+        shell: bash
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if npm i -g pnpm@10.28.1; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Setup pnpm cache
         uses: actions/setup-node@v4
@@ -365,11 +401,20 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Activate pnpm
-        run: corepack prepare pnpm@10.28.1 --activate
+      - name: Install pnpm
+        shell: bash
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if npm i -g pnpm@10.28.1; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Setup pnpm cache
         uses: actions/setup-node@v4
@@ -440,11 +485,20 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Activate pnpm
-        run: corepack prepare pnpm@10.28.1 --activate
+      - name: Install pnpm
+        shell: bash
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if npm i -g pnpm@10.28.1; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Setup pnpm cache
         uses: actions/setup-node@v4
@@ -532,8 +586,10 @@ jobs:
             "$IMAGE_NAME" \
             bash -lc '
               set -euo pipefail
-              corepack enable >/dev/null 2>&1 || true
-              corepack prepare pnpm@10.28.1 --activate >/dev/null 2>&1 || true
+              if ! command -v pnpm >/dev/null 2>&1; then
+                npm config set registry https://registry.npmjs.org/
+                npm i -g pnpm@10.28.1
+              fi
 
               pnpm config set registry https://registry.npmjs.org/
               for attempt in 1 2 3; do

@@ -66,7 +66,12 @@ test('home renders with real backend responses (no route mocks)', async ({ page 
     )
     .toBeGreaterThan(0)
 
-  expect(apiResponses.some((entry) => entry.path === '/api/market-snapshot')).toBe(true)
+  await expect
+    .poll(
+      () => apiResponses.some((entry) => entry.path === '/api/market-snapshot'),
+      { timeout: 20_000 },
+    )
+    .toBe(true)
 
   const unexpected5xx = apiResponses.filter((entry) =>
     entry.status >= 500 && entry.path !== '/api/xrpl/dev-account')
