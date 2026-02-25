@@ -5,6 +5,8 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`
 const ENABLE_ALL_BROWSERS = process.env.PLAYWRIGHT_ALL_BROWSERS === 'true'
 const DISABLE_WEB_SERVER = process.env.PLAYWRIGHT_DISABLE_WEBSERVER === 'true'
 const WEB_SERVER_NODE_ENV = process.env.PLAYWRIGHT_NODE_ENV ?? 'test'
+const WEB_SERVER_NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET ?? 'playwright-nextauth-secret'
+const WEB_SERVER_NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? BASE_URL
 const SERVER_COMMAND =
   process.env.PLAYWRIGHT_SERVER_COMMAND ??
   `pnpm exec next dev --turbopack --port ${PORT}`
@@ -64,6 +66,8 @@ export default defineConfig({
       env: {
         NODE_ENV: WEB_SERVER_NODE_ENV,
         NEXT_PUBLIC_MAPBOX_TOKEN: '',
+        NEXTAUTH_SECRET: WEB_SERVER_NEXTAUTH_SECRET,
+        NEXTAUTH_URL: WEB_SERVER_NEXTAUTH_URL,
       },
     },
   projects,
