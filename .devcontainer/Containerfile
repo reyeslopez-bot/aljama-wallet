@@ -40,7 +40,15 @@ ENV NEXTAUTH_SECRET=${NEXTAUTH_SECRET} \
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/root/.pnpm-store \
     pnpm config set store-dir /root/.pnpm-store && \
-    CI=true PNPM_CONFIRM_DELETE=1 pnpm install --frozen-lockfile
+    pnpm config set registry https://registry.npmjs.org/ && \
+    for attempt in 1 2 3; do \
+      CI=true PNPM_CONFIRM_DELETE=1 pnpm install --frozen-lockfile && break; \
+      if [ "$attempt" -eq 3 ]; then \
+        echo "pnpm install failed after 3 attempts"; \
+        exit 1; \
+      fi; \
+      sleep $((attempt * 15)); \
+    done
 
 # 2. Copy source (including prisma/)
 COPY . .

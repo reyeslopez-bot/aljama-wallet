@@ -16,6 +16,8 @@ env:
   XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
   NEXTAUTH_SECRET: ci-nextauth-secret
   NEXTAUTH_URL: http://127.0.0.1:3000
+  NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+  npm_config_registry: https://registry.npmjs.org/
 
 jobs:
   # ─────────────────────────────────────────────
@@ -49,7 +51,19 @@ jobs:
         run: pnpm -v
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          pnpm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Prisma generate (CRDB + PG)
         run: pnpm prisma:generate
@@ -131,7 +145,19 @@ jobs:
         run: pnpm -v
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          pnpm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Prisma generate (CRDB + PG)
         run: pnpm prisma:generate
@@ -201,7 +227,19 @@ jobs:
         run: pnpm -v
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          pnpm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Prisma generate (CRDB + PG)
         run: pnpm prisma:generate
@@ -263,7 +301,19 @@ jobs:
         run: pnpm -v
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          pnpm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Prisma generate (CRDB + PG)
         run: pnpm prisma:generate
@@ -331,7 +381,19 @@ jobs:
         run: pnpm -v
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          pnpm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Prisma generate (CRDB + PG)
         run: pnpm prisma:generate
@@ -394,7 +456,19 @@ jobs:
         run: pnpm -v
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          pnpm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Live XRPL integration tests
         env:
@@ -462,7 +536,17 @@ jobs:
               corepack enable >/dev/null 2>&1 || true
               corepack prepare pnpm@10.28.1 --activate >/dev/null 2>&1 || true
 
-              pnpm install --frozen-lockfile
+              pnpm config set registry https://registry.npmjs.org/
+              for attempt in 1 2 3; do
+                if pnpm install --frozen-lockfile; then
+                  break
+                fi
+                if [ "$attempt" -eq 3 ]; then
+                  echo "pnpm install failed after 3 attempts"
+                  exit 1
+                fi
+                sleep $((attempt * 15))
+              done
 
               if command -v just >/dev/null 2>&1 && just -l | grep -qE "^\\s*ci\\b"; then
                 just ci
