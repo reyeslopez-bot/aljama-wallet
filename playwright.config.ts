@@ -9,7 +9,7 @@ const WEB_SERVER_NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET ?? 'playwright-ne
 const WEB_SERVER_NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? BASE_URL
 const SERVER_COMMAND =
   process.env.PLAYWRIGHT_SERVER_COMMAND ??
-  `pnpm exec next dev --turbopack --port ${PORT}`
+  `pnpm prisma:generate && pnpm exec next dev --turbopack --port ${PORT}`
 
 const projects = [
   {
