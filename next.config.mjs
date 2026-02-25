@@ -47,13 +47,14 @@ const nextConfig = {
       tape: false,
       "pino-pretty": false,
       "@react-native-async-storage/async-storage": false,
+      "@metamask/sdk": false,
     };
 
     config.plugins = config.plugins || [];
     config.plugins.push(
       new webpack.IgnorePlugin({
         resourceRegExp:
-          /^pino-pretty$|^@react-native-async-storage\/async-storage$/,
+          /^pino-pretty$|^@react-native-async-storage\/async-storage$|^@metamask\/sdk$/,
       }),
     );
 
@@ -63,6 +64,7 @@ const nextConfig = {
         "pino-pretty": "commonjs pino-pretty",
         "@react-native-async-storage/async-storage":
           "commonjs @react-native-async-storage/async-storage",
+        "@metamask/sdk": "commonjs @metamask/sdk",
       },
     ];
 

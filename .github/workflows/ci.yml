@@ -14,6 +14,8 @@ concurrency:
 
 env:
   XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
+  NEXTAUTH_SECRET: ci-nextauth-secret
+  NEXTAUTH_URL: http://127.0.0.1:3000
 
 jobs:
   # ─────────────────────────────────────────────
@@ -68,6 +70,8 @@ jobs:
         env:
           XRPL_RPC_URL: ${{ env.XRPL_RPC_URL }}
           XRPL_DEV_SEED: ${{ secrets.XRPL_DEV_SEED }}
+          NEXTAUTH_SECRET: ${{ env.NEXTAUTH_SECRET }}
+          NEXTAUTH_URL: ${{ env.NEXTAUTH_URL }}
         run: pnpm build
 
       - name: Check outdated dependencies
@@ -403,6 +407,8 @@ jobs:
         env:
           XRPL_RPC_URL: ${{ env.XRPL_RPC_URL }}
           XRPL_DEV_SEED: ${{ secrets.XRPL_DEV_SEED }}
+          NEXTAUTH_SECRET: ${{ env.NEXTAUTH_SECRET }}
+          NEXTAUTH_URL: ${{ env.NEXTAUTH_URL }}
         run: |
           IMAGE_NAME=aljama-wallet-ci
           podman run --rm \
@@ -412,6 +418,8 @@ jobs:
             -e PNPM_STORE_DIR=/workspace/.pnpm-store \
             -e XRPL_RPC_URL \
             -e XRPL_DEV_SEED \
+            -e NEXTAUTH_SECRET \
+            -e NEXTAUTH_URL \
             "$IMAGE_NAME" \
             bash -lc '
               set -euo pipefail
