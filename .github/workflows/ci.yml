@@ -17,7 +17,6 @@ env:
   NEXTAUTH_SECRET: ci-nextauth-secret
   NEXTAUTH_URL: http://127.0.0.1:3000
   NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
-  npm_config_registry: https://registry.npmjs.org/
 
 jobs:
   # ─────────────────────────────────────────────
