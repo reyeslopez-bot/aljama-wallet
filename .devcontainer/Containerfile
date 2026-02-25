@@ -31,6 +31,10 @@ CMD ["bash","-lc","pnpm dev --port ${PORT:-2998} --hostname 0.0.0.0"]
 # ---------- builder ----------
 FROM base AS builder
 WORKDIR /workspace
+ARG NEXTAUTH_SECRET=container-build-nextauth-secret
+ARG NEXTAUTH_URL=http://127.0.0.1:3000
+ENV NEXTAUTH_SECRET=${NEXTAUTH_SECRET} \
+    NEXTAUTH_URL=${NEXTAUTH_URL}
 
 # 1. Install deps (no prisma schema yet)
 COPY package.json pnpm-lock.yaml ./
