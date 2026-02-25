@@ -13,7 +13,7 @@
     "eslint": "eslint .",
     "test": "cross-env NODE_ENV=test vitest --run",
     "test:watch": "cross-env NODE_ENV=test vitest",
-    "test:frontend:components": "cross-env NODE_ENV=test vitest --run tests/components/**/*.test.tsx",
+    "test:frontend:components": "cross-env NODE_ENV=test vitest --run --config vitest.components.config.ts",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "test:e2e:install:all": "playwright install chromium firefox webkit",
