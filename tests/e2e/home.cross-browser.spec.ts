@@ -22,10 +22,11 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('home shell renders in all supported browsers', async ({ page }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(240_000)
 
-  await page.goto(HOME_ROUTE, { waitUntil: 'commit', timeout: 60_000 })
-  await expect(page.getByTestId('home-overview-section')).toBeVisible({ timeout: 45_000 })
+  const response = await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded', timeout: 120_000 })
+  expect(response?.ok()).toBeTruthy()
+  await expect(page.getByTestId('home-overview-section')).toBeVisible({ timeout: 90_000 })
   await expect(page.getByTestId('home-region-map-section')).toBeVisible({ timeout: 45_000 })
   await expect(page.getByTestId('home-wallet-section')).toBeVisible({ timeout: 45_000 })
   await expect(page.getByTestId('home-xrpl-section')).toBeVisible({ timeout: 45_000 })

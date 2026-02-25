@@ -17,7 +17,7 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "test:e2e:install:all": "playwright install chromium firefox webkit",
-    "test:e2e:multi-browser": "playwright test tests/e2e/home.cross-browser.spec.ts --project=chromium --project=firefox --project=webkit",
+    "test:e2e:multi-browser": "playwright test tests/e2e/home.cross-browser.spec.ts --workers=1 --project=chromium --project=firefox --project=webkit",
     "test:e2e:real-backend": "playwright test tests/e2e/home.production.spec.ts --project=chromium",
     "test:e2e:visual": "playwright test tests/e2e/home.frontend.spec.ts --project=chromium",
     "test:e2e:visual:update": "playwright test tests/e2e/home.frontend.spec.ts --project=chromium --update-snapshots",
