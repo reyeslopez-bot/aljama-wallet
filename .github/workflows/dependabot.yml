@@ -1,0 +1,87 @@
+name: Dependabot Auto Merge
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    if: github.actor == 'dependabot[bot]' && startsWith(github.event.pull_request.head.ref, 'dependabot/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-approve Dependabot update
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr review --approve "$PR_URL" || true
+
+      - name: Enforce CI and security gates before auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+
+          gh pr checks "$PR_URL" --watch --interval 15
+          checks_json="$(gh pr checks "$PR_URL" --json name,state)"
+
+          required_checks=(
+            "Core CI (Node + pnpm)"
+            "Frontend CI (ubuntu-latest · shard 1/2)"
+            "Frontend CI (ubuntu-latest · shard 2/2)"
+            "Frontend CI (macos-latest · shard 1/2)"
+            "Frontend CI (macos-latest · shard 2/2)"
+            "Frontend CI (windows-latest · shard 1/2)"
+            "Frontend CI (windows-latest · shard 2/2)"
+            "Frontend CI (Ubuntu · Multi-browser)"
+            "Frontend CI (Ubuntu · Prod-like backend)"
+            "Frontend CI (macOS · Visual baselines)"
+            "Container CI (Podman + Just)"
+          )
+
+          missing=0
+          failing=0
+
+          for check in "${required_checks[@]}"; do
+            state="$(jq -r --arg check "$check" '[.[] | select(.name == $check)][0].state // "MISSING"' <<<"$checks_json")"
+            state="${state^^}"
+            case "$state" in
+              SUCCESS)
+                echo "gate ok: $check"
+                ;;
+              MISSING)
+                echo "missing required gate: $check"
+                missing=1
+                ;;
+              *)
+                echo "failed required gate: $check ($state)"
+                failing=1
+                ;;
+            esac
+          done
+
+          if [ "$missing" -ne 0 ] || [ "$failing" -ne 0 ]; then
+            echo "CI/security gates are not satisfied. refusing auto-merge."
+            exit 1
+          fi
+
+      - name: Enable auto-merge for Dependabot update
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL" || true

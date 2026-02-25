@@ -195,4 +195,5 @@ Production security baseline to set explicitly:
 - Security hardening guide: `docs/security-hardening.md`
 - Security assessment snapshot: `docs/security-assessment-2026-02-17.md`
 - Current audit and prioritized gap plan: `docs/audit.md`
+- Branch protection checklist for CI/security-gated auto-merge: `docs/branch-protection-checklist.md`
 - Payment structure and boundaries: `docs/payment-structure.md`
