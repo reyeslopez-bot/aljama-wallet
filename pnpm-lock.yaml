@@ -7,10 +7,6 @@ settings:
 overrides:
   '@types/react': 19.2.3
   '@types/react-dom': 19.2.3
-  wagmi: 3.4.2
-  viem: 2.41.2
-  '@wagmi/connectors': 7.1.6
-  '@wagmi/core': 3.3.2
   '@walletconnect/ethereum-provider': 2.23.4
   '@walletconnect/universal-provider': 2.23.4
   '@walletconnect/sign-client': 2.23.4
@@ -539,7 +535,7 @@ packages:
   '@gemini-wallet/core@0.3.2':
     resolution: {integrity: sha512-Z4aHi3ECFf5oWYWM3F1rW83GJfB9OvhBYPTmb5q+VyK3uvzvS48lwo+jwh2eOoCRWEuT/crpb9Vwp2QaS5JqgQ==}
     peerDependencies:
-      viem: 2.41.2
+      viem: '>=2.0.0'
 
   '@hono/node-server@1.19.9':
     resolution: {integrity: sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw==}
@@ -2132,7 +2128,7 @@ packages:
       '@walletconnect/ethereum-provider': 2.23.4
       porto: ~0.2.35
       typescript: '>=5.7.3'
-      viem: 2.41.2
+      viem: 2.x
     peerDependenciesMeta:
       '@base-org/account':
         optional: true
@@ -2159,7 +2155,7 @@ packages:
       '@tanstack/query-core': '>=5.0.0'
       ox: '>=0.11.1'
       typescript: '>=5.7.3'
-      viem: 2.41.2
+      viem: 2.x
     peerDependenciesMeta:
       '@tanstack/query-core':
         optional: true
@@ -3686,15 +3682,15 @@ packages:
     hasBin: true
     peerDependencies:
       '@tanstack/react-query': '>=5.59.0'
-      '@wagmi/core': 3.3.2
+      '@wagmi/core': '>=2.16.3'
       expo-auth-session: '>=7.0.8'
       expo-crypto: '>=15.0.7'
       expo-web-browser: '>=15.0.8'
       react: '>=18'
       react-native: '>=0.81.4'
       typescript: '>=5.4.0'
-      viem: 2.41.2
-      wagmi: 3.4.2
+      viem: '>=2.37.0'
+      wagmi: '>=2.0.0'
     peerDependenciesMeta:
       '@tanstack/react-query':
         optional: true
@@ -4371,7 +4367,7 @@ packages:
       '@tanstack/react-query': '>=5.0.0'
       react: '>=18'
       typescript: '>=5.7.3'
-      viem: 2.41.2
+      viem: 2.x
     peerDependenciesMeta:
       typescript:
         optional: true

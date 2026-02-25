@@ -42,12 +42,12 @@ jobs:
 
           required_checks=(
             "Core CI (Node + pnpm)"
-            "Frontend CI (ubuntu-latest · shard 1/2)"
-            "Frontend CI (ubuntu-latest · shard 2/2)"
-            "Frontend CI (macos-latest · shard 1/2)"
-            "Frontend CI (macos-latest · shard 2/2)"
-            "Frontend CI (windows-latest · shard 1/2)"
-            "Frontend CI (windows-latest · shard 2/2)"
+            "Frontend CI (ubuntu-latest · shard 1-of-2)"
+            "Frontend CI (ubuntu-latest · shard 2-of-2)"
+            "Frontend CI (macos-latest · shard 1-of-2)"
+            "Frontend CI (macos-latest · shard 2-of-2)"
+            "Frontend CI (windows-latest · shard 1-of-2)"
+            "Frontend CI (windows-latest · shard 2-of-2)"
             "Frontend CI (Ubuntu · Multi-browser)"
             "Frontend CI (Ubuntu · Prod-like backend)"
             "Frontend CI (macOS · Visual baselines)"
