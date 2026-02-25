@@ -730,19 +730,21 @@ export default function XrplMarketPanel() {
                         type="button"
                         disabled={locked}
                         onClick={() => setFocusSymbol(asset.symbol)}
-                        className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex h-14 w-56 shrink-0 items-center justify-between gap-2 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-60"
                         style={{
                           borderColor: active ? asset.palette.chipBorder : 'rgba(255,255,255,0.14)',
                           backgroundColor: active ? asset.palette.chipActiveBg : 'rgba(255,255,255,0.08)',
                           color: 'rgba(255,255,255,0.92)',
                         }}
                       >
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: asset.palette.stroke }}
-                        />
-                        <span>{explicitName} ({asset.symbol})</span>
-                        <span className="text-[10px] text-ivory/55">{marketLabel}</span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: asset.palette.stroke }}
+                          />
+                          <span className="truncate">{explicitName} ({asset.symbol})</span>
+                        </span>
+                        <span className="shrink-0 text-[10px] text-ivory/55">{marketLabel}</span>
                       </button>
                     )
                   })}

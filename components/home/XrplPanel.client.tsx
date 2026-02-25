@@ -177,7 +177,7 @@ export function XrplPanel() {
                     {copiedEndpoint === 'rpc' ? t('copied') : t('copy')}
                   </button>
                 </div>
-                <p className="mt-1 break-all select-all font-mono text-[11px] text-ivory/85">
+                <p data-copyable="true" className="mt-1 break-all select-all font-mono text-[11px] text-ivory/85">
                   {selectedNetwork.rpcUrl}
                 </p>
               </div>
@@ -193,7 +193,7 @@ export function XrplPanel() {
                     {copiedEndpoint === 'wss' ? t('copied') : t('copy')}
                   </button>
                 </div>
-                <p className="mt-1 break-all select-all font-mono text-[11px] text-ivory/85">
+                <p data-copyable="true" className="mt-1 break-all select-all font-mono text-[11px] text-ivory/85">
                   {selectedNetwork.wsUrl}
                 </p>
               </div>
@@ -221,7 +221,7 @@ export function XrplPanel() {
                     </button>
                   </div>
                 </div>
-                <p className="mt-1 break-all select-all font-mono text-[11px] text-ivory/85">
+                <p data-copyable="true" className="mt-1 break-all select-all font-mono text-[11px] text-ivory/85">
                   {selectedNetwork.explorerUrl}
                 </p>
               </div>

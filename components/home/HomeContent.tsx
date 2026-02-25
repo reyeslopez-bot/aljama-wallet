@@ -156,7 +156,7 @@ export default function HomeContent() {
   ] satisfies HeroStatBlock[]
 
   return (
-    <div className="relative mx-auto max-w-7xl space-y-24 pb-32 pt-28">
+    <div data-no-copy="true" className="relative mx-auto max-w-7xl space-y-24 pb-32 pt-28">
       <ClientTrackWallet />
       <DynamicInfoCard />
 
