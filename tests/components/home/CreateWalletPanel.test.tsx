@@ -188,8 +188,14 @@ describe('CreateWalletPanel', () => {
     })
   })
 
-  it('auto-generates optional hidden vault passphrase when enabled and supports regenerating it', () => {
-    const { getByRole, getByPlaceholderText } = render(<CreateWalletPanel />)
+  it('auto-generates optional hidden vault passphrase, supports regenerating it, and allows secure copy', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    const { getByRole, getByPlaceholderText, getByText } = render(<CreateWalletPanel />)
 
     fireEvent.click(getByRole('switch'))
     const mnemonicInput = getByPlaceholderText('Hidden vault passphrase (25th word)') as HTMLInputElement
@@ -199,5 +205,11 @@ describe('CreateWalletPanel', () => {
     fireEvent.click(getByRole('button', { name: 'Generate hidden vault passphrase' }))
     expect(mnemonicInput.value.length).toBeGreaterThanOrEqual(16)
     expect(mnemonicInput.value).not.toBe(firstValue)
+
+    fireEvent.click(getByRole('button', { name: 'Copy passphrase' }))
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(mnemonicInput.value)
+      expect(getByText('Passphrase copied')).toBeTruthy()
+    })
   })
 })

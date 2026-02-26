@@ -491,14 +491,14 @@ export const COMPAT_PATHS: PathCandidate[] = [
     template: (account, index) => `m/44'/60'/${account}'/0/${index}`,
   },
   {
-    chain: 'XRPL_SECP',
-    curve: 'secp256k1',
-    template: (account, index) => `m/44'/144'/${account}'/0/${index}`,
-  },
-  {
     chain: 'XRPL_ED',
     curve: 'ed25519',
     template: (account, index) => `m/44'/144'/${account}'/0'/${index}'`,
+  },
+  {
+    chain: 'XRPL_SECP',
+    curve: 'secp256k1',
+    template: (account, index) => `m/44'/144'/${account}'/0/${index}`,
   },
 ]
 

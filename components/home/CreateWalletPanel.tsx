@@ -74,7 +74,7 @@ const RECOVERY_WORD_CHECK_COUNT = 3
 const PREVIEW_NETWORKS: Array<{ chain: Chain; networkLabel: string; account: number }> = [
   { chain: 'ETH', networkLabel: 'Ethereum', account: 0 },
   { chain: 'BTC', networkLabel: 'Bitcoin', account: 0 },
-  { chain: 'XRPL_SECP', networkLabel: 'XRPL', account: 0 },
+  { chain: 'XRPL_ED', networkLabel: 'XRPL', account: 0 },
 ]
 
 type PassphraseStrength = 'weak' | 'good' | 'strong'
@@ -275,6 +275,7 @@ export function CreateWalletPanel() {
   const [keystoreFile, setKeystoreFile] = useState<KeystoreFile | null>(null)
   const [addressCopied, setAddressCopied] = useState(false)
   const [passphraseCopied, setPassphraseCopied] = useState(false)
+  const [mnemonicPassphraseCopied, setMnemonicPassphraseCopied] = useState(false)
   const [mnemonicCopied, setMnemonicCopied] = useState(false)
   const [keystoreDownloaded, setKeystoreDownloaded] = useState(false)
   const setCreateWalletStatus = useDynamicInfoStore((s) => s.setCreateWalletStatus)
@@ -333,6 +334,12 @@ export function CreateWalletPanel() {
   }, [passphraseCopied])
 
   useEffect(() => {
+    if (!mnemonicPassphraseCopied) return
+    const timeout = window.setTimeout(() => setMnemonicPassphraseCopied(false), 1800)
+    return () => window.clearTimeout(timeout)
+  }, [mnemonicPassphraseCopied])
+
+  useEffect(() => {
     if (!mnemonicCopied) return
     const timeout = window.setTimeout(() => setMnemonicCopied(false), 1800)
     return () => window.clearTimeout(timeout)
@@ -383,6 +390,20 @@ export function CreateWalletPanel() {
     try {
       await navigator.clipboard.writeText(payload)
       setMnemonicCopied(true)
+      setNotice(null)
+    } catch {
+      // ignore clipboard failures
+    }
+  }
+
+  const copyMnemonicPassphrase = async () => {
+    const passphrase = mnemonicPassphrase.trim()
+    if (!passphrase) return
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+
+    try {
+      await navigator.clipboard.writeText(passphrase)
+      setMnemonicPassphraseCopied(true)
       setNotice(null)
     } catch {
       // ignore clipboard failures
@@ -691,14 +712,28 @@ export function CreateWalletPanel() {
                 />
               </div>
               <p className="text-xs text-ivory/55">{t('mnemonicPassphraseHint')}</p>
-              <button
-                type="button"
-                onClick={generateOptionalMnemonicPassphrase}
-                disabled={locked || status === 'pending'}
-                className="rounded-full border border-lapis/35 bg-lapis/12 px-3 py-1.5 text-xs font-semibold text-lapis transition hover:bg-lapis/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {t('generateMnemonicPassphrase')}
-              </button>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={generateOptionalMnemonicPassphrase}
+                  disabled={locked || status === 'pending'}
+                  className={`${actionButtonClass} text-ivory shadow-lg shadow-[#355a7a]/35 focus:ring-2 focus:ring-lapis/35`}
+                  style={{
+                    backgroundImage:
+                      'linear-gradient(to right in oklab, rgb(85, 131, 173) 0%, rgb(60, 102, 145) 55%, rgb(52, 87, 130) 100%)',
+                  }}
+                >
+                  {t('generateMnemonicPassphrase')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void copyMnemonicPassphrase()}
+                  disabled={locked || status === 'pending' || !mnemonicPassphrase.trim()}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-lapis/35 bg-lapis/14 px-5 py-3 text-base font-semibold text-lapis transition hover:bg-lapis/22 focus:outline-none focus:ring-2 focus:ring-lapis/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {mnemonicPassphraseCopied ? t('copiedPassphrase') : t('copyPassphrase')}
+                </button>
+              </div>
             </>
           )}
 
