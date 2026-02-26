@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { clearWalletId, persistEncryptedSession } from '@/lib/storage/walletSession'
 import {
-  DEFAULT_BIP44_PATH,
   encodeWalletToEncrypted,
   generateMnemonicWallet,
   type MnemonicWalletMaterial,
@@ -18,14 +17,12 @@ import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
 type WalletPreview = {
   address: string
-  derivationPath: string
   wordCount: number
 }
 
 type KeystoreFile = {
   address: string
   encrypted: string
-  derivationPath: string
   wordCount: number
 }
 
@@ -170,11 +167,7 @@ function buildKeystoreFile(payload: KeystoreFile): string {
       createdAt: new Date().toISOString(),
       wallet: {
         address: payload.address,
-        derivation: {
-          standard: 'BIP-39/BIP-44',
-          path: payload.derivationPath,
-          wordCount: payload.wordCount,
-        },
+        recoveryWords: payload.wordCount,
       },
       encryption: {
         algorithm: 'AES-256-GCM',
@@ -309,7 +302,7 @@ export function CreateWalletPanel() {
 
     const optionalPassphrase = useOptionalMnemonicPassphrase ? mnemonicPassphrase.trim() : ''
     const payload = optionalPassphrase
-      ? `${phrase}\n\nBIP-39 passphrase (25th word): ${optionalPassphrase}`
+      ? `${phrase}\n\nHidden vault passphrase (25th word): ${optionalPassphrase}`
       : phrase
 
     try {
@@ -365,7 +358,6 @@ export function CreateWalletPanel() {
     const nextDraft = generateMnemonicWallet({
       mnemonicPassphrase: useOptionalMnemonicPassphrase ? mnemonicPassphrase.trim() : '',
       wordCount: 24,
-      derivationPath: DEFAULT_BIP44_PATH,
     })
 
     const recoverySlots = buildRecoveryWordSlots(nextDraft.wordCount)
@@ -393,13 +385,11 @@ export function CreateWalletPanel() {
 
     setWalletPreview({
       address: draft.address,
-      derivationPath: draft.derivationPath,
       wordCount: draft.wordCount,
     })
     setKeystoreFile({
       address: draft.address,
       encrypted,
-      derivationPath: draft.derivationPath,
       wordCount: draft.wordCount,
     })
 
@@ -788,9 +778,6 @@ export function CreateWalletPanel() {
             <div className="rounded-xl border border-jade/30 bg-jade/10 px-4 py-3 text-sm text-jade">
               <p className="text-xs uppercase tracking-[0.14em] text-jade/80">{t('addressLabel')}</p>
               <p className="mt-1 break-all font-mono text-base">{walletPreview.address}</p>
-              <p className="mt-2 text-[11px] text-jade/80">
-                {t('derivationLabel')}: <span className="font-mono">{walletPreview.derivationPath}</span>
-              </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"

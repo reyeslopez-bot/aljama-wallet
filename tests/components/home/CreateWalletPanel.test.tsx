@@ -43,7 +43,7 @@ function completeRecoveryCheck(getByRole: ReturnType<typeof render>['getByRole']
   }
 
   fireEvent.click(getByLabelText('I saved the recovery phrase in a secure offline location.'))
-  fireEvent.click(getByLabelText('I understand this app cannot recover funds if the recovery phrase or BIP-39 passphrase is lost.'))
+  fireEvent.click(getByLabelText('I understand this app cannot recover funds if the recovery phrase or hidden vault passphrase is lost.'))
   fireEvent.click(getByRole('button', { name: 'Verify and finalize' }))
 }
 
@@ -188,15 +188,15 @@ describe('CreateWalletPanel', () => {
     })
   })
 
-  it('auto-generates optional BIP-39 passphrase when enabled and supports regenerating it', () => {
+  it('auto-generates optional hidden vault passphrase when enabled and supports regenerating it', () => {
     const { getByRole, getByPlaceholderText } = render(<CreateWalletPanel />)
 
     fireEvent.click(getByRole('switch'))
-    const mnemonicInput = getByPlaceholderText('Optional passphrase (25th word)') as HTMLInputElement
+    const mnemonicInput = getByPlaceholderText('Hidden vault passphrase (25th word)') as HTMLInputElement
     expect(mnemonicInput.value.length).toBeGreaterThanOrEqual(16)
 
     const firstValue = mnemonicInput.value
-    fireEvent.click(getByRole('button', { name: 'Generate optional BIP-39 passphrase' }))
+    fireEvent.click(getByRole('button', { name: 'Generate hidden vault passphrase' }))
     expect(mnemonicInput.value.length).toBeGreaterThanOrEqual(16)
     expect(mnemonicInput.value).not.toBe(firstValue)
   })
