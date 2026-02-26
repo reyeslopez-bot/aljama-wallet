@@ -406,3 +406,25 @@ export async function createEncryptedWallet(
 
   return { encrypted, wallet }
 }
+
+export {
+  COMPAT_PATHS as DETERMINISTIC_COMPAT_PATHS,
+  DeterministicVault,
+  REGISTRY as DETERMINISTIC_CHAIN_REGISTRY,
+  UserDeterministicWallet,
+  discoverAccountsAndAddresses,
+} from '@/lib/crypto/deterministic-key-engine'
+
+export type {
+  Chain,
+  ChainRegistryEntry,
+  CounterState,
+  Curve,
+  DerivedKey,
+  DerivationPurpose,
+  KeyRequest,
+  PathCandidate,
+  PathSpec,
+  VaultConfig,
+  VaultId,
+} from '@/lib/crypto/deterministic-key-engine'
