@@ -6,7 +6,6 @@ import { motion } from 'framer-motion'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
-import { formatTime24 } from '@/lib/time-format'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
 type MarketAsset = {
@@ -176,6 +175,22 @@ function formatRangeDate(timestamp: number) {
     month: 'short',
     day: 'numeric',
   }).format(timestamp)
+}
+
+function formatUpdatedTimeAgo(updatedAt: string): string {
+  const updated = new Date(updatedAt).getTime()
+  if (!Number.isFinite(updated)) return ''
+
+  const diffMs = Math.max(Date.now() - updated, 0)
+  const totalMinutes = Math.floor(diffMs / (60 * 1_000))
+
+  if (totalMinutes < 60) {
+    const minutes = Math.max(totalMinutes, 1)
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`
+  }
+
+  const hours = Math.floor(totalMinutes / 60)
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
 }
 
 function seriesIndexToTimestamp(updatedAt: string | null | undefined, index: number, pointCount: number): number | null {
@@ -500,7 +515,7 @@ export default function XrplMarketPanel() {
           ))}
           <span className="ml-auto text-[11px] text-ivory/40">
             {state.snapshot?.updatedAt
-              ? `${t('updated')} ${formatTime24(state.snapshot.updatedAt)}`
+              ? `${t('updated')} ${formatUpdatedTimeAgo(state.snapshot.updatedAt)}`
               : ''}
           </span>
         </div>
