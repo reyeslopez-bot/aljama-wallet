@@ -188,7 +188,7 @@ describe('CreateWalletPanel', () => {
     })
   })
 
-  it('auto-generates optional hidden vault passphrase, supports regenerating it, and allows secure copy', async () => {
+  it('keeps hidden vault passphrase empty until generate is clicked, then supports regenerating and secure copy', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -199,6 +199,9 @@ describe('CreateWalletPanel', () => {
 
     fireEvent.click(getByRole('switch'))
     const mnemonicInput = getByPlaceholderText('Hidden vault passphrase (25th word)') as HTMLInputElement
+    expect(mnemonicInput.value).toBe('')
+
+    fireEvent.click(getByRole('button', { name: 'Generate hidden vault passphrase' }))
     expect(mnemonicInput.value.length).toBeGreaterThanOrEqual(16)
 
     const firstValue = mnemonicInput.value

@@ -677,9 +677,6 @@ export function CreateWalletPanel() {
                 setUseOptionalMnemonicPassphrase((prev) => {
                   const next = !prev
                   if (!next) setMnemonicPassphrase('')
-                  if (next && !mnemonicPassphrase.trim()) {
-                    setMnemonicPassphrase(createStrongMnemonicPassphrase())
-                  }
                   return next
                 })
               }}
