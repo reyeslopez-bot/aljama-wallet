@@ -709,12 +709,12 @@ export function CreateWalletPanel() {
                 />
               </div>
               <p className="text-xs text-ivory/55">{t('mnemonicPassphraseHint')}</p>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={generateOptionalMnemonicPassphrase}
                   disabled={locked || status === 'pending'}
-                  className={`${actionButtonClass} text-ivory shadow-lg shadow-[#355a7a]/35 focus:ring-2 focus:ring-lapis/35`}
+                  className="inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-ivory shadow-md shadow-[#355a7a]/35 transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-lapis/35 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   style={{
                     backgroundImage:
                       'linear-gradient(to right in oklab, rgb(85, 131, 173) 0%, rgb(60, 102, 145) 55%, rgb(52, 87, 130) 100%)',
@@ -726,7 +726,7 @@ export function CreateWalletPanel() {
                   type="button"
                   onClick={() => void copyMnemonicPassphrase()}
                   disabled={locked || status === 'pending' || !mnemonicPassphrase.trim()}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-lapis/35 bg-lapis/14 px-5 py-3 text-base font-semibold text-lapis transition hover:bg-lapis/22 focus:outline-none focus:ring-2 focus:ring-lapis/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center rounded-xl border border-lapis/35 bg-lapis/14 px-4 py-2 text-sm font-semibold text-lapis transition hover:bg-lapis/22 focus:outline-none focus:ring-2 focus:ring-lapis/30 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   {mnemonicPassphraseCopied ? t('copiedPassphrase') : t('copyPassphrase')}
                 </button>
