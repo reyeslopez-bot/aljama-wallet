@@ -105,6 +105,10 @@ function createStrongSuggestedPassphrase(): string {
   return 'V7!mN3@pQ5#rT8$sW2&xY4*zK6^hL9'
 }
 
+function createStrongMnemonicPassphrase(): string {
+  return createStrongSuggestedPassphrase()
+}
+
 function evaluatePassphrase(value: string): PassphraseValidation {
   const passphrase = value.trim()
   const length = passphrase.length
@@ -322,6 +326,13 @@ export function CreateWalletPanel() {
     if (status === 'error') setStatus('idle')
   }
 
+  const generateOptionalMnemonicPassphrase = () => {
+    if (locked || status === 'pending') return
+    setMnemonicPassphrase(createStrongMnemonicPassphrase())
+    setError(null)
+    if (status === 'error') setStatus('idle')
+  }
+
   const beginRecoveryStep = () => {
     const nextDraft = generateMnemonicWallet({
       mnemonicPassphrase: useOptionalMnemonicPassphrase ? mnemonicPassphrase.trim() : '',
@@ -472,6 +483,9 @@ export function CreateWalletPanel() {
                 setUseOptionalMnemonicPassphrase((prev) => {
                   const next = !prev
                   if (!next) setMnemonicPassphrase('')
+                  if (next && !mnemonicPassphrase.trim()) {
+                    setMnemonicPassphrase(createStrongMnemonicPassphrase())
+                  }
                   return next
                 })
               }}
@@ -480,7 +494,9 @@ export function CreateWalletPanel() {
             >
               <span
                 className={`absolute top-0.5 h-[22px] w-[22px] rounded-full bg-white transition ${
-                  useOptionalMnemonicPassphrase ? 'left-6 bg-lapis' : 'left-0.5'
+                  useOptionalMnemonicPassphrase
+                    ? 'left-6 bg-white shadow-[0_0_12px_rgba(240,215,160,0.35)]'
+                    : 'left-0.5 bg-white/95'
                 }`}
               />
             </button>
@@ -502,6 +518,14 @@ export function CreateWalletPanel() {
                 />
               </div>
               <p className="text-xs text-ivory/55">{t('mnemonicPassphraseHint')}</p>
+              <button
+                type="button"
+                onClick={generateOptionalMnemonicPassphrase}
+                disabled={locked || status === 'pending'}
+                className="rounded-full border border-lapis/35 bg-lapis/12 px-3 py-1.5 text-xs font-semibold text-lapis transition hover:bg-lapis/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t('generateMnemonicPassphrase')}
+              </button>
             </>
           )}
 
@@ -532,6 +556,7 @@ export function CreateWalletPanel() {
             </button>
           </div>
         </div>
+        <p className="text-xs text-ivory/55">{t('flowHint')}</p>
 
         {showUnlockMessage && <UnlockActionsLink className="text-xs uppercase tracking-[0.18em] text-ivory/50" />}
 

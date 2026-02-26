@@ -187,4 +187,17 @@ describe('CreateWalletPanel', () => {
       expect(queryByText(/Using a default card provider/i)).toBeNull()
     })
   })
+
+  it('auto-generates optional BIP-39 passphrase when enabled and supports regenerating it', () => {
+    const { getByRole, getByPlaceholderText } = render(<CreateWalletPanel />)
+
+    fireEvent.click(getByRole('switch'))
+    const mnemonicInput = getByPlaceholderText('Optional passphrase (25th word)') as HTMLInputElement
+    expect(mnemonicInput.value.length).toBeGreaterThanOrEqual(16)
+
+    const firstValue = mnemonicInput.value
+    fireEvent.click(getByRole('button', { name: 'Generate optional BIP-39 passphrase' }))
+    expect(mnemonicInput.value.length).toBeGreaterThanOrEqual(16)
+    expect(mnemonicInput.value).not.toBe(firstValue)
+  })
 })

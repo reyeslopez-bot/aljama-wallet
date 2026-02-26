@@ -28,19 +28,19 @@ export default function HomeActionButtons() {
     {
       kind: "anchor",
       label: t("createWallet"),
-      href: `/${locale}/#create`,
+      href: `/${locale}#create`,
       bg: "linear-gradient(135deg, #f3d9aa 0%, #e0ad70 45%, #c67a4a 100%)",
     },
     {
       kind: "anchor",
       label: t("connectWallet"),
-      href: `/${locale}/#connect`,
+      href: `/${locale}#connect`,
       bg: "linear-gradient(135deg, #7fb0d9 0%, #5c8db4 50%, #4b7c79 100%)",
     },
     {
       kind: "anchor",
       label: t("xrpl"),
-      href: `/${locale}/#xrpl`,
+      href: `/${locale}#xrpl`,
       bg: "linear-gradient(135deg, #e8d2a2 0%, #c8ab72 50%, #a1804f 100%)",
     },
   ]

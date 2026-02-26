@@ -17,6 +17,7 @@ const LANGUAGES = [
 ]
 
 type ThemeMode = 'light' | 'dark'
+type MenuItemKey = 'overview' | 'create-connect' | 'xrpl' | 'trade-desk'
 
 const THEME_KEY = 'aljama.theme'
 
@@ -29,7 +30,7 @@ export default function Navbar() {
   const isAuthed = status === 'authenticated'
   const [menuOpen, setMenuOpen] = useState(false)
   const [languageOpen, setLanguageOpen] = useState(false)
-  const [activeHash, setActiveHash] = useState('')
+  const [activeMenuKey, setActiveMenuKey] = useState<MenuItemKey | null>(null)
   const [theme, setTheme] = useState<ThemeMode>('dark')
   const [recognizedDevice, setRecognizedDevice] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -94,16 +95,6 @@ export default function Navbar() {
   }, [])
 
   useEffect(() => {
-    const updateHash = () => {
-      setActiveHash(window.location.hash ?? '')
-    }
-
-    updateHash()
-    window.addEventListener('hashchange', updateHash)
-    return () => window.removeEventListener('hashchange', updateHash)
-  }, [])
-
-  useEffect(() => {
     if (typeof window === 'undefined') return
     const syncRecognition = () => setRecognizedDevice(hasRecognizedDevice())
     syncRecognition()
@@ -117,22 +108,87 @@ export default function Navbar() {
     }
   }, [])
 
+  const hashToMenuKey = useCallback((hash: string): MenuItemKey | null => {
+    const normalized = hash.trim().toLowerCase()
+    if (!normalized) return null
+    if (normalized === '#overview') return 'overview'
+    if (normalized === '#create' || normalized === '#connect') return 'create-connect'
+    if (normalized === '#xrpl') return 'xrpl'
+    if (normalized === '#trade-desk') return 'trade-desk'
+    return null
+  }, [])
+
   useEffect(() => {
     setMenuOpen(false)
     setLanguageOpen(false)
-    setActiveHash(window.location.hash ?? '')
-  }, [pathname])
+    if (typeof window === 'undefined') return
+    if (pathWithoutLocale !== '/') {
+      setActiveMenuKey(null)
+      return
+    }
+    setActiveMenuKey(hashToMenuKey(window.location.hash) ?? 'overview')
+  }, [hashToMenuKey, pathWithoutLocale, pathname])
 
-  const getHashFromHref = (href: string) => {
-    const hashIndex = href.indexOf('#')
-    return hashIndex === -1 ? '' : href.slice(hashIndex)
-  }
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (pathWithoutLocale !== '/') return
 
-  const menuGroups = [
-    [{ label: t('overview'), href: `/${locale}/#overview` }],
-    [{ label: t('createConnect'), href: `/${locale}/#create` }],
-    [{ label: t('xrpl'), href: `/${locale}/#xrpl` }],
-    [{ label: t('tradeDesk'), href: `/${locale}/#trade-desk` }],
+    const sections: Array<{ id: string; key: MenuItemKey }> = [
+      { id: 'overview', key: 'overview' },
+      { id: 'create', key: 'create-connect' },
+      { id: 'connect', key: 'create-connect' },
+      { id: 'xrpl', key: 'xrpl' },
+      { id: 'trade-desk', key: 'trade-desk' },
+    ]
+
+    let frame: number | null = null
+    const updateActive = () => {
+      const hashKey = hashToMenuKey(window.location.hash)
+      if (hashKey) {
+        setActiveMenuKey(hashKey)
+        return
+      }
+
+      const scrollY = window.scrollY
+      const offset = 150
+      let nextKey: MenuItemKey = 'overview'
+      for (const section of sections) {
+        const element = document.getElementById(section.id)
+        if (!element) continue
+        const top = element.getBoundingClientRect().top + window.scrollY
+        if (scrollY + offset >= top) {
+          nextKey = section.key
+        }
+      }
+      setActiveMenuKey(nextKey)
+    }
+
+    const onScroll = () => {
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame)
+      }
+      frame = window.requestAnimationFrame(updateActive)
+    }
+
+    updateActive()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    window.addEventListener('hashchange', onScroll)
+    return () => {
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame)
+      }
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      window.removeEventListener('hashchange', onScroll)
+    }
+  }, [hashToMenuKey, pathWithoutLocale])
+
+  const menuItems: Array<{ key: MenuItemKey; label: string; href: string }> = [
+    { key: 'overview', label: t('overview'), href: `/${locale}#overview` },
+    { key: 'create-connect', label: t('createConnect'), href: `/${locale}#create` },
+    { key: 'xrpl', label: t('xrpl'), href: `/${locale}#xrpl` },
+    { key: 'trade-desk', label: t('tradeDesk'), href: `/${locale}#trade-desk` },
   ]
   const authCtaLabel = recognizedDevice ? t('signIn') : t('signUp')
   const authCtaHref = recognizedDevice ? `/${locale}/login?mode=login` : `/${locale}/login?mode=register`
@@ -177,38 +233,31 @@ export default function Navbar() {
 
         <div className="flex items-center gap-3">
           <div className="hidden items-center md:flex">
-            {menuGroups.map((group, groupIndex) => (
+            {menuItems.map((item, itemIndex) => (
               <div
-                key={`desktop-menu-group-${groupIndex}`}
+                key={`desktop-menu-item-${item.key}`}
                 className={`flex items-center gap-1 ${
-                  groupIndex === 0
+                  itemIndex === 0
                     ? ''
                     : isLight
                       ? 'ml-2 border-l border-[#7fa3c1]/35 pl-2'
                       : 'ml-2 border-l border-white/12 pl-2'
                 }`}
               >
-                {group.map((item) => {
-                  const itemHash = getHashFromHref(item.href)
-                  const isActive = itemHash ? itemHash === activeHash : pathname === item.href
-                  return (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      className={`rounded-full px-4 py-2 text-sm font-medium tracking-wide transition ${
-                        isActive
-                          ? isLight
-                            ? 'border border-[#7fa3c1]/45 bg-[#7fb0d9]/30 text-[#1e3248]'
-                            : 'bg-saffron/20 text-ivory'
-                          : isLight
-                            ? 'text-[#2f4863]/80 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
-                            : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  )
-                })}
+                <Link
+                  href={item.href}
+                  className={`rounded-full px-4 py-2 text-sm font-medium tracking-wide transition ${
+                    item.key === activeMenuKey
+                      ? isLight
+                        ? 'border border-[#7fa3c1]/45 bg-[#7fb0d9]/30 text-[#1e3248]'
+                        : 'bg-saffron/20 text-ivory'
+                      : isLight
+                        ? 'text-[#2f4863]/80 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                        : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                  }`}
+                >
+                  {item.label}
+                </Link>
               </div>
             ))}
           </div>
@@ -240,39 +289,32 @@ export default function Navbar() {
                 }`}
                 role="menu"
               >
-                {menuGroups.map((group, groupIndex) => (
+                {menuItems.map((item, itemIndex) => (
                   <div
-                    key={`mobile-menu-group-${groupIndex}`}
+                    key={`mobile-menu-item-${item.key}`}
                     className={
-                      groupIndex === 0
+                      itemIndex === 0
                         ? ''
                         : isLight
                           ? 'mt-2 border-t border-[#7fa3c1]/30 pt-2'
                           : 'mt-2 border-t border-white/10 pt-2'
                     }
                   >
-                    {group.map((item) => {
-                      const itemHash = getHashFromHref(item.href)
-                      const isActive = itemHash ? itemHash === activeHash : pathname === item.href
-                      return (
-                        <Link
-                          key={item.label}
-                          href={item.href}
-                          className={`block rounded-xl px-3 py-2 text-sm transition ${
-                            isActive
-                              ? isLight
-                                ? 'bg-[#7fb0d9]/30 text-[#1e3248]'
-                                : 'bg-saffron/20 text-ivory'
-                              : isLight
-                                ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
-                                : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
-                          }`}
-                          role="menuitem"
-                        >
-                          {item.label}
-                        </Link>
-                      )
-                    })}
+                    <Link
+                      href={item.href}
+                      className={`block rounded-xl px-3 py-2 text-sm transition ${
+                        item.key === activeMenuKey
+                          ? isLight
+                            ? 'bg-[#7fb0d9]/30 text-[#1e3248]'
+                            : 'bg-saffron/20 text-ivory'
+                          : isLight
+                            ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                            : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                      }`}
+                      role="menuitem"
+                    >
+                      {item.label}
+                    </Link>
                   </div>
                 ))}
                 {!isAuthed && (

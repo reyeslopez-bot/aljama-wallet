@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
-    "dev:local": "cross-env AUTH_MODE=memory next dev --turbopack",
+    "dev:local": "cross-env AUTH_MODE=memory NEXTAUTH_URL=http://localhost:2998 next dev --turbopack",
     "build": "pnpm prisma:generate && next build --webpack",
     "start": "next start",
     "lint": "eslint .",

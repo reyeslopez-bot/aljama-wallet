@@ -188,6 +188,7 @@ PORT_PUBLISH="127.0.0.1:${APP_PORT}:${APP_PORT}"
     "${DB_ENV_ARGS[@]}" \
     -p "$PORT_PUBLISH" \
   -e AUTH_MODE="${AUTH_MODE:-memory}" \
+  -e NEXTAUTH_URL="${NEXTAUTH_URL:-http://localhost:${APP_PORT}}" \
   -e PORT="$APP_PORT" \
   -e PNPM_VERSION="$PNPM_VERSION" \
   -e COREPACK_ENABLE_STRICT=1 \

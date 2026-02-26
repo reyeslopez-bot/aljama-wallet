@@ -9,17 +9,16 @@ import { isStrictMode } from '@/lib/security/runtime'
 
 const usePg = usePgAuth()
 const configuredNextAuthSecret = process.env.NEXTAUTH_SECRET?.trim() ?? ''
+const devNextAuthSecret = process.env.NEXTAUTH_DEV_SECRET?.trim() || 'aljama-dev-nextauth-secret'
 
 if (isStrictMode && !configuredNextAuthSecret) {
   throw new Error('Missing NEXTAUTH_SECRET in strict mode')
 }
 
-const nextAuthSecret =
-  configuredNextAuthSecret ||
-  `dev-secret-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`
+const nextAuthSecret = configuredNextAuthSecret || devNextAuthSecret
 
 if (!configuredNextAuthSecret) {
-  logWarn('next-auth:secret', new Error('Using ephemeral NEXTAUTH_SECRET fallback in non-strict mode'))
+  logWarn('next-auth:secret', new Error('Using stable NEXTAUTH_DEV_SECRET fallback in non-strict mode'))
 }
 
 export const authOptions: NextAuthOptions = {

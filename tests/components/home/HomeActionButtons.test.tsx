@@ -49,9 +49,9 @@ describe('HomeActionButtons', () => {
     const connect = getByRole('link', { name: 'Connect Wallet' })
     const xrpl = getByRole('link', { name: 'XRPL' })
 
-    expect(create.getAttribute('href')).toBe('/en/#create')
-    expect(connect.getAttribute('href')).toBe('/en/#connect')
-    expect(xrpl.getAttribute('href')).toBe('/en/#xrpl')
+    expect(create.getAttribute('href')).toBe('/en#create')
+    expect(connect.getAttribute('href')).toBe('/en#connect')
+    expect(xrpl.getAttribute('href')).toBe('/en#xrpl')
     expect(queryByText('Sign in to unlock actions.')).toBeNull()
   })
 
