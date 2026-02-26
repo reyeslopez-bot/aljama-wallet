@@ -4,18 +4,19 @@ import { logWarn } from '@/lib/security/logging'
 
 type StoredUser = {
   id: string
-  email: string
+  email: string | null
   passwordHash: string
   name?: string | null
+  image?: string | null
 }
 
 const globalForAuth = globalThis as unknown as {
-  authDevUsers?: Map<string, StoredUser>
+  authDevUsersById?: Map<string, StoredUser>
 }
 
-const devUsers = globalForAuth.authDevUsers ?? new Map<string, StoredUser>()
+const devUsersById = globalForAuth.authDevUsersById ?? new Map<string, StoredUser>()
 if (process.env.NODE_ENV !== 'production') {
-  globalForAuth.authDevUsers = devUsers
+  globalForAuth.authDevUsersById = devUsersById
 }
 
 export function usePgAuth(): boolean {
@@ -26,32 +27,128 @@ export function usePgAuth(): boolean {
   return Boolean(process.env.PG_DATABASE_URL ?? process.env.POSTGRES_URL)
 }
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+function normalizeUsername(username: string): string {
+  return username.trim().toLowerCase()
+}
+
+function findDevUserByEmail(email: string): StoredUser | null {
+  const normalized = normalizeEmail(email)
+  if (!normalized) return null
+
+  for (const user of devUsersById.values()) {
+    if (user.email && normalizeEmail(user.email) === normalized) {
+      return user
+    }
+  }
+
+  return null
+}
+
+function findDevUserByUsername(username: string): StoredUser | null {
+  const normalized = normalizeUsername(username)
+  if (!normalized) return null
+
+  for (const user of devUsersById.values()) {
+    if (user.name && normalizeUsername(user.name) === normalized) {
+      return user
+    }
+  }
+
+  return null
+}
+
 export async function findUserByEmail(email: string): Promise<StoredUser | null> {
+  const normalized = normalizeEmail(email)
+  if (!normalized) return null
+
   if (usePgAuth()) {
     try {
-      return await prismaPg.user.findUnique({ where: { email } })
+      return await prismaPg.user.findUnique({ where: { email: normalized } })
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
         logWarn('auth:lookup', error)
-        return devUsers.get(email) ?? null
+        return findDevUserByEmail(normalized)
       }
       throw error
     }
   }
-  return devUsers.get(email) ?? null
+
+  return findDevUserByEmail(normalized)
+}
+
+export async function findUserByUsername(username: string): Promise<StoredUser | null> {
+  const normalized = normalizeUsername(username)
+  if (!normalized) return null
+
+  if (usePgAuth()) {
+    try {
+      return await prismaPg.user.findFirst({
+        where: { name: normalized },
+      })
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        logWarn('auth:lookup-username', error)
+        return findDevUserByUsername(normalized)
+      }
+      throw error
+    }
+  }
+
+  return findDevUserByUsername(normalized)
+}
+
+export async function findUserByIdentifier(identifier: string): Promise<StoredUser | null> {
+  const normalized = identifier.trim().toLowerCase()
+  if (!normalized) return null
+
+  if (usePgAuth()) {
+    try {
+      return await prismaPg.user.findFirst({
+        where: {
+          OR: [
+            { email: normalized },
+            { name: normalized },
+          ],
+        },
+      })
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        logWarn('auth:lookup-identifier', error)
+        return findDevUserByEmail(normalized) ?? findDevUserByUsername(normalized)
+      }
+      throw error
+    }
+  }
+
+  return findDevUserByEmail(normalized) ?? findDevUserByUsername(normalized)
 }
 
 export async function createUser(params: {
-  email: string
+  username: string
+  email?: string | null
   passwordHash: string
+  image?: string | null
 }): Promise<StoredUser> {
-  const email = params.email.trim().toLowerCase()
+  const username = normalizeUsername(params.username)
+  const email = params.email ? normalizeEmail(params.email) : null
+  const image = params.image?.trim() || null
+
+  if (!username) {
+    throw new Error('username is required')
+  }
+
   if (usePgAuth()) {
     try {
       return await prismaPg.user.create({
         data: {
+          name: username,
           email,
           passwordHash: params.passwordHash,
+          image,
         },
       })
     } catch (error) {
@@ -63,12 +160,21 @@ export async function createUser(params: {
     }
   }
 
-  if (devUsers.has(email)) {
+  if (findDevUserByUsername(username)) {
+    throw new Error('Username already exists')
+  }
+  if (email && findDevUserByEmail(email)) {
     throw new Error('User already exists')
   }
 
   const id = `dev_${randomUUID()}`
-  const user: StoredUser = { id, email, passwordHash: params.passwordHash }
-  devUsers.set(email, user)
+  const user: StoredUser = {
+    id,
+    name: username,
+    email,
+    passwordHash: params.passwordHash,
+    image,
+  }
+  devUsersById.set(id, user)
   return user
 }

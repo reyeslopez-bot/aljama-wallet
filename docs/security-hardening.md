@@ -200,6 +200,7 @@ Security anomaly configuration:
 Alert delivery configuration:
 - `SECURITY_ALERTS_API_TOKEN` (internal API read access)
 - `SECURITY_SIGNAL_INGEST_TOKEN` (internal API write access for signal ingestion)
+- `SECURITY_INTERNAL_ALLOWED_IPS` (optional comma-separated IP allowlist for internal-token APIs)
 - `SECURITY_ALERT_WEBHOOK_URL`
 - `SECURITY_ALERT_WEBHOOK_MIN_SEVERITY`
 - `SECURITY_ALERT_SIEM_URL`

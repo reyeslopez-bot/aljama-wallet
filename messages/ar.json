@@ -390,8 +390,19 @@
     "title": "بوابة آمنة",
     "subtitle": "سجّل الدخول للمتابعة.",
     "subtitleRegister": "أنشئ حسابًا للمتابعة.",
+    "identifier": "اسم المستخدم أو البريد الإلكتروني",
+    "identifierRequired": "أدخل اسم المستخدم أو البريد الإلكتروني.",
+    "username": "اسم المستخدم",
+    "usernameRequired": "اسم المستخدم مطلوب.",
+    "usernameInvalid": "استخدم 3-32 حرفًا: أحرف، أرقام، نقطة، شرطة سفلية، أو شرطة.",
     "email": "البريد الإلكتروني",
     "password": "كلمة المرور",
+    "profileImage": "صورة الملف الشخصي",
+    "profileImageHint": "اختياري. ارفع PNG أو JPG أو WEBP أو GIF (حتى 1MB).",
+    "profileImageInvalid": "صورة الملف الشخصي غير صالحة.",
+    "profileImageTooLarge": "صورة الملف الشخصي كبيرة جدًا (الحد الأقصى 1MB).",
+    "profileImageReady": "تم إرفاق صورة الملف الشخصي.",
+    "profileImagePreviewAlt": "معاينة صورة الملف الشخصي",
     "invite": "رمز الدعوة",
     "signIn": "تسجيل الدخول",
     "signingIn": "جارٍ تسجيل الدخول…",
@@ -414,7 +425,8 @@
     "passwordWeak": "كلمة المرور ضعيفة جدًا.",
     "passwordRules": "استخدم 12+ حرفًا مع أحرف كبيرة/صغيرة ورقم ورمز.",
     "inviteHint": "استخدم رمز الدعوة التجريبي: demo-invite",
-    "emailExists": "يوجد حساب بهذا البريد بالفعل."
+    "emailExists": "يوجد حساب بهذا البريد بالفعل.",
+    "usernameExists": "يوجد حساب باسم المستخدم هذا بالفعل."
   },
   "common": {
     "optional": "اختياري"

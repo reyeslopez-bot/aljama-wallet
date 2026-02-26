@@ -390,8 +390,19 @@
     "title": "שער מאובטח",
     "subtitle": "התחברו כדי להמשיך.",
     "subtitleRegister": "הירשמו כדי להמשיך.",
+    "identifier": "שם משתמש או אימייל",
+    "identifierRequired": "הזינו שם משתמש או אימייל.",
+    "username": "שם משתמש",
+    "usernameRequired": "שם משתמש הוא שדה חובה.",
+    "usernameInvalid": "השתמשו ב-3-32 תווים: אותיות, מספרים, נקודה, קו תחתון או מקף.",
     "email": "אימייל",
     "password": "סיסמה",
+    "profileImage": "תמונת פרופיל",
+    "profileImageHint": "אופציונלי. העלו PNG, JPG, WEBP או GIF (עד 1MB).",
+    "profileImageInvalid": "תמונת הפרופיל אינה תקינה.",
+    "profileImageTooLarge": "תמונת הפרופיל גדולה מדי (מקסימום 1MB).",
+    "profileImageReady": "תמונת הפרופיל צורפה.",
+    "profileImagePreviewAlt": "תצוגה מקדימה של תמונת הפרופיל",
     "invite": "טוקן הזמנה",
     "signIn": "התחברות",
     "signingIn": "מתחבר…",
@@ -414,7 +425,8 @@
     "passwordWeak": "הסיסמה חלשה מדי.",
     "passwordRules": "השתמשו ב-12+ תווים עם אותיות גדולות/קטנות, מספר וסמל.",
     "inviteHint": "השתמשו בטוקן הדמו: demo-invite",
-    "emailExists": "כבר קיים חשבון עם המייל הזה."
+    "emailExists": "כבר קיים חשבון עם המייל הזה.",
+    "usernameExists": "כבר קיים חשבון עם שם המשתמש הזה."
   },
   "common": {
     "optional": "אופציונלי"

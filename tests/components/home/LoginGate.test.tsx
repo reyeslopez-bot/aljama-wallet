@@ -141,7 +141,7 @@ describe('LoginGate', () => {
       <LoginGate showBackLink={false} initialMode="login" />,
     )
 
-    fireEvent.change(getByPlaceholderText('you@company.com'), {
+    fireEvent.change(getByPlaceholderText('username or you@company.com'), {
       target: { value: 'user@example.com' },
     })
     fireEvent.change(getByPlaceholderText('••••••••'), {
@@ -152,7 +152,7 @@ describe('LoginGate', () => {
 
     await waitFor(() => {
       expect(mockedSignIn).toHaveBeenCalledWith('credentials', {
-        email: 'user@example.com',
+        identifier: 'user@example.com',
         password: 'AnyPassword123!',
         redirect: false,
       })
@@ -171,6 +171,9 @@ describe('LoginGate', () => {
       <LoginGate showBackLink={false} initialMode="register" />,
     )
 
+    fireEvent.change(getByPlaceholderText('wallet_operator'), {
+      target: { value: 'new_operator' },
+    })
     fireEvent.change(getByPlaceholderText('you@company.com'), {
       target: { value: 'newuser@example.com' },
     })
@@ -186,11 +189,52 @@ describe('LoginGate', () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/auth/register', expect.any(Object))
       expect(mockedSignIn).toHaveBeenCalledWith('credentials', {
-        email: 'newuser@example.com',
+        identifier: 'new_operator',
         password: 'VeryStrongPassphrase1!',
         redirect: false,
       })
       expect(mocks.push).toHaveBeenCalledWith('/en')
     })
+
+    const registerPayload = JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string)
+    expect(registerPayload).toMatchObject({
+      username: 'new_operator',
+      email: 'newuser@example.com',
+    })
+  })
+
+  it('allows sign up with username and password only (email optional)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByRole, getByPlaceholderText, queryByText } = render(
+      <LoginGate showBackLink={false} initialMode="register" />,
+    )
+
+    fireEvent.change(getByPlaceholderText('wallet_operator'), {
+      target: { value: 'noemailuser' },
+    })
+    fireEvent.change(getByPlaceholderText('••••••••'), {
+      target: { value: 'VeryStrongPassphrase1!' },
+    })
+    fireEvent.change(getByPlaceholderText('demo-invite'), {
+      target: { value: 'demo-invite' },
+    })
+
+    fireEvent.click(getByRole('button', { name: 'Sign up' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/auth/register', expect.any(Object))
+      expect(mockedSignIn).toHaveBeenCalledWith('credentials', {
+        identifier: 'noemailuser',
+        password: 'VeryStrongPassphrase1!',
+        redirect: false,
+      })
+    })
+
+    expect(queryByText('Enter a valid email address.')).toBeNull()
   })
 })

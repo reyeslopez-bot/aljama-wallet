@@ -390,8 +390,19 @@
     "title": "Secure Gate",
     "subtitle": "Sign in to continue.",
     "subtitleRegister": "Sign up to continue.",
+    "identifier": "Username or email",
+    "identifierRequired": "Enter your username or email.",
+    "username": "Username",
+    "usernameRequired": "Username is required.",
+    "usernameInvalid": "Use 3-32 chars: letters, numbers, dot, underscore, or dash.",
     "email": "Email",
     "password": "Password",
+    "profileImage": "Profile picture",
+    "profileImageHint": "Optional. Upload PNG, JPG, WEBP, or GIF (up to 1 MB).",
+    "profileImageInvalid": "Invalid profile image.",
+    "profileImageTooLarge": "Profile image is too large (max 1 MB).",
+    "profileImageReady": "Profile picture attached.",
+    "profileImagePreviewAlt": "Profile picture preview",
     "invite": "Invite token",
     "signIn": "Sign in",
     "signingIn": "Signing in…",
@@ -414,7 +425,8 @@
     "passwordWeak": "Password is too weak.",
     "passwordRules": "Use 12+ chars with upper/lowercase, number, and symbol.",
     "inviteHint": "Use the demo token: demo-invite",
-    "emailExists": "An account with this email already exists."
+    "emailExists": "An account with this email already exists.",
+    "usernameExists": "An account with this username already exists."
   },
   "common": {
     "optional": "optional"

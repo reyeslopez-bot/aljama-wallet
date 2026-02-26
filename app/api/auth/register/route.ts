@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { hashPassword } from '@/lib/auth/password'
-import { createUser, findUserByEmail } from '@/lib/auth/store'
+import { createUser, findUserByEmail, findUserByUsername } from '@/lib/auth/store'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { isStrictMode } from '@/lib/security/runtime'
@@ -20,10 +20,23 @@ const passwordSchema = z
   .regex(/\d/, 'Password needs a number')
   .regex(/[^\w\s]/, 'Password needs a symbol')
 
+const usernameSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(32)
+  .regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/, 'Username must use letters, numbers, dot, underscore, or dash')
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PROFILE_IMAGE_DATA_URL_PATTERN = /^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/
+const MAX_PROFILE_IMAGE_LENGTH = 1_500_000
+
 const registerSchema = z.object({
-  email: z.string().email().max(256),
+  username: usernameSchema,
+  email: z.string().max(256).optional().nullable(),
   password: passwordSchema,
   inviteToken: z.string().min(1).max(128),
+  image: z.string().max(MAX_PROFILE_IMAGE_LENGTH).optional().nullable(),
 })
 
 export async function POST(req: Request) {
@@ -85,7 +98,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const bodyResult = await readJsonBody(req, { maxBytes: 8_192 })
+    const bodyResult = await readJsonBody(req, { maxBytes: 2_000_000 })
     if (!bodyResult.ok) {
       return bodyResult.response
     }
@@ -104,48 +117,99 @@ export async function POST(req: Request) {
     const envInvite = process.env.AUTH_INVITE_TOKEN?.trim()
     const expectedInvite = envInvite ?? (isStrictMode ? null : 'demo-invite')
     if (!expectedInvite) {
+      const principal = parsed.data.email?.trim() || parsed.data.username
       await trackSignal({
         outcome: 'failure',
         statusCode: 503,
-        principal: parsed.data.email,
+        principal,
         details: { reason: 'invite_token_missing' },
       })
       return errorJson(503, 'invite_token_missing', 'INVITE_TOKEN_NOT_CONFIGURED')
     }
     const providedInvite = parsed.data.inviteToken.trim()
     if (providedInvite !== expectedInvite) {
+      const principal = parsed.data.email?.trim() || parsed.data.username
       await trackSignal({
         outcome: 'failure',
         statusCode: 401,
-        principal: parsed.data.email,
+        principal,
         details: { reason: 'invalid_invite' },
       })
       return errorJson(401, 'invalid_invite', 'Invalid invite token')
     }
 
-    const email = parsed.data.email.trim().toLowerCase()
-    const existing = await findUserByEmail(email)
-    if (existing) {
+    const username = parsed.data.username.trim().toLowerCase()
+    const emailValue = parsed.data.email?.trim() ?? ''
+    const email = emailValue ? emailValue.toLowerCase() : null
+    const image = parsed.data.image?.trim() || null
+
+    if (email && !EMAIL_PATTERN.test(email)) {
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 400,
+        principal: username,
+        details: { reason: 'invalid_email' },
+      })
+      return errorJson(400, 'invalid_email', 'Invalid email address')
+    }
+
+    if (image && !PROFILE_IMAGE_DATA_URL_PATTERN.test(image)) {
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 400,
+        principal: email ?? username,
+        details: { reason: 'invalid_profile_image' },
+      })
+      return errorJson(400, 'invalid_profile_image', 'Invalid profile image payload')
+    }
+
+    const existingByUsername = await findUserByUsername(username)
+    if (existingByUsername) {
       await trackSignal({
         outcome: 'failure',
         statusCode: 409,
-        principal: email,
-        details: { reason: 'user_exists' },
+        principal: username,
+        details: { reason: 'username_exists' },
       })
-      return errorJson(409, 'user_exists', 'User already exists')
+      return errorJson(409, 'username_exists', 'Username already exists')
+    }
+
+    if (email) {
+      const existingByEmail = await findUserByEmail(email)
+      if (existingByEmail) {
+        await trackSignal({
+          outcome: 'failure',
+          statusCode: 409,
+          principal: email,
+          details: { reason: 'user_exists' },
+        })
+        return errorJson(409, 'user_exists', 'User already exists')
+      }
     }
 
     const passwordHash = await hashPassword(parsed.data.password)
-    const user = await createUser({ email, passwordHash })
+    const user = await createUser({
+      username,
+      email,
+      passwordHash,
+      image,
+    })
 
     await trackSignal({
       outcome: 'success',
       statusCode: 200,
-      principal: email,
+      principal: email ?? username,
       details: { reason: 'registered' },
     })
 
-    return okJson({ user: { id: user.id, email: user.email } })
+    return okJson({
+      user: {
+        id: user.id,
+        username: user.name ?? username,
+        email: email ?? null,
+        image: user.image ?? null,
+      },
+    })
   } catch (error) {
     logError('auth-register', error)
     await trackSignal({

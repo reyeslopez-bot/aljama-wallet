@@ -11,7 +11,7 @@ type Props = {
   subtitle?: string
   buttonText?: string
   initialMode?: "login" | "register"
-  onUnlock?: (payload: { email: string; password: string }) => void
+  onUnlock?: (payload: { identifier: string; password: string }) => void
   showBackLink?: boolean
   showCloseButton?: boolean
   backText?: string
@@ -32,14 +32,17 @@ export default function LoginGate({
   onClose,
 }: Props) {
   const t = useTranslations("auth")
+  const tCommon = useTranslations("common")
   const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
   const { status: sessionStatus } = useSession()
 
+  const [identifier, setIdentifier] = React.useState("")
+  const [username, setUsername] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
-  const [inviteToken, setInviteToken] = React.useState("")
+  const [profileImage, setProfileImage] = React.useState<string | null>(null)
   const [showPw, setShowPw] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [mode, setMode] = React.useState<"login" | "register">(initialMode)
@@ -57,17 +60,23 @@ export default function LoginGate({
   }
 
   const strongPassword = isStrongPassword(password)
-  const normalizedEmail = email.trim()
-  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+  const normalizedIdentifier = identifier.trim().toLowerCase()
+  const normalizedUsername = username.trim().toLowerCase()
+  const normalizedEmail = email.trim().toLowerCase()
+  const hasRegisterEmail = normalizedEmail.length > 0
+  const isValidRegisterEmail = !hasRegisterEmail || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+  const isValidUsername = /^[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}$/.test(normalizedUsername)
   const disabled =
     busy ||
-    !normalizedEmail ||
     !password ||
-    !isValidEmail ||
-    (mode === "register" && (!inviteToken.trim() || !strongPassword))
+    (mode === "register"
+      ? (!normalizedUsername || !isValidUsername || !strongPassword || !isValidRegisterEmail)
+      : !normalizedIdentifier)
+  const identifierFieldId = "secure-gate-identifier"
+  const usernameFieldId = "secure-gate-username"
   const emailFieldId = "secure-gate-email"
   const passwordFieldId = "secure-gate-password"
-  const inviteFieldId = "secure-gate-invite"
+  const profileImageFieldId = "secure-gate-profile-image"
 
   React.useEffect(() => {
     if (sessionStatus !== "authenticated") return
@@ -96,39 +105,64 @@ export default function LoginGate({
     setError(null)
     setNotice(null)
     try {
-      if (!isValidEmail) {
-        setError(t("emailInvalid"))
-        return
-      }
-
-      if (mode === "register" && !strongPassword) {
-        setError(t("passwordWeak"))
+      if (mode !== "register" && !normalizedIdentifier) {
+        setError(t("identifierRequired"))
         return
       }
 
       if (onUnlock) {
-        onUnlock({ email: normalizedEmail, password })
+        onUnlock({
+          identifier: mode === "register" ? normalizedUsername : normalizedIdentifier,
+          password,
+        })
         return
       }
 
       if (mode === "register") {
+        if (!normalizedUsername) {
+          setError(t("usernameRequired"))
+          return
+        }
+
+        if (!isValidUsername) {
+          setError(t("usernameInvalid"))
+          return
+        }
+
+        if (!isValidRegisterEmail) {
+          setError(t("emailInvalid"))
+          return
+        }
+
+        if (!strongPassword) {
+          setError(t("passwordWeak"))
+          return
+        }
+
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            email: normalizedEmail,
+            username: normalizedUsername,
+            email: normalizedEmail || null,
             password,
-            inviteToken: inviteToken.trim(),
+            image: profileImage,
           }),
         })
 
         if (!res.ok) {
           const body = await res.json().catch(() => null)
           let message = t("registerFailed")
-          if (body?.error === "Invalid invite token") {
+          if (body?.code === "invalid_invite" || body?.error === "Invalid invite token") {
             message = t("invalidInvite")
-          } else if (body?.error === "User already exists") {
+          } else if (body?.code === "user_exists" || body?.error === "User already exists") {
             message = t("emailExists")
+          } else if (body?.code === "username_exists") {
+            message = t("usernameExists")
+          } else if (body?.code === "invalid_email") {
+            message = t("emailInvalid")
+          } else if (body?.code === "invalid_profile_image") {
+            message = t("profileImageInvalid")
           } else if (typeof body?.error === "string") {
             message = body.error
           }
@@ -139,8 +173,9 @@ export default function LoginGate({
         setNotice(t("registerSuccess"))
       }
 
+      const authIdentifier = mode === "register" ? normalizedUsername : normalizedIdentifier
       const result = await signIn("credentials", {
-        email: normalizedEmail,
+        identifier: authIdentifier,
         password,
         redirect: false,
       })
@@ -162,6 +197,38 @@ export default function LoginGate({
     { label: "AR", value: "ar" },
   ]
   const resolvedSubtitle = subtitle ?? (mode === "register" ? t("subtitleRegister") : t("subtitle"))
+
+  const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      setProfileImage(null)
+      return
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setError(t("profileImageInvalid"))
+      return
+    }
+
+    if (file.size > 1024 * 1024) {
+      setError(t("profileImageTooLarge"))
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        setError(t("profileImageInvalid"))
+        return
+      }
+      setProfileImage(reader.result)
+      setError(null)
+    }
+    reader.onerror = () => {
+      setError(t("profileImageInvalid"))
+    }
+    reader.readAsDataURL(file)
+  }
 
   return (
     <div
@@ -240,28 +307,64 @@ export default function LoginGate({
           <p className="mt-2 text-sm text-ivory/70">
             {resolvedSubtitle}
           </p>
-          {mode === "register" && !recognizedDevice ? (
-            <p className="mt-1 text-xs text-saffron/80">{t("inviteRequired")}</p>
-          ) : null}
         </div>
 
         <form data-testid="secure-gate-form" onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <label htmlFor={emailFieldId} className="block text-xs uppercase tracking-[0.16em] text-ivory/60">
-            {t("email")}
-          </label>
-          <input
-            id={emailFieldId}
-            name="secure_gate_email"
-            data-testid="secure-gate-email-input"
-            className="surface-inner w-full px-4 py-3 text-base text-ivory placeholder:text-ivory/40 focus:border-saffron/50 focus:outline-none focus:ring-2 focus:ring-saffron/20"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@company.com"
-            autoComplete="email"
-            type="email"
-          />
-          {email && !isValidEmail && (
-            <p className="text-[11px] text-saffron/80">{t("emailInvalid")}</p>
+          {mode === "register" ? (
+            <>
+              <label htmlFor={usernameFieldId} className="block text-xs uppercase tracking-[0.16em] text-ivory/60">
+                {t("username")}
+              </label>
+              <input
+                id={usernameFieldId}
+                name="secure_gate_username"
+                data-testid="secure-gate-username-input"
+                className="surface-inner w-full px-4 py-3 text-base text-ivory placeholder:text-ivory/40 focus:border-saffron/50 focus:outline-none focus:ring-2 focus:ring-saffron/20"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="wallet_operator"
+                autoComplete="username"
+                type="text"
+              />
+              {username && !isValidUsername && (
+                <p className="text-[11px] text-saffron/80">{t("usernameInvalid")}</p>
+              )}
+
+              <label htmlFor={emailFieldId} className="block pt-2 text-xs uppercase tracking-[0.16em] text-ivory/60">
+                {t("email")} ({tCommon("optional")})
+              </label>
+              <input
+                id={emailFieldId}
+                name="secure_gate_email"
+                data-testid="secure-gate-email-input"
+                className="surface-inner w-full px-4 py-3 text-base text-ivory placeholder:text-ivory/40 focus:border-saffron/50 focus:outline-none focus:ring-2 focus:ring-saffron/20"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                autoComplete="email"
+                type="email"
+              />
+              {hasRegisterEmail && !isValidRegisterEmail && (
+                <p className="text-[11px] text-saffron/80">{t("emailInvalid")}</p>
+              )}
+            </>
+          ) : (
+            <>
+              <label htmlFor={identifierFieldId} className="block text-xs uppercase tracking-[0.16em] text-ivory/60">
+                {t("identifier")}
+              </label>
+              <input
+                id={identifierFieldId}
+                name="secure_gate_identifier"
+                data-testid="secure-gate-identifier-input"
+                className="surface-inner w-full px-4 py-3 text-base text-ivory placeholder:text-ivory/40 focus:border-saffron/50 focus:outline-none focus:ring-2 focus:ring-saffron/20"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="username or you@company.com"
+                autoComplete="username"
+                type="text"
+              />
+            </>
           )}
 
           <label htmlFor={passwordFieldId} className="block pt-2 text-xs uppercase tracking-[0.16em] text-ivory/60">
@@ -304,19 +407,30 @@ export default function LoginGate({
 
           {mode === "register" && (
             <>
-              <label htmlFor={inviteFieldId} className="block pt-2 text-xs uppercase tracking-[0.16em] text-ivory/60">
-                {t("invite")}
+              <label htmlFor={profileImageFieldId} className="block pt-2 text-xs uppercase tracking-[0.16em] text-ivory/60">
+                {t("profileImage")} ({tCommon("optional")})
               </label>
               <input
-                id={inviteFieldId}
-                name="secure_gate_invite_token"
-                data-testid="secure-gate-invite-input"
-                className="surface-inner w-full px-4 py-3 text-base text-ivory placeholder:text-ivory/40 focus:border-saffron/50 focus:outline-none focus:ring-2 focus:ring-saffron/20"
-                value={inviteToken}
-                onChange={(e) => setInviteToken(e.target.value)}
-                placeholder="demo-invite"
+                id={profileImageFieldId}
+                name="secure_gate_profile_image"
+                data-testid="secure-gate-profile-image-input"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handleProfileImageChange}
+                className="surface-inner w-full cursor-pointer px-4 py-3 text-sm text-ivory file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ivory hover:file:bg-white/15"
               />
-              <p className="text-[11px] text-ivory/50">{t("inviteHint")}</p>
+              <p className="text-[11px] text-ivory/50">{t("profileImageHint")}</p>
+              {profileImage ? (
+                <div className="surface-inner inline-flex items-center gap-3 px-3 py-2">
+                  <img
+                    src={profileImage}
+                    alt={t("profileImagePreviewAlt")}
+                    className="h-10 w-10 rounded-full border border-white/15 object-cover"
+                  />
+                  <span className="text-xs text-ivory/70">{t("profileImageReady")}</span>
+                </div>
+              ) : null}
+
             </>
           )}
 

@@ -3,7 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { verifyPassword } from '@/lib/auth/password'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prismaPg } from '@/lib/prisma-pg'
-import { findUserByEmail, usePgAuth } from '@/lib/auth/store'
+import { findUserByIdentifier, usePgAuth } from '@/lib/auth/store'
 import { logError, logWarn } from '@/lib/security/logging'
 import { isStrictMode } from '@/lib/security/runtime'
 
@@ -32,16 +32,16 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: 'credentials',
       credentials: {
-        email: { label: 'Email', type: 'text', placeholder: 'you@company.com' },
+        identifier: { label: 'Username or email', type: 'text', placeholder: 'username or you@company.com' },
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        const email = credentials?.email?.toLowerCase().trim()
+        const identifier = (credentials?.identifier ?? '').trim().toLowerCase()
         const password = credentials?.password ?? ''
 
-        if (!email || !password) return null
+        if (!identifier || !password) return null
 
-        const user = await findUserByEmail(email)
+        const user = await findUserByIdentifier(identifier)
 
         if (!user || !user.passwordHash) return null
 
@@ -50,8 +50,9 @@ export const authOptions: NextAuthOptions = {
 
         return {
           id: user.id,
-          email: user.email,
+          email: user.email ?? undefined,
           name: user.name ?? undefined,
+          image: user.image ?? undefined,
         }
       },
     }),

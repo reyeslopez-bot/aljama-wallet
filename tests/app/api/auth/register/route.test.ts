@@ -4,6 +4,7 @@ const {
   mockHashPassword,
   mockCreateUser,
   mockFindUserByEmail,
+  mockFindUserByUsername,
   mockBuildRateLimitKey,
   mockRateLimit,
   mockGetClientIp,
@@ -12,6 +13,7 @@ const {
   mockHashPassword: vi.fn(),
   mockCreateUser: vi.fn(),
   mockFindUserByEmail: vi.fn(),
+  mockFindUserByUsername: vi.fn(),
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
   mockGetClientIp: vi.fn(),
@@ -25,6 +27,7 @@ vi.mock('@/lib/auth/password', () => ({
 vi.mock('@/lib/auth/store', () => ({
   createUser: mockCreateUser,
   findUserByEmail: mockFindUserByEmail,
+  findUserByUsername: mockFindUserByUsername,
 }))
 
 vi.mock('@/lib/security/rate-limit', () => ({
@@ -63,8 +66,9 @@ describe('app/api/auth/register route', () => {
     mockBuildRateLimitKey.mockReturnValue('ip:127.0.0.1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 9, resetAt: Date.now() + 60_000 })
     mockFindUserByEmail.mockResolvedValue(null)
+    mockFindUserByUsername.mockResolvedValue(null)
     mockHashPassword.mockResolvedValue('hashed-password')
-    mockCreateUser.mockResolvedValue({ id: 'user-1', email: 'new@example.com' })
+    mockCreateUser.mockResolvedValue({ id: 'user-1', name: 'new_user', email: 'new@example.com', image: null })
   })
 
   it('blocks registration from disallowed origins', async () => {
@@ -73,6 +77,7 @@ describe('app/api/auth/register route', () => {
 
     const res = await POST(
       buildRequest({
+        username: 'new_user',
         email: 'new@example.com',
         password: 'StrongPassphrase1!',
         inviteToken: 'invite-123',
@@ -90,6 +95,7 @@ describe('app/api/auth/register route', () => {
 
     const res = await POST(
       buildRequest({
+        username: 'new_user',
         email: 'new@example.com',
         password: 'StrongPassphrase1!',
         inviteToken: 'invite-123',
@@ -107,6 +113,7 @@ describe('app/api/auth/register route', () => {
 
     const res = await POST(
       buildRequest({
+        username: 'new_user',
         email: 'new@example.com',
         password: 'StrongPassphrase1!',
         inviteToken: 'wrong-token',
@@ -125,6 +132,7 @@ describe('app/api/auth/register route', () => {
 
     const res = await POST(
       buildRequest({
+        username: 'new_user',
         email: 'new@example.com',
         password: 'StrongPassphrase1!',
         inviteToken: 'invite-123',
@@ -137,11 +145,31 @@ describe('app/api/auth/register route', () => {
     expect(mockCreateUser).not.toHaveBeenCalled()
   })
 
+  it('returns conflict when username already exists', async () => {
+    mockFindUserByUsername.mockResolvedValue({ id: 'existing-user', name: 'new_user', email: null })
+    const { POST } = await import('@/app/api/auth/register/route')
+
+    const res = await POST(
+      buildRequest({
+        username: 'new_user',
+        email: '',
+        password: 'StrongPassphrase1!',
+        inviteToken: 'invite-123',
+      }),
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.code).toBe('username_exists')
+    expect(mockCreateUser).not.toHaveBeenCalled()
+  })
+
   it('creates a user with normalized email on success', async () => {
     const { POST } = await import('@/app/api/auth/register/route')
 
     const res = await POST(
       buildRequest({
+        username: 'New_User',
         email: 'NEW@Example.COM',
         password: 'StrongPassphrase1!',
         inviteToken: 'invite-123',
@@ -152,13 +180,43 @@ describe('app/api/auth/register route', () => {
     expect(res.status).toBe(200)
     expect(body).toEqual({
       ok: true,
-      user: { id: 'user-1', email: 'new@example.com' },
+      user: { id: 'user-1', username: 'new_user', email: 'new@example.com', image: null },
     })
+    expect(mockFindUserByUsername).toHaveBeenCalledWith('new_user')
     expect(mockFindUserByEmail).toHaveBeenCalledWith('new@example.com')
     expect(mockHashPassword).toHaveBeenCalledWith('StrongPassphrase1!')
     expect(mockCreateUser).toHaveBeenCalledWith({
+      username: 'new_user',
       email: 'new@example.com',
       passwordHash: 'hashed-password',
+      image: null,
+    })
+  })
+
+  it('creates a user when email is omitted', async () => {
+    mockCreateUser.mockResolvedValue({ id: 'user-1', name: 'wallet_ops', email: null, image: null })
+    const { POST } = await import('@/app/api/auth/register/route')
+
+    const res = await POST(
+      buildRequest({
+        username: 'wallet_ops',
+        password: 'StrongPassphrase1!',
+        inviteToken: 'invite-123',
+      }),
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body).toEqual({
+      ok: true,
+      user: { id: 'user-1', username: 'wallet_ops', email: null, image: null },
+    })
+    expect(mockFindUserByEmail).not.toHaveBeenCalled()
+    expect(mockCreateUser).toHaveBeenCalledWith({
+      username: 'wallet_ops',
+      email: null,
+      passwordHash: 'hashed-password',
+      image: null,
     })
   })
 })
