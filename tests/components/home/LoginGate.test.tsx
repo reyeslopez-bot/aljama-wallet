@@ -180,9 +180,6 @@ describe('LoginGate', () => {
     fireEvent.change(getByPlaceholderText('••••••••'), {
       target: { value: 'VeryStrongPassphrase1!' },
     })
-    fireEvent.change(getByPlaceholderText('demo-invite'), {
-      target: { value: 'demo-invite' },
-    })
 
     fireEvent.click(getByRole('button', { name: 'Sign up' }))
 
@@ -219,9 +216,6 @@ describe('LoginGate', () => {
     })
     fireEvent.change(getByPlaceholderText('••••••••'), {
       target: { value: 'VeryStrongPassphrase1!' },
-    })
-    fireEvent.change(getByPlaceholderText('demo-invite'), {
-      target: { value: 'demo-invite' },
     })
 
     fireEvent.click(getByRole('button', { name: 'Sign up' }))

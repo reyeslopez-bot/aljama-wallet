@@ -48,7 +48,6 @@ export default function LoginGate({
   const [mode, setMode] = React.useState<"login" | "register">(initialMode)
   const [error, setError] = React.useState<string | null>(null)
   const [notice, setNotice] = React.useState<string | null>(null)
-  const [recognizedDevice, setRecognizedDevice] = React.useState(false)
 
   const isStrongPassword = (value: string) => {
     if (value.length < 12) return false
@@ -86,10 +85,6 @@ export default function LoginGate({
   React.useEffect(() => {
     setMode(initialMode)
   }, [initialMode])
-
-  React.useEffect(() => {
-    setRecognizedDevice(hasRecognizedDevice())
-  }, [])
 
   React.useEffect(() => {
     if (typeof window === "undefined") return
@@ -153,9 +148,7 @@ export default function LoginGate({
         if (!res.ok) {
           const body = await res.json().catch(() => null)
           let message = t("registerFailed")
-          if (body?.code === "invalid_invite" || body?.error === "Invalid invite token") {
-            message = t("invalidInvite")
-          } else if (body?.code === "user_exists" || body?.error === "User already exists") {
+          if (body?.code === "user_exists" || body?.error === "User already exists") {
             message = t("emailExists")
           } else if (body?.code === "username_exists") {
             message = t("usernameExists")

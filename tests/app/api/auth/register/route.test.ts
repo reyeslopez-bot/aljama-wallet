@@ -59,7 +59,6 @@ describe('app/api/auth/register route', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
-    vi.stubEnv('AUTH_INVITE_TOKEN', 'invite-123')
 
     mockIsAllowedOrigin.mockReturnValue(true)
     mockGetClientIp.mockReturnValue('127.0.0.1')
@@ -80,7 +79,6 @@ describe('app/api/auth/register route', () => {
         username: 'new_user',
         email: 'new@example.com',
         password: 'StrongPassphrase1!',
-        inviteToken: 'invite-123',
       }),
     )
     const body = await res.json()
@@ -98,7 +96,6 @@ describe('app/api/auth/register route', () => {
         username: 'new_user',
         email: 'new@example.com',
         password: 'StrongPassphrase1!',
-        inviteToken: 'invite-123',
       }),
     )
     const body = await res.json()
@@ -108,21 +105,19 @@ describe('app/api/auth/register route', () => {
     expect(res.headers.get('retry-after')).toBe('12')
   })
 
-  it('rejects invalid invite tokens', async () => {
+  it('rejects invalid payload when username is missing', async () => {
     const { POST } = await import('@/app/api/auth/register/route')
 
     const res = await POST(
       buildRequest({
-        username: 'new_user',
         email: 'new@example.com',
         password: 'StrongPassphrase1!',
-        inviteToken: 'wrong-token',
       }),
     )
     const body = await res.json()
 
-    expect(res.status).toBe(401)
-    expect(body.code).toBe('invalid_invite')
+    expect(res.status).toBe(400)
+    expect(body.code).toBe('invalid_payload')
     expect(mockCreateUser).not.toHaveBeenCalled()
   })
 
@@ -135,7 +130,6 @@ describe('app/api/auth/register route', () => {
         username: 'new_user',
         email: 'new@example.com',
         password: 'StrongPassphrase1!',
-        inviteToken: 'invite-123',
       }),
     )
     const body = await res.json()
@@ -154,7 +148,6 @@ describe('app/api/auth/register route', () => {
         username: 'new_user',
         email: '',
         password: 'StrongPassphrase1!',
-        inviteToken: 'invite-123',
       }),
     )
     const body = await res.json()
@@ -172,7 +165,6 @@ describe('app/api/auth/register route', () => {
         username: 'New_User',
         email: 'NEW@Example.COM',
         password: 'StrongPassphrase1!',
-        inviteToken: 'invite-123',
       }),
     )
     const body = await res.json()
@@ -201,7 +193,6 @@ describe('app/api/auth/register route', () => {
       buildRequest({
         username: 'wallet_ops',
         password: 'StrongPassphrase1!',
-        inviteToken: 'invite-123',
       }),
     )
     const body = await res.json()

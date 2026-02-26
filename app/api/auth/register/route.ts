@@ -3,7 +3,6 @@ import { hashPassword } from '@/lib/auth/password'
 import { createUser, findUserByEmail, findUserByUsername } from '@/lib/auth/store'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { isAllowedOrigin } from '@/lib/security/origin'
-import { isStrictMode } from '@/lib/security/runtime'
 import { errorJson, okJson } from '@/lib/security/api-response'
 import { readJsonBody } from '@/lib/security/request-body'
 import { logError } from '@/lib/security/logging'
@@ -35,7 +34,6 @@ const registerSchema = z.object({
   username: usernameSchema,
   email: z.string().max(256).optional().nullable(),
   password: passwordSchema,
-  inviteToken: z.string().min(1).max(128),
   image: z.string().max(MAX_PROFILE_IMAGE_LENGTH).optional().nullable(),
 })
 
@@ -112,30 +110,6 @@ export async function POST(req: Request) {
         details: { reason: 'invalid_payload' },
       })
       return errorJson(400, 'invalid_payload', 'Invalid registration payload', parsed.error.format())
-    }
-
-    const envInvite = process.env.AUTH_INVITE_TOKEN?.trim()
-    const expectedInvite = envInvite ?? (isStrictMode ? null : 'demo-invite')
-    if (!expectedInvite) {
-      const principal = parsed.data.email?.trim() || parsed.data.username
-      await trackSignal({
-        outcome: 'failure',
-        statusCode: 503,
-        principal,
-        details: { reason: 'invite_token_missing' },
-      })
-      return errorJson(503, 'invite_token_missing', 'INVITE_TOKEN_NOT_CONFIGURED')
-    }
-    const providedInvite = parsed.data.inviteToken.trim()
-    if (providedInvite !== expectedInvite) {
-      const principal = parsed.data.email?.trim() || parsed.data.username
-      await trackSignal({
-        outcome: 'failure',
-        statusCode: 401,
-        principal,
-        details: { reason: 'invalid_invite' },
-      })
-      return errorJson(401, 'invalid_invite', 'Invalid invite token')
     }
 
     const username = parsed.data.username.trim().toLowerCase()
