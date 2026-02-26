@@ -369,8 +369,8 @@ export default function DynamicInfoCard() {
     >
       <div className="surface-panel panel-glow-saffron rounded-[18px]">
         <div className="rounded-t-[18px] border-b border-white/10 bg-white/5 p-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#c7794a] via-[#e0bf7f] to-[#4b9577] p-[1px]">
                 {avatarImage ? (
                   <img
@@ -395,10 +395,10 @@ export default function DynamicInfoCard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 flex-col items-end gap-1">
               <div
                 suppressHydrationWarning
-                className="text-[11px] font-semibold tabular-nums tracking-tight text-ivory"
+                className="text-[10px] font-semibold tabular-nums tracking-tight text-ivory/85"
               >
                 {timeLabel}
               </div>

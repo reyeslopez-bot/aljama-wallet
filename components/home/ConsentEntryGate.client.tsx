@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { setLocationConsent, getLocationConsent } from "@/infra/location/client"
 import { getTelemetryConsent, setTelemetryConsent } from "@/infra/telemetry/client"
@@ -14,10 +14,17 @@ import { setRuntimeLocationAccess } from "@/infra/location/runtime"
 
 type ConsentPreset = "rejectAll" | "essentialOnly" | "allowAll"
 
+const LANGUAGES = [
+  { label: "EN", value: "en" },
+  { label: "HE", value: "he" },
+  { label: "AR", value: "ar" },
+]
+
 export default function ConsentEntryGate() {
   const tConsent = useTranslations("consent")
   const tAuth = useTranslations("auth")
   const locale = useLocale()
+  const pathname = usePathname()
   const router = useRouter()
 
   const [consentPreset, setConsentPreset] = React.useState<ConsentPreset>("essentialOnly")
@@ -81,6 +88,30 @@ export default function ConsentEntryGate() {
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_60%_40%,rgba(78,120,160,0.16),rgba(0,0,0,0)_60%)] blur-[20px]" />
 
       <div className="surface-panel panel-glow-saffron relative w-full max-w-xl rounded-[2rem] p-8">
+        <div className="absolute right-6 top-6 z-10 flex items-center gap-2">
+          {LANGUAGES.map((language) => (
+            <button
+              key={language.value}
+              type="button"
+              onClick={() => {
+                const segments = pathname.split("/")
+                if (segments.length > 1) {
+                  segments[1] = language.value
+                } else {
+                  segments.push(language.value)
+                }
+                router.push(segments.join("/") || `/${language.value}`)
+              }}
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-[0.16em] transition ${
+                locale === language.value
+                  ? "border-saffron/60 bg-saffron/10 text-saffron"
+                  : "border-white/10 bg-white/5 text-ivory/60 hover:border-white/20"
+              }`}
+            >
+              {language.label}
+            </button>
+          ))}
+        </div>
         <div className="absolute inset-x-10 top-6 ornament-line" />
         <div className="text-center">
           <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5">
@@ -123,7 +154,7 @@ export default function ConsentEntryGate() {
                 <span
                   className={`absolute top-0.5 h-[22px] w-[22px] rounded-full transition ${
                     optionalServicesEnabled
-                      ? "left-6 bg-[#1b3654] shadow-[0_2px_10px_rgba(17,24,39,0.4)]"
+                      ? "left-6 bg-white shadow-[0_2px_10px_rgba(255,255,255,0.28)]"
                       : "left-0.5 bg-white"
                   }`}
                 />

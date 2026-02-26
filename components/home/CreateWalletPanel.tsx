@@ -211,6 +211,7 @@ export function CreateWalletPanel() {
   const [keystoreFile, setKeystoreFile] = useState<KeystoreFile | null>(null)
   const [addressCopied, setAddressCopied] = useState(false)
   const [passphraseCopied, setPassphraseCopied] = useState(false)
+  const [mnemonicCopied, setMnemonicCopied] = useState(false)
   const [keystoreDownloaded, setKeystoreDownloaded] = useState(false)
   const setCreateWalletStatus = useDynamicInfoStore((s) => s.setCreateWalletStatus)
   const setCreatedWalletAddress = useDynamicInfoStore((s) => s.setCreatedWalletAddress)
@@ -264,6 +265,12 @@ export function CreateWalletPanel() {
   }, [passphraseCopied])
 
   useEffect(() => {
+    if (!mnemonicCopied) return
+    const timeout = window.setTimeout(() => setMnemonicCopied(false), 1800)
+    return () => window.clearTimeout(timeout)
+  }, [mnemonicCopied])
+
+  useEffect(() => {
     if (!keystoreDownloaded) return
     const timeout = window.setTimeout(() => setKeystoreDownloaded(false), 1800)
     return () => window.clearTimeout(timeout)
@@ -288,6 +295,27 @@ export function CreateWalletPanel() {
     try {
       await navigator.clipboard.writeText(passphrase)
       setPassphraseCopied(true)
+    } catch {
+      // ignore clipboard failures
+    }
+  }
+
+  const copyMnemonic = async () => {
+    if (!walletDraft) return
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+
+    const phrase = walletDraft.mnemonic.trim()
+    if (!phrase) return
+
+    const optionalPassphrase = useOptionalMnemonicPassphrase ? mnemonicPassphrase.trim() : ''
+    const payload = optionalPassphrase
+      ? `${phrase}\n\nBIP-39 passphrase (25th word): ${optionalPassphrase}`
+      : phrase
+
+    try {
+      await navigator.clipboard.writeText(payload)
+      setMnemonicCopied(true)
+      setNotice(null)
     } catch {
       // ignore clipboard failures
     }
@@ -669,11 +697,16 @@ export function CreateWalletPanel() {
             <p className="text-xs uppercase tracking-[0.16em] text-saffron/75">{t('mnemonicTitle')}</p>
 
             <p className="text-xs text-ivory/65">{t('mnemonicHint')}</p>
-            <div
-              className="grid gap-2 sm:grid-cols-2 select-none"
-              onCopy={preventSensitiveCopy}
-              onCut={preventSensitiveCopy}
-            >
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => void copyMnemonic()}
+                className="rounded-full border border-saffron/35 bg-saffron/10 px-3 py-1.5 text-xs font-semibold text-saffron transition hover:bg-saffron/20"
+              >
+                {mnemonicCopied ? t('copiedMnemonic') : t('copyMnemonic')}
+              </button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
               {draftWords.map((word, index) => (
                 <div key={`${word}-${index}`} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory">
                   <span className="mr-2 font-mono text-xs text-ivory/55">{index + 1}.</span>

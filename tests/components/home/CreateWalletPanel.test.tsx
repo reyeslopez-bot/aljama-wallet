@@ -109,7 +109,7 @@ describe('CreateWalletPanel', () => {
     await waitFor(() => {
       expect(getByText('Recovery phrase (24 words)')).toBeTruthy()
       expect(mockGenerateMnemonicWallet).toHaveBeenCalledTimes(1)
-      expect(queryByRole('button', { name: 'Copy phrase' })).toBeNull()
+      expect(queryByRole('button', { name: 'Copy phrase' })).toBeTruthy()
     })
 
     expect(sessionStorage.getItem('aljama.encryptedWallet')).toBeNull()
