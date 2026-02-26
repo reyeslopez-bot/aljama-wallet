@@ -117,7 +117,7 @@ describe('CreateWalletPanel', () => {
     completeRecoveryCheck(getByRole, getAllByPlaceholderText, getByLabelText)
 
     await waitFor(() => {
-      expect(getByText('0x1111111111111111111111111111111111111111')).toBeTruthy()
+      expect(queryByRole('button', { name: 'Copy address' })).toBeTruthy()
       expect(getByText('Receive onchain')).toBeTruthy()
       expect(useDynamicInfoStore.getState().createWalletStatus).toBe('success')
       expect(useDynamicInfoStore.getState().wallet.createdAddress).toBe('0x1111111111111111111111111111111111111111')

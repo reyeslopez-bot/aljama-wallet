@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DeterministicVault,
   UserDeterministicWallet,
+  discoverAndLockChainPaths,
   discoverAccountsAndAddresses,
 } from '@/lib/crypto/deterministic-key-engine'
 
@@ -115,6 +116,31 @@ describe('deterministic-key-engine', () => {
     expect(found).toHaveLength(1)
     expect(found[0]?.chain).toBe('ETH')
     expect(found[0]?.discovered.some((item) => item.address === funded.address)).toBe(true)
+  })
+
+  it('silently locks the strongest discovered path per chain during import scan', async () => {
+    const vault = new DeterministicVault(
+      { id: 'public', mnemonic: TEST_MNEMONIC },
+      { passphrase: '' },
+    )
+
+    const addrLow = vault.deriveAtPath('BTC', "m/44'/0'/0'/0/0")
+    const addrHigh = vault.deriveAtPath('BTC', "m/84'/0'/0'/0/0")
+
+    const result = await discoverAndLockChainPaths({
+      vault,
+      chains: ['BTC'],
+      maxAccounts: 1,
+      maxAddrsPerAccount: 1,
+      getBalance: async (_chain, address) => {
+        if (address === addrLow.address) return 1n
+        if (address === addrHigh.address) return 3n
+        return 0n
+      },
+    })
+
+    expect(result.locks.BTC?.address).toBe(addrHigh.address)
+    expect(result.locks.BTC?.path).toBe("m/84'/0'/0'/0/0")
   })
 
   it('locks and blocks key derivation until unlocked again', () => {

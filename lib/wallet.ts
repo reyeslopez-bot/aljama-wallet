@@ -412,12 +412,15 @@ export {
   DeterministicVault,
   REGISTRY as DETERMINISTIC_CHAIN_REGISTRY,
   UserDeterministicWallet,
+  discoverAndLockChainPaths,
   discoverAccountsAndAddresses,
 } from '@/lib/crypto/deterministic-key-engine'
 
 export type {
   Chain,
   ChainRegistryEntry,
+  ChainPathLock,
+  ChainPathLockSet,
   CounterState,
   Curve,
   DerivedKey,

@@ -5,9 +5,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { clearWalletId, persistEncryptedSession } from '@/lib/storage/walletSession'
 import {
+  UserDeterministicWallet,
+  deriveWalletFromMnemonic,
   encodeWalletToEncrypted,
   generateMnemonicWallet,
-  type MnemonicWalletMaterial,
+  type Chain,
+  type WalletMaterial,
 } from '@/lib/wallet'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
@@ -15,9 +18,35 @@ import { useSession } from 'next-auth/react'
 import { buildOnRampUrl, isUsingDefaultOnRampTemplate } from '@/lib/payment/onramp'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
-type WalletPreview = {
+type WalletSpaceId = 'main' | 'hidden'
+type UxPhase = 'setup' | 'recovery' | 'provisioning' | 'ready' | 'error'
+
+type NetworkPreview = {
+  chain: Chain
+  networkLabel: string
+  account: number
   address: string
+}
+
+type VaultSpacePreview = {
+  id: WalletSpaceId
+  title: string
+  visibilityLabel: string
+  networks: NetworkPreview[]
+}
+
+type WalletPreview = {
+  activeAddress: string
   wordCount: number
+  spaces: VaultSpacePreview[]
+}
+
+type WalletDraft = {
+  mnemonic: string
+  wordCount: number
+  main: WalletMaterial
+  hidden?: WalletMaterial
+  hiddenPassphrase: string
 }
 
 type KeystoreFile = {
@@ -42,6 +71,11 @@ const COMMON_WORD_PATTERN = /(password|wallet|crypto|qwerty|letmein|admin|secret
 const REPEATED_PATTERN = /(.)\1{2,}/
 const SEQUENCE_PATTERN = /(0123|1234|2345|3456|4567|5678|6789|7890|abcd|bcde|cdef|defg|qwer|asdf|zxcv)/i
 const RECOVERY_WORD_CHECK_COUNT = 3
+const PREVIEW_NETWORKS: Array<{ chain: Chain; networkLabel: string; account: number }> = [
+  { chain: 'ETH', networkLabel: 'Ethereum', account: 0 },
+  { chain: 'BTC', networkLabel: 'Bitcoin', account: 0 },
+  { chain: 'XRPL_SECP', networkLabel: 'XRPL', account: 0 },
+]
 
 type PassphraseStrength = 'weak' | 'good' | 'strong'
 type PassphraseValidation = {
@@ -180,6 +214,42 @@ function buildKeystoreFile(payload: KeystoreFile): string {
   )
 }
 
+function mapUxToEngineState(phase: UxPhase, hasHiddenVault: boolean): string {
+  switch (phase) {
+    case 'setup':
+      return 'Seed locked'
+    case 'recovery':
+      return 'Recovery verification'
+    case 'provisioning':
+      return hasHiddenVault ? 'Main + hidden vault provisioning' : 'Main vault provisioning'
+    case 'ready':
+      return hasHiddenVault ? 'Main + hidden vault sealed' : 'Main vault active'
+    case 'error':
+      return 'Action required'
+    default:
+      return 'Seed locked'
+  }
+}
+
+function buildFallbackSpace(
+  id: WalletSpaceId,
+  title: string,
+  visibilityLabel: string,
+  address: string,
+): VaultSpacePreview {
+  return {
+    id,
+    title,
+    visibilityLabel,
+    networks: PREVIEW_NETWORKS.map((network) => ({
+      chain: network.chain,
+      networkLabel: network.networkLabel,
+      account: network.account,
+      address: network.chain === 'ETH' ? address : '—',
+    })),
+  }
+}
+
 export function CreateWalletPanel() {
   useComponentTelemetry('CreateWalletPanel')
   const t = useTranslations('createWallet')
@@ -192,11 +262,12 @@ export function CreateWalletPanel() {
   const [mnemonicPassphrase, setMnemonicPassphrase] = useState('')
   const [useOptionalMnemonicPassphrase, setUseOptionalMnemonicPassphrase] = useState(false)
   const [status, setStatus] = useState<Status>('idle')
+  const [phase, setPhase] = useState<UxPhase>('setup')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [mode, setMode] = useState<'custody' | 'session-only' | null>(null)
   const [walletPreview, setWalletPreview] = useState<WalletPreview | null>(null)
-  const [walletDraft, setWalletDraft] = useState<MnemonicWalletMaterial | null>(null)
+  const [walletDraft, setWalletDraft] = useState<WalletDraft | null>(null)
   const [recoveryWordSlots, setRecoveryWordSlots] = useState<number[]>([])
   const [recoveryWords, setRecoveryWords] = useState<Record<number, string>>({})
   const [recoveryBackedUp, setRecoveryBackedUp] = useState(false)
@@ -212,7 +283,7 @@ export function CreateWalletPanel() {
   const passphraseValidation = useMemo(() => evaluatePassphrase(password), [password])
   const onRampTemplate = process.env.NEXT_PUBLIC_ONRAMP_URL_TEMPLATE
   const usingDefaultOnRamp = isUsingDefaultOnRampTemplate(onRampTemplate)
-  const onRampUrl = walletPreview ? buildOnRampUrl(walletPreview.address, onRampTemplate) : undefined
+  const onRampUrl = walletPreview ? buildOnRampUrl(walletPreview.activeAddress, onRampTemplate) : undefined
   const strengthLevel =
     passphraseValidation.strength === 'strong' ? 3 : passphraseValidation.strength === 'good' ? 2 : 1
   const strengthFillWidth = strengthLevel === 3 ? '100%' : strengthLevel === 2 ? '66%' : '33%'
@@ -226,6 +297,10 @@ export function CreateWalletPanel() {
     'inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-base font-semibold tracking-wide transition hover:scale-[1.02] hover:shadow-xl focus:outline-none disabled:cursor-not-allowed disabled:opacity-60'
 
   const draftWords = useMemo(() => walletDraft?.mnemonic.split(' ') ?? [], [walletDraft])
+  const engineStateLabel = useMemo(
+    () => mapUxToEngineState(phase, Boolean(walletDraft?.hidden || walletPreview?.spaces.some((space) => space.id === 'hidden'))),
+    [phase, walletDraft?.hidden, walletPreview?.spaces],
+  )
   const verifyRecoveryWords = useMemo(() => {
     if (!walletDraft || recoveryWordSlots.length === 0) {
       return false
@@ -273,7 +348,7 @@ export function CreateWalletPanel() {
     if (!walletPreview) return
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
     try {
-      await navigator.clipboard.writeText(walletPreview.address)
+      await navigator.clipboard.writeText(walletPreview.activeAddress)
       setAddressCopied(true)
     } catch {
       // ignore clipboard failures
@@ -355,10 +430,24 @@ export function CreateWalletPanel() {
   }
 
   const beginRecoveryStep = () => {
-    const nextDraft = generateMnemonicWallet({
-      mnemonicPassphrase: useOptionalMnemonicPassphrase ? mnemonicPassphrase.trim() : '',
-      wordCount: 24,
-    })
+    const baseDraft = generateMnemonicWallet({ wordCount: 24 })
+    const hiddenPassphrase = useOptionalMnemonicPassphrase ? mnemonicPassphrase.trim() : ''
+
+    let hiddenWallet: WalletMaterial | undefined
+    if (hiddenPassphrase) {
+      hiddenWallet = deriveWalletFromMnemonic({
+        mnemonic: baseDraft.mnemonic,
+        mnemonicPassphrase: hiddenPassphrase,
+      })
+    }
+
+    const nextDraft: WalletDraft = {
+      mnemonic: baseDraft.mnemonic,
+      wordCount: baseDraft.wordCount,
+      main: { address: baseDraft.address, privateKey: baseDraft.privateKey },
+      hidden: hiddenWallet,
+      hiddenPassphrase,
+    }
 
     const recoverySlots = buildRecoveryWordSlots(nextDraft.wordCount)
     setWalletDraft(nextDraft)
@@ -366,16 +455,17 @@ export function CreateWalletPanel() {
     setRecoveryWords({})
     setRecoveryBackedUp(false)
     setRecoveryLossAccepted(false)
+    setPhase('recovery')
     setStatus('idle')
     setNotice(t('verifyPrompt'))
     setCreateWalletStatus('idle')
   }
 
-  const finalizeWallet = async (draft: MnemonicWalletMaterial) => {
+  const finalizeWallet = async (draft: WalletDraft) => {
     const encrypted = await encodeWalletToEncrypted(
       {
-        address: draft.address,
-        privateKey: draft.privateKey,
+        address: draft.main.address,
+        privateKey: draft.main.privateKey,
       },
       password.trim(),
     )
@@ -383,21 +473,80 @@ export function CreateWalletPanel() {
     persistEncryptedSession(encrypted)
     clearWalletId()
 
+    let spaces: VaultSpacePreview[] = []
+    try {
+      const deterministic = new UserDeterministicWallet(draft.mnemonic)
+      const mainSpace: VaultSpacePreview = {
+        id: 'main',
+        title: t('mainWalletTitle'),
+        visibilityLabel: t('walletVisibilityMain'),
+        networks: PREVIEW_NETWORKS.map((network) => {
+          const key = deterministic.publicVault.derive({
+            chain: network.chain,
+            account: network.account,
+            change: 0,
+            index: 0,
+          })
+          return {
+            chain: network.chain,
+            networkLabel: network.networkLabel,
+            account: network.account,
+            address: key.address,
+          }
+        }),
+      }
+      spaces.push(mainSpace)
+
+      if (draft.hiddenPassphrase) {
+        deterministic.unlockPrivateVault(draft.hiddenPassphrase)
+        const hiddenSpace: VaultSpacePreview = {
+          id: 'hidden',
+          title: t('hiddenVaultTitle'),
+          visibilityLabel: t('walletVisibilityHidden'),
+          networks: PREVIEW_NETWORKS.map((network) => {
+            const key = deterministic.privateVault.derive({
+              chain: network.chain,
+              account: network.account,
+              change: 0,
+              index: 0,
+            })
+            return {
+              chain: network.chain,
+              networkLabel: network.networkLabel,
+              account: network.account,
+              address: key.address,
+            }
+          }),
+        }
+        spaces.push(hiddenSpace)
+        deterministic.lockPrivateVault()
+      }
+    } catch {
+      spaces = [
+        buildFallbackSpace('main', t('mainWalletTitle'), t('walletVisibilityMain'), draft.main.address),
+        ...(draft.hidden
+          ? [buildFallbackSpace('hidden', t('hiddenVaultTitle'), t('walletVisibilityHidden'), draft.hidden.address)]
+          : []),
+      ]
+    }
+
     setWalletPreview({
-      address: draft.address,
+      activeAddress: draft.main.address,
       wordCount: draft.wordCount,
+      spaces,
     })
     setKeystoreFile({
-      address: draft.address,
+      address: draft.main.address,
       encrypted,
       wordCount: draft.wordCount,
     })
 
     setMode('session-only')
+    setPhase('ready')
     setStatus('success')
     setNotice(t('localOnlyNotice'))
     setCreateWalletStatus('success')
-    setCreatedWalletAddress(draft.address)
+    setCreatedWalletAddress(draft.main.address)
     setWalletDraft(null)
     setRecoveryWordSlots([])
     setRecoveryWords({})
@@ -443,6 +592,7 @@ export function CreateWalletPanel() {
         throw new Error(t('recoveryAckRequired'))
       }
 
+      setPhase('provisioning')
       setCreateWalletStatus('pending')
       await finalizeWallet(walletDraft)
     } catch (err) {
@@ -450,6 +600,7 @@ export function CreateWalletPanel() {
       const message = err instanceof Error ? err.message : t('createFailed')
       setError(message)
       setStatus('error')
+      setPhase('error')
       setCreateWalletStatus('error', message)
     }
   }
@@ -470,6 +621,10 @@ export function CreateWalletPanel() {
           {status === 'success' ? t('badgeReady') : t('badgeCustody')}
         </span>
       </header>
+
+      <p className="mt-3 text-[11px] uppercase tracking-[0.18em] text-ivory/45">
+        {t('engineStateLabel')}: {engineStateLabel}
+      </p>
 
       <form onSubmit={submit} className="relative mt-6 space-y-4">
         <label className="block text-xs uppercase tracking-[0.16em] text-ivory/60">{t('passwordLabel')}</label>
@@ -777,7 +932,7 @@ export function CreateWalletPanel() {
             <p className="text-sm text-ivory/70">{t('readyBody')}</p>
             <div className="rounded-xl border border-jade/30 bg-jade/10 px-4 py-3 text-sm text-jade">
               <p className="text-xs uppercase tracking-[0.14em] text-jade/80">{t('addressLabel')}</p>
-              <p className="mt-1 break-all font-mono text-base">{walletPreview.address}</p>
+              <p className="mt-1 break-all font-mono text-base">{walletPreview.activeAddress}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -803,6 +958,39 @@ export function CreateWalletPanel() {
                 </a>
               </div>
               {usingDefaultOnRamp && <p className="mt-2 text-[11px] text-ivory/55">{t('buyWithCardDisabled')}</p>}
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-ivory/80">{t('vaultSpacesTitle')}</p>
+              <p className="mt-1 text-xs text-ivory/65">{t('vaultSpacesBody')}</p>
+              <div className="mt-3 space-y-3">
+                {walletPreview.spaces.map((space) => (
+                  <div key={space.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ivory/85">
+                        {space.title}
+                      </p>
+                      <span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] text-ivory/70">
+                        {space.visibilityLabel}
+                      </span>
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      {space.networks.map((network) => (
+                        <div key={`${space.id}-${network.chain}`} className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
+                          <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.12em] text-ivory/60">
+                            <span>{network.networkLabel}</span>
+                            <span>•</span>
+                            <span>
+                              {t('accountLabel')} {network.account + 1}
+                            </span>
+                          </div>
+                          <p className="mt-1 break-all font-mono text-xs text-ivory/85">{network.address}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] text-ivory/55">{t('coercionSafeHint')}</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
               <p className="text-xs uppercase tracking-[0.14em] text-saffron/80">{t('receiveCryptoTitle')}</p>

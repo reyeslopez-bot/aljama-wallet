@@ -546,3 +546,56 @@ export async function discoverAccountsAndAddresses(opts: {
 
   return results
 }
+
+export type ChainPathLock = {
+  chain: Chain
+  account: number
+  path: string
+  address: string
+  balance: bigint
+}
+
+export type ChainPathLockSet = Partial<Record<Chain, ChainPathLock>>
+
+export async function discoverAndLockChainPaths(opts: {
+  vault: DeterministicVault
+  chains: Chain[]
+  maxAccounts: number
+  maxAddrsPerAccount: number
+  getBalance: (chain: Chain, address: string) => Promise<bigint>
+}): Promise<{
+  discoveries: Array<{
+    chain: Chain
+    account: number
+    discovered: Array<{ path: string; address: string; balance: bigint }>
+  }>
+  locks: ChainPathLockSet
+}> {
+  const discoveries = await discoverAccountsAndAddresses(opts)
+  const locks: ChainPathLockSet = {}
+
+  for (const chain of opts.chains) {
+    const chainHits = discoveries.filter((entry) => entry.chain === chain)
+    const flattened = chainHits.flatMap((entry) =>
+      entry.discovered.map((hit) => ({
+        chain,
+        account: entry.account,
+        path: hit.path,
+        address: hit.address,
+        balance: hit.balance,
+      })),
+    )
+
+    if (!flattened.length) continue
+
+    let best = flattened[0]
+    for (const candidate of flattened.slice(1)) {
+      if (candidate.balance > best.balance) {
+        best = candidate
+      }
+    }
+    locks[chain] = best
+  }
+
+  return { discoveries, locks }
+}
