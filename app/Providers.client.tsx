@@ -5,7 +5,6 @@ import { SessionProvider } from 'next-auth/react'
 import type { Session } from 'next-auth'
 import Web3Providers from './Web3Providers.client'
 import TelemetryProvider from '@/components/telemetry/TelemetryProvider.client'
-import ConsentBanner from '@/components/telemetry/ConsentBanner.client'
 import DevReset from '@/components/telemetry/DevReset.client'
 
 export default function Providers({
@@ -22,7 +21,6 @@ export default function Providers({
         <Suspense fallback={null}>
           <TelemetryProvider>
             {children}
-            <ConsentBanner />
           </TelemetryProvider>
         </Suspense>
       </Web3Providers>
