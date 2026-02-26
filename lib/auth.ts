@@ -52,7 +52,6 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email ?? undefined,
           name: user.name ?? undefined,
-          image: user.image ?? undefined,
         }
       },
     }),

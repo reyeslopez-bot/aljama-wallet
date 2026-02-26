@@ -206,6 +206,7 @@ export function CreateWalletPanel() {
   const [recoveryLossAccepted, setRecoveryLossAccepted] = useState(false)
   const [keystoreFile, setKeystoreFile] = useState<KeystoreFile | null>(null)
   const [addressCopied, setAddressCopied] = useState(false)
+  const [passphraseCopied, setPassphraseCopied] = useState(false)
   const [keystoreDownloaded, setKeystoreDownloaded] = useState(false)
   const setCreateWalletStatus = useDynamicInfoStore((s) => s.setCreateWalletStatus)
   const setCreatedWalletAddress = useDynamicInfoStore((s) => s.setCreatedWalletAddress)
@@ -253,6 +254,12 @@ export function CreateWalletPanel() {
   }, [addressCopied])
 
   useEffect(() => {
+    if (!passphraseCopied) return
+    const timeout = window.setTimeout(() => setPassphraseCopied(false), 1800)
+    return () => window.clearTimeout(timeout)
+  }, [passphraseCopied])
+
+  useEffect(() => {
     if (!keystoreDownloaded) return
     const timeout = window.setTimeout(() => setKeystoreDownloaded(false), 1800)
     return () => window.clearTimeout(timeout)
@@ -264,6 +271,19 @@ export function CreateWalletPanel() {
     try {
       await navigator.clipboard.writeText(walletPreview.address)
       setAddressCopied(true)
+    } catch {
+      // ignore clipboard failures
+    }
+  }
+
+  const copyPassphrase = async () => {
+    const passphrase = password.trim()
+    if (!passphrase) return
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+
+    try {
+      await navigator.clipboard.writeText(passphrase)
+      setPassphraseCopied(true)
     } catch {
       // ignore clipboard failures
     }
@@ -432,8 +452,6 @@ export function CreateWalletPanel() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              onCopy={preventSensitiveCopy}
-              onCut={preventSensitiveCopy}
               placeholder={t('passwordPlaceholder')}
               disabled={locked || status === 'pending'}
               className="w-full bg-transparent text-base text-ivory placeholder:text-ivory/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
@@ -769,7 +787,13 @@ export function CreateWalletPanel() {
                 <p className="text-xs uppercase tracking-[0.14em] text-lapis/90">{t('passphraseOfferTitle')}</p>
                 <p className="mt-1 text-xs text-ivory/70">{t('passphraseOfferBody')}</p>
                 <p className="mt-2 font-mono text-sm text-ivory/70">{'*'.repeat(24)}</p>
-                <p className="mt-3 text-xs text-ivory/60">{t('passphraseNoCopy')}</p>
+                <button
+                  type="button"
+                  onClick={() => void copyPassphrase()}
+                  className="mt-3 rounded-full border border-lapis/35 bg-lapis/15 px-3 py-1.5 text-xs font-semibold text-lapis transition hover:bg-lapis/25"
+                >
+                  {passphraseCopied ? t('copiedPassphrase') : t('copyPassphrase')}
+                </button>
               </div>
             )}
           </div>

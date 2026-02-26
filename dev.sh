@@ -187,6 +187,7 @@ PORT_PUBLISH="127.0.0.1:${APP_PORT}:${APP_PORT}"
     "${ENV_FILE_ARGS[@]}" \
     "${DB_ENV_ARGS[@]}" \
     -p "$PORT_PUBLISH" \
+  -e AUTH_MODE="${AUTH_MODE:-memory}" \
   -e PORT="$APP_PORT" \
   -e PNPM_VERSION="$PNPM_VERSION" \
   -e COREPACK_ENABLE_STRICT=1 \

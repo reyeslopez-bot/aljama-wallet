@@ -129,8 +129,14 @@ describe('CreateWalletPanel', () => {
     expect(buyWithCard.getAttribute('href')).toContain('walletAddress=0x1111111111111111111111111111111111111111')
   })
 
-  it('shows manual passphrase backup guidance and disables copy actions', () => {
-    const { getByRole, getByPlaceholderText, getByText, queryByRole } = render(<CreateWalletPanel />)
+  it('shows passphrase backup guidance and allows copying generated passphrase', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    const { getByRole, getByPlaceholderText, getByText } = render(<CreateWalletPanel />)
 
     fireEvent.click(getByRole('button', { name: 'Generate Passphrase' }))
 
@@ -138,11 +144,13 @@ describe('CreateWalletPanel', () => {
     expect(input.value.length).toBeGreaterThanOrEqual(32)
     expect(getByText('Strong')).toBeTruthy()
     expect(getByText('Encrypted passphrase ready')).toBeTruthy()
-    expect(getByText('Copy is disabled for safety. Write your passphrase down manually.')).toBeTruthy()
-    expect(queryByRole('button', { name: 'Copy passphrase' })).toBeNull()
+    const copyButton = getByRole('button', { name: 'Copy passphrase' })
+    fireEvent.click(copyButton)
 
-    fireEvent.copy(input)
-    expect(getByText('Copy is disabled for sensitive secrets. Write it down manually.')).toBeTruthy()
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(input.value)
+      expect(getByText('Passphrase copied')).toBeTruthy()
+    })
   })
 
   it('uses custom on-ramp template and hides default-provider notice', async () => {

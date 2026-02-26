@@ -6,6 +6,7 @@ type FlowStatus = 'idle' | 'pending' | 'success' | 'error'
 type DynamicUserInfo = {
   name: string
   role: string
+  image?: string | null
 }
 
 type DynamicWalletInfo = {

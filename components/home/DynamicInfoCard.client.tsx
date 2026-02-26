@@ -10,6 +10,7 @@ import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
 import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
+import { loadProfileImageForUsername } from '@/lib/storage/profileImage'
 
 function formatShortAddress(address: string) {
   const trimmed = address.trim()
@@ -175,14 +176,17 @@ export default function DynamicInfoCard() {
     if (sessionStatus === 'authenticated') {
       const email = session?.user?.email?.trim() ?? ''
       const displayName = session?.user?.name?.trim() || (email ? email.split('@')[0] : t('status.available'))
+      const sessionImage = session?.user?.image?.trim() || null
+      const fallbackImage = sessionImage ? null : loadProfileImageForUsername(displayName)
       setUser({
         name: displayName,
         role: email || t('status.available'),
+        image: sessionImage ?? fallbackImage,
       })
       return
     }
     setUser(null)
-  }, [session?.user?.email, session?.user?.name, sessionStatus, setUser, t])
+  }, [session?.user?.email, session?.user?.image, session?.user?.name, sessionStatus, setUser, t])
 
   useEffect(() => {
     setNow(new Date())
@@ -287,6 +291,7 @@ export default function DynamicInfoCard() {
     if (wallet.createdAddress) return formatShortAddress(wallet.createdAddress)
     return user?.name ?? 'Guest'
   }, [user?.name, wallet.connectedAddress, wallet.createdAddress])
+  const avatarImage = user?.image?.trim() || null
 
   const secondaryLine = useMemo(() => {
     if (wallet.connectedAddress) {
@@ -367,13 +372,21 @@ export default function DynamicInfoCard() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#c7794a] via-[#e0bf7f] to-[#4b9577] p-[1px]">
-                <div
-                  className={`flex h-full w-full items-center justify-center rounded-full text-xs font-semibold ${
-                    isLightTheme ? 'bg-white/85 text-[#1d2f45]/90' : 'bg-black/80 text-ivory/80'
-                  }`}
-                >
-                  {(primaryLine[0] ?? 'G').toUpperCase()}
-                </div>
+                {avatarImage ? (
+                  <img
+                    src={avatarImage}
+                    alt={`${primaryLine} avatar`}
+                    className="h-full w-full rounded-full border border-white/15 object-cover"
+                  />
+                ) : (
+                  <div
+                    className={`flex h-full w-full items-center justify-center rounded-full text-xs font-semibold ${
+                      isLightTheme ? 'bg-white/85 text-[#1d2f45]/90' : 'bg-black/80 text-ivory/80'
+                    }`}
+                  >
+                    {(primaryLine[0] ?? 'G').toUpperCase()}
+                  </div>
+                )}
               </div>
 
               <div className="min-w-0">

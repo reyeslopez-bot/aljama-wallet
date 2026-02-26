@@ -5,6 +5,7 @@ import { signIn, useSession } from "next-auth/react"
 import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { hasRecognizedDevice } from "@/infra/telemetry/client"
+import { persistProfileImageForUsername } from "@/lib/storage/profileImage"
 
 type Props = {
   title?: string
@@ -145,8 +146,9 @@ export default function LoginGate({
           }),
         })
 
+        const body = await res.json().catch(() => null)
+
         if (!res.ok) {
-          const body = await res.json().catch(() => null)
           let message = t("registerFailed")
           if (body?.code === "user_exists" || body?.error === "User already exists") {
             message = t("emailExists")
@@ -161,6 +163,14 @@ export default function LoginGate({
           }
           setError(message)
           return
+        }
+
+        if (profileImage) {
+          const persistedUsername =
+            typeof body?.user?.username === "string" && body.user.username.trim()
+              ? body.user.username.trim()
+              : normalizedUsername
+          persistProfileImageForUsername(persistedUsername, profileImage)
         }
 
         setNotice(t("registerSuccess"))
