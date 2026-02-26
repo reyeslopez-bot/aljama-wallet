@@ -217,7 +217,7 @@
     "noConnectorNote": "לא נמצא מחבר ארנק. התקינו ארנק דפדפן או הגדירו NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID עבור WalletConnect."
   },
   "xrpl": {
-    "eyebrow": "XRPL + Ledger",
+    "eyebrow": "XRP + Ledger",
     "title": "XRP Ledger מוכן",
     "body": "בחרו סביבת XRPL, בדקו נקודות קצה, ומשכו תמונת מצב חשבון לפי דרישה.",
     "statusSyncing": "מסנכרן",
@@ -228,7 +228,12 @@
     "empty": "אין נתוני XRPL נטענים.",
     "refresh": "רענון תמונת מצב XRPL",
     "networkSelectorLabel": "בחירת רשת",
-    "networkSelectorHint": "Mainnet משתמש ב-XRP אמיתי. רשתות בדיקה/פיתוח אינן פרודקשן ועלולות להתאפס.",
+    "networkSelectorHint": "Mainnet משתמש ב-XRP אמיתי. Testnet אינה פרודקשן. Devnet מוסתרת מאחורי בקרות מפתחים מתקדמות.",
+    "debugMenuButton": "תפריט דיבאג",
+    "developerModeLabel": "מצב מפתח",
+    "developerModeHint": "הפעילו בקרות XRPL מתקדמות.",
+    "advancedDevnetLabel": "הצגת Devnet",
+    "advancedDevnetHint": "חשפו את Devnet בבחירת הרשת.",
     "networkTypeMainnet": "פרודקשן",
     "networkTypeNonProduction": "לא פרודקשן",
     "selectedNetwork": "רשת נבחרת",

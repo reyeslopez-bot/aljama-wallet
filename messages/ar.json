@@ -217,7 +217,7 @@
     "noConnectorNote": "لم يتم العثور على موصل محفظة. ثبّت محفظة للمتصفح أو اضبط NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID لـ WalletConnect."
   },
   "xrpl": {
-    "eyebrow": "XRPL + Ledger",
+    "eyebrow": "XRP + Ledger",
     "title": "جاهز لـ XRP Ledger",
     "body": "اختر بيئة XRPL، راجع نقاط النهاية، واسحب لقطات الحساب عند الطلب.",
     "statusSyncing": "جارٍ المزامنة",
@@ -228,7 +228,12 @@
     "empty": "لا توجد بيانات XRPL محمّلة.",
     "refresh": "تحديث لقطة XRPL",
     "networkSelectorLabel": "اختيار الشبكة",
-    "networkSelectorHint": "شبكة Mainnet تستخدم XRP الحقيقي. شبكات الاختبار/التطوير غير إنتاجية وقد تتم إعادة ضبطها.",
+    "networkSelectorHint": "شبكة Mainnet تستخدم XRP الحقيقي. شبكة Testnet غير إنتاجية. يتم إخفاء Devnet خلف أدوات متقدمة للمطورين.",
+    "debugMenuButton": "قائمة التصحيح",
+    "developerModeLabel": "وضع المطوّر",
+    "developerModeHint": "فعّل عناصر تحكم XRPL المتقدمة.",
+    "advancedDevnetLabel": "إظهار Devnet",
+    "advancedDevnetHint": "اعرض Devnet داخل اختيار الشبكة.",
     "networkTypeMainnet": "إنتاج",
     "networkTypeNonProduction": "غير إنتاج",
     "selectedNetwork": "الشبكة المحددة",

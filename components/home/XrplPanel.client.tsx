@@ -6,7 +6,7 @@ import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import {
-  XRPL_NETWORKS,
+  DEFAULT_XRPL_NETWORK_ID,
   XRPL_NETWORKS_BY_ID,
   type XrplNetwork,
 } from '@/lib/xrpl-networks'
@@ -30,6 +30,9 @@ const initialState: XrplState = {
   account: null,
 }
 
+const XRPL_DEVELOPER_MODE_STORAGE_KEY = 'aljama.xrpl.developerMode'
+const XRPL_ADVANCED_DEVNET_STORAGE_KEY = 'aljama.xrpl.advancedDevnet'
+
 function toneForNetwork(network: XrplNetwork) {
   if (network.isProduction) return 'border-red-300/35 bg-red-500/15 text-red-100'
   if (network.canResetWithoutWarning) return 'border-amber-300/35 bg-amber-500/15 text-amber-100'
@@ -42,17 +45,55 @@ export function XrplPanel() {
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === 'unauthenticated'
   const [copiedEndpoint, setCopiedEndpoint] = useState<'rpc' | 'wss' | 'explorer' | null>(null)
+  const [debugMenuOpen, setDebugMenuOpen] = useState(false)
+  const [developerModeEnabled, setDeveloperModeEnabled] = useState(false)
+  const [advancedDevnetEnabled, setAdvancedDevnetEnabled] = useState(false)
 
   const selectedNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
   const setSelectedNetworkId = useXrplNetworkStore((s) => s.setSelectedNetworkId)
   const [state, setState] = useState<XrplState>(initialState)
   const requestIdRef = useRef(0)
 
+  const devnetFlagEnabled = process.env.NEXT_PUBLIC_XRPL_DEVNET_ENABLED === 'true'
+  const showDevnet = devnetFlagEnabled && developerModeEnabled && advancedDevnetEnabled
+  const selectableNetworks = useMemo(() => {
+    const baseNetworks = [XRPL_NETWORKS_BY_ID.mainnet, XRPL_NETWORKS_BY_ID.testnet]
+    return showDevnet ? [...baseNetworks, XRPL_NETWORKS_BY_ID.devnet] : baseNetworks
+  }, [showDevnet])
+
   const selectedNetwork = useMemo(
-    () => XRPL_NETWORKS_BY_ID[selectedNetworkId],
-    [selectedNetworkId],
+    () =>
+      selectableNetworks.find((network) => network.id === selectedNetworkId) ??
+      XRPL_NETWORKS_BY_ID[DEFAULT_XRPL_NETWORK_ID],
+    [selectableNetworks, selectedNetworkId],
   )
   const hasDedicatedExplorer = selectedNetwork.explorerUrl !== selectedNetwork.rpcUrl
+
+  useEffect(() => {
+    if (!devnetFlagEnabled || typeof window === 'undefined') return
+    const storage = window.localStorage
+    if (!storage || typeof storage.getItem !== 'function') return
+    setDeveloperModeEnabled(storage.getItem(XRPL_DEVELOPER_MODE_STORAGE_KEY) === 'true')
+    setAdvancedDevnetEnabled(storage.getItem(XRPL_ADVANCED_DEVNET_STORAGE_KEY) === 'true')
+  }, [devnetFlagEnabled])
+
+  useEffect(() => {
+    if (!devnetFlagEnabled || typeof window === 'undefined') return
+    const storage = window.localStorage
+    if (!storage || typeof storage.setItem !== 'function') return
+    storage.setItem(XRPL_DEVELOPER_MODE_STORAGE_KEY, developerModeEnabled ? 'true' : 'false')
+    storage.setItem(XRPL_ADVANCED_DEVNET_STORAGE_KEY, advancedDevnetEnabled ? 'true' : 'false')
+  }, [advancedDevnetEnabled, developerModeEnabled, devnetFlagEnabled])
+
+  useEffect(() => {
+    if (developerModeEnabled || !advancedDevnetEnabled) return
+    setAdvancedDevnetEnabled(false)
+  }, [advancedDevnetEnabled, developerModeEnabled])
+
+  useEffect(() => {
+    if (selectableNetworks.some((network) => network.id === selectedNetworkId)) return
+    setSelectedNetworkId(DEFAULT_XRPL_NETWORK_ID)
+  }, [selectableNetworks, selectedNetworkId, setSelectedNetworkId])
 
   const loadAccount = useCallback(async () => {
     const requestId = ++requestIdRef.current
@@ -134,8 +175,70 @@ export function XrplPanel() {
             <p className="text-xs text-ivory/60">{t('networkSelectorHint')}</p>
           </div>
 
+          {devnetFlagEnabled ? (
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+              <button
+                type="button"
+                onClick={() => setDebugMenuOpen((prev) => !prev)}
+                className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ivory/80 transition hover:bg-white/10"
+              >
+                {t('debugMenuButton')}
+              </button>
+
+              {debugMenuOpen ? (
+                <div className="mt-3 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-ivory/90">{t('developerModeLabel')}</p>
+                      <p className="text-[11px] text-ivory/55">{t('developerModeHint')}</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={developerModeEnabled}
+                      aria-label={t('developerModeLabel')}
+                      onClick={() => setDeveloperModeEnabled((prev) => !prev)}
+                      className="relative h-7 w-12 rounded-full border border-white/20 bg-white/10 transition"
+                    >
+                      <span
+                        className={`absolute top-0.5 h-[22px] w-[22px] rounded-full bg-white transition ${
+                          developerModeEnabled ? 'left-6 bg-white shadow-[0_0_12px_rgba(240,215,160,0.35)]' : 'left-0.5 bg-white/95'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className={`flex items-center justify-between gap-3 ${!developerModeEnabled ? 'opacity-60' : ''}`}>
+                    <div>
+                      <p className="text-xs font-semibold text-ivory/90">{t('advancedDevnetLabel')}</p>
+                      <p className="text-[11px] text-ivory/55">{t('advancedDevnetHint')}</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={advancedDevnetEnabled}
+                      aria-label={t('advancedDevnetLabel')}
+                      onClick={() => {
+                        if (!developerModeEnabled) return
+                        setAdvancedDevnetEnabled((prev) => !prev)
+                      }}
+                      disabled={!developerModeEnabled}
+                      className="relative h-7 w-12 rounded-full border border-white/20 bg-white/10 transition disabled:cursor-not-allowed"
+                    >
+                      <span
+                        className={`absolute top-0.5 h-[22px] w-[22px] rounded-full bg-white transition ${
+                          advancedDevnetEnabled ? 'left-6 bg-white shadow-[0_0_12px_rgba(127,163,193,0.35)]' : 'left-0.5 bg-white/95'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {XRPL_NETWORKS.map((network) => {
+            {selectableNetworks.map((network) => {
               const active = network.id === selectedNetwork.id
               return (
                 <button

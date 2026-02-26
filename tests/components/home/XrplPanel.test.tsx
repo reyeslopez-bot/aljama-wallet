@@ -20,6 +20,11 @@ const mockedUseSession = vi.mocked(useSession)
 describe('XrplPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    if (window.localStorage && typeof window.localStorage.removeItem === 'function') {
+      window.localStorage.removeItem('aljama.xrpl.network')
+      window.localStorage.removeItem('aljama.xrpl.developerMode')
+      window.localStorage.removeItem('aljama.xrpl.advancedDevnet')
+    }
     mockedUseSession.mockReturnValue({
       data: { user: { id: 'test-user', email: 'test@example.com' } },
       status: 'authenticated',
@@ -28,6 +33,7 @@ describe('XrplPanel', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
   })
 
   it('loads XRPL account and supports refresh button when authenticated', async () => {
@@ -121,6 +127,8 @@ describe('XrplPanel', () => {
   })
 
   it('does not show a faucet action for testnet or devnet', async () => {
+    vi.stubEnv('NEXT_PUBLIC_XRPL_DEVNET_ENABLED', 'true')
+
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -136,12 +144,17 @@ describe('XrplPanel', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
     expect(queryByRole('link', { name: 'Open faucet' })).toBeNull()
+    expect(queryByRole('button', { name: /^Devnet/ })).toBeNull()
 
-    fireEvent.click(getByRole('button', { name: /^Devnet Non-production$/ }))
+    fireEvent.click(getByRole('button', { name: 'Debug menu' }))
+    fireEvent.click(getByRole('switch', { name: 'Developer mode' }))
+    fireEvent.click(getByRole('switch', { name: 'Show Devnet' }))
+    fireEvent.click(getByRole('button', { name: /^Devnet/ }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
     })
+    expect(fetchMock.mock.calls[1]?.[0]).toContain('network=devnet')
     expect(queryByRole('link', { name: 'Open faucet' })).toBeNull()
   })
 })

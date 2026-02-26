@@ -217,7 +217,7 @@
     "noConnectorNote": "No wallet connector detected. Install a browser wallet or set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID for WalletConnect."
   },
   "xrpl": {
-    "eyebrow": "XRPL + Ledger",
+    "eyebrow": "XRP + Ledger",
     "title": "XRP Ledger ready",
     "body": "Choose XRPL environment, inspect endpoints, and pull account snapshots on demand.",
     "statusSyncing": "Syncing",
@@ -228,7 +228,12 @@
     "empty": "No XRPL data loaded.",
     "refresh": "Refresh XRPL snapshot",
     "networkSelectorLabel": "Network Selection",
-    "networkSelectorHint": "Mainnet uses real XRP. Test/dev networks are non-production and may reset.",
+    "networkSelectorHint": "Mainnet uses real XRP. Testnet is non-production. Devnet stays hidden behind advanced controls.",
+    "debugMenuButton": "Debug menu",
+    "developerModeLabel": "Developer mode",
+    "developerModeHint": "Enable advanced XRPL controls.",
+    "advancedDevnetLabel": "Show Devnet",
+    "advancedDevnetHint": "Expose Devnet in the network selector.",
     "networkTypeMainnet": "Production",
     "networkTypeNonProduction": "Non-production",
     "selectedNetwork": "Selected network",
