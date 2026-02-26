@@ -652,7 +652,9 @@ export function CreateWalletPanel() {
 
         <div className="space-y-3">
           <div className="surface-inner flex w-full items-center gap-3 px-4 py-3 focus-within:border-saffron/50 focus-within:ring-2 focus-within:ring-saffron/25">
-            <span className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('passwordTag')}</span>
+            <span className="min-w-[7.25rem] shrink-0 text-xs uppercase tracking-[0.2em] text-saffron/70">
+              {t('passwordTag')}
+            </span>
             <input
               type="password"
               value={password}
@@ -696,7 +698,9 @@ export function CreateWalletPanel() {
           {useOptionalMnemonicPassphrase && (
             <>
               <div className="surface-inner flex w-full items-center gap-3 px-4 py-3 focus-within:border-lapis/50 focus-within:ring-2 focus-within:ring-lapis/25">
-                <span className="text-xs uppercase tracking-[0.2em] text-lapis/75">{t('mnemonicPassphraseTag')}</span>
+                <span className="min-w-[7.25rem] shrink-0 text-xs uppercase tracking-[0.2em] text-lapis/75">
+                  {t('mnemonicPassphraseTag')}
+                </span>
                 <input
                   type="password"
                   value={mnemonicPassphrase}
@@ -714,11 +718,7 @@ export function CreateWalletPanel() {
                   type="button"
                   onClick={generateOptionalMnemonicPassphrase}
                   disabled={locked || status === 'pending'}
-                  className="inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-ivory shadow-md shadow-[#355a7a]/35 transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-lapis/35 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                  style={{
-                    backgroundImage:
-                      'linear-gradient(to right in oklab, rgb(85, 131, 173) 0%, rgb(60, 102, 145) 55%, rgb(52, 87, 130) 100%)',
-                  }}
+                  className="inline-flex items-center justify-center rounded-lg border border-lapis/45 bg-lapis/20 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-ivory transition hover:bg-lapis/28 focus:outline-none focus:ring-2 focus:ring-lapis/35 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {t('generateMnemonicPassphrase')}
                 </button>
@@ -726,7 +726,7 @@ export function CreateWalletPanel() {
                   type="button"
                   onClick={() => void copyMnemonicPassphrase()}
                   disabled={locked || status === 'pending' || !mnemonicPassphrase.trim()}
-                  className="inline-flex w-full items-center justify-center rounded-xl border border-lapis/35 bg-lapis/14 px-4 py-2 text-sm font-semibold text-lapis transition hover:bg-lapis/22 focus:outline-none focus:ring-2 focus:ring-lapis/30 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  className="inline-flex items-center justify-center rounded-lg border border-lapis/35 bg-transparent px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-lapis transition hover:bg-lapis/16 focus:outline-none focus:ring-2 focus:ring-lapis/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {mnemonicPassphraseCopied ? t('copiedPassphrase') : t('copyPassphrase')}
                 </button>
