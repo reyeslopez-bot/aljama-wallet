@@ -133,6 +133,8 @@ function FooterCopyright() {
 
 export default function HomeContent() {
   const tHome = useTranslations('home')
+  const noCopyEnabled = process.env.NODE_ENV === 'production'
+  const showDevDeviation = process.env.NODE_ENV === 'development'
 
   const statBlocks = [
     {
@@ -156,7 +158,11 @@ export default function HomeContent() {
   ] satisfies HeroStatBlock[]
 
   return (
-    <div data-no-copy="true" className="relative mx-auto max-w-7xl space-y-24 pb-32 pt-28">
+    <div
+      data-no-copy={noCopyEnabled ? 'true' : undefined}
+      data-dev-deviation={showDevDeviation ? 'true' : undefined}
+      className="relative mx-auto max-w-7xl space-y-24 pb-32 pt-28"
+    >
       <ClientTrackWallet />
       <DynamicInfoCard />
 
