@@ -42,8 +42,10 @@
     ".next/types/**/*.ts",
     "global.d.ts",
     ".next/dev/types/**/*.ts",
-    "framer.d.ts"
-, "tailwind.config.mjs"  ],
+    "framer.d.ts",
+    "tailwind.config.mjs",
+    ".next/dev/dev/types/**/*.ts"
+  ],
   "exclude": [
     "node_modules",
     ".next"
