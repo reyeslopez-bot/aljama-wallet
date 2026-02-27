@@ -84,4 +84,22 @@ describe('app/api/xrpl/nfts route', () => {
     expect(body.ok).toBe(true)
     expect(body.nfts[0].nftokenId).toBe('0001')
   })
+
+  it('returns empty nft list when account is not found on the selected network', async () => {
+    mockRequest.mockRejectedValue({
+      name: 'RippledError',
+      message: 'Account not found.',
+      data: { error: 'actNotFound', error_message: 'Account not found.' },
+    })
+
+    const { GET } = await import('@/app/api/xrpl/nfts/route')
+    const res = await GET(new Request('http://localhost/api/xrpl/nfts?network=mainnet'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.ok).toBe(true)
+    expect(body.network).toBe('mainnet')
+    expect(body.account).toBe('rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh')
+    expect(body.nfts).toEqual([])
+  })
 })

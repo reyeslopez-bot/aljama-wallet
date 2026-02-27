@@ -5,8 +5,9 @@ import { errorJson, okJson } from '@/lib/security/api-response'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
 import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
+import { isXrplAccountNotFoundError } from '@/lib/xrpl-errors'
 import { getXrplSignerAddress } from '@/lib/xrpl-signer'
-import { getXrplAccountAssets } from '@/lib/xrpl-issued-assets'
+import { getAllowedIssuerSet, getXrplAccountAssets } from '@/lib/xrpl-issued-assets'
 
 export async function GET(req: Request) {
   try {
@@ -48,10 +49,35 @@ export async function GET(req: Request) {
       ? requestedNetwork
       : DEFAULT_XRPL_NETWORK_ID
 
-    const assets = await getXrplAccountAssets({
-      networkId,
-      account,
-    })
+    let assets
+    try {
+      assets = await getXrplAccountAssets({
+        networkId,
+        account,
+      })
+    } catch (error) {
+      if (!isXrplAccountNotFoundError(error)) {
+        throw error
+      }
+
+      assets = {
+        account,
+        network: networkId,
+        assets: [
+          {
+            assetType: 'xrp' as const,
+            currency: 'XRP',
+            issuer: null,
+            value: '0',
+            limit: null,
+            qualityIn: null,
+            qualityOut: null,
+          },
+        ],
+        filteredOut: 0,
+        allowlistEnabled: getAllowedIssuerSet().enabled,
+      }
+    }
 
     return okJson(assets)
   } catch (error) {

@@ -7,6 +7,7 @@ import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
 import { getXrplClient } from '@/infra/xrpl/client'
 import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
+import { isXrplAccountNotFoundError } from '@/lib/xrpl-errors'
 import { decodeHexUri, fetchNftMetadata } from '@/lib/xrpl-nft-metadata'
 import { getXrplSignerAddress } from '@/lib/xrpl-signer'
 
@@ -61,12 +62,27 @@ export async function GET(req: Request) {
     }
 
     const client = await getXrplClient(networkId)
-    const response = await client.request({
-      command: 'account_nfts',
-      account,
-      limit: parsed.data.limit ?? 20,
-      ...(parsed.data.marker ? { marker: parsed.data.marker } : {}),
-    })
+
+    let response
+    try {
+      response = await client.request({
+        command: 'account_nfts',
+        account,
+        limit: parsed.data.limit ?? 20,
+        ...(parsed.data.marker ? { marker: parsed.data.marker } : {}),
+      })
+    } catch (error) {
+      if (!isXrplAccountNotFoundError(error)) {
+        throw error
+      }
+
+      return okJson({
+        network: networkId,
+        account,
+        marker: null,
+        nfts: [],
+      })
+    }
 
     const result = response.result as {
       account_nfts?: Array<{
