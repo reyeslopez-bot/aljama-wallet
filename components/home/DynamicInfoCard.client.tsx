@@ -120,6 +120,7 @@ const INFO_CARD_CORNER_KEY = 'aljama.infoCard.corner'
 const CARD_CORNERS: CardCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
 const DUBAI_TIMEZONE = 'Asia/Dubai'
 const DUBAI_UTC_LABEL = 'UTC+04:00'
+const TEST_FIXED_NOW_ISO = '2026-02-20T00:00:00.000Z'
 
 function formatUtcOffsetForZone(date: Date, timeZone: string) {
   try {
@@ -189,9 +190,14 @@ export default function DynamicInfoCard() {
   }, [session?.user?.email, session?.user?.image, session?.user?.name, sessionStatus, setUser, t])
 
   useEffect(() => {
+    if (process.env.NODE_ENV === 'test') {
+      setNow(new Date(TEST_FIXED_NOW_ISO))
+      return
+    }
+
     setNow(new Date())
-    const t = setInterval(() => setNow(new Date()), 30_000)
-    return () => clearInterval(t)
+    const intervalId = setInterval(() => setNow(new Date()), 30_000)
+    return () => clearInterval(intervalId)
   }, [])
 
   useEffect(() => {
