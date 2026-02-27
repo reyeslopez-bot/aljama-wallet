@@ -12,6 +12,26 @@ export type UnlockedWallet = {
   privateKey: string
 }
 
+export type WalletKeyManagementModel = 'single-party' | 'threshold-mpc'
+export type WalletSigningAlgorithm = 'ecdsa-secp256k1' | 'ml-dsa-65' | 'hybrid-ecdsa-ml-dsa-65'
+export type WalletMigrationStage = 'not-started' | 'planned' | 'in-progress' | 'active'
+
+export type WalletSecurityProfile = {
+  version: 1
+  keyManagement: WalletKeyManagementModel
+  signingAlgorithm: WalletSigningAlgorithm
+  encryptionAlgorithm: 'aes-256-gcm'
+  kdfAlgorithm: 'pbkdf2-sha256'
+  migration: {
+    mpc: WalletMigrationStage
+    pqc: WalletMigrationStage
+  }
+}
+
+export type UnlockedWalletWithSecurityProfile = UnlockedWallet & {
+  securityProfile: WalletSecurityProfile
+}
+
 const BASE64_PATTERN =
   /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
 
@@ -33,6 +53,97 @@ const BIP39_ENTROPY_BYTES_BY_WORD_COUNT = {
 } as const
 
 export type MnemonicWordCount = keyof typeof BIP39_ENTROPY_BYTES_BY_WORD_COUNT
+
+export const DEFAULT_WALLET_SECURITY_PROFILE: WalletSecurityProfile = {
+  version: 1,
+  keyManagement: 'single-party',
+  signingAlgorithm: 'ecdsa-secp256k1',
+  encryptionAlgorithm: 'aes-256-gcm',
+  kdfAlgorithm: 'pbkdf2-sha256',
+  migration: {
+    mpc: 'planned',
+    pqc: 'planned',
+  },
+}
+
+export type EncodeWalletToEncryptedOptions = {
+  securityProfile?: WalletSecurityProfile
+}
+
+export type CreateEncryptedWalletOptions = {
+  securityProfile?: WalletSecurityProfile
+}
+
+function cloneDefaultWalletSecurityProfile(): WalletSecurityProfile {
+  return {
+    ...DEFAULT_WALLET_SECURITY_PROFILE,
+    migration: { ...DEFAULT_WALLET_SECURITY_PROFILE.migration },
+  }
+}
+
+function isWalletMigrationStage(value: unknown): value is WalletMigrationStage {
+  return (
+    value === 'not-started' ||
+    value === 'planned' ||
+    value === 'in-progress' ||
+    value === 'active'
+  )
+}
+
+function isWalletSecurityProfile(value: unknown): value is WalletSecurityProfile {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const record = value as Record<string, unknown>
+  if (
+    record.version !== 1 ||
+    (record.keyManagement !== 'single-party' && record.keyManagement !== 'threshold-mpc') ||
+    (record.signingAlgorithm !== 'ecdsa-secp256k1' &&
+      record.signingAlgorithm !== 'ml-dsa-65' &&
+      record.signingAlgorithm !== 'hybrid-ecdsa-ml-dsa-65') ||
+    record.encryptionAlgorithm !== 'aes-256-gcm' ||
+    record.kdfAlgorithm !== 'pbkdf2-sha256'
+  ) {
+    return false
+  }
+
+  const migration = record.migration
+  if (!migration || typeof migration !== 'object') {
+    return false
+  }
+
+  const migrationRecord = migration as Record<string, unknown>
+  return (
+    isWalletMigrationStage(migrationRecord.mpc) &&
+    isWalletMigrationStage(migrationRecord.pqc)
+  )
+}
+
+function resolveWalletSecurityProfile(profile?: unknown): WalletSecurityProfile {
+  if (!isWalletSecurityProfile(profile)) {
+    return cloneDefaultWalletSecurityProfile()
+  }
+
+  return {
+    ...profile,
+    migration: { ...profile.migration },
+  }
+}
+
+function parseUnlockedWalletPayload(payload: Record<string, unknown>): UnlockedWalletWithSecurityProfile {
+  const address = payload.address
+  const privateKey = payload.privateKey
+  if (typeof address !== 'string' || typeof privateKey !== 'string' || !address || !privateKey) {
+    throw new Error('Encrypted payload missing wallet material')
+  }
+
+  return {
+    address,
+    privateKey,
+    securityProfile: resolveWalletSecurityProfile(payload.securityProfile),
+  }
+}
 
 function isStrictBase64(input: string): boolean {
   const normalized = input.trim()
@@ -272,19 +383,19 @@ export async function unlockWallet({
   encrypted,
   password,
 }: UnlockWalletParams): Promise<UnlockedWallet> {
-  const payload = await decryptPayload(encrypted, password)
-
-  const address = payload.address
-  const privateKey = payload.privateKey
-
-  if (typeof address !== 'string' || typeof privateKey !== 'string' || !address || !privateKey) {
-    throw new Error('Encrypted payload missing wallet material')
-  }
-
+  const wallet = await unlockWalletWithSecurityProfile({ encrypted, password })
   return {
-    address,
-    privateKey,
+    address: wallet.address,
+    privateKey: wallet.privateKey,
   }
+}
+
+export async function unlockWalletWithSecurityProfile({
+  encrypted,
+  password,
+}: UnlockWalletParams): Promise<UnlockedWalletWithSecurityProfile> {
+  const payload = await decryptPayload(encrypted, password)
+  return parseUnlockedWalletPayload(payload)
 }
 
 export type WalletMaterial = {
@@ -367,10 +478,13 @@ export function deriveWalletFromMnemonic(
 export async function encodeWalletToEncrypted(
   wallet: WalletMaterial,
   password: string,
+  options: EncodeWalletToEncryptedOptions = {},
 ): Promise<string> {
+  const securityProfile = resolveWalletSecurityProfile(options.securityProfile)
   return encryptPayload({
     address: wallet.address,
     privateKey: wallet.privateKey,
+    securityProfile,
   }, password)
 }
 
@@ -389,6 +503,7 @@ export async function encodePayloadToEncrypted(
  */
 export async function createEncryptedWallet(
   password: string,
+  options: CreateEncryptedWalletOptions = {},
 ): Promise<{ encrypted: string; wallet: UnlockedWallet }> {
   if (!password?.trim()) {
     throw new Error('Password is required')
@@ -402,7 +517,9 @@ export async function createEncryptedWallet(
     privateKey,
   }
 
-  const encrypted = await encodeWalletToEncrypted(wallet, password.trim())
+  const encrypted = await encodeWalletToEncrypted(wallet, password.trim(), {
+    securityProfile: options.securityProfile,
+  })
 
   return { encrypted, wallet }
 }

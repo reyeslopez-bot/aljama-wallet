@@ -5,11 +5,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { clearWalletId, persistEncryptedSession } from '@/lib/storage/walletSession'
 import {
+  DEFAULT_WALLET_SECURITY_PROFILE,
   UserDeterministicWallet,
   deriveWalletFromMnemonic,
   encodeWalletToEncrypted,
   generateMnemonicWallet,
   type Chain,
+  type WalletSecurityProfile,
   type WalletMaterial,
 } from '@/lib/wallet'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
@@ -53,6 +55,7 @@ type KeystoreFile = {
   address: string
   encrypted: string
   wordCount: number
+  securityProfile: WalletSecurityProfile
 }
 
 type Status = 'idle' | 'pending' | 'success' | 'error'
@@ -206,6 +209,12 @@ function buildKeystoreFile(payload: KeystoreFile): string {
       encryption: {
         algorithm: 'AES-256-GCM',
         kdf: 'PBKDF2',
+      },
+      security: {
+        profileVersion: payload.securityProfile.version,
+        keyManagement: payload.securityProfile.keyManagement,
+        signingAlgorithm: payload.securityProfile.signingAlgorithm,
+        migration: payload.securityProfile.migration,
       },
       encrypted: payload.encrypted,
     },
@@ -560,6 +569,7 @@ export function CreateWalletPanel() {
       address: draft.main.address,
       encrypted,
       wordCount: draft.wordCount,
+      securityProfile: DEFAULT_WALLET_SECURITY_PROFILE,
     })
 
     setMode('session-only')

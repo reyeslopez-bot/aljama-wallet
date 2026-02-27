@@ -1,10 +1,13 @@
 // tests/lib/wallet.test.ts
 import { describe, it, expect } from 'vitest'
 import {
+  DEFAULT_WALLET_SECURITY_PROFILE,
   deriveWalletFromMnemonic,
+  encodePayloadToEncrypted,
   encodeWalletToEncrypted,
   generateMnemonicWallet,
   unlockWallet,
+  unlockWalletWithSecurityProfile,
 } from '@/lib/wallet'
 import {
   mockEncryptedWallet,
@@ -88,6 +91,40 @@ describe('unlockWallet', () => {
         '   ',
       ),
     ).rejects.toThrow(/Password is required/)
+  })
+
+  it('returns wallet security profile metadata for new payloads', async () => {
+    const encrypted = await encodeWalletToEncrypted(
+      {
+        address: mockAccounts.primary.address,
+        privateKey: mockAccounts.primary.privateKey,
+      },
+      'StrongPassphrase1!',
+    )
+
+    const wallet = await unlockWalletWithSecurityProfile({
+      encrypted,
+      password: 'StrongPassphrase1!',
+    })
+
+    expect(wallet.securityProfile).toEqual(DEFAULT_WALLET_SECURITY_PROFILE)
+  })
+
+  it('falls back to default security profile for legacy payloads', async () => {
+    const encrypted = await encodePayloadToEncrypted(
+      {
+        address: mockAccounts.primary.address,
+        privateKey: mockAccounts.primary.privateKey,
+      },
+      'StrongPassphrase1!',
+    )
+
+    const wallet = await unlockWalletWithSecurityProfile({
+      encrypted,
+      password: 'StrongPassphrase1!',
+    })
+
+    expect(wallet.securityProfile).toEqual(DEFAULT_WALLET_SECURITY_PROFILE)
   })
 })
 
