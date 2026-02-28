@@ -736,7 +736,7 @@ export function CreateWalletPanel() {
                   type="button"
                   onClick={() => void copyMnemonicPassphrase()}
                   disabled={locked || status === 'pending' || !mnemonicPassphrase.trim()}
-                  className="inline-flex items-center justify-center rounded-lg border border-lapis/35 bg-transparent px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-lapis transition hover:bg-lapis/16 focus:outline-none focus:ring-2 focus:ring-lapis/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-lg border border-lapis/45 bg-lapis/18 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-lapis transition hover:bg-lapis/28 focus:outline-none focus:ring-2 focus:ring-lapis/30 disabled:cursor-not-allowed disabled:opacity-80"
                 >
                   {mnemonicPassphraseCopied ? t('copiedPassphrase') : t('copyPassphrase')}
                 </button>

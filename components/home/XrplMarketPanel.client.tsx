@@ -328,6 +328,22 @@ export default function XrplMarketPanel() {
     return { min, max }
   }, [chartWindow.end, chartWindow.start, normalizedSeries])
 
+  const areaFillAsset = useMemo(
+    () => normalizedSeries.find((asset) => asset.symbol === 'EURC') ?? normalizedSeries[0] ?? null,
+    [normalizedSeries],
+  )
+
+  const areaFillPath = useMemo(() => {
+    if (!areaFillAsset) return ''
+    return buildAreaPath(
+      areaFillAsset.series,
+      normalizedRange.min,
+      normalizedRange.max,
+      chartWindow.start,
+      chartWindow.end,
+    )
+  }, [areaFillAsset, chartWindow.end, chartWindow.start, normalizedRange.max, normalizedRange.min])
+
   useEffect(() => {
     setZoomWindow((prev) => {
       if (!prev) return null
@@ -540,7 +556,6 @@ export default function XrplMarketPanel() {
                         : '--'}
                     </p>
                   </div>
-                  <p className="text-[11px] text-ivory/55">{t('chartBase')}</p>
                 </div>
 
                 <div className="-mx-2 sm:-mx-3 lg:-mx-4">
@@ -638,25 +653,14 @@ export default function XrplMarketPanel() {
                     </g>
 
                     <g clipPath={`url(#${chartClipId})`}>
-                      {normalizedSeries.map((asset) => {
-                        const areaPath = buildAreaPath(
-                          asset.series,
-                          normalizedRange.min,
-                          normalizedRange.max,
-                          chartWindow.start,
-                          chartWindow.end,
-                        )
-                        if (!areaPath) return null
-                        const active = focusSymbol === null || focusSymbol === asset.symbol
-                        return (
-                          <path
-                            key={`area-${asset.symbol}`}
-                            d={areaPath}
-                            fill={`url(#${chartClipId}-${asset.symbol}-area)`}
-                            opacity={active ? '0.36' : '0.16'}
-                          />
-                        )
-                      })}
+                      {areaFillAsset && areaFillPath ? (
+                        <path
+                          key={`area-${areaFillAsset.symbol}`}
+                          d={areaFillPath}
+                          fill={`url(#${chartClipId}-${areaFillAsset.symbol}-area)`}
+                          opacity="0.16"
+                        />
+                      ) : null}
 
                       {normalizedSeries.map((asset) => {
                         const path = buildPath(
