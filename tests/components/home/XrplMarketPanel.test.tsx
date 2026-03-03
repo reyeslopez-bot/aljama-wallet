@@ -126,4 +126,42 @@ describe('XrplMarketPanel', () => {
     expect(refresh.disabled).toBe(true)
     expect(getByText('Sign up to unlock actions.')).toBeTruthy()
   })
+
+  it('keeps chart paths inside the clipped plot area', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => snapshot,
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByTestId, container } = render(<XrplMarketPanel />)
+
+    await waitFor(() => {
+      expect(getByTestId('xrpl-market-chart')).toBeTruthy()
+      expect(container.querySelector('path[stroke]')).toBeTruthy()
+    })
+
+    const clipRect = container.querySelector('clipPath rect')
+    const linePath = container.querySelector('path[stroke]')
+
+    expect(clipRect).toBeTruthy()
+    expect(linePath).toBeTruthy()
+
+    const clipX = Number(clipRect?.getAttribute('x'))
+    const clipY = Number(clipRect?.getAttribute('y'))
+    const clipWidth = Number(clipRect?.getAttribute('width'))
+    const clipHeight = Number(clipRect?.getAttribute('height'))
+
+    const coordinates = Array.from(linePath?.getAttribute('d')?.matchAll(/[ML]\s+([\d.]+)\s+([\d.]+)/g) ?? []).map(
+      ([, x, y]) => ({ x: Number(x), y: Number(y) }),
+    )
+
+    expect(clipX).toBeGreaterThan(0)
+    expect(coordinates.length).toBeGreaterThan(1)
+    expect(coordinates[0]?.x).toBeGreaterThanOrEqual(clipX)
+    expect(coordinates[coordinates.length - 1]?.x).toBeLessThanOrEqual(clipX + clipWidth)
+    expect(Math.min(...coordinates.map((point) => point.y))).toBeGreaterThanOrEqual(clipY)
+    expect(Math.max(...coordinates.map((point) => point.y))).toBeLessThanOrEqual(clipY + clipHeight)
+  })
 })

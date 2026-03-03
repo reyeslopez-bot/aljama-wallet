@@ -78,7 +78,10 @@ type ZoomWindow = { start: number; end: number }
 
 const CHART_WIDTH = 100
 const CHART_HEIGHT = 48
-const CHART_PADDING = 4
+const PLOT_INSET_X = 3
+const PLOT_INSET_Y = 4
+const PLOT_RANGE_PADDING_RATIO = 0.08
+const MIN_PLOT_RANGE_PADDING = 0.015
 const TIMELINE_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
@@ -122,6 +125,43 @@ type ChartPoint = {
   y: number
 }
 
+type PlotFrame = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+function getPlotFrame(chartWidth: number): PlotFrame {
+  return {
+    x: PLOT_INSET_X,
+    y: PLOT_INSET_Y,
+    width: Math.max(chartWidth - PLOT_INSET_X * 2, 1),
+    height: Math.max(CHART_HEIGHT - PLOT_INSET_Y * 2, 1),
+  }
+}
+
+function buildPaddedRange(values: number[]) {
+  if (values.length === 0) return { min: 0.9, max: 1.1 }
+
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min
+  const padding =
+    span > 0
+      ? Math.max(span * PLOT_RANGE_PADDING_RATIO, MIN_PLOT_RANGE_PADDING)
+      : Math.max(Math.abs(max || 1) * PLOT_RANGE_PADDING_RATIO, MIN_PLOT_RANGE_PADDING)
+
+  return { min: min - padding, max: max + padding }
+}
+
+function projectValueToChartY(value: number, min: number, max: number) {
+  const span = max - min || 1
+  const plotHeight = Math.max(CHART_HEIGHT - PLOT_INSET_Y * 2, 1)
+  const normalized = Math.min(Math.max((value - min) / span, 0), 1)
+  return PLOT_INSET_Y + (1 - normalized) * plotHeight
+}
+
 function buildChartPoints(
   series: number[],
   min: number,
@@ -133,15 +173,12 @@ function buildChartPoints(
   if (series.length < 2 || endIndex <= startIndex) return []
   const safeStart = Math.min(Math.max(startIndex, 0), series.length - 2)
   const safeEnd = Math.min(Math.max(endIndex, safeStart + 1), series.length - 1)
-  const span = max - min || 1
   const indexSpan = safeEnd - safeStart
   const points = series.slice(safeStart, safeEnd + 1)
+  const plotFrame = getPlotFrame(chartWidth)
   return points.map((value, offset) => {
-    const x = (offset / indexSpan) * chartWidth
-    const y =
-      CHART_HEIGHT -
-      CHART_PADDING -
-      ((value - min) / span) * (CHART_HEIGHT - CHART_PADDING * 2)
+    const x = plotFrame.x + (offset / indexSpan) * plotFrame.width
+    const y = projectValueToChartY(value, min, max)
     return { x, y }
   })
 }
@@ -171,7 +208,8 @@ function buildAreaPath(
 ) {
   const points = buildChartPoints(series, min, max, startIndex, endIndex, chartWidth)
   if (points.length < 2) return ''
-  const baseY = CHART_HEIGHT - CHART_PADDING
+  const plotFrame = getPlotFrame(chartWidth)
+  const baseY = plotFrame.y + plotFrame.height
   const head = points
     .map((point) => `L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
     .join(' ')
@@ -366,10 +404,10 @@ export default function XrplMarketPanel() {
       if (safeStart < 0 || safeEnd < safeStart) return []
       return asset.series.slice(safeStart, safeEnd + 1)
     })
-    const min = values.length ? Math.min(...values) : 0.9
-    const max = values.length ? Math.max(...values) : 1.1
-    return { min, max }
+    return buildPaddedRange(values)
   }, [chartWindow.end, chartWindow.start, normalizedSeries])
+
+  const plotFrame = useMemo(() => getPlotFrame(chartViewportWidth), [chartViewportWidth])
 
   const areaFillAsset = useMemo(
     () => normalizedSeries.find((asset) => asset.symbol === 'EURC') ?? normalizedSeries[0] ?? null,
@@ -528,29 +566,28 @@ export default function XrplMarketPanel() {
       return []
     }
 
-    const x = ((hoverIndex - chartWindow.start) / (chartWindow.end - chartWindow.start)) * chartViewportWidth
-    const span = normalizedRange.max - normalizedRange.min || 1
+    const x =
+      plotFrame.x +
+      ((hoverIndex - chartWindow.start) / (chartWindow.end - chartWindow.start)) * plotFrame.width
 
     return normalizedSeries
       .map((asset) => {
         const safeIndex = Math.min(hoverIndex, Math.max(asset.series.length - 1, 0))
         const value = asset.series[safeIndex]
         if (!Number.isFinite(value)) return null
-        const y =
-          CHART_HEIGHT -
-          CHART_PADDING -
-          ((value - normalizedRange.min) / span) * (CHART_HEIGHT - CHART_PADDING * 2)
+        const y = projectValueToChartY(value, normalizedRange.min, normalizedRange.max)
         return { key: asset.symbol, color: asset.palette.stroke, x, y }
       })
       .filter((point): point is { key: string; color: string; x: number; y: number } => point !== null)
   }, [
     chartWindow.end,
     chartWindow.start,
-    chartViewportWidth,
     hoverIndex,
     normalizedRange.max,
     normalizedRange.min,
     normalizedSeries,
+    plotFrame.width,
+    plotFrame.x,
   ])
 
   const moveHoverIndex = useCallback(
@@ -690,7 +727,7 @@ export default function XrplMarketPanel() {
             <p data-testid="xrpl-market-error" role="alert" className="text-sm text-red-300">{state.error}</p>
           ) : (
             <div className="space-y-4">
-              <div className="rounded-[30px] border border-white/10 bg-[#181818] p-4 shadow-[0_10px_22px_-12px_rgba(0,0,0,0.65)]">
+              <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[#181818] p-4 shadow-[0_10px_22px_-12px_rgba(0,0,0,0.65)]">
                 <div className="flex flex-wrap items-end justify-between gap-2 pb-3">
                   <div>
                     <p id={chartLabelId} className="text-[11px] uppercase tracking-[0.12em] text-ivory/55">
@@ -742,12 +779,12 @@ export default function XrplMarketPanel() {
                   </div>
                 </div>
 
-                <div className="-mx-2 sm:-mx-3 lg:-mx-4">
+                <div>
                   <svg
                     ref={setChartSvgNode}
                     data-testid="xrpl-market-chart"
                     viewBox={`0 0 ${chartViewportWidth} ${CHART_HEIGHT}`}
-                    className="h-44 w-[calc(100%+1rem)] md:h-52 md:w-[calc(100%+1.5rem)] lg:w-[calc(100%+2rem)]"
+                    className="block h-44 w-full md:h-52"
                     tabIndex={0}
                     role="group"
                     aria-roledescription="interactive chart"
@@ -818,10 +855,10 @@ export default function XrplMarketPanel() {
                     <defs>
                       <clipPath id={chartClipId}>
                         <rect
-                          x={0}
-                          y={CHART_PADDING}
-                          width={chartViewportWidth}
-                          height={CHART_HEIGHT - CHART_PADDING * 2}
+                          x={plotFrame.x}
+                          y={plotFrame.y}
+                          width={plotFrame.width}
+                          height={plotFrame.height}
                         />
                       </clipPath>
                       {normalizedSeries.map((asset) => (
@@ -841,14 +878,14 @@ export default function XrplMarketPanel() {
 
                     <g opacity="0.45">
                       {Array.from({ length: 6 }).map((_, index) => {
-                        const x = ((index + 1) / 7) * chartViewportWidth
+                        const x = plotFrame.x + ((index + 1) / 7) * plotFrame.width
                         return (
                           <line
                             key={`grid-${index}`}
                             x1={x}
-                            y1={0}
+                            y1={plotFrame.y}
                             x2={x}
-                            y2={CHART_HEIGHT}
+                            y2={plotFrame.y + plotFrame.height}
                             stroke="rgba(255,255,255,0.26)"
                             strokeWidth="0.34"
                             strokeDasharray="0.4 1.8"
