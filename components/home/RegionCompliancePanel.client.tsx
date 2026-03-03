@@ -95,7 +95,12 @@ export default function RegionCompliancePanel() {
   }, [])
 
   return (
-    <section aria-labelledby={titleId} aria-describedby={bodyId} className="space-y-6">
+    <section
+      data-testid="region-compliance-panel"
+      aria-labelledby={titleId}
+      aria-describedby={bodyId}
+      className="space-y-6"
+    >
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('eyebrow')}</p>
         <h3 id={titleId} className="mt-3 font-display text-2xl font-semibold text-ivory">
@@ -106,12 +111,13 @@ export default function RegionCompliancePanel() {
         </p>
       </div>
 
-      <div className="surface-inner p-4">
+      <div data-testid="region-compliance-region-control" className="surface-inner p-4">
         <label htmlFor="region-select" className="text-xs uppercase tracking-[0.16em] text-ivory/60">
           {t('label')}
         </label>
         <select
           id="region-select"
+          data-testid="region-compliance-select"
           value={region}
           disabled={locked}
           onChange={(event) => {
@@ -131,16 +137,20 @@ export default function RegionCompliancePanel() {
             </option>
           ))}
         </select>
-        <p id={selectHintId} className="mt-2 text-xs text-ivory/50">
+        <p id={selectHintId} data-testid="region-compliance-region-detail" className="mt-2 text-xs text-ivory/50">
           {regions.find((option) => option.value === region)?.detail}
         </p>
       </div>
 
-      <div className="surface-soft p-4 text-sm text-ivory/70">
+      <div data-testid="region-compliance-list" className="surface-soft p-4 text-sm text-ivory/70">
         <p className="text-xs uppercase tracking-[0.16em] text-ivory/50">{t('complianceTitle')}</p>
         <div className="mt-3 space-y-3">
           {compliance.map((item) => (
-            <div key={item.title} className="flex items-start justify-between gap-3">
+            <div
+              key={item.title}
+              data-testid={`region-compliance-item-${item.value}`}
+              className="flex items-start justify-between gap-3"
+            >
               <div>
                 <p className="text-sm font-semibold text-ivory">{item.title}</p>
                 <p className="text-xs text-ivory/50">{item.detail}</p>
@@ -154,6 +164,7 @@ export default function RegionCompliancePanel() {
                 </span>
               ) : (
                 <Link
+                  data-testid={`region-compliance-link-${item.value}`}
                   href={`/${locale}/compliance?target=${item.value}`}
                   aria-label={`Open ${item.title} details`}
                   className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-ivory/60 transition hover:border-saffron/30 hover:bg-saffron/10 hover:text-ivory focus:outline-none focus:ring-2 focus:ring-saffron/35"
@@ -169,11 +180,12 @@ export default function RegionCompliancePanel() {
         </p>
       </div>
 
-      <div className="surface-inner p-4">
+      <div data-testid="region-compliance-signup" className="surface-inner p-4">
         <p className="text-xs uppercase tracking-[0.16em] text-ivory/60">{t('signupTitle')}</p>
         <p className="mt-2 text-sm text-ivory/70">{t('signupBody')}</p>
         <div className="mt-3">
           <button
+            data-testid="region-compliance-save-profile"
             type="button"
             disabled={locked}
             aria-describedby={saved ? signupStatusId : undefined}
@@ -190,12 +202,20 @@ export default function RegionCompliancePanel() {
           </button>
         </div>
         {showUnlockMessage && (
-          <UnlockActionsLink
-            className="mt-4 block text-xs uppercase tracking-[0.18em] text-ivory/50"
-          />
+          <div data-testid="region-compliance-unlock" className="mt-4">
+            <UnlockActionsLink
+              className="block text-xs uppercase tracking-[0.18em] text-ivory/50"
+            />
+          </div>
         )}
         {saved && (
-          <p id={signupStatusId} role="status" aria-live="polite" className="mt-2 text-xs text-jade">
+          <p
+            id={signupStatusId}
+            data-testid="region-compliance-save-status"
+            role="status"
+            aria-live="polite"
+            className="mt-2 text-xs text-jade"
+          >
             {t('signupSuccess')}
           </p>
         )}

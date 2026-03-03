@@ -35,16 +35,19 @@ const resetStore = () => {
   )
 }
 
-function completeRecoveryCheck(getByRole: ReturnType<typeof render>['getByRole'], getAllByPlaceholderText: ReturnType<typeof render>['getAllByPlaceholderText'], getByLabelText: ReturnType<typeof render>['getByLabelText']) {
-  const recoveryInputs = getAllByPlaceholderText('Type the exact word') as HTMLInputElement[]
+function completeRecoveryCheck(
+  getByTestId: ReturnType<typeof render>['getByTestId'],
+  getAllByTestId: ReturnType<typeof render>['getAllByTestId'],
+) {
+  const recoveryInputs = getAllByTestId('create-wallet-recovery-input') as HTMLInputElement[]
 
   for (const input of recoveryInputs) {
     fireEvent.change(input, { target: { value: 'able' } })
   }
 
-  fireEvent.click(getByLabelText('I saved the recovery phrase in a secure offline location.'))
-  fireEvent.click(getByLabelText('I understand this app cannot recover funds if the recovery phrase or hidden vault passphrase is lost.'))
-  fireEvent.click(getByRole('button', { name: 'Verify and finalize' }))
+  fireEvent.click(getByTestId('create-wallet-recovery-backed-up'))
+  fireEvent.click(getByTestId('create-wallet-recovery-loss-accepted'))
+  fireEvent.click(getByTestId('create-wallet-submit'))
 }
 
 describe('CreateWalletPanel', () => {
@@ -80,44 +83,42 @@ describe('CreateWalletPanel', () => {
       status: 'unauthenticated',
     } as any)
 
-    const { getByRole, getByPlaceholderText, getByText } = render(<CreateWalletPanel />)
+    const { getByTestId } = render(<CreateWalletPanel />)
 
-    const input = getByPlaceholderText('Create a passphrase you will remember') as HTMLInputElement
-    const button = getByRole('button', { name: 'Create wallet' }) as HTMLButtonElement
+    const input = getByTestId('create-wallet-password-input') as HTMLInputElement
+    const button = getByTestId('create-wallet-submit') as HTMLButtonElement
 
     expect(input.disabled).toBe(true)
     expect(button.disabled).toBe(true)
-    expect(getByText('Sign up to unlock actions.')).toBeTruthy()
+    expect(getByTestId('create-wallet-unlock')).toBeTruthy()
   })
 
   it('creates wallet locally and persists encrypted session only after recovery verification', async () => {
     const {
-      getByPlaceholderText,
-      getByRole,
+      getByTestId,
       getByText,
-      getAllByPlaceholderText,
-      getByLabelText,
-      queryByRole,
+      getAllByTestId,
     } = render(<CreateWalletPanel />)
 
-    fireEvent.change(getByPlaceholderText('Create a passphrase you will remember'), {
+    fireEvent.change(getByTestId('create-wallet-password-input'), {
       target: { value: 'VeryStrongPassphrase1!' },
     })
 
-    fireEvent.click(getByRole('button', { name: 'Create wallet' }))
+    fireEvent.click(getByTestId('create-wallet-submit'))
 
     await waitFor(() => {
-      expect(getByText('Recovery phrase (24 words)')).toBeTruthy()
+      expect(getByTestId('create-wallet-recovery-section')).toBeTruthy()
       expect(mockGenerateMnemonicWallet).toHaveBeenCalledTimes(1)
-      expect(queryByRole('button', { name: 'Copy phrase' })).toBeTruthy()
+      expect(getByTestId('create-wallet-mnemonic-copy')).toBeTruthy()
     })
 
     expect(sessionStorage.getItem('aljama.encryptedWallet')).toBeNull()
 
-    completeRecoveryCheck(getByRole, getAllByPlaceholderText, getByLabelText)
+    completeRecoveryCheck(getByTestId, getAllByTestId)
 
     await waitFor(() => {
-      expect(queryByRole('button', { name: 'Copy address' })).toBeTruthy()
+      expect(getByTestId('create-wallet-ready-panel')).toBeTruthy()
+      expect(getByTestId('create-wallet-copy-address')).toBeTruthy()
       expect(getByText('Receive onchain')).toBeTruthy()
       expect(useDynamicInfoStore.getState().createWalletStatus).toBe('success')
       expect(useDynamicInfoStore.getState().wallet.createdAddress).toBe('0x1111111111111111111111111111111111111111')
@@ -125,7 +126,7 @@ describe('CreateWalletPanel', () => {
       expect(sessionStorage.getItem('aljama.walletId')).toBeNull()
     })
 
-    const buyWithCard = getByRole('link', { name: 'Buy with card' }) as HTMLAnchorElement
+    const buyWithCard = getByTestId('create-wallet-buy-with-card') as HTMLAnchorElement
     expect(buyWithCard.getAttribute('href')).toContain('walletAddress=0x1111111111111111111111111111111111111111')
   })
 
@@ -136,20 +137,20 @@ describe('CreateWalletPanel', () => {
       value: { writeText },
     })
 
-    const { getByRole, getByPlaceholderText, getByText } = render(<CreateWalletPanel />)
+    const { getByTestId, getByText } = render(<CreateWalletPanel />)
 
-    fireEvent.click(getByRole('button', { name: 'Generate Passphrase' }))
+    fireEvent.click(getByTestId('create-wallet-passphrase-generate'))
 
-    const input = getByPlaceholderText('Create a passphrase you will remember') as HTMLInputElement
+    const input = getByTestId('create-wallet-password-input') as HTMLInputElement
     expect(input.value.length).toBeGreaterThanOrEqual(32)
     expect(getByText('Strong')).toBeTruthy()
-    expect(getByText('Encrypted passphrase ready')).toBeTruthy()
-    const copyButton = getByRole('button', { name: 'Copy passphrase' })
+    expect(getByTestId('create-wallet-passphrase-offer')).toBeTruthy()
+    const copyButton = getByTestId('create-wallet-passphrase-copy')
     fireEvent.click(copyButton)
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(input.value)
-      expect(getByText('Passphrase copied')).toBeTruthy()
+      expect(copyButton.textContent).toContain('Passphrase copied')
     })
   })
 
@@ -160,27 +161,25 @@ describe('CreateWalletPanel', () => {
     )
 
     const {
-      getByPlaceholderText,
-      getByRole,
-      getAllByPlaceholderText,
-      getByLabelText,
+      getByTestId,
+      getAllByTestId,
       queryByText,
     } = render(<CreateWalletPanel />)
 
-    fireEvent.change(getByPlaceholderText('Create a passphrase you will remember'), {
+    fireEvent.change(getByTestId('create-wallet-password-input'), {
       target: { value: 'VeryStrongPassphrase1!' },
     })
 
-    fireEvent.click(getByRole('button', { name: 'Create wallet' }))
+    fireEvent.click(getByTestId('create-wallet-submit'))
 
     await waitFor(() => {
-      expect(getByRole('button', { name: 'Verify and finalize' })).toBeTruthy()
+      expect(getByTestId('create-wallet-recovery-section')).toBeTruthy()
     })
 
-    completeRecoveryCheck(getByRole, getAllByPlaceholderText, getByLabelText)
+    completeRecoveryCheck(getByTestId, getAllByTestId)
 
     await waitFor(() => {
-      const buyWithCard = getByRole('link', { name: 'Buy with card' }) as HTMLAnchorElement
+      const buyWithCard = getByTestId('create-wallet-buy-with-card') as HTMLAnchorElement
       expect(buyWithCard.getAttribute('href')).toBe(
         'https://buy.example/checkout?dest=0x1111111111111111111111111111111111111111&network=base',
       )
@@ -195,24 +194,25 @@ describe('CreateWalletPanel', () => {
       value: { writeText },
     })
 
-    const { getByRole, getByPlaceholderText, getByText } = render(<CreateWalletPanel />)
+    const { getByTestId, getByText } = render(<CreateWalletPanel />)
 
-    fireEvent.click(getByRole('switch'))
-    const mnemonicInput = getByPlaceholderText('Hidden vault passphrase (25th word)') as HTMLInputElement
+    fireEvent.click(getByTestId('create-wallet-mnemonic-switch'))
+    const mnemonicInput = getByTestId('create-wallet-mnemonic-passphrase-input') as HTMLInputElement
     expect(mnemonicInput.value).toBe('')
 
-    fireEvent.click(getByRole('button', { name: 'Generate hidden vault passphrase' }))
+    fireEvent.click(getByTestId('create-wallet-mnemonic-passphrase-generate'))
     expect(mnemonicInput.value.length).toBeGreaterThanOrEqual(16)
 
     const firstValue = mnemonicInput.value
-    fireEvent.click(getByRole('button', { name: 'Generate hidden vault passphrase' }))
+    fireEvent.click(getByTestId('create-wallet-mnemonic-passphrase-generate'))
     expect(mnemonicInput.value.length).toBeGreaterThanOrEqual(16)
     expect(mnemonicInput.value).not.toBe(firstValue)
 
-    fireEvent.click(getByRole('button', { name: 'Copy passphrase' }))
+    const mnemonicCopyButton = getByTestId('create-wallet-mnemonic-passphrase-copy')
+    fireEvent.click(mnemonicCopyButton)
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(mnemonicInput.value)
-      expect(getByText('Passphrase copied')).toBeTruthy()
+      expect(mnemonicCopyButton.textContent).toContain('Passphrase copied')
     })
   })
 })

@@ -43,16 +43,18 @@ describe('HomeActionButtons', () => {
   })
 
   it('renders all CTA links and href targets when authenticated', () => {
-    const { getByRole, queryByText } = render(<HomeActionButtons />)
+    const { getByTestId, queryByTestId } = render(<HomeActionButtons />)
 
-    const create = getByRole('link', { name: 'Create Wallet' })
-    const connect = getByRole('link', { name: 'Connect Wallet' })
-    const xrpl = getByRole('link', { name: 'XRPL' })
+    const create = getByTestId('home-action-button-create-wallet') as HTMLAnchorElement
+    const connect = getByTestId('home-action-button-connect-wallet') as HTMLAnchorElement
+    const xrpl = getByTestId('home-action-button-xrpl') as HTMLAnchorElement
 
     expect(create.getAttribute('href')).toBe('/en#create')
     expect(connect.getAttribute('href')).toBe('/en#connect')
     expect(xrpl.getAttribute('href')).toBe('/en#xrpl')
-    expect(queryByText('Sign in to unlock actions.')).toBeNull()
+    expect(getByTestId('home-action-buttons')).toBeTruthy()
+    expect(getByTestId('home-action-buttons-list')).toBeTruthy()
+    expect(queryByTestId('home-action-buttons-unlock')).toBeNull()
   })
 
   it('locks all CTA links when unauthenticated', () => {
@@ -61,11 +63,11 @@ describe('HomeActionButtons', () => {
       status: 'unauthenticated',
     } as any)
 
-    const { getByRole, getByText } = render(<HomeActionButtons />)
+    const { getByTestId } = render(<HomeActionButtons />)
 
-    const create = getByRole('link', { name: 'Create Wallet' })
-    const connect = getByRole('link', { name: 'Connect Wallet' })
-    const xrpl = getByRole('link', { name: 'XRPL' })
+    const create = getByTestId('home-action-button-create-wallet') as HTMLAnchorElement
+    const connect = getByTestId('home-action-button-connect-wallet') as HTMLAnchorElement
+    const xrpl = getByTestId('home-action-button-xrpl') as HTMLAnchorElement
 
     expect(create.getAttribute('aria-disabled')).toBe('true')
     expect(connect.getAttribute('aria-disabled')).toBe('true')
@@ -73,6 +75,6 @@ describe('HomeActionButtons', () => {
     expect(create.tabIndex).toBe(-1)
     expect(connect.tabIndex).toBe(-1)
     expect(xrpl.tabIndex).toBe(-1)
-    expect(getByText('Sign up to unlock actions.')).toBeTruthy()
+    expect(getByTestId('home-action-buttons-unlock')).toBeTruthy()
   })
 })

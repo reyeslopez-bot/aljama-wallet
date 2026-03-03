@@ -583,6 +583,7 @@ export default function XrplMarketPanel() {
 
   return (
     <section
+      data-testid="xrpl-market-panel"
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       className="surface-panel panel-glow-rose relative p-7 sm:p-8"
@@ -600,6 +601,7 @@ export default function XrplMarketPanel() {
           </p>
         </div>
         <span
+          data-testid="xrpl-market-badge"
           aria-live="polite"
           className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70"
         >
@@ -610,6 +612,7 @@ export default function XrplMarketPanel() {
       <div className="relative mt-6 space-y-5">
         <div
           id={viewFiltersId}
+          data-testid="xrpl-market-filters"
           className="flex flex-wrap items-center gap-2 text-xs text-ivory/60"
           role="radiogroup"
           aria-label={t('filterGroupLabel')}
@@ -618,6 +621,7 @@ export default function XrplMarketPanel() {
             <button
               id={viewOptionId(option.id)}
               key={option.id}
+              data-testid={`xrpl-market-filter-${option.id}`}
               type="button"
               onClick={() => setState((prev) => ({ ...prev, view: option.id }))}
               onKeyDown={(event) => handleViewOptionKeyDown(event, index)}
@@ -634,20 +638,20 @@ export default function XrplMarketPanel() {
               {option.label}
             </button>
           ))}
-          <span className="ml-auto text-[11px] text-ivory/40">
+          <span data-testid="xrpl-market-updated" className="ml-auto text-[11px] text-ivory/40">
             {state.snapshot?.updatedAt
               ? `${t('updated')} ${formatUpdatedTimeAgo(state.snapshot.updatedAt)}`
               : ''}
           </span>
         </div>
 
-        <div className="surface-inner p-4">
+        <div data-testid="xrpl-market-chart-shell" className="surface-inner p-4">
           {state.loading ? (
-            <p role="status" aria-live="polite" className="text-sm text-ivory/60">
+            <p data-testid="xrpl-market-loading" role="status" aria-live="polite" className="text-sm text-ivory/60">
               {t('loading')}
             </p>
           ) : state.error ? (
-            <p role="alert" className="text-sm text-red-300">{state.error}</p>
+            <p data-testid="xrpl-market-error" role="alert" className="text-sm text-red-300">{state.error}</p>
           ) : (
             <div className="space-y-4">
               <div className="rounded-[30px] border border-white/10 bg-[#181818] p-4 shadow-[0_10px_22px_-12px_rgba(0,0,0,0.65)]">
@@ -667,11 +671,13 @@ export default function XrplMarketPanel() {
                   </div>
                   <div
                     id={chartControlsId}
+                    data-testid="xrpl-market-chart-controls"
                     className="flex flex-wrap items-center gap-2"
                     role="group"
                     aria-label={t('chartControls')}
                   >
                     <button
+                      data-testid="xrpl-market-zoom-in"
                       type="button"
                       onClick={() => zoomChart('in', hoverIndex)}
                       disabled={!canZoomIn}
@@ -680,6 +686,7 @@ export default function XrplMarketPanel() {
                       {t('zoomIn')}
                     </button>
                     <button
+                      data-testid="xrpl-market-zoom-out"
                       type="button"
                       onClick={() => zoomChart('out', hoverIndex)}
                       disabled={!canZoomOut}
@@ -688,6 +695,7 @@ export default function XrplMarketPanel() {
                       {t('zoomOut')}
                     </button>
                     <button
+                      data-testid="xrpl-market-reset-zoom"
                       type="button"
                       onClick={resetChartZoom}
                       disabled={!chartWindow.isZoomed}
@@ -700,6 +708,7 @@ export default function XrplMarketPanel() {
 
                 <div className="-mx-2 sm:-mx-3 lg:-mx-4">
                   <svg
+                    data-testid="xrpl-market-chart"
                     viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
                     className="h-44 w-[calc(100%+1rem)] md:h-52 md:w-[calc(100%+1.5rem)] lg:w-[calc(100%+2rem)]"
                     tabIndex={0}
@@ -883,7 +892,7 @@ export default function XrplMarketPanel() {
               </p>
 
               {timelineTicks.length > 0 ? (
-                <div className="space-y-2">
+                <div data-testid="xrpl-market-timeline" className="space-y-2">
                   <p className="text-[10px] uppercase tracking-[0.12em] text-ivory/45">{t('timelineLabel')}</p>
                   <div className="grid grid-cols-4 gap-2 text-[10px] text-ivory/45">
                     {timelineTicks.map((tick, index) => (
@@ -912,6 +921,7 @@ export default function XrplMarketPanel() {
                   <p className="text-[10px] text-ivory/40">{t('legendHint')}</p>
                 </div>
                 <div
+                  data-testid="xrpl-market-series-group"
                   className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   role="radiogroup"
                   aria-label={t('seriesGroupLabel')}
@@ -924,6 +934,7 @@ export default function XrplMarketPanel() {
                       <button
                         id={seriesOptionId(asset.symbol)}
                         key={`chip-${asset.symbol}`}
+                        data-testid={`xrpl-market-series-${asset.symbol.toLowerCase()}`}
                         type="button"
                         disabled={locked}
                         onClick={() => setFocusSymbol(asset.symbol)}
@@ -955,6 +966,7 @@ export default function XrplMarketPanel() {
 
               {hoverSnapshot ? (
                 <div
+                  data-testid="xrpl-market-hover-snapshot"
                   aria-live="polite"
                   className="surface-soft rounded-2xl border border-white/10 p-3 text-[11px] text-ivory/75"
                 >
@@ -963,7 +975,11 @@ export default function XrplMarketPanel() {
                   </p>
                   <div className="mt-2 space-y-1.5">
                     {hoverSnapshot.rows.map((asset) => (
-                      <div key={`${asset.id}-${hoverSnapshot.timestamp}`} className="flex items-center justify-between gap-3">
+                      <div
+                        key={`${asset.id}-${hoverSnapshot.timestamp}`}
+                        data-testid={`xrpl-market-hover-row-${asset.symbol.toLowerCase()}`}
+                        className="flex items-center justify-between gap-3"
+                      >
                         <span className="truncate text-ivory/65">
                           {asset.marketGroup === 'xrpl' ? t('table.xrpl') : t('table.reference')} · {asset.explicitName} ({asset.symbol})
                         </span>
@@ -979,7 +995,12 @@ export default function XrplMarketPanel() {
           )}
         </div>
 
-        <div className="surface-soft p-4 text-sm text-ivory/70" role="group" aria-labelledby={tableLabelId}>
+        <div
+          data-testid="xrpl-market-table"
+          className="surface-soft p-4 text-sm text-ivory/70"
+          role="group"
+          aria-labelledby={tableLabelId}
+        >
           <div className="grid grid-cols-4 gap-3 text-xs uppercase tracking-wide text-ivory/50">
             <span id={tableLabelId}>{t('table.asset')}</span>
             <span>{t('table.price')}</span>
@@ -988,7 +1009,11 @@ export default function XrplMarketPanel() {
           </div>
           <div className="mt-3 space-y-2">
             {visibleAssets.map((asset) => (
-              <div key={asset.id} className="grid grid-cols-4 gap-3">
+              <div
+                key={asset.id}
+                data-testid={`xrpl-market-row-${asset.symbol.toLowerCase()}`}
+                className="grid grid-cols-4 gap-3"
+              >
                 <span className="font-medium text-ivory">{asset.symbol}</span>
                 <span>{formatUsd(asset.priceUsd)}</span>
                 <span className={asset.change24h >= 0 ? 'text-emerald-200' : 'text-red-300'}>
@@ -1004,6 +1029,7 @@ export default function XrplMarketPanel() {
         </div>
 
         <motion.button
+          data-testid="xrpl-market-refresh"
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -1015,9 +1041,11 @@ export default function XrplMarketPanel() {
         </motion.button>
 
         {locked && (
-          <UnlockActionsLink
-            className="text-xs uppercase tracking-[0.18em] text-ivory/50"
-          />
+          <div data-testid="xrpl-market-unlock">
+            <UnlockActionsLink
+              className="text-xs uppercase tracking-[0.18em] text-ivory/50"
+            />
+          </div>
         )}
       </div>
     </section>

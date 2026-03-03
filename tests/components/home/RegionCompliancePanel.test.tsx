@@ -43,20 +43,20 @@ describe('RegionCompliancePanel', () => {
   })
 
   it('persists region selection and saves local profile without email capture', async () => {
-    const { getByLabelText, getByText, queryByPlaceholderText } = render(
+    const { getByTestId, queryByRole } = render(
       <RegionCompliancePanel />,
     )
 
-    const select = getByLabelText('Region') as HTMLSelectElement
+    const select = getByTestId('region-compliance-select') as HTMLSelectElement
     fireEvent.change(select, { target: { value: 'eu' } })
     expect(window.localStorage.getItem('aljama.region')).toBe('eu')
 
-    expect(queryByPlaceholderText('you@company.com')).toBeNull()
-    fireEvent.click(getByText('Save region profile'))
+    expect(queryByRole('textbox')).toBeNull()
+    fireEvent.click(getByTestId('region-compliance-save-profile'))
 
     await waitFor(() => {
       expect(window.localStorage.getItem('aljama.region.profileEnabled')).toBe('true')
-      expect(getByText('Region profile saved locally.')).toBeTruthy()
+      expect(getByTestId('region-compliance-save-status')).toBeTruthy()
     })
   })
 
@@ -64,13 +64,13 @@ describe('RegionCompliancePanel', () => {
     window.localStorage.setItem('aljama.region', 'us')
     window.localStorage.setItem('aljama.region.profileEnabled', 'true')
 
-    const { queryByText } = render(<RegionCompliancePanel />)
+    const { queryByTestId } = render(<RegionCompliancePanel />)
 
-    expect(queryByText('Region profile saved locally.')).toBeNull()
+    expect(queryByTestId('region-compliance-save-status')).toBeNull()
   })
 
   it('syncs selected region when map jurisdiction updates it', () => {
-    const { getByLabelText } = render(<RegionCompliancePanel />)
+    const { getByTestId } = render(<RegionCompliancePanel />)
 
     act(() => {
       window.localStorage.setItem('aljama.region', 'mena')
@@ -81,7 +81,7 @@ describe('RegionCompliancePanel', () => {
       )
     })
 
-    const select = getByLabelText('Region') as HTMLSelectElement
+    const select = getByTestId('region-compliance-select') as HTMLSelectElement
     expect(select.value).toBe('mena')
   })
 })

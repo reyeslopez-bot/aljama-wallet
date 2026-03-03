@@ -92,6 +92,7 @@ export function ConnectWalletPanel() {
 
   return (
     <section
+      data-testid="connect-wallet-panel"
       aria-labelledby={titleId}
       aria-describedby={`${bodyId} ${detailId}`}
       className="surface-panel panel-glow-lapis relative h-full p-7 sm:p-8"
@@ -110,6 +111,7 @@ export function ConnectWalletPanel() {
         </div>
         <span
           id={statusId}
+          data-testid="connect-wallet-status"
           aria-live="polite"
           className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70"
         >
@@ -119,6 +121,7 @@ export function ConnectWalletPanel() {
 
       <div className="relative mt-6 space-y-4">
         <div
+          data-testid="connect-wallet-summary"
           className="surface-soft rounded-2xl border border-white/10 bg-white/5 p-4 text-xs"
           role="group"
           aria-label={t('title')}
@@ -139,7 +142,7 @@ export function ConnectWalletPanel() {
           </div>
         </div>
 
-        <div id={detailId} className="surface-inner p-4" aria-live="polite">
+        <div id={detailId} data-testid="connect-wallet-detail" className="surface-inner p-4" aria-live="polite">
           {displayConnected ? (
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-[0.16em] text-jade/80">
@@ -160,6 +163,7 @@ export function ConnectWalletPanel() {
         </div>
 
         <motion.button
+          data-testid="connect-wallet-action"
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -193,13 +197,13 @@ export function ConnectWalletPanel() {
         )}
 
         {hydrated && !canConnect ? (
-          <p id={connectorNoteId} className="text-xs text-saffron/80">
+          <p id={connectorNoteId} data-testid="connect-wallet-no-connector-note" className="text-xs text-saffron/80">
             {t('noConnectorNote')}
           </p>
         ) : null}
 
         {connectError ? (
-          <p id={errorId} role="alert" className="text-xs text-red-300">
+          <p id={errorId} data-testid="connect-wallet-error" role="alert" className="text-xs text-red-300">
             {connectError instanceof Error ? connectError.message : 'Wallet connection failed'}
           </p>
         ) : null}

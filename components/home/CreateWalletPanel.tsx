@@ -670,6 +670,7 @@ export function CreateWalletPanel() {
 
   return (
     <section
+      data-testid="create-wallet-panel"
       aria-labelledby={titleId}
       aria-describedby={`${bodyId} ${engineStateId} ${formHintId}`}
       className="surface-panel panel-glow-saffron relative p-7 sm:p-8"
@@ -687,6 +688,7 @@ export function CreateWalletPanel() {
           </p>
         </div>
         <span
+          data-testid="create-wallet-badge"
           aria-live="polite"
           className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${badgeColor}`}
         >
@@ -699,6 +701,7 @@ export function CreateWalletPanel() {
       </p>
 
       <form
+        data-testid="create-wallet-form"
         onSubmit={submit}
         aria-describedby={[
           engineStateId,
@@ -723,6 +726,7 @@ export function CreateWalletPanel() {
               {t('passwordTag')}
             </span>
             <input
+              data-testid="create-wallet-password-input"
               id={passwordInputId}
               type="password"
               value={password}
@@ -750,6 +754,7 @@ export function CreateWalletPanel() {
               </p>
             </div>
             <button
+              data-testid="create-wallet-mnemonic-switch"
               type="button"
               role="switch"
               aria-checked={useOptionalMnemonicPassphrase}
@@ -787,6 +792,7 @@ export function CreateWalletPanel() {
                   {t('mnemonicPassphraseTag')}
                 </span>
                 <input
+                  data-testid="create-wallet-mnemonic-passphrase-input"
                   id={mnemonicPassphraseInputId}
                   type="password"
                   value={mnemonicPassphrase}
@@ -806,6 +812,7 @@ export function CreateWalletPanel() {
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <button
+                  data-testid="create-wallet-mnemonic-passphrase-generate"
                   type="button"
                   onClick={generateOptionalMnemonicPassphrase}
                   disabled={locked || status === 'pending'}
@@ -814,6 +821,7 @@ export function CreateWalletPanel() {
                   {t('generateMnemonicPassphrase')}
                 </button>
                 <button
+                  data-testid="create-wallet-mnemonic-passphrase-copy"
                   type="button"
                   onClick={() => void copyMnemonicPassphrase()}
                   disabled={locked || status === 'pending' || !mnemonicPassphrase.trim()}
@@ -827,6 +835,7 @@ export function CreateWalletPanel() {
 
           <div className="grid gap-3 md:grid-cols-2">
             <button
+              data-testid="create-wallet-passphrase-generate"
               type="button"
               onClick={generatePassphrase}
               disabled={locked || status === 'pending'}
@@ -840,6 +849,7 @@ export function CreateWalletPanel() {
             </button>
 
             <button
+              data-testid="create-wallet-submit"
               type="submit"
               disabled={disabled}
               className={`${actionButtonClass} bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] text-ivory shadow-lg shadow-[#c7794a]/30 focus:ring-2 focus:ring-saffron/30`}
@@ -856,10 +866,15 @@ export function CreateWalletPanel() {
           {t('flowHint')}
         </p>
 
-        {showUnlockMessage && <UnlockActionsLink className="text-xs uppercase tracking-[0.18em] text-ivory/50" />}
+        {showUnlockMessage && (
+          <div data-testid="create-wallet-unlock">
+            <UnlockActionsLink className="text-xs uppercase tracking-[0.18em] text-ivory/50" />
+          </div>
+        )}
 
         {passphraseValidation.hasValue && (
           <div
+            data-testid="create-wallet-strength-panel"
             id={passwordRulesId}
             aria-live="polite"
             className="surface-inner relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#121820] via-[#0d1118] to-[#16120f] p-4"
@@ -977,6 +992,7 @@ export function CreateWalletPanel() {
 
         {walletDraft && status !== 'success' && (
           <div
+            data-testid="create-wallet-recovery-section"
             className="surface-inner space-y-4 rounded-2xl border border-saffron/25 bg-black/25 p-4"
             aria-labelledby={recoveryTitleId}
             aria-describedby={recoveryHintId}
@@ -990,6 +1006,7 @@ export function CreateWalletPanel() {
             </p>
             <div className="flex items-center justify-end">
               <button
+                data-testid="create-wallet-mnemonic-copy"
                 type="button"
                 onClick={() => void copyMnemonic()}
                 aria-describedby={`${recoveryHintId} ${clipboardStatusId}`}
@@ -1015,6 +1032,7 @@ export function CreateWalletPanel() {
                     {t('recoveryWordPrompt', { index: String(slot + 1) })}
                   </span>
                   <input
+                    data-testid="create-wallet-recovery-input"
                     id={`create-wallet-recovery-word-${slot}`}
                     type="text"
                     autoComplete="off"
@@ -1040,6 +1058,7 @@ export function CreateWalletPanel() {
 
               <label className="flex items-start gap-2 text-xs text-ivory/70">
                 <input
+                  data-testid="create-wallet-recovery-backed-up"
                   type="checkbox"
                   checked={recoveryBackedUp}
                   onChange={(event) => setRecoveryBackedUp(event.target.checked)}
@@ -1052,6 +1071,7 @@ export function CreateWalletPanel() {
 
               <label className="flex items-start gap-2 text-xs text-ivory/70">
                 <input
+                  data-testid="create-wallet-recovery-loss-accepted"
                   type="checkbox"
                   checked={recoveryLossAccepted}
                   onChange={(event) => setRecoveryLossAccepted(event.target.checked)}
@@ -1081,7 +1101,12 @@ export function CreateWalletPanel() {
         </div>
       </form>
 
-      <div id={readyStatusId} className="surface-inner relative mt-6 p-4" aria-live="polite">
+      <div
+        id={readyStatusId}
+        data-testid="create-wallet-ready-panel"
+        className="surface-inner relative mt-6 p-4"
+        aria-live="polite"
+      >
         {walletPreview ? (
           <div className="space-y-3">
             <p className="text-xs uppercase tracking-[0.16em] text-jade/80">{t('readyTitle')}</p>
@@ -1091,6 +1116,7 @@ export function CreateWalletPanel() {
               <p className="mt-1 break-all font-mono text-base">{walletPreview.activeAddress}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
+                  data-testid="create-wallet-copy-address"
                   type="button"
                   onClick={() => void copyAddress()}
                   aria-describedby={clipboardStatusId}
@@ -1099,6 +1125,7 @@ export function CreateWalletPanel() {
                   {addressCopied ? t('copiedAddress') : t('copyAddress')}
                 </button>
                 <button
+                  data-testid="create-wallet-download-keystore"
                   type="button"
                   onClick={downloadKeystore}
                   aria-describedby={clipboardStatusId}
@@ -1107,6 +1134,7 @@ export function CreateWalletPanel() {
                   {keystoreDownloaded ? t('keystoreDownloaded') : t('downloadKeystore')}
                 </button>
                 <a
+                  data-testid="create-wallet-buy-with-card"
                   href={onRampUrl}
                   target="_blank"
                   rel="noreferrer"
@@ -1176,17 +1204,20 @@ export function CreateWalletPanel() {
             <p>{t('emptyBody')}</p>
             {passphraseValidation.hasValue && (
               <div className="mt-2 rounded-xl border border-lapis/30 bg-lapis/10 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.14em] text-lapis/90">{t('passphraseOfferTitle')}</p>
-                <p className="mt-1 text-xs text-ivory/70">{t('passphraseOfferBody')}</p>
-                <p className="mt-2 font-mono text-sm text-ivory/70">{'*'.repeat(24)}</p>
-                <button
-                  type="button"
-                  onClick={() => void copyPassphrase()}
-                  aria-describedby={clipboardStatusId}
-                  className="mt-3 rounded-full border border-lapis/35 bg-lapis/15 px-3 py-1.5 text-xs font-semibold text-lapis transition hover:bg-lapis/25"
-                >
-                  {passphraseCopied ? t('copiedPassphrase') : t('copyPassphrase')}
-                </button>
+                <div data-testid="create-wallet-passphrase-offer">
+                  <p className="text-xs uppercase tracking-[0.14em] text-lapis/90">{t('passphraseOfferTitle')}</p>
+                  <p className="mt-1 text-xs text-ivory/70">{t('passphraseOfferBody')}</p>
+                  <p className="mt-2 font-mono text-sm text-ivory/70">{'*'.repeat(24)}</p>
+                  <button
+                    data-testid="create-wallet-passphrase-copy"
+                    type="button"
+                    onClick={() => void copyPassphrase()}
+                    aria-describedby={clipboardStatusId}
+                    className="mt-3 rounded-full border border-lapis/35 bg-lapis/15 px-3 py-1.5 text-xs font-semibold text-lapis transition hover:bg-lapis/25"
+                  >
+                    {passphraseCopied ? t('copiedPassphrase') : t('copyPassphrase')}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1199,12 +1230,23 @@ export function CreateWalletPanel() {
           {clipboardStatusMessage}
         </p>
         {notice && (
-          <p id={noticeId} role="status" aria-live="polite" className="mt-3 text-xs text-saffron/90">
+          <p
+            id={noticeId}
+            data-testid="create-wallet-notice"
+            role="status"
+            aria-live="polite"
+            className="mt-3 text-xs text-saffron/90"
+          >
             {notice}
           </p>
         )}
         {error && (
-          <p id={errorId} role="alert" className="mt-3 text-sm text-red-300">
+          <p
+            id={errorId}
+            data-testid="create-wallet-error"
+            role="alert"
+            className="mt-3 text-sm text-red-300"
+          >
             {error}
           </p>
         )}

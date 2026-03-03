@@ -8,7 +8,7 @@ import { useSession } from "next-auth/react"
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
 type Btn =
-  | { kind: "anchor"; label: string; href: string; bg: string }
+  | { kind: "anchor"; label: string; href: string; bg: string; testId: string }
 
 const surface = (bg: string) => ({
   backgroundImage: bg,
@@ -31,27 +31,40 @@ export default function HomeActionButtons() {
       label: t("createWallet"),
       href: `/${locale}#create`,
       bg: "linear-gradient(135deg, #f3d9aa 0%, #e0ad70 45%, #c67a4a 100%)",
+      testId: "home-action-button-create-wallet",
     },
     {
       kind: "anchor",
       label: t("connectWallet"),
       href: `/${locale}#connect`,
       bg: "linear-gradient(135deg, #7fb0d9 0%, #5c8db4 50%, #4b7c79 100%)",
+      testId: "home-action-button-connect-wallet",
     },
     {
       kind: "anchor",
       label: t("xrpl"),
       href: `/${locale}#xrpl`,
       bg: "linear-gradient(135deg, #e8d2a2 0%, #c8ab72 50%, #a1804f 100%)",
+      testId: "home-action-button-xrpl",
     },
   ]
 
   return (
-    <div className="w-full" role="group" aria-label="Primary wallet actions">
-      <div className="mx-auto grid w-full max-w-3xl grid-cols-3 gap-4 md:gap-6" role="list">
+    <div
+      data-testid="home-action-buttons"
+      className="w-full"
+      role="group"
+      aria-label="Primary wallet actions"
+    >
+      <div
+        data-testid="home-action-buttons-list"
+        className="mx-auto grid w-full max-w-3xl grid-cols-3 gap-4 md:gap-6"
+        role="list"
+      >
         {buttons.map((b) => (
           <Link
             key={b.label}
+            data-testid={b.testId}
             href={b.href}
             onClick={(event) => {
               if (locked) event.preventDefault()
@@ -78,7 +91,7 @@ export default function HomeActionButtons() {
         ))}
       </div>
       {locked && (
-        <div id={unlockHintId}>
+        <div id={unlockHintId} data-testid="home-action-buttons-unlock">
           <UnlockActionsLink
             className="mt-4 block w-full text-center text-xs uppercase tracking-[0.18em] text-saffron/75"
           />

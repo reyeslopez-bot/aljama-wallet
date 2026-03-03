@@ -185,6 +185,7 @@ export function XrplPanel() {
 
   return (
     <section
+      data-testid="xrpl-panel"
       aria-labelledby={titleId}
       aria-describedby={`${bodyId} ${selectorHintId}`}
       className="surface-panel panel-glow-lapis relative p-7 sm:p-8"
@@ -198,10 +199,11 @@ export function XrplPanel() {
             {t('title')}
           </h2>
           <div className="flex flex-wrap items-center gap-2">
-            <span
-              aria-live="polite"
-              className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70"
-            >
+        <span
+          data-testid="xrpl-panel-sync-status"
+          aria-live="polite"
+          className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70"
+        >
               {state.loading ? t('statusSyncing') : t('statusOnline')}
             </span>
             <span
@@ -218,7 +220,7 @@ export function XrplPanel() {
       </header>
 
       <div className="relative mt-6 space-y-4">
-        <div id="xrpl-network" className="surface-inner p-4">
+        <div id="xrpl-network" data-testid="xrpl-panel-network-selector" className="surface-inner p-4">
           <div className="space-y-2">
             <p id={selectorLabelId} className="text-xs uppercase tracking-[0.16em] text-ivory/60">
               {t('networkSelectorLabel')}
@@ -231,6 +233,7 @@ export function XrplPanel() {
           {devnetFlagEnabled ? (
             <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
               <button
+                data-testid="xrpl-panel-debug-menu-button"
                 type="button"
                 onClick={() => setDebugMenuOpen((prev) => !prev)}
                 aria-expanded={debugMenuOpen}
@@ -241,7 +244,7 @@ export function XrplPanel() {
               </button>
 
               {debugMenuOpen ? (
-                <div id={debugMenuId} className="mt-3 space-y-3">
+                <div id={debugMenuId} data-testid="xrpl-panel-debug-menu" className="mt-3 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p id="xrpl-developer-mode-label" className="text-xs font-semibold text-ivory/90">
@@ -252,6 +255,7 @@ export function XrplPanel() {
                       </p>
                     </div>
                     <button
+                      data-testid="xrpl-panel-developer-mode-switch"
                       type="button"
                       role="switch"
                       aria-checked={developerModeEnabled}
@@ -279,6 +283,7 @@ export function XrplPanel() {
                       </p>
                     </div>
                     <button
+                      data-testid="xrpl-panel-advanced-devnet-switch"
                       type="button"
                       role="switch"
                       aria-checked={advancedDevnetEnabled}
@@ -305,6 +310,7 @@ export function XrplPanel() {
           ) : null}
 
           <div
+            data-testid="xrpl-panel-network-options"
             className="mt-3 grid gap-2 sm:grid-cols-2"
             role="radiogroup"
             aria-labelledby={selectorLabelId}
@@ -316,6 +322,7 @@ export function XrplPanel() {
                 <button
                   key={network.id}
                   id={networkOptionId(network.id)}
+                  data-testid={`xrpl-panel-network-${network.id}`}
                   type="button"
                   onClick={() => setSelectedNetworkId(network.id)}
                   onKeyDown={(event) => handleNetworkOptionKeyDown(event, index)}
@@ -342,7 +349,7 @@ export function XrplPanel() {
             })}
           </div>
 
-          <div className="surface-soft mt-3 space-y-3 p-4 text-xs text-ivory/75">
+          <div data-testid="xrpl-panel-endpoints" className="surface-soft mt-3 space-y-3 p-4 text-xs text-ivory/75">
             <div className="flex items-center justify-between gap-3">
               <span className="text-ivory/55">{t('selectedNetwork')}</span>
               <span className="font-semibold text-ivory">{selectedNetwork.name}</span>
@@ -353,6 +360,7 @@ export function XrplPanel() {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] uppercase tracking-[0.14em] text-ivory/55">RPC</span>
                   <button
+                    data-testid="xrpl-panel-copy-rpc"
                     type="button"
                     onClick={() => void copyEndpoint('rpc', selectedNetwork.rpcUrl)}
                     aria-label={`Copy RPC endpoint`}
@@ -371,6 +379,7 @@ export function XrplPanel() {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] uppercase tracking-[0.14em] text-ivory/55">WSS</span>
                   <button
+                    data-testid="xrpl-panel-copy-wss"
                     type="button"
                     onClick={() => void copyEndpoint('wss', selectedNetwork.wsUrl)}
                     aria-label={`Copy WSS endpoint`}
@@ -391,6 +400,7 @@ export function XrplPanel() {
                   <div className="flex items-center gap-1.5">
                     {hasDedicatedExplorer ? (
                       <a
+                        data-testid="xrpl-panel-open-explorer"
                         href={selectedNetwork.explorerUrl}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -401,6 +411,7 @@ export function XrplPanel() {
                       </a>
                     ) : null}
                     <button
+                      data-testid="xrpl-panel-copy-explorer"
                       type="button"
                       onClick={() => void copyEndpoint('explorer', selectedNetwork.explorerUrl)}
                       aria-label={`Copy explorer endpoint`}
@@ -438,13 +449,18 @@ export function XrplPanel() {
               </p>
             ) : null}
 
-            <p id={copyStatusId} className="sr-only" aria-live="polite">
+            <p id={copyStatusId} data-testid="xrpl-panel-copy-status" className="sr-only" aria-live="polite">
               {copiedEndpoint ? `${copiedEndpoint.toUpperCase()} ${t('copied')}` : ''}
             </p>
           </div>
         </div>
 
-        <div id={accountStatusId} className="surface-inner p-4" aria-live="polite">
+        <div
+          id={accountStatusId}
+          data-testid="xrpl-panel-account-status"
+          className="surface-inner p-4"
+          aria-live="polite"
+        >
           {state.loading ? (
             <p className="text-sm text-ivory/60">{t('loading')}</p>
           ) : state.error ? (
@@ -466,6 +482,7 @@ export function XrplPanel() {
         </div>
 
         <motion.button
+          data-testid="xrpl-panel-refresh"
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -478,9 +495,11 @@ export function XrplPanel() {
         </motion.button>
 
         {locked && (
-          <UnlockActionsLink
-            className="text-xs uppercase tracking-[0.18em] text-ivory/50"
-          />
+          <div data-testid="xrpl-panel-unlock">
+            <UnlockActionsLink
+              className="text-xs uppercase tracking-[0.18em] text-ivory/50"
+            />
+          </div>
         )}
       </div>
     </section>

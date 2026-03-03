@@ -72,7 +72,7 @@ describe('XrplMarketPanel', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByRole, getByText, queryByText } = render(<XrplMarketPanel />)
+    const { getByTestId, getByText, queryByTestId } = render(<XrplMarketPanel />)
 
     await waitFor(() => {
       expect(getByText('$0.62')).toBeTruthy()
@@ -80,14 +80,14 @@ describe('XrplMarketPanel', () => {
       expect(getByText('Bitcoin')).toBeTruthy()
     })
 
-    fireEvent.click(getByRole('button', { name: 'XRPL' }))
+    fireEvent.click(getByTestId('xrpl-market-filter-xrpl'))
 
     await waitFor(() => {
-      expect(getByText('$0.62')).toBeTruthy()
-      expect(queryByText('$69,000.00')).toBeNull()
+      expect(getByTestId('xrpl-market-row-xrp')).toBeTruthy()
+      expect(queryByTestId('xrpl-market-row-btc')).toBeNull()
     })
 
-    fireEvent.click(getByRole('button', { name: 'Refresh market snapshot' }))
+    fireEvent.click(getByTestId('xrpl-market-refresh'))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
@@ -109,16 +109,16 @@ describe('XrplMarketPanel', () => {
       fetchMock,
     )
 
-    const { getByRole, getByText } = render(<XrplMarketPanel />)
+    const { getByTestId, getByText } = render(<XrplMarketPanel />)
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
-    const all = getByRole('button', { name: 'All' }) as HTMLButtonElement
-    const xrpl = getByRole('button', { name: 'XRPL' }) as HTMLButtonElement
-    const reference = getByRole('button', { name: 'Reference' }) as HTMLButtonElement
-    const refresh = getByRole('button', { name: 'Refresh market snapshot' }) as HTMLButtonElement
+    const all = getByTestId('xrpl-market-filter-all') as HTMLButtonElement
+    const xrpl = getByTestId('xrpl-market-filter-xrpl') as HTMLButtonElement
+    const reference = getByTestId('xrpl-market-filter-reference') as HTMLButtonElement
+    const refresh = getByTestId('xrpl-market-refresh') as HTMLButtonElement
 
     expect(all.disabled).toBe(true)
     expect(xrpl.disabled).toBe(true)

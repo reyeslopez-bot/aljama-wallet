@@ -212,6 +212,13 @@ test('home functional checks: text, color, and screenshots', async ({ page }, te
   await expect(page.getByTestId('home-wallet-section')).toBeVisible()
   await expect(page.getByTestId('home-xrpl-section')).toBeVisible()
   await expect(page.getByTestId('home-trade-desk-section')).toBeVisible()
+  await expect(page.getByTestId('mapbox-map')).toBeVisible()
+  await expect(page.getByTestId('region-compliance-panel')).toBeVisible()
+  await expect(page.getByTestId('create-wallet-panel')).toBeVisible()
+  await expect(page.getByTestId('connect-wallet-panel')).toBeVisible()
+  await expect(page.getByTestId('xrpl-panel')).toBeVisible()
+  await expect(page.getByTestId('xrpl-market-panel')).toBeVisible()
+  await expect(page.getByTestId('xrpl-trade-desk')).toBeVisible()
 
   const titleClass = await title.getAttribute('class')
   const brandClass = await brandMark.getAttribute('class')

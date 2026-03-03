@@ -97,22 +97,24 @@ describe('XrplTradeDesk', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByText, getByPlaceholderText, getByRole } = render(<XrplTradeDesk />)
+    const { getByTestId, getByText } = render(<XrplTradeDesk />)
 
     await waitFor(() => {
-      expect(getByText('Asset Holdings')).toBeTruthy()
+      expect(getByTestId('xrpl-trade-desk-assets')).toBeTruthy()
       expect(getByText('Demo NFT')).toBeTruthy()
       expect(getByText('offer_create · validated')).toBeTruthy()
     })
 
-    fireEvent.change(getByPlaceholderText('Issuer address'), { target: { value: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe' } })
-    fireEvent.change(getByRole('combobox', { name: 'Trustline currency' }), { target: { value: 'USD' } })
-    fireEvent.change(getByPlaceholderText('Limit'), { target: { value: '250' } })
+    fireEvent.change(getByTestId('xrpl-trade-desk-trustline-issuer'), {
+      target: { value: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe' },
+    })
+    fireEvent.change(getByTestId('xrpl-trade-desk-trustline-currency'), { target: { value: 'USD' } })
+    fireEvent.change(getByTestId('xrpl-trade-desk-trustline-limit'), { target: { value: '250' } })
 
-    fireEvent.click(getByRole('button', { name: 'Submit Trustline' }))
+    fireEvent.click(getByTestId('xrpl-trade-desk-trustline-submit'))
 
     await waitFor(() => {
-      expect(getByText(/trustline_set submitted/i)).toBeTruthy()
+      expect(getByTestId('xrpl-trade-desk-action-status').textContent).toMatch(/trustline_set submitted/i)
     })
   })
 })

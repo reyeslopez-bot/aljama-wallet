@@ -76,11 +76,11 @@ describe('MapboxMap', () => {
       }),
     )
 
-    const { getByText, getAllByText } = render(<MapboxMap />)
+    const { getByTestId } = render(<MapboxMap />)
 
     await waitFor(() => {
-      expect(getByText('Jurisdiction:')).toBeTruthy()
-      expect(getAllByText('UAE - Dubai').length).toBeGreaterThan(0)
+      expect(getByTestId('mapbox-map-laws').textContent).toContain('Jurisdiction:')
+      expect(getByTestId('mapbox-map-laws').textContent).toContain('UAE - Dubai')
     })
   })
 
@@ -121,18 +121,18 @@ describe('MapboxMap', () => {
       })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByRole, getByText, getAllByText } = render(<MapboxMap />)
+    const { getByTestId } = render(<MapboxMap />)
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
-    fireEvent.click(getByRole('button', { name: 'Refresh location' }))
+    fireEvent.click(getByTestId('mapbox-map-refresh'))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
-      expect(getByText(/Centered at/)).toBeTruthy()
-      expect(getAllByText('Israel').length).toBeGreaterThan(0)
+      expect(getByTestId('mapbox-map-status').textContent).toMatch(/Centered at/)
+      expect(getByTestId('mapbox-map-laws').textContent).toContain('Israel')
     })
   })
 
@@ -141,13 +141,13 @@ describe('MapboxMap', () => {
 
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
 
-    const { getByRole, getByText } = render(<MapboxMap />)
+    const { getByTestId } = render(<MapboxMap />)
 
     await waitFor(() => {
-      expect(getByText('Network location unavailable. Using Dubai fallback.')).toBeTruthy()
+      expect(getByTestId('mapbox-map-status').textContent).toContain('Network location unavailable. Using Dubai fallback.')
     })
 
-    const button = getByRole('button', { name: 'Refresh location' }) as HTMLButtonElement
+    const button = getByTestId('mapbox-map-refresh') as HTMLButtonElement
     expect(button.disabled).toBe(false)
   })
 })

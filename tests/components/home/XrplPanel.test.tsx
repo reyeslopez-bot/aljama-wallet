@@ -55,14 +55,14 @@ describe('XrplPanel', () => {
       })
 
     vi.stubGlobal('fetch', fetchMock)
-    const { getByRole, getByText } = render(<XrplPanel />)
+    const { getByTestId, getByText } = render(<XrplPanel />)
 
     await waitFor(() => {
       expect(getByText('rAddressOne')).toBeTruthy()
     })
     expect(fetchMock.mock.calls[0]?.[0]).toContain('network=testnet')
 
-    const refresh = getByRole('button', { name: 'Refresh XRPL snapshot' }) as HTMLButtonElement
+    const refresh = getByTestId('xrpl-panel-refresh') as HTMLButtonElement
     expect(refresh.disabled).toBe(false)
 
     fireEvent.click(refresh)
@@ -88,13 +88,13 @@ describe('XrplPanel', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByRole, getByText } = render(<XrplPanel />)
+    const { getByTestId, getByText } = render(<XrplPanel />)
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
-    const refresh = getByRole('button', { name: 'Refresh XRPL snapshot' }) as HTMLButtonElement
+    const refresh = getByTestId('xrpl-panel-refresh') as HTMLButtonElement
     expect(refresh.disabled).toBe(true)
     expect(getByText('Sign up to unlock actions.')).toBeTruthy()
   })
@@ -111,14 +111,14 @@ describe('XrplPanel', () => {
       })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByRole } = render(<XrplPanel />)
+    const { getByTestId } = render(<XrplPanel />)
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
     expect(fetchMock.mock.calls[0]?.[0]).toContain('network=testnet')
 
-    fireEvent.click(getByRole('button', { name: /Mainnet/ }))
+    fireEvent.click(getByTestId('xrpl-panel-network-mainnet'))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
@@ -138,7 +138,7 @@ describe('XrplPanel', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { queryByRole, getByRole } = render(<XrplPanel />)
+    const { queryByRole, getByTestId } = render(<XrplPanel />)
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -146,10 +146,10 @@ describe('XrplPanel', () => {
     expect(queryByRole('link', { name: 'Open faucet' })).toBeNull()
     expect(queryByRole('button', { name: /^Devnet/ })).toBeNull()
 
-    fireEvent.click(getByRole('button', { name: 'Debug menu' }))
-    fireEvent.click(getByRole('switch', { name: 'Developer mode' }))
-    fireEvent.click(getByRole('switch', { name: 'Show Devnet' }))
-    fireEvent.click(getByRole('button', { name: /^Devnet/ }))
+    fireEvent.click(getByTestId('xrpl-panel-debug-menu-button'))
+    fireEvent.click(getByTestId('xrpl-panel-developer-mode-switch'))
+    fireEvent.click(getByTestId('xrpl-panel-advanced-devnet-switch'))
+    fireEvent.click(getByTestId('xrpl-panel-network-devnet'))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)

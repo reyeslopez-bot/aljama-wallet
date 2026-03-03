@@ -374,6 +374,7 @@ export default function XrplTradeDesk() {
 
   return (
     <section
+      data-testid="xrpl-trade-desk"
       aria-labelledby={titleId}
       aria-describedby={`${bodyId} ${regionBlocked ? regionPolicyId : ''}`.trim() || undefined}
       aria-busy={submitting}
@@ -406,10 +407,11 @@ export default function XrplTradeDesk() {
       </header>
 
       <div className="relative mt-6 grid gap-5 lg:grid-cols-2">
-        <div className="surface-inner space-y-3 p-4">
+        <div data-testid="xrpl-trade-desk-assets" className="surface-inner space-y-3 p-4">
           <div className="flex items-center justify-between">
             <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Asset Holdings</p>
             <button
+              data-testid="xrpl-trade-desk-assets-refresh"
               type="button"
               disabled={locked}
               onClick={() => void loadAssets()}
@@ -424,7 +426,11 @@ export default function XrplTradeDesk() {
           {!assetsLoading && !assetsError ? (
             <div className="space-y-2">
               {assets.slice(0, 10).map((asset) => (
-                <div key={`${asset.currency}-${asset.issuer ?? 'xrp'}`} className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm">
+                <div
+                  key={`${asset.currency}-${asset.issuer ?? 'xrp'}`}
+                  data-testid="xrpl-trade-desk-asset-row"
+                  className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                >
                   <p className="font-semibold text-ivory">
                     {asset.currency} {asset.assetType === 'issued' && asset.issuer ? `· ${shortHash(asset.issuer)}` : ''}
                   </p>
@@ -436,10 +442,11 @@ export default function XrplTradeDesk() {
           ) : null}
         </div>
 
-        <div className="surface-inner space-y-3 p-4">
+        <div data-testid="xrpl-trade-desk-orderbook" className="surface-inner space-y-3 p-4">
           <div className="flex items-center justify-between">
             <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Order Book Context</p>
             <button
+              data-testid="xrpl-trade-desk-orderbook-refresh"
               type="button"
               disabled={locked}
               onClick={() => void loadOrderbook()}
@@ -451,6 +458,7 @@ export default function XrplTradeDesk() {
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <select
+              data-testid="xrpl-trade-desk-orderbook-taker-gets-currency"
               value={pair.takerGetsCurrency}
               onChange={(event) => {
                 const currency = event.target.value
@@ -470,6 +478,7 @@ export default function XrplTradeDesk() {
               ))}
             </select>
             <input
+              data-testid="xrpl-trade-desk-orderbook-taker-gets-issuer"
               value={pair.takerGetsIssuer}
               onChange={(event) => setPair((prev) => ({ ...prev, takerGetsIssuer: event.target.value }))}
               disabled={isXrpCurrency(pair.takerGetsCurrency)}
@@ -478,6 +487,7 @@ export default function XrplTradeDesk() {
               placeholder={isXrpCurrency(pair.takerGetsCurrency) ? 'No issuer for XRP' : 'Gets issuer'}
             />
             <select
+              data-testid="xrpl-trade-desk-orderbook-taker-pays-currency"
               value={pair.takerPaysCurrency}
               onChange={(event) => {
                 const currency = event.target.value
@@ -497,6 +507,7 @@ export default function XrplTradeDesk() {
               ))}
             </select>
             <input
+              data-testid="xrpl-trade-desk-orderbook-taker-pays-issuer"
               value={pair.takerPaysIssuer}
               onChange={(event) => setPair((prev) => ({ ...prev, takerPaysIssuer: event.target.value }))}
               disabled={isXrpCurrency(pair.takerPaysCurrency)}
@@ -510,7 +521,11 @@ export default function XrplTradeDesk() {
           {!offersLoading && !offersError ? (
             <div className="space-y-2">
               {offers.slice(0, 6).map((offer) => (
-                <div key={`${offer.account ?? 'na'}-${offer.sequence ?? 0}`} className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-ivory/75">
+                <div
+                  key={`${offer.account ?? 'na'}-${offer.sequence ?? 0}`}
+                  data-testid="xrpl-trade-desk-orderbook-row"
+                  className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-ivory/75"
+                >
                   <p>Seq {offer.sequence ?? '--'} · {shortHash(offer.account)}</p>
                   <p>Quality: {offer.quality ?? '--'}</p>
                 </div>
@@ -520,10 +535,11 @@ export default function XrplTradeDesk() {
           ) : null}
         </div>
 
-        <div className="surface-inner space-y-3 p-4 lg:col-span-2">
+        <div data-testid="xrpl-trade-desk-nfts" className="surface-inner space-y-3 p-4 lg:col-span-2">
           <div className="flex items-center justify-between">
             <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">NFT Gallery</p>
             <button
+              data-testid="xrpl-trade-desk-nfts-refresh"
               type="button"
               disabled={locked}
               onClick={() => void loadNfts()}
@@ -539,7 +555,11 @@ export default function XrplTradeDesk() {
             <>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {pagedNfts.map((nft, index) => (
-                  <div key={nft.nftokenId ?? `nft-${index}`} className="rounded-xl border border-white/10 bg-black/30 p-3">
+                  <div
+                    key={nft.nftokenId ?? `nft-${index}`}
+                    data-testid="xrpl-trade-desk-nft-card"
+                    className="rounded-xl border border-white/10 bg-black/30 p-3"
+                  >
                     <p className="text-xs text-ivory/50">{shortHash(nft.nftokenId)}</p>
                     <p className="mt-1 text-sm font-semibold text-ivory">{nft.metadata?.name ?? 'Untitled NFT'}</p>
                     <p className="mt-1 line-clamp-2 text-xs text-ivory/60">{nft.metadata?.description ?? nft.uri ?? 'No metadata'}</p>
@@ -571,10 +591,11 @@ export default function XrplTradeDesk() {
           ) : null}
         </div>
 
-        <div className="surface-inner space-y-3 p-4 lg:col-span-2">
+        <div data-testid="xrpl-trade-desk-history" className="surface-inner space-y-3 p-4 lg:col-span-2">
           <div className="flex items-center justify-between">
             <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Signed Action History</p>
             <button
+              data-testid="xrpl-trade-desk-history-refresh"
               type="button"
               disabled={locked}
               onClick={() => void loadHistory()}
@@ -589,7 +610,11 @@ export default function XrplTradeDesk() {
           {!historyLoading && !historyError ? (
             <div className="space-y-2">
               {history.slice(0, 10).map((item) => (
-                <div key={item.id} className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-ivory/75">
+                <div
+                  key={item.id}
+                  data-testid="xrpl-trade-desk-history-row"
+                  className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-ivory/75"
+                >
                   <p className="font-semibold text-ivory">{item.action} · {item.status}</p>
                   <p>tx: {shortHash(item.txHash)}</p>
                   <p>engine: {item.engineResult ?? '--'}</p>
@@ -603,6 +628,7 @@ export default function XrplTradeDesk() {
 
       <div className="relative mt-6 grid gap-4 lg:grid-cols-2">
         <form
+          data-testid="xrpl-trade-desk-trustline-form"
           className="surface-inner space-y-3 p-4"
           aria-labelledby="xrpl-trade-desk-trustline-title"
           aria-describedby={regionBlocked ? regionPolicyId : undefined}
@@ -615,6 +641,7 @@ export default function XrplTradeDesk() {
             Set Trustline
           </p>
           <input
+            data-testid="xrpl-trade-desk-trustline-issuer"
             value={trustlineForm.issuer}
             onChange={(event) => setTrustlineForm((prev) => ({ ...prev, issuer: event.target.value }))}
             aria-label="Trustline issuer address"
@@ -623,6 +650,7 @@ export default function XrplTradeDesk() {
           />
           <div className="grid grid-cols-2 gap-2">
             <select
+              data-testid="xrpl-trade-desk-trustline-currency"
               value={trustlineForm.currency}
               onChange={(event) => setTrustlineForm((prev) => ({ ...prev, currency: event.target.value }))}
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
@@ -635,6 +663,7 @@ export default function XrplTradeDesk() {
               ))}
             </select>
             <input
+              data-testid="xrpl-trade-desk-trustline-limit"
               value={trustlineForm.limit}
               onChange={(event) => setTrustlineForm((prev) => ({ ...prev, limit: event.target.value }))}
               aria-label="Trustline limit"
@@ -643,6 +672,7 @@ export default function XrplTradeDesk() {
             />
           </div>
           <button
+            data-testid="xrpl-trade-desk-trustline-submit"
             type="submit"
             disabled={locked || regionBlocked || submitting}
             className="rounded-xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
@@ -652,6 +682,7 @@ export default function XrplTradeDesk() {
         </form>
 
         <form
+          data-testid="xrpl-trade-desk-mint-form"
           className="surface-inner space-y-3 p-4"
           aria-labelledby="xrpl-trade-desk-mint-title"
           aria-describedby={regionBlocked ? regionPolicyId : undefined}
@@ -667,6 +698,7 @@ export default function XrplTradeDesk() {
             Mint NFT
           </p>
           <input
+            data-testid="xrpl-trade-desk-mint-uri"
             value={mintForm.uri}
             onChange={(event) => setMintForm((prev) => ({ ...prev, uri: event.target.value }))}
             aria-label="NFT metadata URI"
@@ -674,6 +706,7 @@ export default function XrplTradeDesk() {
             className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
           />
           <input
+            data-testid="xrpl-trade-desk-mint-taxon"
             value={mintForm.taxon}
             onChange={(event) => setMintForm((prev) => ({ ...prev, taxon: event.target.value }))}
             aria-label="NFT taxon"
@@ -681,6 +714,7 @@ export default function XrplTradeDesk() {
             className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
           />
           <button
+            data-testid="xrpl-trade-desk-mint-submit"
             type="submit"
             disabled={locked || regionBlocked || submitting}
             className="rounded-xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-4 py-2 text-sm font-semibold text-[#1c120a] disabled:opacity-60"
@@ -690,6 +724,7 @@ export default function XrplTradeDesk() {
         </form>
 
         <form
+          data-testid="xrpl-trade-desk-offer-form"
           className="surface-inner space-y-3 p-4"
           aria-labelledby="xrpl-trade-desk-offer-title"
           aria-describedby={regionBlocked ? regionPolicyId : undefined}
@@ -718,6 +753,7 @@ export default function XrplTradeDesk() {
           </p>
           <div className="grid grid-cols-2 gap-2">
             <select
+              data-testid="xrpl-trade-desk-offer-taker-gets-currency"
               value={offerForm.takerGetsCurrency}
               onChange={(event) => {
                 const currency = event.target.value
@@ -737,6 +773,7 @@ export default function XrplTradeDesk() {
               ))}
             </select>
             <input
+              data-testid="xrpl-trade-desk-offer-taker-gets-issuer"
               value={offerForm.takerGetsIssuer}
               onChange={(event) => setOfferForm((prev) => ({ ...prev, takerGetsIssuer: event.target.value }))}
               aria-label="Offer taker gets issuer"
@@ -745,6 +782,7 @@ export default function XrplTradeDesk() {
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
             />
             <input
+              data-testid="xrpl-trade-desk-offer-taker-gets-value"
               value={offerForm.takerGetsValue}
               onChange={(event) => setOfferForm((prev) => ({ ...prev, takerGetsValue: event.target.value }))}
               aria-label="Offer taker gets value"
@@ -752,6 +790,7 @@ export default function XrplTradeDesk() {
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
             <select
+              data-testid="xrpl-trade-desk-offer-taker-pays-currency"
               value={offerForm.takerPaysCurrency}
               onChange={(event) => {
                 const currency = event.target.value
@@ -771,6 +810,7 @@ export default function XrplTradeDesk() {
               ))}
             </select>
             <input
+              data-testid="xrpl-trade-desk-offer-taker-pays-issuer"
               value={offerForm.takerPaysIssuer}
               onChange={(event) => setOfferForm((prev) => ({ ...prev, takerPaysIssuer: event.target.value }))}
               aria-label="Offer taker pays issuer"
@@ -779,6 +819,7 @@ export default function XrplTradeDesk() {
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
             />
             <input
+              data-testid="xrpl-trade-desk-offer-taker-pays-value"
               value={offerForm.takerPaysValue}
               onChange={(event) => setOfferForm((prev) => ({ ...prev, takerPaysValue: event.target.value }))}
               aria-label="Offer taker pays value"
@@ -787,6 +828,7 @@ export default function XrplTradeDesk() {
             />
           </div>
           <button
+            data-testid="xrpl-trade-desk-offer-submit"
             type="submit"
             disabled={locked || regionBlocked || submitting}
             className="rounded-xl bg-gradient-to-r from-[#7fb0d9] via-[#5c8db4] to-[#4b7c79] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
@@ -795,6 +837,7 @@ export default function XrplTradeDesk() {
           </button>
           <div className="flex items-center gap-2">
             <input
+              data-testid="xrpl-trade-desk-offer-cancel-sequence"
               value={offerCancelSequence}
               onChange={(event) => setOfferCancelSequence(event.target.value)}
               aria-label="Offer sequence to cancel"
@@ -802,6 +845,7 @@ export default function XrplTradeDesk() {
               className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
             <button
+              data-testid="xrpl-trade-desk-offer-cancel"
               type="button"
               disabled={locked || regionBlocked || submitting || !offerCancelSequence.trim()}
               onClick={() => {
@@ -818,6 +862,7 @@ export default function XrplTradeDesk() {
         </form>
 
         <form
+          data-testid="xrpl-trade-desk-nft-offer-form"
           className="surface-inner space-y-3 p-4"
           aria-labelledby="xrpl-trade-desk-nft-offer-title"
           aria-describedby={regionBlocked ? regionPolicyId : undefined}
@@ -830,6 +875,7 @@ export default function XrplTradeDesk() {
             NFT Offer Actions
           </p>
           <input
+            data-testid="xrpl-trade-desk-nft-offer-token-id"
             value={nftOfferCreateForm.nftokenId}
             onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, nftokenId: event.target.value }))}
             aria-label="NFT offer token ID"
@@ -838,6 +884,7 @@ export default function XrplTradeDesk() {
           />
           <div className="grid grid-cols-2 gap-2">
             <select
+              data-testid="xrpl-trade-desk-nft-offer-mode"
               value={nftOfferCreateForm.mode}
               onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, mode: event.target.value as 'sell' | 'buy' }))}
               aria-label="NFT offer mode"
@@ -847,6 +894,7 @@ export default function XrplTradeDesk() {
               <option value="buy">Buy</option>
             </select>
             <input
+              data-testid="xrpl-trade-desk-nft-offer-amount"
               value={nftOfferCreateForm.amountXrp}
               onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, amountXrp: event.target.value }))}
               aria-label="NFT offer amount in XRP"
@@ -854,6 +902,7 @@ export default function XrplTradeDesk() {
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
             <input
+              data-testid="xrpl-trade-desk-nft-offer-destination"
               value={nftOfferCreateForm.destination}
               onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, destination: event.target.value }))}
               aria-label="NFT offer destination"
@@ -861,6 +910,7 @@ export default function XrplTradeDesk() {
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
             <input
+              data-testid="xrpl-trade-desk-nft-offer-owner"
               value={nftOfferCreateForm.owner}
               onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, owner: event.target.value }))}
               aria-label="NFT offer owner"
@@ -869,6 +919,7 @@ export default function XrplTradeDesk() {
             />
           </div>
           <button
+            data-testid="xrpl-trade-desk-nft-offer-submit"
             type="submit"
             disabled={locked || regionBlocked || submitting}
             className="rounded-xl bg-gradient-to-r from-[#90b889] via-[#5ea47e] to-[#3b7d66] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
@@ -877,6 +928,7 @@ export default function XrplTradeDesk() {
           </button>
           <div className="grid grid-cols-2 gap-2">
             <input
+              data-testid="xrpl-trade-desk-nft-sell-offer"
               value={nftOfferAcceptForm.sellOffer}
               onChange={(event) => setNftOfferAcceptForm((prev) => ({ ...prev, sellOffer: event.target.value }))}
               aria-label="NFT sell offer ID"
@@ -884,6 +936,7 @@ export default function XrplTradeDesk() {
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
             <input
+              data-testid="xrpl-trade-desk-nft-buy-offer"
               value={nftOfferAcceptForm.buyOffer}
               onChange={(event) => setNftOfferAcceptForm((prev) => ({ ...prev, buyOffer: event.target.value }))}
               aria-label="NFT buy offer ID"
@@ -892,6 +945,7 @@ export default function XrplTradeDesk() {
             />
           </div>
           <button
+            data-testid="xrpl-trade-desk-nft-accept"
             type="button"
             disabled={locked || regionBlocked || submitting || (!nftOfferAcceptForm.sellOffer.trim() && !nftOfferAcceptForm.buyOffer.trim())}
             onClick={() =>
@@ -906,6 +960,7 @@ export default function XrplTradeDesk() {
           </button>
           <div className="flex items-center gap-2">
             <input
+              data-testid="xrpl-trade-desk-nft-cancel-ids"
               value={nftOfferCancelIds}
               onChange={(event) => setNftOfferCancelIds(event.target.value)}
               aria-label="NFT offer IDs to cancel"
@@ -913,6 +968,7 @@ export default function XrplTradeDesk() {
               className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
             <button
+              data-testid="xrpl-trade-desk-nft-cancel"
               type="button"
               disabled={locked || regionBlocked || submitting || !nftOfferCancelIds.trim()}
               onClick={() => {
@@ -934,6 +990,7 @@ export default function XrplTradeDesk() {
 
       <div className="relative mt-5 space-y-3">
         <motion.button
+          data-testid="xrpl-trade-desk-refresh"
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -946,17 +1003,30 @@ export default function XrplTradeDesk() {
         </motion.button>
 
         {locked ? (
-          <UnlockActionsLink
-            className="text-xs uppercase tracking-[0.18em] text-ivory/50"
-          />
+          <div data-testid="xrpl-trade-desk-unlock">
+            <UnlockActionsLink
+              className="text-xs uppercase tracking-[0.18em] text-ivory/50"
+            />
+          </div>
         ) : null}
         {actionMessage ? (
-          <p id={actionStatusId} role="status" aria-live="polite" className="text-sm text-jade">
+          <p
+            id={actionStatusId}
+            data-testid="xrpl-trade-desk-action-status"
+            role="status"
+            aria-live="polite"
+            className="text-sm text-jade"
+          >
             {actionMessage}
           </p>
         ) : null}
         {actionError ? (
-          <p id={actionErrorId} role="alert" className="text-sm text-red-300">
+          <p
+            id={actionErrorId}
+            data-testid="xrpl-trade-desk-action-error"
+            role="alert"
+            className="text-sm text-red-300"
+          >
             {actionError}
           </p>
         ) : null}

@@ -274,14 +274,19 @@ export default function MapboxMap() {
   }, [regulatoryRegion])
 
   return (
-    <section aria-labelledby={titleId} aria-describedby={`${statusId} ${lawsId}`} className="space-y-4">
+    <section
+      data-testid="mapbox-map"
+      aria-labelledby={titleId}
+      aria-describedby={`${statusId} ${lawsId}`}
+      className="space-y-4"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <p id={titleId} className="text-xs uppercase tracking-[0.18em] text-saffron/70">
             {t('label')}
           </p>
 
-          <p id={statusId} aria-live="polite" className="text-sm text-ivory/70">
+          <p id={statusId} data-testid="mapbox-map-status" aria-live="polite" className="text-sm text-ivory/70">
             {!locationEnabled && t('blocked')}
             {locationEnabled && status === 'idle' && t('idle')}
             {locationEnabled && status === 'loading' && t('loading')}
@@ -299,6 +304,7 @@ export default function MapboxMap() {
 
         <div className="flex flex-wrap items-center gap-2">
           <button
+            data-testid="mapbox-map-refresh"
             type="button"
             onClick={requestLocation}
             disabled={status === 'loading' || !locationEnabled}
@@ -311,6 +317,7 @@ export default function MapboxMap() {
       </div>
 
       <div
+        data-testid="mapbox-map-viewport"
         className={`relative w-full overflow-hidden rounded-3xl border backdrop-blur-xl ${
           isLightTheme
             ? 'border-[#7fa3c1]/40 bg-white/70 shadow-2xl shadow-[#7fa3c1]/25'
@@ -330,6 +337,7 @@ export default function MapboxMap() {
         />
         {!mapReady && !mapError ? (
           <div
+            data-testid="mapbox-map-overlay-loading"
             role="status"
             aria-live="polite"
             className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-ivory/60"
@@ -339,6 +347,7 @@ export default function MapboxMap() {
         ) : null}
         {mapError ? (
           <div
+            data-testid="mapbox-map-overlay-error"
             role="alert"
             className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-red-200"
           >
@@ -346,13 +355,14 @@ export default function MapboxMap() {
           </div>
         ) : null}
       </div>
-      <div className="surface-soft p-4 text-sm text-ivory/70">
+      <div data-testid="mapbox-map-laws-panel" className="surface-soft p-4 text-sm text-ivory/70">
         <p className="text-xs uppercase tracking-[0.16em] text-ivory/50">{t('laws.title')}</p>
-        <p id={lawsId} className="mt-2 text-xs text-ivory/60">
+        <p id={lawsId} data-testid="mapbox-map-laws" className="mt-2 text-xs text-ivory/60">
           {t('laws.jurisdiction')}{' '}
           <span className="text-ivory">{t(`laws.${regulatoryRegion}.label`)}</span>
         </p>
         <button
+          data-testid="mapbox-map-laws-toggle"
           type="button"
           onClick={() => setShowRegulations((open) => !open)}
           aria-expanded={showRegulations}
@@ -362,11 +372,11 @@ export default function MapboxMap() {
           {showRegulations ? t('laws.showLess') : t('laws.showMore')}
         </button>
         {showRegulations && (
-          <div id={regulationPanelId}>
+          <div id={regulationPanelId} data-testid="mapbox-map-regulations">
             <ul className="mt-3 space-y-2 text-xs text-ivory/60">
-              <li>{t(`laws.${regulatoryRegion}.item1`)}</li>
-              <li>{t(`laws.${regulatoryRegion}.item2`)}</li>
-              <li>{t(`laws.${regulatoryRegion}.item3`)}</li>
+              <li data-testid="mapbox-map-regulation-item">{t(`laws.${regulatoryRegion}.item1`)}</li>
+              <li data-testid="mapbox-map-regulation-item">{t(`laws.${regulatoryRegion}.item2`)}</li>
+              <li data-testid="mapbox-map-regulation-item">{t(`laws.${regulatoryRegion}.item3`)}</li>
             </ul>
             <p className="mt-3 text-[11px] text-ivory/45">{t('laws.disclaimer')}</p>
             <div className="mt-3 border-t border-white/10 pt-3">
@@ -375,6 +385,7 @@ export default function MapboxMap() {
                 {GOV_SOURCES[regulatoryRegion].map((source) => (
                   <li key={source.href}>
                     <a
+                      data-testid="mapbox-map-source-link"
                       href={source.href}
                       target="_blank"
                       rel="noopener noreferrer"

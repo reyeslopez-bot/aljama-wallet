@@ -72,10 +72,10 @@ describe('ConnectWalletPanel', () => {
     mockedUseConnect.mockReturnValue({ mutate: vi.fn(), isPending: false } as any)
     mockedUseDisconnect.mockReturnValue({ mutate: vi.fn() } as any)
 
-    const { getByText } = render(<ConnectWalletPanel />)
+    const { getByTestId } = render(<ConnectWalletPanel />)
 
-    expect(getByText('No wallet connected')).toBeTruthy()
-    expect(getByText('Connect wallet')).toBeTruthy()
+    expect(getByTestId('connect-wallet-detail').textContent).toContain('No wallet connected')
+    expect(getByTestId('connect-wallet-action').textContent).toContain('Connect wallet')
 
     await waitFor(() => {
       const state = useDynamicInfoStore.getState()
@@ -98,10 +98,10 @@ describe('ConnectWalletPanel', () => {
     mockedUseConnect.mockReturnValue({ mutate: vi.fn(), isPending: false } as any)
     mockedUseDisconnect.mockReturnValue({ mutate: disconnect } as any)
 
-    const { getByText, getByRole } = render(<ConnectWalletPanel />)
+    const { getByTestId } = render(<ConnectWalletPanel />)
 
-    expect(getByText('Wallet linked')).toBeTruthy()
-    expect(getByText('Disconnect wallet')).toBeTruthy()
+    expect(getByTestId('connect-wallet-detail').textContent).toContain('Wallet linked')
+    expect(getByTestId('connect-wallet-action').textContent).toContain('Disconnect wallet')
 
     await waitFor(() => {
       const state = useDynamicInfoStore.getState()
@@ -113,7 +113,7 @@ describe('ConnectWalletPanel', () => {
       expect(state.wallet.connectorName).toBe('MetaMask')
     })
 
-    fireEvent.click(getByRole('button'))
+    fireEvent.click(getByTestId('connect-wallet-action'))
     expect(disconnect).toHaveBeenCalled()
   })
 
@@ -131,9 +131,9 @@ describe('ConnectWalletPanel', () => {
     mockedUseConnect.mockReturnValue({ mutate: connect, isPending: false } as any)
     mockedUseDisconnect.mockReturnValue({ mutate: vi.fn() } as any)
 
-    const { getByRole } = render(<ConnectWalletPanel />)
+    const { getByTestId } = render(<ConnectWalletPanel />)
 
-    fireEvent.click(getByRole('button'))
+    fireEvent.click(getByTestId('connect-wallet-action'))
 
     expect(connect).toHaveBeenCalledWith({ connector })
   })
