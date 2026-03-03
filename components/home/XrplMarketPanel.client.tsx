@@ -79,6 +79,20 @@ type ZoomWindow = { start: number; end: number }
 const CHART_WIDTH = 100
 const CHART_HEIGHT = 48
 const CHART_PADDING = 4
+const TIMELINE_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+})
+const ZOOMED_TIMELINE_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+})
+const POINT_AT_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: '2-digit',
+})
 
 function paletteForSymbol(symbol: string): AssetPalette {
   return (
@@ -97,6 +111,10 @@ function normalizeSeries(series: number[]): number[] {
   const first = series[0] ?? 1
   const safeFirst = first === 0 ? 1 : first
   return series.map((value) => value / safeFirst)
+}
+
+function displayNameForAsset(asset: Pick<MarketAsset, 'symbol' | 'name'>) {
+  return asset.symbol === 'XRP' ? 'Ripple' : asset.name
 }
 
 type ChartPoint = {
@@ -128,7 +146,7 @@ function buildChartPoints(
   })
 }
 
-function buildPath(
+function buildLinePath(
   series: number[],
   min: number,
   max: number,
@@ -169,27 +187,6 @@ function formatUsd(value: number) {
     currency: 'USD',
     maximumFractionDigits: value < 1 ? 4 : 2,
   })
-}
-
-function formatTimelineDate(timestamp: number, zoomed: boolean) {
-  return new Intl.DateTimeFormat('en-US', zoomed
-    ? { weekday: 'short', month: 'short', day: 'numeric' }
-    : { month: 'short', day: 'numeric' }).format(timestamp)
-}
-
-function formatPointAtDate(timestamp: number) {
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: '2-digit',
-  }).format(timestamp)
-}
-
-function formatRangeDate(timestamp: number) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-  }).format(timestamp)
 }
 
 function formatUpdatedTimeAgo(updatedAt: string): string {
@@ -424,7 +421,7 @@ export default function XrplMarketPanel() {
       rows: visibleAssets.map((asset) => {
         const safeIndex = Math.min(hoverIndex, Math.max(asset.series.length - 1, 0))
         const pointPrice = asset.series[safeIndex] ?? asset.priceUsd
-        const explicitName = asset.symbol === 'XRP' ? 'Ripple' : asset.name
+        const explicitName = displayNameForAsset(asset)
         return { ...asset, pointPrice, explicitName }
       }),
     }
@@ -702,8 +699,8 @@ export default function XrplMarketPanel() {
                     <p className="text-sm font-semibold text-ivory">
                       {displayedRange
                         ? t('chartRange', {
-                            start: formatRangeDate(displayedRange.start),
-                            end: formatRangeDate(displayedRange.end),
+                            start: TIMELINE_DATE_FORMATTER.format(displayedRange.start),
+                            end: TIMELINE_DATE_FORMATTER.format(displayedRange.end),
                           })
                         : '--'}
                     </p>
@@ -873,7 +870,7 @@ export default function XrplMarketPanel() {
                       ) : null}
 
                       {normalizedSeries.map((asset) => {
-                        const path = buildPath(
+                        const path = buildLinePath(
                           asset.series,
                           normalizedRange.min,
                           normalizedRange.max,
@@ -926,7 +923,7 @@ export default function XrplMarketPanel() {
               </div>
               <p id={chartLiveStatusId} className="sr-only" aria-live="polite">
                 {hoverSnapshot
-                  ? `${t('pointAt')} ${formatPointAtDate(hoverSnapshot.timestamp)}`
+                  ? `${t('pointAt')} ${POINT_AT_DATE_FORMATTER.format(hoverSnapshot.timestamp)}`
                   : chartWindow.isZoomed
                     ? t('zoomReset')
                     : ''}
@@ -941,7 +938,11 @@ export default function XrplMarketPanel() {
                         key={`${tick.index}-${tick.timestamp}`}
                         className={`flex flex-col ${index === timelineTicks.length - 1 ? 'items-end' : 'items-start'}`}
                       >
-                        <span>{formatTimelineDate(tick.timestamp, chartWindow.isZoomed)}</span>
+                        <span>
+                          {(chartWindow.isZoomed ? ZOOMED_TIMELINE_DATE_FORMATTER : TIMELINE_DATE_FORMATTER).format(
+                            tick.timestamp,
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -969,7 +970,7 @@ export default function XrplMarketPanel() {
                 >
                   {normalizedSeries.map((asset, index) => {
                     const active = focusSymbol === asset.symbol
-                    const explicitName = asset.symbol === 'XRP' ? 'Ripple' : asset.name
+                    const explicitName = displayNameForAsset(asset)
                     const marketLabel = asset.marketGroup === 'xrpl' ? t('table.xrpl') : t('table.reference')
                     return (
                       <button
@@ -1012,7 +1013,7 @@ export default function XrplMarketPanel() {
                   className="surface-soft rounded-2xl border border-white/10 p-3 text-[11px] text-ivory/75"
                 >
                   <p className="font-semibold uppercase tracking-[0.16em] text-ivory/55">
-                    {t('pointAt')} {formatPointAtDate(hoverSnapshot.timestamp)}
+                    {t('pointAt')} {POINT_AT_DATE_FORMATTER.format(hoverSnapshot.timestamp)}
                   </p>
                   <div className="mt-2 space-y-1.5">
                     {hoverSnapshot.rows.map((asset) => (

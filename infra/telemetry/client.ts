@@ -1,7 +1,5 @@
 // infra/telemetry/client.ts
 
-import { canUseGeolocation } from '@/infra/location/client'
-
 export type TelemetryConsent = 'granted' | 'denied' | 'unset'
 
 const CONSENT_KEY = 'aljama.telemetry.consent'
@@ -127,44 +125,6 @@ export function getBasicContext() {
         }
       : null,
   }
-}
-
-export async function getLocationSnapshot(): Promise<
-  | {
-      latitude: number
-      longitude: number
-      accuracy: number
-    }
-  | null
-> {
-  if (!hasWindow()) return null
-  if (!canUseGeolocation()) return null
-  if (!navigator.geolocation) return null
-
-  return new Promise((resolve) => {
-    const timeout = window.setTimeout(() => resolve(null), 5000)
-    const resolveNull = () => {
-      window.clearTimeout(timeout)
-      resolve(null)
-    }
-
-    try {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          window.clearTimeout(timeout)
-          resolve({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
-          })
-        },
-        resolveNull,
-        { enableHighAccuracy: false, maximumAge: 60_000, timeout: 4000 },
-      )
-    } catch {
-      resolveNull()
-    }
-  })
 }
 
 export async function sendTelemetryEvent(input: {

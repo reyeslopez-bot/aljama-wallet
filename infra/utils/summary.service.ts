@@ -1,1 +1,1 @@
-export { getDailySummaries, incrementDailySummary } from '@/services/summary.service'
+export { getDailySummaries } from '@/services/summary.service'

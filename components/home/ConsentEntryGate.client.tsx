@@ -10,7 +10,6 @@ import {
   CONSENT_PROMPT_SESSION_KEY,
   CONSENT_SITE_ENTRY_SESSION_KEY,
 } from "@/infra/consent/constants"
-import { setRuntimeLocationAccess } from "@/infra/location/runtime"
 
 type ConsentPreset = "rejectAll" | "essentialOnly" | "allowAll"
 
@@ -55,13 +54,11 @@ export default function ConsentEntryGate() {
     window.sessionStorage.setItem(CONSENT_SITE_ENTRY_SESSION_KEY, "seen")
 
     if (preset === "allowAll") {
-      setRuntimeLocationAccess(false)
       setTelemetryConsent("granted")
       setLocationConsent("granted")
       return
     }
 
-    setRuntimeLocationAccess(false)
     setTelemetryConsent("denied")
     setLocationConsent("denied")
   }, [])

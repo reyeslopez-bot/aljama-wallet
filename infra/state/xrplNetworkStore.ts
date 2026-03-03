@@ -12,7 +12,7 @@ type XrplNetworkState = {
   setSelectedNetworkId: (id: XrplNetworkId) => void
 }
 
-export const XRPL_NETWORK_STORAGE_KEY = 'aljama.xrpl.network'
+const XRPL_NETWORK_STORAGE_KEY = 'aljama.xrpl.network'
 
 const noopStorage: StateStorage = {
   getItem: () => null,
