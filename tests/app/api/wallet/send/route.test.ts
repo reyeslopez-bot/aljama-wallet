@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockApproveTransfer,
-  mockGetDecryptedWallet,
+  mockBuildUnsignedEvmTx,
+  mockSignUnsignedEvmTx,
+  mockDeriveSignedEvmTxHash,
+  mockSubmitSignedEvmTx,
+  mockGetWalletSigningAccount,
   mockGetSpentTodayWei,
   mockGetWalletByAddress,
   mockRecordTransaction,
@@ -23,14 +27,14 @@ const {
   mockProviderGetTransactionCount,
   mockProviderGetFeeData,
   mockProviderEstimateGas,
-  mockProviderSend,
-  mockWalletCtor,
-  mockSignTransaction,
-  mockTransactionFrom,
   mockGetAddress,
 } = vi.hoisted(() => ({
   mockApproveTransfer: vi.fn(),
-  mockGetDecryptedWallet: vi.fn(),
+  mockBuildUnsignedEvmTx: vi.fn(),
+  mockSignUnsignedEvmTx: vi.fn(),
+  mockDeriveSignedEvmTxHash: vi.fn(),
+  mockSubmitSignedEvmTx: vi.fn(),
+  mockGetWalletSigningAccount: vi.fn(),
   mockGetSpentTodayWei: vi.fn(),
   mockGetWalletByAddress: vi.fn(),
   mockRecordTransaction: vi.fn(),
@@ -51,10 +55,6 @@ const {
   mockProviderGetTransactionCount: vi.fn(),
   mockProviderGetFeeData: vi.fn(),
   mockProviderEstimateGas: vi.fn(),
-  mockProviderSend: vi.fn(),
-  mockWalletCtor: vi.fn(),
-  mockSignTransaction: vi.fn(),
-  mockTransactionFrom: vi.fn(),
   mockGetAddress: vi.fn(),
 }))
 
@@ -63,10 +63,17 @@ vi.mock('@/infra/agentic/wallet-policy', () => ({
 }))
 
 vi.mock('@/services/wallet.service', () => ({
-  getDecryptedWallet: mockGetDecryptedWallet,
+  getWalletSigningAccount: mockGetWalletSigningAccount,
   getSpentTodayWei: mockGetSpentTodayWei,
   getWalletByAddress: mockGetWalletByAddress,
   recordTransaction: mockRecordTransaction,
+}))
+
+vi.mock('@/services/evm-tx.service', () => ({
+  buildUnsignedEvmTx: mockBuildUnsignedEvmTx,
+  signUnsignedEvmTx: mockSignUnsignedEvmTx,
+  deriveSignedEvmTxHash: mockDeriveSignedEvmTxHash,
+  submitSignedEvmTx: mockSubmitSignedEvmTx,
 }))
 
 vi.mock('@/lib/security/session', () => ({
@@ -119,24 +126,11 @@ vi.mock('ethers', () => {
     getTransactionCount = mockProviderGetTransactionCount
     getFeeData = mockProviderGetFeeData
     estimateGas = mockProviderEstimateGas
-    send = mockProviderSend
-  }
-
-  class Wallet {
-    constructor(privateKey: string, provider: unknown) {
-      mockWalletCtor(privateKey, provider)
-    }
-
-    signTransaction = mockSignTransaction
   }
 
   return {
     getAddress: mockGetAddress,
     JsonRpcProvider,
-    Wallet,
-    Transaction: {
-      from: mockTransactionFrom,
-    },
   }
 })
 
@@ -182,14 +176,23 @@ describe('app/api/wallet/send route', () => {
       gasPrice: 2n,
     })
     mockProviderEstimateGas.mockResolvedValue(21_000n)
-    mockProviderSend.mockResolvedValue('0xtxhash')
     mockGetAddress.mockImplementation((value: string) => value.toLowerCase())
 
-    mockGetDecryptedWallet.mockResolvedValue({
+    mockGetWalletSigningAccount.mockResolvedValue({
       address: '0x000000000000000000000000000000000000beef',
-      privateKey:
-        '0x1111111111111111111111111111111111111111111111111111111111111111',
+      chain: 'EVM',
+      accountRef: 'EVM:secp256k1:pubkey',
+      pubKey: '0xpubkey',
+      keyType: 'secp256k1',
+      signerBackend: 'local',
+      vaultId: 'public',
+      derivationPath: "m/44'/60'/0'/0/0",
+      policy: { requiresSecondFactor: false, requiresPQAttestation: false },
+      pqcBinding: null,
+      id: 'wallet-1',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
     })
+    mockBuildUnsignedEvmTx.mockResolvedValue({ nonce: 7 })
     mockGetSpentTodayWei.mockResolvedValue(0n)
     mockAssessTransferRisk.mockResolvedValue({
       score: 0,
@@ -211,8 +214,9 @@ describe('app/api/wallet/send route', () => {
     mockReserveIdempotencyKey.mockResolvedValue(undefined)
     mockRecordTransferAttempt.mockResolvedValue({ id: 'log-1' })
     mockUpdateTransferStatus.mockResolvedValue(undefined)
-    mockSignTransaction.mockResolvedValue('0xsigned')
-    mockTransactionFrom.mockReturnValue({ hash: '0xderived' })
+    mockSignUnsignedEvmTx.mockResolvedValue('0xsigned')
+    mockDeriveSignedEvmTxHash.mockReturnValue('0xderived')
+    mockSubmitSignedEvmTx.mockResolvedValue('0xtxhash')
     mockGetWalletByAddress.mockResolvedValue(null)
     mockRecordTransaction.mockResolvedValue(undefined)
   })

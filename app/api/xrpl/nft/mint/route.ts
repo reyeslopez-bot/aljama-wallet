@@ -10,7 +10,7 @@ import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
-import { getXrplSignerAddress } from '@/lib/xrpl-signer'
+import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 import { isAllowedNftUri, utf8ToHex } from '@/lib/xrpl-nft-metadata'
 
 const schema = z.object({
@@ -75,13 +75,13 @@ export async function POST(req: Request) {
       return errorJson(400, 'invalid_uri', 'NFT metadata URI scheme is not allowed')
     }
 
-    const account = getXrplSignerAddress()
+    const account = getXrplSignerAccount()
     const action = await createXrplAction({
       action: 'nft_mint',
       status: 'queued',
       userId: session.user.id,
       networkId,
-      account,
+      account: account.address,
       idempotencyKey: parsed.data.idempotencyKey,
       details: {
         uri: parsed.data.uri,
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
     actionId = action.id
 
     const risk = await assessXrplActionRisk({
-      walletId: account,
+      walletId: account.address,
       userId: session.user.id,
       amountUnits: '1',
       idempotencyKey: parsed.data.idempotencyKey,
@@ -115,9 +115,10 @@ export async function POST(req: Request) {
     }
 
     const result = await submitXrplTx({
-      scope: `xrpl.nft.mint:${account}`,
+      scope: `xrpl.nft.mint:${account.address}`,
       idempotencyKey: parsed.data.idempotencyKey,
       networkId,
+      accountRef: { kind: 'xrpl-env' },
       tx: {
         TransactionType: 'NFTokenMint',
         URI: utf8ToHex(parsed.data.uri),

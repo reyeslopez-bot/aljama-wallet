@@ -187,14 +187,8 @@ describe('CreateWalletPanel', () => {
     })
   })
 
-  it('keeps hidden vault passphrase empty until generate is clicked, then supports regenerating and secure copy', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText },
-    })
-
-    const { getByTestId, getByText } = render(<CreateWalletPanel />)
+  it('keeps hidden vault passphrase empty until generate is clicked and does not expose a copy action', async () => {
+    const { getByTestId, queryByTestId } = render(<CreateWalletPanel />)
 
     fireEvent.click(getByTestId('create-wallet-mnemonic-switch'))
     const mnemonicInput = getByTestId('create-wallet-mnemonic-passphrase-input') as HTMLInputElement
@@ -208,11 +202,6 @@ describe('CreateWalletPanel', () => {
     expect(mnemonicInput.value.length).toBeGreaterThanOrEqual(16)
     expect(mnemonicInput.value).not.toBe(firstValue)
 
-    const mnemonicCopyButton = getByTestId('create-wallet-mnemonic-passphrase-copy')
-    fireEvent.click(mnemonicCopyButton)
-    await waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith(mnemonicInput.value)
-      expect(mnemonicCopyButton.textContent).toContain('Passphrase copied')
-    })
+    expect(queryByTestId('create-wallet-mnemonic-passphrase-copy')).toBeNull()
   })
 })

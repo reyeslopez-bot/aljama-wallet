@@ -1,7 +1,6 @@
 // app/api/create-wallet/route.ts
 import { NextResponse } from 'next/server'
-import { createEncryptedWallet } from '@/lib/wallet'
-import { createWalletRecord, deleteWalletRecord } from '@/services/wallet.service'
+import { deleteWalletRecord } from '@/services/wallet.service'
 import { requireSession } from '@/lib/security/session'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
@@ -11,6 +10,7 @@ import { errorJson } from '@/lib/security/api-response'
 import { readJsonBody } from '@/lib/security/request-body'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
+import { prepareManagedWalletProvisioning } from '@/services/signer.service'
 
 const MIN_PASSWORD_LENGTH = 16
 const UPPERCASE_PATTERN = /[A-Z]/
@@ -96,15 +96,29 @@ export async function POST(req: Request) {
       )
     }
 
-    const bodyResult = await readJsonBody<{ password?: unknown }>(req, { maxBytes: 4_096 })
+    const bodyResult = await readJsonBody<{
+      password?: unknown
+      mnemonic?: unknown
+      mnemonicPassphrase?: unknown
+    }>(req, { maxBytes: 8_192 })
     if (!bodyResult.ok) {
       return bodyResult.response
     }
 
-    const { password } = bodyResult.data
+    const { password, mnemonic, mnemonicPassphrase } = bodyResult.data
 
     if (!password || typeof password !== 'string' || !password.trim()) {
       return errorJson(400, 'password_required', 'Password is required')
+    }
+
+    if (mnemonicPassphrase !== undefined && typeof mnemonicPassphrase !== 'string') {
+      return errorJson(400, 'invalid_mnemonic_passphrase', 'Mnemonic passphrase must be a string')
+    }
+    if (mnemonic !== undefined && typeof mnemonic !== 'string') {
+      return errorJson(400, 'invalid_mnemonic', 'Mnemonic must be a string')
+    }
+    if (typeof mnemonicPassphrase === 'string' && mnemonicPassphrase.trim() && (!mnemonic || typeof mnemonic !== 'string' || !mnemonic.trim())) {
+      return errorJson(400, 'mnemonic_required', 'Mnemonic is required when using a vault passphrase')
     }
 
     const validationError = validatePassphrase(password)
@@ -118,31 +132,39 @@ export async function POST(req: Request) {
     }
 
     const passphrase = password.trim()
-    const { encrypted, wallet } = await createEncryptedWallet(passphrase)
+    const preparedWallet = await prepareManagedWalletProvisioning({
+      password: passphrase,
+      mnemonic: typeof mnemonic === 'string' && mnemonic.trim() ? mnemonic.trim() : undefined,
+      mnemonicPassphrase:
+        typeof mnemonicPassphrase === 'string' && mnemonicPassphrase.trim()
+          ? mnemonicPassphrase.trim()
+          : undefined,
+      vaultId:
+        typeof mnemonicPassphrase === 'string' && mnemonicPassphrase.trim()
+          ? 'vault'
+          : 'public',
+    })
 
     if (missing.length > 0) {
       return NextResponse.json({
         walletId: null,
-        address: wallet.address,
-        encrypted,
+        address: preparedWallet.address,
+        encrypted: preparedWallet.encrypted,
         mode: 'session-only',
         warning: `Missing server config: ${missing.join(', ')}`,
       })
     }
 
-    let record: Awaited<ReturnType<typeof createWalletRecord>>
+    let record: Awaited<ReturnType<typeof preparedWallet.persist>>
     try {
-      record = await createWalletRecord({
-        address: wallet.address,
-        privateKey: wallet.privateKey,
-      })
+      record = await preparedWallet.persist()
     } catch (dbError) {
       if (process.env.NODE_ENV !== 'production') {
         const reason = getErrorMessage(dbError, 'DB write failed')
         return NextResponse.json({
           walletId: null,
-          address: wallet.address,
-          encrypted,
+          address: preparedWallet.address,
+          encrypted: preparedWallet.encrypted,
           mode: 'session-only',
           warning: `Custody write failed: ${reason}`,
         })
@@ -165,8 +187,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       walletId: record.id,
-      address: wallet.address,
-      encrypted, // canonical thing the client stores
+      address: preparedWallet.address,
+      encrypted: preparedWallet.encrypted, // canonical thing the client stores
       mode: 'custody',
       // no privateKey / mnemonic over the wire
     })

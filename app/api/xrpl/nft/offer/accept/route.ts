@@ -10,7 +10,7 @@ import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
-import { getXrplSignerAddress } from '@/lib/xrpl-signer'
+import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 
 const schema = z.object({
   network: z.string().optional(),
@@ -70,13 +70,13 @@ export async function POST(req: Request) {
       ? requestedNetwork
       : DEFAULT_XRPL_NETWORK_ID
 
-    const account = getXrplSignerAddress()
+    const account = getXrplSignerAccount()
     const action = await createXrplAction({
       action: 'nft_offer_accept',
       status: 'queued',
       userId: session.user.id,
       networkId,
-      account,
+      account: account.address,
       idempotencyKey: parsed.data.idempotencyKey,
       details: {
         sellOffer: parsed.data.sellOffer ?? null,
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
     actionId = action.id
 
     const risk = await assessXrplActionRisk({
-      walletId: account,
+      walletId: account.address,
       userId: session.user.id,
       amountUnits: '1',
       idempotencyKey: parsed.data.idempotencyKey,
@@ -109,9 +109,10 @@ export async function POST(req: Request) {
     }
 
     const result = await submitXrplTx({
-      scope: `xrpl.nft.offer.accept:${account}`,
+      scope: `xrpl.nft.offer.accept:${account.address}`,
       idempotencyKey: parsed.data.idempotencyKey,
       networkId,
+      accountRef: { kind: 'xrpl-env' },
       tx: {
         TransactionType: 'NFTokenAcceptOffer',
         ...(parsed.data.sellOffer ? { NFTokenSellOffer: parsed.data.sellOffer.trim() } : {}),

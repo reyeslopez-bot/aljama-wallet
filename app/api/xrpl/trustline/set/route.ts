@@ -8,7 +8,7 @@ import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
 import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
 import { getAllowedIssuerSet } from '@/lib/xrpl-issued-assets'
-import { getXrplSignerAddress } from '@/lib/xrpl-signer'
+import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
@@ -77,13 +77,13 @@ export async function POST(req: Request) {
       return errorJson(403, 'issuer_not_allowed', 'Issuer is not allowed')
     }
 
-    const account = getXrplSignerAddress()
+    const account = getXrplSignerAccount()
     const action = await createXrplAction({
       action: 'trustset',
       status: 'queued',
       userId: session.user.id,
       networkId,
-      account,
+      account: account.address,
       idempotencyKey: parsed.data.idempotencyKey,
       details: {
         issuer,
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
     actionId = action.id
 
     const risk = await assessXrplActionRisk({
-      walletId: account,
+      walletId: account.address,
       userId: session.user.id,
       amountUnits: parsed.data.limit,
       idempotencyKey: parsed.data.idempotencyKey,
@@ -120,9 +120,10 @@ export async function POST(req: Request) {
     }
 
     const result = await submitXrplTx({
-      scope: `xrpl.trustline.set:${account}`,
+      scope: `xrpl.trustline.set:${account.address}`,
       idempotencyKey: parsed.data.idempotencyKey,
       networkId,
+      accountRef: { kind: 'xrpl-env' },
       tx: {
         TransactionType: 'TrustSet',
         LimitAmount: {

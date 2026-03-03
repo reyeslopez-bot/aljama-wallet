@@ -1,6 +1,5 @@
 // lib/wallet.ts
 import { HDNodeWallet, Mnemonic, randomBytes } from 'ethers'
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 
 export type UnlockWalletParams = {
   encrypted: string
@@ -72,6 +71,10 @@ export type EncodeWalletToEncryptedOptions = {
 
 export type CreateEncryptedWalletOptions = {
   securityProfile?: WalletSecurityProfile
+  mnemonic?: string
+  mnemonicPassphrase?: string
+  wordCount?: MnemonicWordCount
+  derivationPath?: string
 }
 
 function cloneDefaultWalletSecurityProfile(): WalletSecurityProfile {
@@ -421,8 +424,24 @@ type DeriveWalletFromMnemonicOptions = {
   derivationPath?: string
 }
 
+type CreateEncryptedWalletResult = {
+  encrypted: string
+  wallet: UnlockedWallet
+  mnemonic: string
+  derivationPath: string
+  wordCount: MnemonicWordCount
+}
+
 function normalizeMnemonicPassphrase(passphrase?: string): string {
   return passphrase?.trim() ?? ''
+}
+
+function inferMnemonicWordCount(mnemonic: string): MnemonicWordCount {
+  const count = mnemonic.trim().split(/\s+/).filter(Boolean).length
+  if (count === 12 || count === 15 || count === 18 || count === 21 || count === 24) {
+    return count
+  }
+  throw new Error('Unsupported BIP-39 word count')
 }
 
 /**
@@ -504,24 +523,53 @@ export async function encodePayloadToEncrypted(
 export async function createEncryptedWallet(
   password: string,
   options: CreateEncryptedWalletOptions = {},
-): Promise<{ encrypted: string; wallet: UnlockedWallet }> {
+): Promise<CreateEncryptedWalletResult> {
   if (!password?.trim()) {
     throw new Error('Password is required')
   }
 
-  const privateKey = generatePrivateKey()
-  const account = privateKeyToAccount(privateKey)
+  const derived =
+    options.mnemonic?.trim()
+      ? {
+          material: deriveWalletFromMnemonic({
+            mnemonic: options.mnemonic,
+            mnemonicPassphrase: options.mnemonicPassphrase,
+            derivationPath: options.derivationPath,
+          }),
+          mnemonic: options.mnemonic.trim(),
+          derivationPath: options.derivationPath?.trim() || DEFAULT_BIP44_PATH,
+          wordCount: inferMnemonicWordCount(options.mnemonic),
+        }
+      : (() => {
+          const generated = generateMnemonicWallet({
+            mnemonicPassphrase: options.mnemonicPassphrase,
+            wordCount: options.wordCount,
+            derivationPath: options.derivationPath,
+          })
+          return {
+            material: generated,
+            mnemonic: generated.mnemonic,
+            derivationPath: generated.derivationPath,
+            wordCount: generated.wordCount,
+          }
+        })()
 
   const wallet: UnlockedWallet = {
-    address: account.address,
-    privateKey,
+    address: derived.material.address,
+    privateKey: derived.material.privateKey,
   }
 
   const encrypted = await encodeWalletToEncrypted(wallet, password.trim(), {
     securityProfile: options.securityProfile,
   })
 
-  return { encrypted, wallet }
+  return {
+    encrypted,
+    wallet,
+    mnemonic: derived.mnemonic,
+    derivationPath: derived.derivationPath,
+    wordCount: derived.wordCount,
+  }
 }
 
 export {

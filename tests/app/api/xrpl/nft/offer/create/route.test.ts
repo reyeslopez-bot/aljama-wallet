@@ -6,6 +6,7 @@ const {
   mockBuildRateLimitKey,
   mockRateLimit,
   mockGetXrplSignerAddress,
+  mockGetXrplSignerAccount,
   mockCreateXrplAction,
   mockUpdateXrplAction,
   mockAssessXrplActionRisk,
@@ -16,6 +17,7 @@ const {
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
   mockGetXrplSignerAddress: vi.fn(),
+  mockGetXrplSignerAccount: vi.fn(),
   mockCreateXrplAction: vi.fn(),
   mockUpdateXrplAction: vi.fn(),
   mockAssessXrplActionRisk: vi.fn(),
@@ -25,7 +27,10 @@ const {
 vi.mock('@/lib/security/session', () => ({ requireSession: mockRequireSession }))
 vi.mock('@/lib/security/origin', () => ({ isAllowedOrigin: mockIsAllowedOrigin }))
 vi.mock('@/lib/security/rate-limit', () => ({ buildRateLimitKey: mockBuildRateLimitKey, rateLimit: mockRateLimit }))
-vi.mock('@/lib/xrpl-signer', () => ({ getXrplSignerAddress: mockGetXrplSignerAddress }))
+vi.mock('@/lib/xrpl-signer', () => ({
+  getXrplSignerAddress: mockGetXrplSignerAddress,
+  getXrplSignerAccount: mockGetXrplSignerAccount,
+}))
 vi.mock('@/services/xrpl-action-log.service', () => ({ createXrplAction: mockCreateXrplAction, updateXrplAction: mockUpdateXrplAction }))
 vi.mock('@/services/xrpl-risk.service', () => ({ assessXrplActionRisk: mockAssessXrplActionRisk }))
 vi.mock('@/services/xrpl-tx-submit.service', () => ({ submitXrplTx: mockSubmitXrplTx }))
@@ -37,7 +42,22 @@ describe('app/api/xrpl/nft/offer/create route', () => {
     mockIsAllowedOrigin.mockReturnValue(true)
     mockBuildRateLimitKey.mockReturnValue('user:user-1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 10, resetAt: Date.now() + 60_000 })
-    mockGetXrplSignerAddress.mockReturnValue('rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh')
+    const address = 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh'
+    mockGetXrplSignerAddress.mockReturnValue(address)
+    mockGetXrplSignerAccount.mockReturnValue({
+      id: 'xrpl-env',
+      accountRef: 'XRPL:ed25519:pubkey',
+      chain: 'XRPL',
+      address,
+      pubKey: 'EDPUBKEY',
+      keyType: 'ed25519',
+      signerBackend: 'local',
+      vaultId: 'public',
+      derivationPath: null,
+      policy: { requiresSecondFactor: false, requiresPQAttestation: false },
+      pqcBinding: null,
+      createdAt: new Date(0),
+    })
     mockCreateXrplAction.mockResolvedValue({ id: 'act-1', details: {} })
     mockUpdateXrplAction.mockResolvedValue({})
     mockAssessXrplActionRisk.mockResolvedValue({ decision: 'allow', score: 0, reasons: [] })

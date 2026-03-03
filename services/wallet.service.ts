@@ -1,26 +1,138 @@
-// services/wallet.service.ts
 import { getAddress } from 'ethers'
+import { Prisma } from '@/prisma/generated/prisma-crdb'
 import { prismaCrdb } from '@/lib/prisma-crdb'
-import { decryptPrivateKey, encryptPrivateKey } from '@/lib/crypto/wallet-crypto'
-import { incrementDailySummary } from '@/services/summary.service'
 import { logWarn } from '@/lib/security/logging'
-
-function ensure0xHex(pk: string): string {
-  const trimmed = pk.trim()
-  return trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`
-}
+import {
+  buildAccountRef,
+  normalizeSignerBackend,
+  normalizeSigningChain,
+  normalizeSigningCurve,
+  normalizeVaultScope,
+  normalizeWalletAccountPolicy,
+  parseWalletPqcBinding,
+  type ResolvedSigningAccount,
+  type SignerBackend,
+  type SigningAccountRecord,
+  type SigningChain,
+  type SigningCurve,
+  type VaultScope,
+  type WalletAccountPolicy,
+  type WalletPqcBinding,
+} from '@/lib/signing/types'
+import { incrementDailySummary } from '@/services/summary.service'
 
 function normalizeAddress(address: string): string {
   return getAddress(address.trim())
 }
 
+function normalizePubKey(value?: string | null): string | null {
+  if (!value?.trim()) return null
+  return value.trim()
+}
+
+function mapWalletRecord(record: {
+  id: string
+  accountRef: string
+  chain: string
+  address: string
+  pubKey: string | null
+  keyType: string
+  signerBackend: string
+  vaultId: string
+  derivationPath: string | null
+  policy: unknown
+  pqcBinding: unknown
+  encryptedPrivateKey: Uint8Array | null
+  encryptionIv: Uint8Array | null
+  keyVersion: number | null
+  createdAt: Date
+}): SigningAccountRecord {
+  return {
+    id: record.id,
+    accountRef: record.accountRef,
+    chain: normalizeSigningChain(record.chain),
+    address: record.address,
+    pubKey: normalizePubKey(record.pubKey),
+    keyType: normalizeSigningCurve(record.keyType),
+    signerBackend: normalizeSignerBackend(record.signerBackend),
+    vaultId: normalizeVaultScope(record.vaultId),
+    derivationPath: record.derivationPath?.trim() || null,
+    policy:
+      record.policy && typeof record.policy === 'object'
+        ? normalizeWalletAccountPolicy(record.policy as Partial<WalletAccountPolicy>)
+        : normalizeWalletAccountPolicy(),
+    pqcBinding: parseWalletPqcBinding(record.pqcBinding),
+    encryptedPrivateKey: record.encryptedPrivateKey ? new Uint8Array(record.encryptedPrivateKey) : null,
+    encryptionIv: record.encryptionIv ? new Uint8Array(record.encryptionIv) : null,
+    keyVersion: record.keyVersion ?? null,
+    createdAt: record.createdAt,
+  }
+}
+
+function withoutSignerMaterial(record: SigningAccountRecord): ResolvedSigningAccount {
+  const { encryptedPrivateKey, encryptionIv, keyVersion, ...rest } = record
+  void encryptedPrivateKey
+  void encryptionIv
+  void keyVersion
+  return rest
+}
+
+async function selectWalletByUnique(
+  where:
+    | { id: string }
+    | { address: string }
+    | { accountRef: string },
+) {
+  const record = await prismaCrdb.wallet.findUnique({
+    where,
+    select: {
+      id: true,
+      accountRef: true,
+      chain: true,
+      address: true,
+      pubKey: true,
+      keyType: true,
+      signerBackend: true,
+      vaultId: true,
+      derivationPath: true,
+      policy: true,
+      pqcBinding: true,
+      encryptedPrivateKey: true,
+      encryptionIv: true,
+      keyVersion: true,
+      createdAt: true,
+    },
+  })
+
+  return record ? mapWalletRecord(record) : null
+}
+
+export type CreateWalletRecordInput = {
+  address: string
+  chain?: SigningChain
+  pubKey?: string | null
+  keyType?: SigningCurve
+  signerBackend?: SignerBackend
+  vaultId?: VaultScope
+  derivationPath?: string | null
+  policy?: Partial<WalletAccountPolicy>
+  pqcBinding?: WalletPqcBinding | null
+  encryptedPrivateKey?: Uint8Array | Buffer | null
+  encryptionIv?: Uint8Array | Buffer | null
+  keyVersion?: number | null
+}
+
 export async function getWallets() {
-  // NOTE: this assumes `prismaCrdb` is a PrismaClient INSTANCE (not a function).
-  // If your lib exports a factory `prismaCrdb()`, change to `const prisma = prismaCrdb()` and use `prisma.wallet...`.
   return prismaCrdb.wallet.findMany({
     select: {
       id: true,
+      accountRef: true,
+      chain: true,
       address: true,
+      pubKey: true,
+      keyType: true,
+      signerBackend: true,
+      vaultId: true,
       createdAt: true,
     },
     orderBy: { createdAt: 'desc' },
@@ -33,84 +145,98 @@ export async function getWalletsByIds(walletIds: string[]) {
     where: { id: { in: walletIds } },
     select: {
       id: true,
+      accountRef: true,
+      chain: true,
       address: true,
+      pubKey: true,
+      keyType: true,
+      signerBackend: true,
+      vaultId: true,
       createdAt: true,
     },
     orderBy: { createdAt: 'desc' },
   })
 }
 
-export async function getWalletById(walletId: string) {
-  return prismaCrdb.wallet.findUnique({
-    where: { id: walletId },
-    select: {
-      id: true,
-      address: true,
-      encryptedPrivateKey: true,
-      encryptionIv: true,
-      keyVersion: true,
-      createdAt: true,
-    },
-  })
+export async function getWalletById(walletId: string): Promise<SigningAccountRecord | null> {
+  return selectWalletByUnique({ id: walletId })
+}
+
+export async function getWalletSigningAccount(walletId: string): Promise<ResolvedSigningAccount | null> {
+  const wallet = await getWalletById(walletId)
+  return wallet ? withoutSignerMaterial(wallet) : null
 }
 
 export async function deleteWalletRecord(walletId: string) {
   return prismaCrdb.wallet.delete({ where: { id: walletId } })
 }
 
-export async function getWalletByAddress(address: string) {
+export async function getWalletByAddress(address: string): Promise<SigningAccountRecord | null> {
   const normalized = normalizeAddress(address)
-  return prismaCrdb.wallet.findUnique({
-    where: { address: normalized },
-    select: {
-      id: true,
-      address: true,
-      encryptedPrivateKey: true,
-      encryptionIv: true,
-      keyVersion: true,
-      createdAt: true,
-    },
-  })
+  return selectWalletByUnique({ address: normalized })
 }
 
-export async function createWalletRecord(input: { address: string; privateKey: string }) {
+export async function getWalletByAccountRef(accountRef: string): Promise<SigningAccountRecord | null> {
+  const normalized = accountRef.trim()
+  if (!normalized) return null
+  return selectWalletByUnique({ accountRef: normalized })
+}
+
+export async function createWalletRecord(input: CreateWalletRecordInput) {
+  const chain = input.chain ?? 'EVM'
+  const normalizedChain = normalizeSigningChain(chain)
+  const keyType = normalizeSigningCurve(input.keyType ?? (normalizedChain === 'XRPL' ? 'ed25519' : 'secp256k1'))
+  const signerBackend = normalizeSignerBackend(input.signerBackend)
+  const vaultId = normalizeVaultScope(input.vaultId)
   const address = normalizeAddress(input.address)
-  const privateKey = ensure0xHex(input.privateKey)
+  const pubKey = normalizePubKey(input.pubKey)
 
-  if (!address) throw new Error('address is required')
-  if (!privateKey) throw new Error('privateKey is required')
+  if (
+    signerBackend === 'local' &&
+    (!input.encryptedPrivateKey || !input.encryptionIv || input.keyVersion === null || input.keyVersion === undefined)
+  ) {
+    throw new Error('encrypted signer material is required for local signer accounts')
+  }
 
-  const encrypted = encryptPrivateKey(privateKey, { address })
+  if (normalizedChain === 'XRPL' && !pubKey) {
+    throw new Error('pubKey is required for XRPL accounts')
+  }
+
+  const accountRef = buildAccountRef({
+    chain: normalizedChain,
+    keyType,
+    pubKey,
+    address,
+  })
 
   return prismaCrdb.wallet.create({
     data: {
+      accountRef,
+      chain: normalizedChain,
       address,
-      encryptedPrivateKey: encrypted.encryptedPrivateKey,
-      encryptionIv: encrypted.encryptionIv,
-      keyVersion: encrypted.keyVersion, // stored for future rotations
+      pubKey,
+      keyType,
+      signerBackend,
+      vaultId,
+      derivationPath: input.derivationPath?.trim() || null,
+      policy: normalizeWalletAccountPolicy(input.policy),
+      pqcBinding: input.pqcBinding ?? Prisma.DbNull,
+      encryptedPrivateKey: input.encryptedPrivateKey ? Buffer.from(input.encryptedPrivateKey) : null,
+      encryptionIv: input.encryptionIv ? Buffer.from(input.encryptionIv) : null,
+      keyVersion: input.keyVersion ?? null,
     },
     select: {
       id: true,
+      accountRef: true,
+      chain: true,
       address: true,
+      pubKey: true,
+      keyType: true,
+      signerBackend: true,
+      vaultId: true,
       createdAt: true,
     },
   })
-}
-
-export async function getDecryptedWallet(walletId: string) {
-  const record = await getWalletById(walletId)
-  if (!record) throw new Error('WALLET_NOT_FOUND')
-
-  const encrypted = Buffer.from(record.encryptedPrivateKey)
-  const iv = Buffer.from(record.encryptionIv)
-
-  const privateKey = decryptPrivateKey(encrypted, iv, record.keyVersion, { address: record.address })
-
-  return {
-    id: record.id,
-    address: record.address,
-    privateKey: ensure0xHex(privateKey),
-  }
 }
 
 export async function getSpentTodayWei(walletId: string, chainId: number) {

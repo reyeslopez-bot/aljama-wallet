@@ -8,12 +8,21 @@ datasource db {
 }
 
 model Wallet {
-  id                 String   @id @default(cuid())
-  address            String   @unique
-  encryptedPrivateKey Bytes
-  encryptionIv       Bytes
-  keyVersion         Int      @default(1)
-  createdAt          DateTime @default(now())
+  id                  String   @id @default(cuid())
+  accountRef          String   @unique
+  chain               String   @default("EVM")
+  address             String   @unique
+  pubKey              String?
+  keyType             String   @default("secp256k1")
+  signerBackend       String   @default("local")
+  vaultId             String   @default("public")
+  derivationPath      String?
+  policy              Json?
+  pqcBinding          Json?
+  encryptedPrivateKey Bytes?
+  encryptionIv        Bytes?
+  keyVersion          Int?
+  createdAt           DateTime @default(now())
 }
 
 model User {

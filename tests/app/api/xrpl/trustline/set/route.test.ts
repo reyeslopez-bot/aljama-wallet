@@ -7,6 +7,7 @@ const {
   mockRateLimit,
   mockGetAllowedIssuerSet,
   mockGetXrplSignerAddress,
+  mockGetXrplSignerAccount,
   mockCreateXrplAction,
   mockUpdateXrplAction,
   mockAssessXrplActionRisk,
@@ -18,6 +19,7 @@ const {
   mockRateLimit: vi.fn(),
   mockGetAllowedIssuerSet: vi.fn(),
   mockGetXrplSignerAddress: vi.fn(),
+  mockGetXrplSignerAccount: vi.fn(),
   mockCreateXrplAction: vi.fn(),
   mockUpdateXrplAction: vi.fn(),
   mockAssessXrplActionRisk: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock('@/lib/xrpl-issued-assets', () => ({
 
 vi.mock('@/lib/xrpl-signer', () => ({
   getXrplSignerAddress: mockGetXrplSignerAddress,
+  getXrplSignerAccount: mockGetXrplSignerAccount,
 }))
 
 vi.mock('@/services/xrpl-action-log.service', () => ({
@@ -66,7 +69,22 @@ describe('app/api/xrpl/trustline/set route', () => {
     mockBuildRateLimitKey.mockReturnValue('user:user-1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 10, resetAt: Date.now() + 60_000 })
     mockGetAllowedIssuerSet.mockReturnValue({ enabled: false, allowed: new Set() })
-    mockGetXrplSignerAddress.mockReturnValue('rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh')
+    const address = 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh'
+    mockGetXrplSignerAddress.mockReturnValue(address)
+    mockGetXrplSignerAccount.mockReturnValue({
+      id: 'xrpl-env',
+      accountRef: 'XRPL:ed25519:pubkey',
+      chain: 'XRPL',
+      address,
+      pubKey: 'EDPUBKEY',
+      keyType: 'ed25519',
+      signerBackend: 'local',
+      vaultId: 'public',
+      derivationPath: null,
+      policy: { requiresSecondFactor: false, requiresPQAttestation: false },
+      pqcBinding: null,
+      createdAt: new Date(0),
+    })
     mockCreateXrplAction.mockResolvedValue({ id: 'act-1', details: { issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe' } })
     mockUpdateXrplAction.mockResolvedValue({})
     mockAssessXrplActionRisk.mockResolvedValue({ decision: 'allow', score: 0, reasons: [] })

@@ -10,10 +10,19 @@ datasource db {
 
 model Wallet {
   id                  String        @id @default(cuid())
+  accountRef          String        @unique
+  chain               String        @default("EVM")
   address             String        @unique
-  encryptedPrivateKey Bytes
-  encryptionIv        Bytes
-  keyVersion          Int           @default(1)
+  pubKey              String?
+  keyType             String        @default("secp256k1")
+  signerBackend       String        @default("local")
+  vaultId             String        @default("public")
+  derivationPath      String?
+  policy              Json?
+  pqcBinding          Json?
+  encryptedPrivateKey Bytes?
+  encryptionIv        Bytes?
+  keyVersion          Int?
   createdAt           DateTime      @default(now())
 
   sentTransactions     Transaction[] @relation("TxFromWallet")

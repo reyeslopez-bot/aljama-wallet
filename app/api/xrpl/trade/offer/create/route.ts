@@ -11,7 +11,7 @@ import { toXrplAmount } from '@/lib/xrpl-amount'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
-import { getXrplSignerAddress } from '@/lib/xrpl-signer'
+import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 
 const TF_PASSIVE = 0x00010000
 const TF_IMMEDIATE_OR_CANCEL = 0x00020000
@@ -99,13 +99,13 @@ export async function POST(req: Request) {
       return errorJson(400, 'issuer_required', 'Issuer required for non-XRP takerPays')
     }
 
-    const account = getXrplSignerAddress()
+    const account = getXrplSignerAccount()
     const action = await createXrplAction({
       action: 'offer_create',
       status: 'queued',
       userId: session.user.id,
       networkId,
-      account,
+      account: account.address,
       idempotencyKey: parsed.data.idempotencyKey,
       details: {
         takerGets: parsed.data.takerGets,
@@ -115,11 +115,11 @@ export async function POST(req: Request) {
     actionId = action.id
 
     const risk = await assessXrplActionRisk({
-      walletId: account,
+      walletId: account.address,
       userId: session.user.id,
       amountUnits: parsed.data.takerPays.value,
       idempotencyKey: parsed.data.idempotencyKey,
-      destinationAddress: parsed.data.takerGets.issuer ?? account,
+      destinationAddress: parsed.data.takerGets.issuer ?? account.address,
     })
     if (risk.decision !== 'allow') {
       await updateXrplAction({
@@ -139,9 +139,10 @@ export async function POST(req: Request) {
     }
 
     const result = await submitXrplTx({
-      scope: `xrpl.trade.offer.create:${account}`,
+      scope: `xrpl.trade.offer.create:${account.address}`,
       idempotencyKey: parsed.data.idempotencyKey,
       networkId,
+      accountRef: { kind: 'xrpl-env' },
       tx: {
         TransactionType: 'OfferCreate',
         TakerGets: toXrplAmount(parsed.data.takerGets),

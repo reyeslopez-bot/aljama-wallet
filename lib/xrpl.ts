@@ -1,11 +1,17 @@
 // lib/xrpl.ts
 import { getXrplClient, createXrplWalletFromSeed } from '@/infra/xrpl/client'
 import { getErrorMessage } from '@/lib/security/errors'
+import type { XrplKeyType } from '@/lib/signing/types'
 import { type XrplNetworkId, DEFAULT_XRPL_NETWORK_ID } from '@/lib/xrpl-networks'
 
 export type XrplDevAccount =
   | { address: string; funded: true; xrpBalance: string }
   | { address: string; funded: false; xrpBalance: "0"; needsFunding: true }
+
+function getDevXrplKeyType(): XrplKeyType {
+  const raw = process.env.XRPL_DEV_KEY_TYPE ?? process.env.XRPL_SIGNER_KEY_TYPE
+  return raw?.trim().toLowerCase() === 'secp256k1' ? 'secp256k1' : 'ed25519'
+}
 
 export async function getDevXrplAccount(networkId: XrplNetworkId = DEFAULT_XRPL_NETWORK_ID): Promise<XrplDevAccount> {
   const seed = process.env.XRPL_DEV_SEED
@@ -14,7 +20,7 @@ export async function getDevXrplAccount(networkId: XrplNetworkId = DEFAULT_XRPL_
   }
 
   const client = await getXrplClient(networkId)
-  const wallet = createXrplWalletFromSeed(seed)
+  const wallet = createXrplWalletFromSeed(seed, getDevXrplKeyType())
 
   try {
     const balance = await client.getXrpBalance(wallet.address)

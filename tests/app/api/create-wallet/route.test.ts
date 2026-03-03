@@ -1,17 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const mockCreateEncryptedWallet = vi.fn()
-const mockCreateWalletRecord = vi.fn()
+const mockPrepareManagedWalletProvisioning = vi.fn()
+const mockPersistPreparedWallet = vi.fn()
 const mockDeleteWalletRecord = vi.fn()
 const mockLinkWalletToUser = vi.fn()
 const mockGetServerSession = vi.fn()
 
-vi.mock('@/lib/wallet', () => ({
-  createEncryptedWallet: mockCreateEncryptedWallet,
+vi.mock('@/services/signer.service', () => ({
+  prepareManagedWalletProvisioning: mockPrepareManagedWalletProvisioning,
 }))
 
 vi.mock('@/services/wallet.service', () => ({
-  createWalletRecord: mockCreateWalletRecord,
   deleteWalletRecord: mockDeleteWalletRecord,
 }))
 
@@ -39,6 +38,18 @@ describe('app/api/create-wallet route', () => {
     vi.clearAllMocks()
     mockGetServerSession.mockResolvedValue({ user: { id: 'user-1', email: 'user@example.com' } })
     mockLinkWalletToUser.mockResolvedValue(undefined)
+    mockPrepareManagedWalletProvisioning.mockResolvedValue({
+      encrypted: 'enc',
+      address: '0xabc',
+      derivationPath: "m/44'/60'/0'/0/0",
+      wordCount: 24,
+      persist: mockPersistPreparedWallet,
+    })
+    mockPersistPreparedWallet.mockResolvedValue({
+      id: 'wallet-1',
+      address: '0xabc',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    })
   })
 
   afterEach(() => {
@@ -56,7 +67,7 @@ describe('app/api/create-wallet route', () => {
       error: 'Password is required',
       code: 'password_required',
     })
-    expect(mockCreateEncryptedWallet).not.toHaveBeenCalled()
+    expect(mockPrepareManagedWalletProvisioning).not.toHaveBeenCalled()
   })
 
   it('returns session-only when required server config is missing', async () => {
@@ -65,11 +76,6 @@ describe('app/api/create-wallet route', () => {
     vi.stubEnv('WALLET_ENCRYPTION_KEY_FINGERPRINT_V1', '')
     vi.stubEnv('CRDB_DATABASE_URL', '')
     vi.stubEnv('COCKROACH_URL', '')
-
-    mockCreateEncryptedWallet.mockResolvedValue({
-      encrypted: 'enc',
-      wallet: { address: '0xabc', privateKey: '0x123' },
-    })
 
     const { POST } = await import('@/app/api/create-wallet/route')
     const res = await POST(buildRequest({ password: strongPassphrase }))
@@ -89,16 +95,6 @@ describe('app/api/create-wallet route', () => {
     vi.stubEnv('WALLET_ENCRYPTION_KEY_FINGERPRINT_V1', 'ff')
     vi.stubEnv('CRDB_DATABASE_URL', 'postgresql://example')
 
-    mockCreateEncryptedWallet.mockResolvedValue({
-      encrypted: 'enc',
-      wallet: { address: '0xabc', privateKey: '0x123' },
-    })
-    mockCreateWalletRecord.mockResolvedValue({
-      id: 'wallet-1',
-      address: '0xabc',
-      createdAt: new Date('2026-01-01T00:00:00Z'),
-    })
-
     const { POST } = await import('@/app/api/create-wallet/route')
     const res = await POST(buildRequest({ password: strongPassphrase }))
 
@@ -117,11 +113,7 @@ describe('app/api/create-wallet route', () => {
     vi.stubEnv('WALLET_ENCRYPTION_KEY_FINGERPRINT_V1', 'ff')
     vi.stubEnv('CRDB_DATABASE_URL', 'postgresql://example')
 
-    mockCreateEncryptedWallet.mockResolvedValue({
-      encrypted: 'enc',
-      wallet: { address: '0xabc', privateKey: '0x123' },
-    })
-    mockCreateWalletRecord.mockRejectedValue(new Error('db down'))
+    mockPersistPreparedWallet.mockRejectedValue(new Error('db down'))
 
     const { POST } = await import('@/app/api/create-wallet/route')
     const res = await POST(buildRequest({ password: strongPassphrase }))
@@ -145,6 +137,6 @@ describe('app/api/create-wallet route', () => {
       ok: false,
       code: 'password_too_short',
     })
-    expect(mockCreateEncryptedWallet).not.toHaveBeenCalled()
+    expect(mockPrepareManagedWalletProvisioning).not.toHaveBeenCalled()
   })
 })

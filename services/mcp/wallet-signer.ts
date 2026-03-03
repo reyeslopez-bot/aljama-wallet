@@ -2,11 +2,10 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { z } from 'zod'
-import { Transaction, Wallet, verifyMessage } from 'ethers'
-import { prismaCrdb } from '@/lib/prisma-crdb'
-import { decryptPrivateKey } from '@/lib/crypto/wallet-crypto'
+import { Transaction, verifyMessage } from 'ethers'
 import crypto from 'node:crypto'
 import { getErrorMessage } from '@/lib/security/errors'
+import { getSigner, resolveSigningAccount } from '@/services/signer.service'
 
 const requestSchema = z.object({
   tool: z.enum(['wallet.signTx', 'wallet.deriveAddress', 'wallet.verifySignature']),
@@ -63,37 +62,19 @@ function assertAuthorized(req: IncomingMessage): boolean {
   return safeEqual(token, expected)
 }
 
-function ensure0xHex(pk: string): string {
-  const trimmed = pk.trim()
-  return trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`
-}
-
-async function getDecryptedWallet(walletId: string) {
-  const record = await prismaCrdb.wallet.findUnique({
-    where: { id: walletId },
-    select: {
-      id: true,
-      encryptedPrivateKey: true,
-      encryptionIv: true,
-      keyVersion: true,
-      address: true,
-    },
-  })
-
-  if (!record) throw new Error('WALLET_NOT_FOUND')
-
-  // Prisma Bytes usually come back as Uint8Array; convert to Buffer for your decrypt fn
-  const encrypted = Buffer.from(record.encryptedPrivateKey)
-  const iv = Buffer.from(record.encryptionIv)
-
-  const privateKey = decryptPrivateKey(encrypted, iv, record.keyVersion, { address: record.address })
-  return new Wallet(ensure0xHex(privateKey))
-}
-
 async function signTx(input: z.infer<typeof signTxSchema>) {
-  const wallet = await getDecryptedWallet(input.walletId)
-
-  const signedTx = await wallet.signTransaction({ ...input.tx, chainId: input.chainId })
+  const result = await getSigner().sign(
+    {
+      kind: 'evm-transaction',
+      chainId: input.chainId,
+      transaction: input.tx,
+    },
+    { kind: 'managed', walletId: input.walletId },
+  )
+  if (result.kind !== 'evm-transaction') {
+    throw new Error('SIGNER_CHAIN_MISMATCH')
+  }
+  const signedTx = result.signedPayload
   const txHash = Transaction.from(signedTx).hash ?? ''
 
   return { signedTx, txHash }
@@ -103,7 +84,7 @@ async function deriveAddress(input: z.infer<typeof deriveAddressSchema>) {
   // path currently unused (non-HD). Keep it for future API stability.
   void input.path
 
-  const wallet = await getDecryptedWallet(input.walletId)
+  const wallet = await resolveSigningAccount({ kind: 'managed', walletId: input.walletId })
   return { address: wallet.address }
 }
 

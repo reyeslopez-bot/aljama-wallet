@@ -1,9 +1,20 @@
 // app/api/wallet/send/route.ts
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getAddress, JsonRpcProvider, Transaction, Wallet } from 'ethers'
+import { getAddress, JsonRpcProvider } from 'ethers'
 import { approveTransfer } from '@/infra/agentic/wallet-policy'
-import { getDecryptedWallet, getSpentTodayWei, getWalletByAddress, recordTransaction } from '@/services/wallet.service'
+import {
+  buildUnsignedEvmTx,
+  deriveSignedEvmTxHash,
+  signUnsignedEvmTx,
+  submitSignedEvmTx,
+} from '@/services/evm-tx.service'
+import {
+  getSpentTodayWei,
+  getWalletByAddress,
+  getWalletSigningAccount,
+  recordTransaction,
+} from '@/services/wallet.service'
 import { requireSession, isAdminEmail } from '@/lib/security/session'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
@@ -32,8 +43,6 @@ const sendSchema = z.object({
   maxFeePerGasWei: z.string().regex(/^\d+$/).optional(),
   maxPriorityFeePerGasWei: z.string().regex(/^\d+$/).optional(),
 })
-
-type SendRequest = z.infer<typeof sendSchema>
 
 const MAX_UINT256 = (1n << 256n) - 1n
 
@@ -74,65 +83,6 @@ function safeUuid() {
     throw new Error('crypto.randomUUID unavailable')
   }
   return globalThis.crypto.randomUUID()
-}
-
-async function buildUnsignedTx(
-  input: SendRequest,
-  walletAddress: string,
-  provider: JsonRpcProvider,
-) {
-  const value = BigInt(input.amountWei)
-
-  if (value <= 0n || value > MAX_UINT256) {
-    throw new Error('Amount must be greater than 0')
-  }
-
-  const to = getAddress(input.to)
-
-  const nonce = input.nonce ?? (await provider.getTransactionCount(walletAddress, 'latest'))
-  const feeData = await provider.getFeeData()
-
-  let gasLimit: bigint
-  if (input.gasLimit) {
-    gasLimit = BigInt(input.gasLimit)
-  } else {
-    const estimated = await provider.estimateGas({
-      from: walletAddress,
-      to,
-      value,
-    })
-    gasLimit = BigInt(estimated.toString())
-    // add a small buffer
-    gasLimit = gasLimit + gasLimit / 5n
-  }
-
-  const maxFeePerGas = input.maxFeePerGasWei
-    ? BigInt(input.maxFeePerGasWei)
-    : feeData.maxFeePerGas ?? null
-  let maxPriorityFeePerGas = input.maxPriorityFeePerGasWei
-    ? BigInt(input.maxPriorityFeePerGasWei)
-    : feeData.maxPriorityFeePerGas ?? null
-
-  const gasPrice = feeData.gasPrice ?? null
-
-  if (!maxFeePerGas && !gasPrice) {
-    throw new Error('Unable to determine gas fees')
-  }
-
-  if (maxFeePerGas && !maxPriorityFeePerGas) {
-    maxPriorityFeePerGas = 0n
-  }
-
-  return {
-    to,
-    value,
-    nonce,
-    chainId: input.chainId,
-    gasLimit,
-    maxFeePerGas: maxFeePerGas ?? undefined,
-    maxPriorityFeePerGas: maxPriorityFeePerGas ?? undefined,
-    gasPrice: maxFeePerGas ? undefined : gasPrice ?? undefined,
-  }
 }
 
 export async function sendWalletRequest(req: Request, walletIdOverride?: string) {
@@ -277,12 +227,15 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       )
     }
 
-    const wallet = await getDecryptedWallet(input.walletId)
+    const wallet = await getWalletSigningAccount(input.walletId)
+    if (!wallet) {
+      throw new Error('WALLET_NOT_FOUND')
+    }
 
     const correlationId = safeUuid()
     const idempotencyKey = input.idempotencyKey
 
-    const unsignedTx = await buildUnsignedTx(input, wallet.address, provider)
+    const unsignedTx = await buildUnsignedEvmTx(input, wallet.address, provider)
 
     const spentTodayWei = await getSpentTodayWei(input.walletId, input.chainId)
     const dailyLimitWei = readDailyLimitWei()
@@ -367,11 +320,10 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
     })
     transferLogId = log.id
 
-    const signer = new Wallet(wallet.privateKey, provider)
-    const signedTx = await signer.signTransaction(unsignedTx)
-    const derivedHash = Transaction.from(signedTx).hash ?? undefined
+    const signedTx = await signUnsignedEvmTx(input.walletId, input.chainId, unsignedTx)
+    const derivedHash = deriveSignedEvmTxHash(signedTx)
 
-    const txHash = await provider.send('eth_sendRawTransaction', [signedTx])
+    const txHash = await submitSignedEvmTx(provider, signedTx)
     if (transferLogId) {
       await updateTransferStatus(transferLogId, 'broadcast')
     }
