@@ -1,9 +1,17 @@
 import { Wallet as EvmWallet } from 'ethers'
 import { Wallet as XrplWallet } from 'xrpl'
 import { decryptPrivateKey, encryptPrivateKey } from '@/lib/crypto/wallet-crypto'
-import { createEncryptedWallet, type WalletSecurityProfile } from '@/lib/wallet'
+import { createWalletPqcEncryptedMaterial, resolveWalletPqcSubjectScheme } from '@/lib/pqc/provider'
+import { getServerWalletPqcProvider } from '@/lib/pqc/provider.server'
+import {
+  buildHybridWalletSecurityProfile,
+  encodeWalletToEncrypted,
+  prepareWalletMaterial,
+  type WalletSecurityProfile,
+} from '@/lib/wallet'
 import { getXrplSignerAccount, getXrplSignerWallet } from '@/lib/xrpl-signer'
 import {
+  buildAccountRef,
   type ResolvedSigningAccount,
   type SignRequest,
   type SignResult,
@@ -112,30 +120,52 @@ export async function resolveSigningAccount(accountRef: SignerAccountRef): Promi
 export async function prepareManagedWalletProvisioning(
   input: PrepareManagedWalletProvisioningInput,
 ): Promise<ManagedWalletProvisioningHandle> {
-  const created = await createEncryptedWallet(input.password, {
+  const prepared = prepareWalletMaterial({
     mnemonic: input.mnemonic,
     mnemonicPassphrase: input.mnemonicPassphrase,
-    securityProfile: input.securityProfile,
   })
 
-  const wallet = new EvmWallet(created.wallet.privateKey)
-  const encryptedSignerMaterial = encryptPrivateKey(created.wallet.privateKey, {
-    address: created.wallet.address,
+  const wallet = new EvmWallet(prepared.wallet.privateKey)
+  const postQuantum = await createWalletPqcEncryptedMaterial({
+    provider: getServerWalletPqcProvider(),
+    subject: {
+      accountRef: buildAccountRef({
+        chain: 'EVM',
+        keyType: 'secp256k1',
+        pubKey: wallet.signingKey.publicKey,
+        address: prepared.wallet.address,
+      }),
+      chain: 'EVM',
+      address: prepared.wallet.address,
+      keyType: 'secp256k1',
+      scheme: resolveWalletPqcSubjectScheme('secp256k1'),
+      publicKey: wallet.signingKey.publicKey,
+      publicKeyFormat: 'hex',
+    },
+  })
+  const securityProfile = buildHybridWalletSecurityProfile('secp256k1', input.securityProfile)
+  const encrypted = await encodeWalletToEncrypted(prepared.wallet, input.password, {
+    securityProfile,
+    postQuantum,
+  })
+  const encryptedSignerMaterial = encryptPrivateKey(prepared.wallet.privateKey, {
+    address: prepared.wallet.address,
   })
 
   return {
-    encrypted: created.encrypted,
-    address: created.wallet.address,
-    derivationPath: created.derivationPath,
-    wordCount: created.wordCount,
+    encrypted,
+    address: prepared.wallet.address,
+    derivationPath: prepared.derivationPath,
+    wordCount: prepared.wordCount,
     persist: () =>
       createWalletRecord({
-        address: created.wallet.address,
+        address: prepared.wallet.address,
         pubKey: wallet.signingKey.publicKey,
         keyType: 'secp256k1',
         signerBackend: 'local',
         vaultId: input.vaultId ?? 'public',
-        derivationPath: created.derivationPath,
+        derivationPath: prepared.derivationPath,
+        pqcBinding: postQuantum.binding,
         encryptedPrivateKey: encryptedSignerMaterial.encryptedPrivateKey,
         encryptionIv: encryptedSignerMaterial.encryptionIv,
         keyVersion: encryptedSignerMaterial.keyVersion,

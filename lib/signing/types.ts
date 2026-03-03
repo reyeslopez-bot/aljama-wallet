@@ -1,3 +1,9 @@
+import {
+  isWalletPqcBinding,
+  parseWalletPqcBinding,
+  type WalletPqcBinding,
+} from '@/lib/pqc/types'
+
 export type SignerBackend = 'local' | 'hardware' | 'mpc' | 'remote'
 
 export type SigningChain = 'EVM' | 'XRPL'
@@ -13,12 +19,6 @@ export type VaultScope = 'public' | 'vault'
 export type WalletAccountPolicy = {
   requiresSecondFactor: boolean
   requiresPQAttestation: boolean
-}
-
-export type WalletPqcBinding = {
-  scheme: 'ml-dsa' | 'slh-dsa'
-  publicKey: string
-  attestedAt: string
 }
 
 export type SigningAccountRecord = {
@@ -117,25 +117,6 @@ export function normalizeSignerBackend(value: string | null | undefined): Signer
   return 'local'
 }
 
-export function isWalletPqcBinding(value: unknown): value is WalletPqcBinding {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const record = value as Record<string, unknown>
-  return (
-    (record.scheme === 'ml-dsa' || record.scheme === 'slh-dsa') &&
-    typeof record.publicKey === 'string' &&
-    record.publicKey.length > 0 &&
-    typeof record.attestedAt === 'string' &&
-    record.attestedAt.length > 0
-  )
-}
-
-export function parseWalletPqcBinding(value: unknown): WalletPqcBinding | null {
-  return isWalletPqcBinding(value) ? value : null
-}
-
 export function buildAccountRef(input: {
   chain: SigningChain
   keyType: SigningCurve
@@ -145,3 +126,6 @@ export function buildAccountRef(input: {
   const stableIdentity = (input.pubKey?.trim() || input.address.trim()).toLowerCase()
   return `${input.chain}:${input.keyType}:${stableIdentity}`
 }
+
+export { isWalletPqcBinding, parseWalletPqcBinding }
+export type { WalletPqcBinding }

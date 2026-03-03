@@ -1,7 +1,11 @@
 // tests/lib/wallet.test.ts
+import { Wallet as EvmWallet } from 'ethers'
 import { describe, it, expect } from 'vitest'
+import { createWalletPqcEncryptedMaterial, verifyWalletPqcBinding } from '@/lib/pqc/provider'
+import { buildAccountRef } from '@/lib/signing/types'
 import {
   DEFAULT_WALLET_SECURITY_PROFILE,
+  buildHybridWalletSecurityProfile,
   deriveWalletFromMnemonic,
   encodePayloadToEncrypted,
   encodeWalletToEncrypted,
@@ -108,6 +112,7 @@ describe('unlockWallet', () => {
     })
 
     expect(wallet.securityProfile).toEqual(DEFAULT_WALLET_SECURITY_PROFILE)
+    expect(wallet.postQuantum).toBeNull()
   })
 
   it('falls back to default security profile for legacy payloads', async () => {
@@ -125,6 +130,49 @@ describe('unlockWallet', () => {
     })
 
     expect(wallet.securityProfile).toEqual(DEFAULT_WALLET_SECURITY_PROFILE)
+    expect(wallet.postQuantum).toBeNull()
+  })
+
+  it('preserves hybrid ML-DSA binding material in encrypted payloads', async () => {
+    const evmWallet = new EvmWallet(mockAccounts.primary.privateKey)
+    const postQuantum = await createWalletPqcEncryptedMaterial({
+      subject: {
+        accountRef: buildAccountRef({
+          chain: 'EVM',
+          keyType: 'secp256k1',
+          pubKey: evmWallet.signingKey.publicKey,
+          address: mockAccounts.primary.address,
+        }),
+        chain: 'EVM',
+        address: mockAccounts.primary.address,
+        keyType: 'secp256k1',
+        scheme: 'ecdsa',
+        publicKey: evmWallet.signingKey.publicKey,
+        publicKeyFormat: 'hex',
+      },
+    })
+
+    const encrypted = await encodeWalletToEncrypted(
+      {
+        address: mockAccounts.primary.address,
+        privateKey: mockAccounts.primary.privateKey,
+      },
+      'StrongPassphrase1!',
+      {
+        postQuantum,
+        securityProfile: buildHybridWalletSecurityProfile('secp256k1'),
+      },
+    )
+
+    const wallet = await unlockWalletWithSecurityProfile({
+      encrypted,
+      password: 'StrongPassphrase1!',
+    })
+
+    expect(wallet.securityProfile.signingAlgorithm).toBe('hybrid-ecdsa-ml-dsa-65')
+    expect(wallet.securityProfile.migration.pqc).toBe('active')
+    expect(wallet.postQuantum).toEqual(postQuantum)
+    await expect(verifyWalletPqcBinding(wallet.postQuantum!.binding)).resolves.toBe(true)
   })
 })
 

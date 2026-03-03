@@ -189,6 +189,7 @@ Production security baseline to set explicitly:
 - `SECURITY_ALERT_SIEM_URL` and `SECURITY_ALERT_SIEM_FORMAT`
 - `SECURITY_ALERT_SOAR_URL`
 - `SECURITY_ALERT_RUNBOOK_BASE_URL` or `SECURITY_ALERT_RUNBOOK_MAP`
+- `WALLET_PQC_BACKEND` (`noble` by default for cross-platform parity; optional `native` on Node for ML-DSA-65 keygen/sign/verify)
 
 ## Documentation
 

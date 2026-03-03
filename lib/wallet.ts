@@ -1,5 +1,10 @@
 // lib/wallet.ts
 import { HDNodeWallet, Mnemonic, randomBytes } from 'ethers'
+import {
+  parseWalletPqcEncryptedMaterial,
+  type WalletPqcBoundKeyType,
+  type WalletPqcEncryptedMaterial,
+} from '@/lib/pqc/types'
 
 export type UnlockWalletParams = {
   encrypted: string
@@ -12,7 +17,12 @@ export type UnlockedWallet = {
 }
 
 export type WalletKeyManagementModel = 'single-party' | 'threshold-mpc'
-export type WalletSigningAlgorithm = 'ecdsa-secp256k1' | 'ml-dsa-65' | 'hybrid-ecdsa-ml-dsa-65'
+export type WalletSigningAlgorithm =
+  | 'ecdsa-secp256k1'
+  | 'eddsa-ed25519'
+  | 'ml-dsa-65'
+  | 'hybrid-ecdsa-ml-dsa-65'
+  | 'hybrid-eddsa-ml-dsa-65'
 export type WalletMigrationStage = 'not-started' | 'planned' | 'in-progress' | 'active'
 
 export type WalletSecurityProfile = {
@@ -29,6 +39,7 @@ export type WalletSecurityProfile = {
 
 export type UnlockedWalletWithSecurityProfile = UnlockedWallet & {
   securityProfile: WalletSecurityProfile
+  postQuantum: WalletPqcEncryptedMaterial | null
 }
 
 const BASE64_PATTERN =
@@ -67,10 +78,12 @@ export const DEFAULT_WALLET_SECURITY_PROFILE: WalletSecurityProfile = {
 
 export type EncodeWalletToEncryptedOptions = {
   securityProfile?: WalletSecurityProfile
+  postQuantum?: WalletPqcEncryptedMaterial | null
 }
 
 export type CreateEncryptedWalletOptions = {
   securityProfile?: WalletSecurityProfile
+  postQuantum?: WalletPqcEncryptedMaterial | null
   mnemonic?: string
   mnemonicPassphrase?: string
   wordCount?: MnemonicWordCount
@@ -103,8 +116,10 @@ function isWalletSecurityProfile(value: unknown): value is WalletSecurityProfile
     record.version !== 1 ||
     (record.keyManagement !== 'single-party' && record.keyManagement !== 'threshold-mpc') ||
     (record.signingAlgorithm !== 'ecdsa-secp256k1' &&
+      record.signingAlgorithm !== 'eddsa-ed25519' &&
       record.signingAlgorithm !== 'ml-dsa-65' &&
-      record.signingAlgorithm !== 'hybrid-ecdsa-ml-dsa-65') ||
+      record.signingAlgorithm !== 'hybrid-ecdsa-ml-dsa-65' &&
+      record.signingAlgorithm !== 'hybrid-eddsa-ml-dsa-65') ||
     record.encryptionAlgorithm !== 'aes-256-gcm' ||
     record.kdfAlgorithm !== 'pbkdf2-sha256'
   ) {
@@ -134,6 +149,37 @@ function resolveWalletSecurityProfile(profile?: unknown): WalletSecurityProfile 
   }
 }
 
+function resolveHybridSigningAlgorithm(keyType: WalletPqcBoundKeyType): WalletSigningAlgorithm {
+  return keyType === 'ed25519' ? 'hybrid-eddsa-ml-dsa-65' : 'hybrid-ecdsa-ml-dsa-65'
+}
+
+export function buildHybridWalletSecurityProfile(
+  keyType: WalletPqcBoundKeyType,
+  profile?: WalletSecurityProfile,
+): WalletSecurityProfile {
+  const resolved = resolveWalletSecurityProfile(profile)
+  return {
+    ...resolved,
+    signingAlgorithm: resolveHybridSigningAlgorithm(keyType),
+    migration: {
+      ...resolved.migration,
+      pqc: 'active',
+    },
+  }
+}
+
+function parsePostQuantumPayload(value: unknown): WalletPqcEncryptedMaterial | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  const parsed = parseWalletPqcEncryptedMaterial(value)
+  if (!parsed) {
+    throw new Error('Encrypted payload contains invalid post-quantum material')
+  }
+  return parsed
+}
+
 function parseUnlockedWalletPayload(payload: Record<string, unknown>): UnlockedWalletWithSecurityProfile {
   const address = payload.address
   const privateKey = payload.privateKey
@@ -145,6 +191,7 @@ function parseUnlockedWalletPayload(payload: Record<string, unknown>): UnlockedW
     address,
     privateKey,
     securityProfile: resolveWalletSecurityProfile(payload.securityProfile),
+    postQuantum: parsePostQuantumPayload(payload.postQuantum),
   }
 }
 
@@ -424,6 +471,18 @@ type DeriveWalletFromMnemonicOptions = {
   derivationPath?: string
 }
 
+export type PrepareWalletMaterialOptions = Pick<
+  CreateEncryptedWalletOptions,
+  'mnemonic' | 'mnemonicPassphrase' | 'wordCount' | 'derivationPath'
+>
+
+export type PreparedWalletMaterial = {
+  wallet: WalletMaterial
+  mnemonic: string
+  derivationPath: string
+  wordCount: MnemonicWordCount
+}
+
 type CreateEncryptedWalletResult = {
   encrypted: string
   wallet: UnlockedWallet
@@ -499,12 +558,21 @@ export async function encodeWalletToEncrypted(
   password: string,
   options: EncodeWalletToEncryptedOptions = {},
 ): Promise<string> {
-  const securityProfile = resolveWalletSecurityProfile(options.securityProfile)
-  return encryptPayload({
+  const securityProfile = options.postQuantum
+    ? buildHybridWalletSecurityProfile(options.postQuantum.binding.subject.keyType, options.securityProfile)
+    : resolveWalletSecurityProfile(options.securityProfile)
+
+  const payload: Record<string, unknown> = {
     address: wallet.address,
     privateKey: wallet.privateKey,
     securityProfile,
-  }, password)
+  }
+
+  if (options.postQuantum) {
+    payload.postQuantum = options.postQuantum
+  }
+
+  return encryptPayload(payload, password)
 }
 
 // Test helper to create encrypted payloads with missing material.
@@ -528,6 +596,29 @@ export async function createEncryptedWallet(
     throw new Error('Password is required')
   }
 
+  const prepared = prepareWalletMaterial(options)
+  const wallet: UnlockedWallet = {
+    address: prepared.wallet.address,
+    privateKey: prepared.wallet.privateKey,
+  }
+
+  const encrypted = await encodeWalletToEncrypted(wallet, password.trim(), {
+    securityProfile: options.securityProfile,
+    postQuantum: options.postQuantum,
+  })
+
+  return {
+    encrypted,
+    wallet,
+    mnemonic: prepared.mnemonic,
+    derivationPath: prepared.derivationPath,
+    wordCount: prepared.wordCount,
+  }
+}
+
+export function prepareWalletMaterial(
+  options: PrepareWalletMaterialOptions = {},
+): PreparedWalletMaterial {
   const derived =
     options.mnemonic?.trim()
       ? {
@@ -554,18 +645,11 @@ export async function createEncryptedWallet(
           }
         })()
 
-  const wallet: UnlockedWallet = {
-    address: derived.material.address,
-    privateKey: derived.material.privateKey,
-  }
-
-  const encrypted = await encodeWalletToEncrypted(wallet, password.trim(), {
-    securityProfile: options.securityProfile,
-  })
-
   return {
-    encrypted,
-    wallet,
+    wallet: {
+      address: derived.material.address,
+      privateKey: derived.material.privateKey,
+    },
     mnemonic: derived.mnemonic,
     derivationPath: derived.derivationPath,
     wordCount: derived.wordCount,

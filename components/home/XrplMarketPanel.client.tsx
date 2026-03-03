@@ -110,6 +110,7 @@ function buildChartPoints(
   max: number,
   startIndex: number,
   endIndex: number,
+  chartWidth: number,
 ): ChartPoint[] {
   if (series.length < 2 || endIndex <= startIndex) return []
   const safeStart = Math.min(Math.max(startIndex, 0), series.length - 2)
@@ -118,7 +119,7 @@ function buildChartPoints(
   const indexSpan = safeEnd - safeStart
   const points = series.slice(safeStart, safeEnd + 1)
   return points.map((value, offset) => {
-    const x = (offset / indexSpan) * CHART_WIDTH
+    const x = (offset / indexSpan) * chartWidth
     const y =
       CHART_HEIGHT -
       CHART_PADDING -
@@ -127,16 +128,30 @@ function buildChartPoints(
   })
 }
 
-function buildPath(series: number[], min: number, max: number, startIndex: number, endIndex: number) {
-  const points = buildChartPoints(series, min, max, startIndex, endIndex)
+function buildPath(
+  series: number[],
+  min: number,
+  max: number,
+  startIndex: number,
+  endIndex: number,
+  chartWidth: number,
+) {
+  const points = buildChartPoints(series, min, max, startIndex, endIndex, chartWidth)
   if (points.length < 2) return ''
   return points
     .map((point, offset) => `${offset === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
     .join(' ')
 }
 
-function buildAreaPath(series: number[], min: number, max: number, startIndex: number, endIndex: number) {
-  const points = buildChartPoints(series, min, max, startIndex, endIndex)
+function buildAreaPath(
+  series: number[],
+  min: number,
+  max: number,
+  startIndex: number,
+  endIndex: number,
+  chartWidth: number,
+) {
+  const points = buildChartPoints(series, min, max, startIndex, endIndex, chartWidth)
   if (points.length < 2) return ''
   const baseY = CHART_HEIGHT - CHART_PADDING
   const head = points
@@ -245,6 +260,8 @@ export default function XrplMarketPanel() {
   const chartControlsId = `${chartClipId}-chart-controls`
   const legendTitleId = `${chartClipId}-legend-title`
   const tableLabelId = `${chartClipId}-table-label`
+  const [chartSvgNode, setChartSvgNode] = useState<SVGSVGElement | null>(null)
+  const [chartViewportWidth, setChartViewportWidth] = useState(CHART_WIDTH)
   const [state, setState] = useState<{
     loading: boolean
     error: string | null
@@ -284,6 +301,26 @@ export default function XrplMarketPanel() {
   useEffect(() => {
     void loadSnapshot()
   }, [loadSnapshot])
+
+  useEffect(() => {
+    if (!chartSvgNode) return
+
+    const updateChartViewportWidth = () => {
+      const rect = chartSvgNode.getBoundingClientRect()
+      if (!rect.width || !rect.height) return
+      const nextWidth = Number(((rect.width / rect.height) * CHART_HEIGHT).toFixed(2))
+      setChartViewportWidth((prev) => (Math.abs(prev - nextWidth) < 0.25 ? prev : nextWidth))
+    }
+
+    updateChartViewportWidth()
+
+    if (typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(() => updateChartViewportWidth())
+    observer.observe(chartSvgNode)
+
+    return () => observer.disconnect()
+  }, [chartSvgNode])
 
   const visibleAssets = useMemo(() => {
     if (!state.snapshot) return []
@@ -350,8 +387,9 @@ export default function XrplMarketPanel() {
       normalizedRange.max,
       chartWindow.start,
       chartWindow.end,
+      chartViewportWidth,
     )
-  }, [areaFillAsset, chartWindow.end, chartWindow.start, normalizedRange.max, normalizedRange.min])
+  }, [areaFillAsset, chartViewportWidth, chartWindow.end, chartWindow.start, normalizedRange.max, normalizedRange.min])
 
   useEffect(() => {
     setZoomWindow((prev) => {
@@ -493,7 +531,7 @@ export default function XrplMarketPanel() {
       return []
     }
 
-    const x = ((hoverIndex - chartWindow.start) / (chartWindow.end - chartWindow.start)) * CHART_WIDTH
+    const x = ((hoverIndex - chartWindow.start) / (chartWindow.end - chartWindow.start)) * chartViewportWidth
     const span = normalizedRange.max - normalizedRange.min || 1
 
     return normalizedSeries
@@ -511,6 +549,7 @@ export default function XrplMarketPanel() {
   }, [
     chartWindow.end,
     chartWindow.start,
+    chartViewportWidth,
     hoverIndex,
     normalizedRange.max,
     normalizedRange.min,
@@ -708,8 +747,9 @@ export default function XrplMarketPanel() {
 
                 <div className="-mx-2 sm:-mx-3 lg:-mx-4">
                   <svg
+                    ref={setChartSvgNode}
                     data-testid="xrpl-market-chart"
-                    viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+                    viewBox={`0 0 ${chartViewportWidth} ${CHART_HEIGHT}`}
                     className="h-44 w-[calc(100%+1rem)] md:h-52 md:w-[calc(100%+1.5rem)] lg:w-[calc(100%+2rem)]"
                     tabIndex={0}
                     role="group"
@@ -783,7 +823,7 @@ export default function XrplMarketPanel() {
                         <rect
                           x={0}
                           y={CHART_PADDING}
-                          width={CHART_WIDTH}
+                          width={chartViewportWidth}
                           height={CHART_HEIGHT - CHART_PADDING * 2}
                         />
                       </clipPath>
@@ -804,7 +844,7 @@ export default function XrplMarketPanel() {
 
                     <g opacity="0.45">
                       {Array.from({ length: 6 }).map((_, index) => {
-                        const x = ((index + 1) / 7) * CHART_WIDTH
+                        const x = ((index + 1) / 7) * chartViewportWidth
                         return (
                           <line
                             key={`grid-${index}`}
@@ -839,6 +879,7 @@ export default function XrplMarketPanel() {
                           normalizedRange.max,
                           chartWindow.start,
                           chartWindow.end,
+                          chartViewportWidth,
                         )
                         if (!path) return null
                         const active = focusSymbol === null || focusSymbol === asset.symbol

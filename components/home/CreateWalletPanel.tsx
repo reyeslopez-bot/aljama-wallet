@@ -1,12 +1,20 @@
 'use client'
 
+import { Wallet as EvmWallet } from 'ethers'
 import type { ClipboardEvent, FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
+import {
+  createWalletPqcEncryptedMaterial,
+  getDefaultWalletPqcProvider,
+  resolveWalletPqcSubjectScheme,
+} from '@/lib/pqc/provider'
+import { buildAccountRef } from '@/lib/signing/types'
 import { clearWalletId, persistEncryptedSession } from '@/lib/storage/walletSession'
 import {
   DEFAULT_WALLET_SECURITY_PROFILE,
   UserDeterministicWallet,
+  buildHybridWalletSecurityProfile,
   deriveWalletFromMnemonic,
   encodeWalletToEncrypted,
   generateMnemonicWallet,
@@ -494,12 +502,38 @@ export function CreateWalletPanel() {
   }
 
   const finalizeWallet = async (draft: WalletDraft) => {
+    const evmWallet = new EvmWallet(draft.main.privateKey)
+    const postQuantum = await createWalletPqcEncryptedMaterial({
+      provider: getDefaultWalletPqcProvider(),
+      subject: {
+        accountRef: buildAccountRef({
+          chain: 'EVM',
+          keyType: 'secp256k1',
+          pubKey: evmWallet.signingKey.publicKey,
+          address: draft.main.address,
+        }),
+        chain: 'EVM',
+        address: draft.main.address,
+        keyType: 'secp256k1',
+        scheme: resolveWalletPqcSubjectScheme('secp256k1'),
+        publicKey: evmWallet.signingKey.publicKey,
+        publicKeyFormat: 'hex',
+      },
+    })
+    const securityProfile = buildHybridWalletSecurityProfile(
+      postQuantum.binding.subject.keyType,
+      DEFAULT_WALLET_SECURITY_PROFILE,
+    )
     const encrypted = await encodeWalletToEncrypted(
       {
         address: draft.main.address,
         privateKey: draft.main.privateKey,
       },
       password.trim(),
+      {
+        postQuantum,
+        securityProfile,
+      },
     )
 
     persistEncryptedSession(encrypted)
@@ -571,7 +605,7 @@ export function CreateWalletPanel() {
       address: draft.main.address,
       encrypted,
       wordCount: draft.wordCount,
-      securityProfile: DEFAULT_WALLET_SECURITY_PROFILE,
+      securityProfile,
     })
 
     setMode('session-only')
