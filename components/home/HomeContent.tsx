@@ -36,6 +36,8 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
     <section
       id="overview"
       data-testid="home-overview-section"
+      aria-labelledby="home-overview-title"
+      aria-describedby="home-overview-subtitle"
       className={`relative scroll-mt-28 ${SURFACE} panel-glow-saffron overflow-hidden p-12 md:p-14`}
     >
       <div className="absolute inset-x-10 top-6 ornament-line" />
@@ -44,17 +46,22 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
       <div className="relative z-10 w-full space-y-8">
         <p className="text-xs uppercase tracking-[0.35em] text-saffron/80">{BRAND.name}</p>
 
-        <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight text-ivory sm:text-5xl">
+        <h1
+          id="home-overview-title"
+          className="font-display text-4xl font-semibold leading-tight tracking-tight text-ivory sm:text-5xl"
+        >
           {title}
         </h1>
 
-        <p className="text-lg text-ivory/82">{subtitle}</p>
+        <p id="home-overview-subtitle" className="text-lg text-ivory/82">
+          {subtitle}
+        </p>
 
         <HomeActionButtons />
 
-        <div className="grid gap-5 pt-6 sm:grid-cols-3">
+        <div className="grid gap-5 pt-6 sm:grid-cols-3" role="list" aria-label="Wallet highlights">
           {statBlocks.map((stat) => (
-            <div key={stat.id} className={`${SURFACE_SOFT} p-5`}>
+            <div key={stat.id} role="listitem" className={`${SURFACE_SOFT} p-5`}>
               <p className="text-[11px] uppercase tracking-[0.2em] text-saffron/80">{stat.label}</p>
               <p className="mt-3 text-2xl font-semibold text-ivory">{stat.value}</p>
               <p className="mt-2 text-sm leading-relaxed text-ivory/72">{stat.detail}</p>
@@ -68,7 +75,12 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
 
 function RegionAndComplianceSection() {
   return (
-    <section id="demo" data-testid="home-region-map-section" className="grid scroll-mt-28 gap-20 lg:grid-cols-2">
+    <section
+      id="demo"
+      data-testid="home-region-map-section"
+      aria-label="Region awareness and compliance"
+      className="grid scroll-mt-28 gap-20 lg:grid-cols-2"
+    >
       <div className={`${SURFACE} panel-glow-lapis p-10 md:p-12`}>
         <MapboxMap />
       </div>
@@ -81,7 +93,11 @@ function RegionAndComplianceSection() {
 
 function WalletAccessSection() {
   return (
-    <section data-testid="home-wallet-section" className="grid scroll-mt-28 items-start gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)]">
+    <section
+      data-testid="home-wallet-section"
+      aria-label="Wallet creation and connection"
+      className="grid scroll-mt-28 items-start gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)]"
+    >
       <div>
         <div id="create" className="scroll-mt-28">
           <CreateWalletPanel />
@@ -99,7 +115,12 @@ function WalletAccessSection() {
 
 function XrplSection() {
   return (
-    <section id="xrpl" data-testid="home-xrpl-section" className="grid scroll-mt-28 gap-20 lg:grid-cols-2">
+    <section
+      id="xrpl"
+      data-testid="home-xrpl-section"
+      aria-label="XRPL network and market"
+      className="grid scroll-mt-28 gap-20 lg:grid-cols-2"
+    >
       <XrplPanel />
       <XrplMarketPanel />
     </section>
@@ -108,7 +129,12 @@ function XrplSection() {
 
 function TradeDeskSection() {
   return (
-    <section id="trade-desk" data-testid="home-trade-desk-section" className="scroll-mt-28">
+    <section
+      id="trade-desk"
+      data-testid="home-trade-desk-section"
+      aria-label="XRPL trade desk"
+      className="scroll-mt-28"
+    >
       <XrplTradeDesk />
     </section>
   )

@@ -289,6 +289,24 @@ export function CreateWalletPanel() {
   const [keystoreDownloaded, setKeystoreDownloaded] = useState(false)
   const setCreateWalletStatus = useDynamicInfoStore((s) => s.setCreateWalletStatus)
   const setCreatedWalletAddress = useDynamicInfoStore((s) => s.setCreatedWalletAddress)
+  const titleId = 'create-wallet-title'
+  const bodyId = 'create-wallet-body'
+  const engineStateId = 'create-wallet-engine-state'
+  const formHintId = 'create-wallet-form-hint'
+  const passwordInputId = 'create-wallet-password'
+  const passwordRulesId = 'create-wallet-password-rules'
+  const passwordStrengthId = 'create-wallet-password-strength'
+  const mnemonicToggleLabelId = 'create-wallet-mnemonic-toggle-label'
+  const mnemonicToggleHintId = 'create-wallet-mnemonic-toggle-hint'
+  const mnemonicPassphraseInputId = 'create-wallet-mnemonic-passphrase'
+  const mnemonicPassphraseLabelId = 'create-wallet-mnemonic-passphrase-label'
+  const mnemonicPassphraseHintId = 'create-wallet-mnemonic-passphrase-hint'
+  const recoveryTitleId = 'create-wallet-recovery-title'
+  const recoveryHintId = 'create-wallet-recovery-hint'
+  const readyStatusId = 'create-wallet-ready-status'
+  const noticeId = 'create-wallet-notice'
+  const errorId = 'create-wallet-error'
+  const clipboardStatusId = 'create-wallet-clipboard-status'
 
   const passphraseValidation = useMemo(() => evaluatePassphrase(password), [password])
   const onRampTemplate = process.env.NEXT_PUBLIC_ONRAMP_URL_TEMPLATE
@@ -329,6 +347,18 @@ export function CreateWalletPanel() {
     status === 'pending' ||
     !passphraseValidation.isValid ||
     (isRecoveryStep && (!verifyRecoveryWords || !recoveryBackedUp || !recoveryLossAccepted))
+  const passwordInvalid = status === 'error' && (!passphraseValidation.hasValue || !passphraseValidation.isValid)
+  const clipboardStatusMessage = addressCopied
+    ? t('copiedAddress')
+    : passphraseCopied
+      ? t('copiedPassphrase')
+      : mnemonicPassphraseCopied
+        ? t('copiedPassphrase')
+        : mnemonicCopied
+          ? t('copiedMnemonic')
+          : keystoreDownloaded
+            ? t('keystoreDownloaded')
+            : ''
 
   useEffect(() => {
     if (!addressCopied) return
@@ -639,26 +669,53 @@ export function CreateWalletPanel() {
   const badgeColor = status === 'success' ? 'bg-jade/20 text-jade' : 'bg-white/5 text-ivory/70'
 
   return (
-    <section className="surface-panel panel-glow-saffron relative p-7 sm:p-8">
+    <section
+      aria-labelledby={titleId}
+      aria-describedby={`${bodyId} ${engineStateId} ${formHintId}`}
+      className="surface-panel panel-glow-saffron relative p-7 sm:p-8"
+    >
       <div className="absolute inset-x-8 top-5 ornament-line" />
 
       <header className="relative flex items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('eyebrow')}</p>
-          <h2 className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">{t('title')}</h2>
-          <p className="text-sm text-ivory/70">{t('body')}</p>
+          <h2 id={titleId} className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
+            {t('title')}
+          </h2>
+          <p id={bodyId} className="text-sm text-ivory/70">
+            {t('body')}
+          </p>
         </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${badgeColor}`}>
+        <span
+          aria-live="polite"
+          className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${badgeColor}`}
+        >
           {status === 'success' ? t('badgeReady') : t('badgeCustody')}
         </span>
       </header>
 
-      <p className="mt-3 text-[11px] uppercase tracking-[0.18em] text-ivory/45">
+      <p id={engineStateId} aria-live="polite" className="mt-3 text-[11px] uppercase tracking-[0.18em] text-ivory/45">
         {t('engineStateLabel')}: {engineStateLabel}
       </p>
 
-      <form onSubmit={submit} className="relative mt-6 space-y-4">
-        <label className="block text-xs uppercase tracking-[0.16em] text-ivory/60">{t('passwordLabel')}</label>
+      <form
+        onSubmit={submit}
+        aria-describedby={[
+          engineStateId,
+          formHintId,
+          notice ? noticeId : null,
+          error ? errorId : null,
+          clipboardStatusMessage ? clipboardStatusId : null,
+        ].filter(Boolean).join(' ')}
+        aria-busy={status === 'pending'}
+        className="relative mt-6 space-y-4"
+      >
+        <label
+          htmlFor={passwordInputId}
+          className="block text-xs uppercase tracking-[0.16em] text-ivory/60"
+        >
+          {t('passwordLabel')}
+        </label>
 
         <div className="space-y-3">
           <div className="surface-inner flex w-full items-center gap-3 px-4 py-3 focus-within:border-saffron/50 focus-within:ring-2 focus-within:ring-saffron/25">
@@ -666,24 +723,38 @@ export function CreateWalletPanel() {
               {t('passwordTag')}
             </span>
             <input
+              id={passwordInputId}
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder={t('passwordPlaceholder')}
               disabled={locked || status === 'pending'}
+              aria-invalid={passwordInvalid}
+              aria-describedby={[
+                formHintId,
+                passphraseValidation.hasValue ? passwordRulesId : null,
+                error ? errorId : null,
+              ].filter(Boolean).join(' ')}
+              autoComplete="new-password"
               className="w-full bg-transparent text-base text-ivory placeholder:text-ivory/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
 
           <div className="surface-inner flex w-full items-center gap-3 px-4 py-3 focus-within:border-lapis/50 focus-within:ring-2 focus-within:ring-lapis/25">
             <div className="flex-1">
-              <p className="text-xs uppercase tracking-[0.2em] text-lapis/75">{t('mnemonicToggleLabel')}</p>
-              <p className="mt-1 text-[11px] text-ivory/55">{t('mnemonicToggleHint')}</p>
+              <p id={mnemonicToggleLabelId} className="text-xs uppercase tracking-[0.2em] text-lapis/75">
+                {t('mnemonicToggleLabel')}
+              </p>
+              <p id={mnemonicToggleHintId} className="mt-1 text-[11px] text-ivory/55">
+                {t('mnemonicToggleHint')}
+              </p>
             </div>
             <button
               type="button"
               role="switch"
               aria-checked={useOptionalMnemonicPassphrase}
+              aria-labelledby={mnemonicToggleLabelId}
+              aria-describedby={mnemonicToggleHintId}
               onClick={() => {
                 if (locked || status === 'pending') return
                 setUseOptionalMnemonicPassphrase((prev) => {
@@ -696,6 +767,7 @@ export function CreateWalletPanel() {
               className="relative h-7 w-12 rounded-full border border-white/20 bg-white/10 transition disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span
+                aria-hidden="true"
                 className={`absolute top-0.5 h-[22px] w-[22px] rounded-full bg-white transition ${
                   useOptionalMnemonicPassphrase
                     ? 'left-6 bg-white shadow-[0_0_12px_rgba(240,215,160,0.35)]'
@@ -708,10 +780,14 @@ export function CreateWalletPanel() {
           {useOptionalMnemonicPassphrase && (
             <>
               <div className="surface-inner flex w-full items-center gap-3 px-4 py-3 focus-within:border-lapis/50 focus-within:ring-2 focus-within:ring-lapis/25">
-                <span className="min-w-[7.25rem] shrink-0 text-xs uppercase tracking-[0.2em] text-lapis/75">
+                <span
+                  id={mnemonicPassphraseLabelId}
+                  className="min-w-[7.25rem] shrink-0 text-xs uppercase tracking-[0.2em] text-lapis/75"
+                >
                   {t('mnemonicPassphraseTag')}
                 </span>
                 <input
+                  id={mnemonicPassphraseInputId}
                   type="password"
                   value={mnemonicPassphrase}
                   onChange={(event) => setMnemonicPassphrase(event.target.value)}
@@ -719,10 +795,15 @@ export function CreateWalletPanel() {
                   onCut={preventSensitiveCopy}
                   placeholder={t('mnemonicPassphrasePlaceholder')}
                   disabled={locked || status === 'pending'}
+                  aria-labelledby={mnemonicPassphraseLabelId}
+                  aria-describedby={mnemonicPassphraseHintId}
+                  autoComplete="new-password"
                   className="w-full bg-transparent text-base text-ivory placeholder:text-ivory/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
-              <p className="text-xs text-ivory/55">{t('mnemonicPassphraseHint')}</p>
+              <p id={mnemonicPassphraseHintId} className="text-xs text-ivory/55">
+                {t('mnemonicPassphraseHint')}
+              </p>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -771,12 +852,18 @@ export function CreateWalletPanel() {
             </button>
           </div>
         </div>
-        <p className="text-xs text-ivory/55">{t('flowHint')}</p>
+        <p id={formHintId} className="text-xs text-ivory/55">
+          {t('flowHint')}
+        </p>
 
         {showUnlockMessage && <UnlockActionsLink className="text-xs uppercase tracking-[0.18em] text-ivory/50" />}
 
         {passphraseValidation.hasValue && (
-          <div className="surface-inner relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#121820] via-[#0d1118] to-[#16120f] p-4">
+          <div
+            id={passwordRulesId}
+            aria-live="polite"
+            className="surface-inner relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#121820] via-[#0d1118] to-[#16120f] p-4"
+          >
             <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-lapis/20 blur-2xl" />
             <div className="pointer-events-none absolute -left-10 bottom-0 h-24 w-24 rounded-full bg-saffron/15 blur-2xl" />
             <div className="relative space-y-3">
@@ -794,7 +881,16 @@ export function CreateWalletPanel() {
                   {t(`strength.${passphraseValidation.strength}`)}
                 </span>
               </div>
-              <div className="rounded-full border border-white/10 bg-black/35 p-1">
+              <div
+                id={passwordStrengthId}
+                className="rounded-full border border-white/10 bg-black/35 p-1"
+                role="progressbar"
+                aria-label={t('strengthLabel')}
+                aria-valuemin={1}
+                aria-valuemax={3}
+                aria-valuenow={strengthLevel}
+                aria-valuetext={t(`strength.${passphraseValidation.strength}`)}
+              >
                 <div
                   className={`h-2 rounded-full bg-gradient-to-r ${strengthFillTone} transition-all duration-300`}
                   style={{ width: strengthFillWidth }}
@@ -880,14 +976,23 @@ export function CreateWalletPanel() {
         )}
 
         {walletDraft && status !== 'success' && (
-          <div className="surface-inner space-y-4 rounded-2xl border border-saffron/25 bg-black/25 p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-saffron/75">{t('mnemonicTitle')}</p>
+          <div
+            className="surface-inner space-y-4 rounded-2xl border border-saffron/25 bg-black/25 p-4"
+            aria-labelledby={recoveryTitleId}
+            aria-describedby={recoveryHintId}
+          >
+            <p id={recoveryTitleId} className="text-xs uppercase tracking-[0.16em] text-saffron/75">
+              {t('mnemonicTitle')}
+            </p>
 
-            <p className="text-xs text-ivory/65">{t('mnemonicHint')}</p>
+            <p id={recoveryHintId} className="text-xs text-ivory/65">
+              {t('mnemonicHint')}
+            </p>
             <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => void copyMnemonic()}
+                aria-describedby={`${recoveryHintId} ${clipboardStatusId}`}
                 className="rounded-full border border-saffron/35 bg-saffron/10 px-3 py-1.5 text-xs font-semibold text-saffron transition hover:bg-saffron/20"
               >
                 {mnemonicCopied ? t('copiedMnemonic') : t('copyMnemonic')}
@@ -910,6 +1015,7 @@ export function CreateWalletPanel() {
                     {t('recoveryWordPrompt', { index: String(slot + 1) })}
                   </span>
                   <input
+                    id={`create-wallet-recovery-word-${slot}`}
                     type="text"
                     autoComplete="off"
                     value={recoveryWords[slot] ?? ''}
@@ -919,6 +1025,12 @@ export function CreateWalletPanel() {
                         [slot]: event.target.value,
                       }))
                     }}
+                    aria-describedby={recoveryHintId}
+                    aria-required="true"
+                    aria-invalid={
+                      Boolean(recoveryWords[slot]) &&
+                      normalizeWord(recoveryWords[slot]) !== normalizeWord(draftWords[slot])
+                    }
                     className="w-full rounded-xl border border-white/15 bg-black/25 px-3 py-2 text-sm text-ivory placeholder:text-ivory/35 focus:border-saffron/50 focus:outline-none"
                     placeholder={t('recoveryWordPlaceholder')}
                     disabled={status === 'pending'}
@@ -931,6 +1043,7 @@ export function CreateWalletPanel() {
                   type="checkbox"
                   checked={recoveryBackedUp}
                   onChange={(event) => setRecoveryBackedUp(event.target.checked)}
+                  aria-describedby={recoveryHintId}
                   className="mt-0.5 h-4 w-4 rounded border-white/20 bg-black/40"
                   disabled={status === 'pending'}
                 />
@@ -942,6 +1055,7 @@ export function CreateWalletPanel() {
                   type="checkbox"
                   checked={recoveryLossAccepted}
                   onChange={(event) => setRecoveryLossAccepted(event.target.checked)}
+                  aria-describedby={recoveryHintId}
                   className="mt-0.5 h-4 w-4 rounded border-white/20 bg-black/40"
                   disabled={status === 'pending'}
                 />
@@ -967,7 +1081,7 @@ export function CreateWalletPanel() {
         </div>
       </form>
 
-      <div className="surface-inner relative mt-6 p-4">
+      <div id={readyStatusId} className="surface-inner relative mt-6 p-4" aria-live="polite">
         {walletPreview ? (
           <div className="space-y-3">
             <p className="text-xs uppercase tracking-[0.16em] text-jade/80">{t('readyTitle')}</p>
@@ -979,6 +1093,7 @@ export function CreateWalletPanel() {
                 <button
                   type="button"
                   onClick={() => void copyAddress()}
+                  aria-describedby={clipboardStatusId}
                   className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-ivory transition hover:bg-white/15"
                 >
                   {addressCopied ? t('copiedAddress') : t('copyAddress')}
@@ -986,6 +1101,7 @@ export function CreateWalletPanel() {
                 <button
                   type="button"
                   onClick={downloadKeystore}
+                  aria-describedby={clipboardStatusId}
                   className="rounded-full border border-lapis/30 bg-lapis/10 px-3 py-1.5 text-xs font-semibold text-lapis transition hover:bg-lapis/20"
                 >
                   {keystoreDownloaded ? t('keystoreDownloaded') : t('downloadKeystore')}
@@ -994,6 +1110,7 @@ export function CreateWalletPanel() {
                   href={onRampUrl}
                   target="_blank"
                   rel="noreferrer"
+                  aria-label={t('buyWithCard')}
                   className="rounded-full border border-saffron/30 bg-saffron/10 px-3 py-1.5 text-xs font-semibold text-saffron transition hover:bg-saffron/20"
                 >
                   {t('buyWithCard')}
@@ -1065,6 +1182,7 @@ export function CreateWalletPanel() {
                 <button
                   type="button"
                   onClick={() => void copyPassphrase()}
+                  aria-describedby={clipboardStatusId}
                   className="mt-3 rounded-full border border-lapis/35 bg-lapis/15 px-3 py-1.5 text-xs font-semibold text-lapis transition hover:bg-lapis/25"
                 >
                   {passphraseCopied ? t('copiedPassphrase') : t('copyPassphrase')}
@@ -1077,8 +1195,19 @@ export function CreateWalletPanel() {
         {mode === 'session-only' && (
           <p className="mt-3 text-xs text-saffron/90">{t('sessionOnlyMode')}</p>
         )}
-        {notice && <p className="mt-3 text-xs text-saffron/90">{notice}</p>}
-        {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
+        <p id={clipboardStatusId} className="sr-only" aria-live="polite">
+          {clipboardStatusMessage}
+        </p>
+        {notice && (
+          <p id={noticeId} role="status" aria-live="polite" className="mt-3 text-xs text-saffron/90">
+            {notice}
+          </p>
+        )}
+        {error && (
+          <p id={errorId} role="alert" className="mt-3 text-sm text-red-300">
+            {error}
+          </p>
+        )}
       </div>
     </section>
   )

@@ -71,6 +71,10 @@ function resolveUiRegion(lat: number, lng: number, regulatoryRegion: RegulatoryR
 
 export default function MapboxMap() {
   const t = useTranslations('map')
+  const titleId = 'mapbox-map-title'
+  const statusId = 'mapbox-map-status'
+  const lawsId = 'mapbox-map-laws'
+  const regulationPanelId = 'mapbox-map-regulations'
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const mapRef = React.useRef<MapboxMapInstance | null>(null)
   const markerRef = React.useRef<MapboxMarkerInstance | null>(null)
@@ -270,12 +274,14 @@ export default function MapboxMap() {
   }, [regulatoryRegion])
 
   return (
-    <div className="space-y-4">
+    <section aria-labelledby={titleId} aria-describedby={`${statusId} ${lawsId}`} className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-xs uppercase tracking-[0.18em] text-saffron/70">{t('label')}</p>
+          <p id={titleId} className="text-xs uppercase tracking-[0.18em] text-saffron/70">
+            {t('label')}
+          </p>
 
-          <p className="text-sm text-ivory/70">
+          <p id={statusId} aria-live="polite" className="text-sm text-ivory/70">
             {!locationEnabled && t('blocked')}
             {locationEnabled && status === 'idle' && t('idle')}
             {locationEnabled && status === 'loading' && t('loading')}
@@ -296,6 +302,7 @@ export default function MapboxMap() {
             type="button"
             onClick={requestLocation}
             disabled={status === 'loading' || !locationEnabled}
+            aria-describedby={statusId}
             className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t('refreshLocation')}
@@ -309,8 +316,11 @@ export default function MapboxMap() {
             ? 'border-[#7fa3c1]/40 bg-white/70 shadow-2xl shadow-[#7fa3c1]/25'
             : 'border-white/10 bg-black/60 shadow-2xl shadow-black/40'
         }`}
+        role="img"
+        aria-labelledby={titleId}
+        aria-describedby={statusId}
       >
-        <div ref={containerRef} className="h-[260px] w-full md:h-[320px]" />
+        <div ref={containerRef} aria-hidden="true" className="h-[260px] w-full md:h-[320px]" />
         <div
           className={`pointer-events-none absolute inset-0 ${
             isLightTheme
@@ -319,31 +329,40 @@ export default function MapboxMap() {
           }`}
         />
         {!mapReady && !mapError ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-ivory/60">
+          <div
+            role="status"
+            aria-live="polite"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-ivory/60"
+          >
             {t('loadingTiles')}
           </div>
         ) : null}
         {mapError ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-red-200">
+          <div
+            role="alert"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-red-200"
+          >
             {t('offline')}
           </div>
         ) : null}
       </div>
       <div className="surface-soft p-4 text-sm text-ivory/70">
         <p className="text-xs uppercase tracking-[0.16em] text-ivory/50">{t('laws.title')}</p>
-        <p className="mt-2 text-xs text-ivory/60">
+        <p id={lawsId} className="mt-2 text-xs text-ivory/60">
           {t('laws.jurisdiction')}{' '}
           <span className="text-ivory">{t(`laws.${regulatoryRegion}.label`)}</span>
         </p>
         <button
           type="button"
           onClick={() => setShowRegulations((open) => !open)}
+          aria-expanded={showRegulations}
+          aria-controls={regulationPanelId}
           className="mt-3 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10"
         >
           {showRegulations ? t('laws.showLess') : t('laws.showMore')}
         </button>
         {showRegulations && (
-          <>
+          <div id={regulationPanelId}>
             <ul className="mt-3 space-y-2 text-xs text-ivory/60">
               <li>{t(`laws.${regulatoryRegion}.item1`)}</li>
               <li>{t(`laws.${regulatoryRegion}.item2`)}</li>
@@ -359,6 +378,7 @@ export default function MapboxMap() {
                       href={source.href}
                       target="_blank"
                       rel="noopener noreferrer"
+                      aria-label={source.label}
                       className="underline decoration-white/25 underline-offset-2 transition hover:text-ivory hover:decoration-ivory/60"
                     >
                       {source.label}
@@ -367,9 +387,9 @@ export default function MapboxMap() {
                 ))}
               </ul>
             </div>
-          </>
+          </div>
         )}
       </div>
-    </div>
+    </section>
   )
 }

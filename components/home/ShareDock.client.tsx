@@ -71,6 +71,10 @@ export default function ShareDock() {
   const pathname = usePathname()
   const [origin, setOrigin] = useState('')
   const [copied, setCopied] = useState(false)
+  const headingId = 'share-dock-title'
+  const bodyId = 'share-dock-body'
+  const actionsId = 'share-dock-actions'
+  const statusId = 'share-dock-status'
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -94,7 +98,12 @@ export default function ShareDock() {
   ]
 
   return (
-    <section id="share" className="scroll-mt-28">
+    <section
+      id="share"
+      aria-labelledby={headingId}
+      aria-describedby={bodyId}
+      className="scroll-mt-28"
+    >
       <div className="surface-panel panel-glow-lapis relative mx-auto max-w-5xl overflow-hidden p-8 md:p-10">
         <div className="absolute inset-x-8 top-5 ornament-line" />
         <div className="absolute -right-8 -top-8 h-28 w-28 rounded-[2rem] border border-white/10 bg-white/5 opacity-50 rotate-12" />
@@ -102,17 +111,34 @@ export default function ShareDock() {
         <div className="relative space-y-7">
           <div className="space-y-3 text-center">
             <p className="text-xs uppercase tracking-[0.22em] text-saffron/70">{t('eyebrow')}</p>
-            <p className="mx-auto max-w-2xl text-sm text-ivory/70">{t('body')}</p>
+            <h2 id={headingId} className="sr-only">
+              {t('title')}
+            </h2>
+            <p id={bodyId} className="mx-auto max-w-2xl text-sm text-ivory/70">
+              {t('body')}
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4">
+          <div
+            id={actionsId}
+            className="flex flex-wrap items-center justify-center gap-4"
+            role="group"
+            aria-label={t('title')}
+          >
             {shareItems.map((item) => (
               <motion.button
                 key={item.id}
                 type="button"
                 whileHover={{ y: -3, rotate: 0, scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
-                aria-label={item.label}
+                aria-label={
+                  item.id === 'copy'
+                    ? copied
+                      ? `${t('copy')} copied`
+                      : t('copy')
+                    : item.label
+                }
+                aria-describedby={statusId}
                 title={item.label}
                 onClick={async () => {
                   const encodedTitle = encodeURIComponent(shareTitle)
@@ -154,6 +180,9 @@ export default function ShareDock() {
               </motion.button>
             ))}
           </div>
+          <p id={statusId} className="sr-only" aria-live="polite">
+            {copied ? t('copied') : ''}
+          </p>
         </div>
       </div>
     </section>

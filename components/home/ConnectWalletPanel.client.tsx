@@ -54,6 +54,12 @@ export function ConnectWalletPanel() {
       : displayConnected
         ? t('status.connected')
         : t('status.ready')
+  const titleId = 'connect-wallet-title'
+  const bodyId = 'connect-wallet-body'
+  const statusId = 'connect-wallet-status'
+  const detailId = 'connect-wallet-detail'
+  const connectorNoteId = 'connect-wallet-connector-note'
+  const errorId = 'connect-wallet-error'
 
   useEffect(() => {
     setHydrated(true)
@@ -85,24 +91,38 @@ export function ConnectWalletPanel() {
   ])
 
   return (
-    <section className="surface-panel panel-glow-lapis relative h-full p-7 sm:p-8">
+    <section
+      aria-labelledby={titleId}
+      aria-describedby={`${bodyId} ${detailId}`}
+      className="surface-panel panel-glow-lapis relative h-full p-7 sm:p-8"
+    >
       <div className="absolute inset-x-8 top-5 ornament-line" />
 
       <header className="relative flex items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('eyebrow')}</p>
-          <h2 className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
+          <h2 id={titleId} className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
             {t('title')}
           </h2>
-          <p className="text-sm text-ivory/70">{t('body')}</p>
+          <p id={bodyId} className="text-sm text-ivory/70">
+            {t('body')}
+          </p>
         </div>
-        <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70">
+        <span
+          id={statusId}
+          aria-live="polite"
+          className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70"
+        >
           {statusLabel}
         </span>
       </header>
 
       <div className="relative mt-6 space-y-4">
-        <div className="surface-soft rounded-2xl border border-white/10 bg-white/5 p-4 text-xs">
+        <div
+          className="surface-soft rounded-2xl border border-white/10 bg-white/5 p-4 text-xs"
+          role="group"
+          aria-label={t('title')}
+        >
           <div className="grid gap-2 text-ivory/75">
             <div className="flex items-center justify-between gap-3">
               <span className="text-ivory/50">{tInfo('wallet')}</span>
@@ -119,7 +139,7 @@ export function ConnectWalletPanel() {
           </div>
         </div>
 
-        <div className="surface-inner p-4">
+        <div id={detailId} className="surface-inner p-4" aria-live="polite">
           {displayConnected ? (
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-[0.16em] text-jade/80">
@@ -144,6 +164,12 @@ export function ConnectWalletPanel() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           disabled={locked || !canConnect || isPending}
+          aria-describedby={[
+            statusId,
+            hydrated && !canConnect ? connectorNoteId : null,
+            connectError ? errorId : null,
+          ].filter(Boolean).join(' ') || undefined}
+          aria-busy={isPending}
           onClick={() => {
             if (locked) return
             if (!preferredConnector) return
@@ -167,11 +193,13 @@ export function ConnectWalletPanel() {
         )}
 
         {hydrated && !canConnect ? (
-          <p className="text-xs text-saffron/80">{t('noConnectorNote')}</p>
+          <p id={connectorNoteId} className="text-xs text-saffron/80">
+            {t('noConnectorNote')}
+          </p>
         ) : null}
 
         {connectError ? (
-          <p className="text-xs text-red-300">
+          <p id={errorId} role="alert" className="text-xs text-red-300">
             {connectError instanceof Error ? connectError.message : 'Wallet connection failed'}
           </p>
         ) : null}

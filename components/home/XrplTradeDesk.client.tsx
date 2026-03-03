@@ -181,6 +181,11 @@ export default function XrplTradeDesk() {
     buyOffer: '',
   })
   const [nftOfferCancelIds, setNftOfferCancelIds] = useState('')
+  const titleId = 'xrpl-trade-desk-title'
+  const bodyId = 'xrpl-trade-desk-body'
+  const regionPolicyId = 'xrpl-trade-desk-region-policy'
+  const actionStatusId = 'xrpl-trade-desk-action-status'
+  const actionErrorId = 'xrpl-trade-desk-action-error'
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -368,16 +373,21 @@ export default function XrplTradeDesk() {
   }
 
   return (
-    <section className="surface-panel panel-glow-jade relative p-7 sm:p-8">
+    <section
+      aria-labelledby={titleId}
+      aria-describedby={`${bodyId} ${regionBlocked ? regionPolicyId : ''}`.trim() || undefined}
+      aria-busy={submitting}
+      className="surface-panel panel-glow-jade relative p-7 sm:p-8"
+    >
       <div className="absolute inset-x-8 top-5 ornament-line" />
 
       <header className="relative flex items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">XRPL Trade Desk</p>
-          <h2 className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
+          <h2 id={titleId} className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
             RWT assets, NFTs, and offers
           </h2>
-          <p className="text-sm text-ivory/70">
+          <p id={bodyId} className="text-sm text-ivory/70">
             Unified control surface for trustlines, NFT actions, and XRPL order flow.
           </p>
           <p className="mt-1 text-xs text-ivory/55">
@@ -388,7 +398,9 @@ export default function XrplTradeDesk() {
           <p className="text-xs uppercase tracking-[0.16em] text-ivory/50">Region</p>
           <p className="text-sm font-semibold text-ivory">{region.toUpperCase()}</p>
           {regionBlocked ? (
-            <p className="mt-1 text-xs text-amber-200">Trading disabled by region policy.</p>
+            <p id={regionPolicyId} className="mt-1 text-xs text-amber-200">
+              Trading disabled by region policy.
+            </p>
           ) : null}
         </div>
       </header>
@@ -401,6 +413,7 @@ export default function XrplTradeDesk() {
               type="button"
               disabled={locked}
               onClick={() => void loadAssets()}
+              aria-label="Refresh asset holdings"
               className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
             >
               Refresh
@@ -430,6 +443,7 @@ export default function XrplTradeDesk() {
               type="button"
               disabled={locked}
               onClick={() => void loadOrderbook()}
+              aria-label="Refresh order book"
               className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
             >
               Refresh
@@ -447,7 +461,7 @@ export default function XrplTradeDesk() {
                 }))
               }}
               className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory"
-              aria-label="Taker gets currency"
+              aria-label="Order book taker gets currency"
             >
               {TRADE_CURRENCY_OPTIONS.map((option) => (
                 <option key={`orderbook-gets-${option.code}`} value={option.code} className="bg-black text-ivory">
@@ -459,6 +473,7 @@ export default function XrplTradeDesk() {
               value={pair.takerGetsIssuer}
               onChange={(event) => setPair((prev) => ({ ...prev, takerGetsIssuer: event.target.value }))}
               disabled={isXrpCurrency(pair.takerGetsCurrency)}
+              aria-label="Order book taker gets issuer"
               className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory disabled:cursor-not-allowed disabled:opacity-50"
               placeholder={isXrpCurrency(pair.takerGetsCurrency) ? 'No issuer for XRP' : 'Gets issuer'}
             />
@@ -473,7 +488,7 @@ export default function XrplTradeDesk() {
                 }))
               }}
               className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory"
-              aria-label="Taker pays currency"
+              aria-label="Order book taker pays currency"
             >
               {TRADE_CURRENCY_OPTIONS.map((option) => (
                 <option key={`orderbook-pays-${option.code}`} value={option.code} className="bg-black text-ivory">
@@ -485,6 +500,7 @@ export default function XrplTradeDesk() {
               value={pair.takerPaysIssuer}
               onChange={(event) => setPair((prev) => ({ ...prev, takerPaysIssuer: event.target.value }))}
               disabled={isXrpCurrency(pair.takerPaysCurrency)}
+              aria-label="Order book taker pays issuer"
               className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory disabled:cursor-not-allowed disabled:opacity-50"
               placeholder={isXrpCurrency(pair.takerPaysCurrency) ? 'No issuer for XRP' : 'Pays issuer'}
             />
@@ -511,6 +527,7 @@ export default function XrplTradeDesk() {
               type="button"
               disabled={locked}
               onClick={() => void loadNfts()}
+              aria-label="Refresh NFT gallery"
               className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
             >
               Refresh
@@ -534,6 +551,7 @@ export default function XrplTradeDesk() {
                   type="button"
                   onClick={() => setNftPage((page) => Math.max(1, page - 1))}
                   disabled={nftPage <= 1}
+                  aria-label="Previous NFT page"
                   className="rounded-full border border-white/10 bg-white/5 px-3 py-1 disabled:opacity-50"
                 >
                   Prev
@@ -543,6 +561,7 @@ export default function XrplTradeDesk() {
                   type="button"
                   onClick={() => setNftPage((page) => Math.min(pageCount, page + 1))}
                   disabled={nftPage >= pageCount}
+                  aria-label="Next NFT page"
                   className="rounded-full border border-white/10 bg-white/5 px-3 py-1 disabled:opacity-50"
                 >
                   Next
@@ -559,6 +578,7 @@ export default function XrplTradeDesk() {
               type="button"
               disabled={locked}
               onClick={() => void loadHistory()}
+              aria-label="Refresh signed action history"
               className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
             >
               Refresh
@@ -584,15 +604,20 @@ export default function XrplTradeDesk() {
       <div className="relative mt-6 grid gap-4 lg:grid-cols-2">
         <form
           className="surface-inner space-y-3 p-4"
+          aria-labelledby="xrpl-trade-desk-trustline-title"
+          aria-describedby={regionBlocked ? regionPolicyId : undefined}
           onSubmit={(event) => {
             event.preventDefault()
             void submitAction('/api/xrpl/trustline/set', trustlineForm, 'trustline_set')
           }}
         >
-          <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Set Trustline</p>
+          <p id="xrpl-trade-desk-trustline-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+            Set Trustline
+          </p>
           <input
             value={trustlineForm.issuer}
             onChange={(event) => setTrustlineForm((prev) => ({ ...prev, issuer: event.target.value }))}
+            aria-label="Trustline issuer address"
             placeholder="Issuer address"
             className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
           />
@@ -612,6 +637,7 @@ export default function XrplTradeDesk() {
             <input
               value={trustlineForm.limit}
               onChange={(event) => setTrustlineForm((prev) => ({ ...prev, limit: event.target.value }))}
+              aria-label="Trustline limit"
               placeholder="Limit"
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
@@ -627,6 +653,8 @@ export default function XrplTradeDesk() {
 
         <form
           className="surface-inner space-y-3 p-4"
+          aria-labelledby="xrpl-trade-desk-mint-title"
+          aria-describedby={regionBlocked ? regionPolicyId : undefined}
           onSubmit={(event) => {
             event.preventDefault()
             void submitAction('/api/xrpl/nft/mint', {
@@ -635,16 +663,20 @@ export default function XrplTradeDesk() {
             }, 'nft_mint')
           }}
         >
-          <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Mint NFT</p>
+          <p id="xrpl-trade-desk-mint-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+            Mint NFT
+          </p>
           <input
             value={mintForm.uri}
             onChange={(event) => setMintForm((prev) => ({ ...prev, uri: event.target.value }))}
+            aria-label="NFT metadata URI"
             placeholder="Metadata URI (https://... or ipfs://...)"
             className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
           />
           <input
             value={mintForm.taxon}
             onChange={(event) => setMintForm((prev) => ({ ...prev, taxon: event.target.value }))}
+            aria-label="NFT taxon"
             placeholder="Taxon"
             className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
           />
@@ -659,6 +691,8 @@ export default function XrplTradeDesk() {
 
         <form
           className="surface-inner space-y-3 p-4"
+          aria-labelledby="xrpl-trade-desk-offer-title"
+          aria-describedby={regionBlocked ? regionPolicyId : undefined}
           onSubmit={(event) => {
             event.preventDefault()
             void submitAction('/api/xrpl/trade/offer/create', {
@@ -679,7 +713,9 @@ export default function XrplTradeDesk() {
             }, 'offer_create')
           }}
         >
-          <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Create Token Offer</p>
+          <p id="xrpl-trade-desk-offer-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+            Create Token Offer
+          </p>
           <div className="grid grid-cols-2 gap-2">
             <select
               value={offerForm.takerGetsCurrency}
@@ -692,7 +728,7 @@ export default function XrplTradeDesk() {
                 }))
               }}
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-              aria-label="Offer gets currency"
+              aria-label="Offer taker gets currency"
             >
               {TRADE_CURRENCY_OPTIONS.map((option) => (
                 <option key={`offer-gets-${option.code}`} value={option.code} className="bg-black text-ivory">
@@ -703,6 +739,7 @@ export default function XrplTradeDesk() {
             <input
               value={offerForm.takerGetsIssuer}
               onChange={(event) => setOfferForm((prev) => ({ ...prev, takerGetsIssuer: event.target.value }))}
+              aria-label="Offer taker gets issuer"
               placeholder={isXrpCurrency(offerForm.takerGetsCurrency) ? 'No issuer for XRP' : 'Gets issuer'}
               disabled={isXrpCurrency(offerForm.takerGetsCurrency)}
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
@@ -710,6 +747,7 @@ export default function XrplTradeDesk() {
             <input
               value={offerForm.takerGetsValue}
               onChange={(event) => setOfferForm((prev) => ({ ...prev, takerGetsValue: event.target.value }))}
+              aria-label="Offer taker gets value"
               placeholder="Gets value"
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
@@ -724,7 +762,7 @@ export default function XrplTradeDesk() {
                 }))
               }}
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-              aria-label="Offer pays currency"
+              aria-label="Offer taker pays currency"
             >
               {TRADE_CURRENCY_OPTIONS.map((option) => (
                 <option key={`offer-pays-${option.code}`} value={option.code} className="bg-black text-ivory">
@@ -735,6 +773,7 @@ export default function XrplTradeDesk() {
             <input
               value={offerForm.takerPaysIssuer}
               onChange={(event) => setOfferForm((prev) => ({ ...prev, takerPaysIssuer: event.target.value }))}
+              aria-label="Offer taker pays issuer"
               placeholder={isXrpCurrency(offerForm.takerPaysCurrency) ? 'No issuer for XRP' : 'Pays issuer'}
               disabled={isXrpCurrency(offerForm.takerPaysCurrency)}
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
@@ -742,6 +781,7 @@ export default function XrplTradeDesk() {
             <input
               value={offerForm.takerPaysValue}
               onChange={(event) => setOfferForm((prev) => ({ ...prev, takerPaysValue: event.target.value }))}
+              aria-label="Offer taker pays value"
               placeholder="Pays value"
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
@@ -757,6 +797,7 @@ export default function XrplTradeDesk() {
             <input
               value={offerCancelSequence}
               onChange={(event) => setOfferCancelSequence(event.target.value)}
+              aria-label="Offer sequence to cancel"
               placeholder="Offer sequence to cancel"
               className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
@@ -768,6 +809,7 @@ export default function XrplTradeDesk() {
                 if (!Number.isFinite(sequence) || sequence <= 0) return
                 void submitAction('/api/xrpl/trade/offer/cancel', { offerSequence: Math.floor(sequence) }, 'offer_cancel')
               }}
+              aria-label="Cancel token offer"
               className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory disabled:opacity-60"
             >
               Cancel
@@ -777,15 +819,20 @@ export default function XrplTradeDesk() {
 
         <form
           className="surface-inner space-y-3 p-4"
+          aria-labelledby="xrpl-trade-desk-nft-offer-title"
+          aria-describedby={regionBlocked ? regionPolicyId : undefined}
           onSubmit={(event) => {
             event.preventDefault()
             void submitAction('/api/xrpl/nft/offer/create', nftOfferCreateForm, 'nft_offer_create')
           }}
         >
-          <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">NFT Offer Actions</p>
+          <p id="xrpl-trade-desk-nft-offer-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+            NFT Offer Actions
+          </p>
           <input
             value={nftOfferCreateForm.nftokenId}
             onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, nftokenId: event.target.value }))}
+            aria-label="NFT offer token ID"
             placeholder="NFTokenID"
             className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
           />
@@ -793,6 +840,7 @@ export default function XrplTradeDesk() {
             <select
               value={nftOfferCreateForm.mode}
               onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, mode: event.target.value as 'sell' | 'buy' }))}
+              aria-label="NFT offer mode"
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             >
               <option value="sell">Sell</option>
@@ -801,18 +849,21 @@ export default function XrplTradeDesk() {
             <input
               value={nftOfferCreateForm.amountXrp}
               onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, amountXrp: event.target.value }))}
+              aria-label="NFT offer amount in XRP"
               placeholder="Amount XRP"
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
             <input
               value={nftOfferCreateForm.destination}
               onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, destination: event.target.value }))}
+              aria-label="NFT offer destination"
               placeholder="Destination (optional)"
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
             <input
               value={nftOfferCreateForm.owner}
               onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, owner: event.target.value }))}
+              aria-label="NFT offer owner"
               placeholder="Owner (optional)"
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
@@ -828,12 +879,14 @@ export default function XrplTradeDesk() {
             <input
               value={nftOfferAcceptForm.sellOffer}
               onChange={(event) => setNftOfferAcceptForm((prev) => ({ ...prev, sellOffer: event.target.value }))}
+              aria-label="NFT sell offer ID"
               placeholder="Sell offer ID"
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
             <input
               value={nftOfferAcceptForm.buyOffer}
               onChange={(event) => setNftOfferAcceptForm((prev) => ({ ...prev, buyOffer: event.target.value }))}
+              aria-label="NFT buy offer ID"
               placeholder="Buy offer ID"
               className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
@@ -855,6 +908,7 @@ export default function XrplTradeDesk() {
             <input
               value={nftOfferCancelIds}
               onChange={(event) => setNftOfferCancelIds(event.target.value)}
+              aria-label="NFT offer IDs to cancel"
               placeholder="Offer IDs (comma-separated)"
               className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
             />
@@ -869,6 +923,7 @@ export default function XrplTradeDesk() {
                 if (offerIds.length === 0) return
                 void submitAction('/api/xrpl/nft/offer/cancel', { offerIds }, 'nft_offer_cancel')
               }}
+              aria-label="Cancel NFT offers"
               className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory disabled:opacity-60"
             >
               Cancel
@@ -884,6 +939,7 @@ export default function XrplTradeDesk() {
           whileTap={{ scale: 0.98 }}
           disabled={locked}
           onClick={() => void refreshAll()}
+          aria-describedby={regionBlocked ? regionPolicyId : undefined}
           className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b9577]/30 transition disabled:cursor-not-allowed disabled:opacity-60"
         >
           Refresh Trade Desk
@@ -894,8 +950,16 @@ export default function XrplTradeDesk() {
             className="text-xs uppercase tracking-[0.18em] text-ivory/50"
           />
         ) : null}
-        {actionMessage ? <p className="text-sm text-jade">{actionMessage}</p> : null}
-        {actionError ? <p className="text-sm text-red-300">{actionError}</p> : null}
+        {actionMessage ? (
+          <p id={actionStatusId} role="status" aria-live="polite" className="text-sm text-jade">
+            {actionMessage}
+          </p>
+        ) : null}
+        {actionError ? (
+          <p id={actionErrorId} role="alert" className="text-sm text-red-300">
+            {actionError}
+          </p>
+        ) : null}
       </div>
     </section>
   )

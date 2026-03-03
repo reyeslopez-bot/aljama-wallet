@@ -39,6 +39,10 @@ export default function RegionCompliancePanel() {
   const showUnlockMessage = sessionStatus === 'unauthenticated'
   const [region, setRegion] = useState<string>('us')
   const [saved, setSaved] = useState(false)
+  const titleId = 'region-compliance-title'
+  const bodyId = 'region-compliance-body'
+  const selectHintId = 'region-select-detail'
+  const signupStatusId = 'region-signup-status'
 
   const regions: RegionOption[] = [
     { value: 'us', label: t('regions.us'), detail: t('regionDetail.us') },
@@ -91,11 +95,15 @@ export default function RegionCompliancePanel() {
   }, [])
 
   return (
-    <div className="space-y-6">
+    <section aria-labelledby={titleId} aria-describedby={bodyId} className="space-y-6">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('eyebrow')}</p>
-        <h3 className="mt-3 font-display text-2xl font-semibold text-ivory">{t('title')}</h3>
-        <p className="text-sm text-ivory/70">{t('body')}</p>
+        <h3 id={titleId} className="mt-3 font-display text-2xl font-semibold text-ivory">
+          {t('title')}
+        </h3>
+        <p id={bodyId} className="text-sm text-ivory/70">
+          {t('body')}
+        </p>
       </div>
 
       <div className="surface-inner p-4">
@@ -114,6 +122,7 @@ export default function RegionCompliancePanel() {
               window.localStorage.setItem(REGION_KEY, next)
             }
           }}
+          aria-describedby={selectHintId}
           className="mt-3 w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-sm text-ivory focus:outline-none focus:ring-2 focus:ring-saffron/30 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {regions.map((option) => (
@@ -122,7 +131,7 @@ export default function RegionCompliancePanel() {
             </option>
           ))}
         </select>
-        <p className="mt-2 text-xs text-ivory/50">
+        <p id={selectHintId} className="mt-2 text-xs text-ivory/50">
           {regions.find((option) => option.value === region)?.detail}
         </p>
       </div>
@@ -146,7 +155,7 @@ export default function RegionCompliancePanel() {
               ) : (
                 <Link
                   href={`/${locale}/compliance?target=${item.value}`}
-                  aria-label={`${item.title} details`}
+                  aria-label={`Open ${item.title} details`}
                   className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-ivory/60 transition hover:border-saffron/30 hover:bg-saffron/10 hover:text-ivory focus:outline-none focus:ring-2 focus:ring-saffron/35"
                 >
                   {t('targeted')}
@@ -167,6 +176,7 @@ export default function RegionCompliancePanel() {
           <button
             type="button"
             disabled={locked}
+            aria-describedby={saved ? signupStatusId : undefined}
             onClick={() => {
               if (typeof window !== 'undefined') {
                 window.localStorage.setItem(REGION_KEY, region)
@@ -185,11 +195,11 @@ export default function RegionCompliancePanel() {
           />
         )}
         {saved && (
-          <p className="mt-2 text-xs text-jade">
+          <p id={signupStatusId} role="status" aria-live="polite" className="mt-2 text-xs text-jade">
             {t('signupSuccess')}
           </p>
         )}
       </div>
-    </div>
+    </section>
   )
 }

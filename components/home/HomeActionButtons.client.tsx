@@ -23,6 +23,7 @@ export default function HomeActionButtons() {
   const locale = useLocale()
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === "unauthenticated"
+  const unlockHintId = "home-action-buttons-unlock"
 
   const buttons: Btn[] = [
     {
@@ -46,8 +47,8 @@ export default function HomeActionButtons() {
   ]
 
   return (
-    <div className="w-full">
-      <div className="mx-auto grid w-full max-w-3xl grid-cols-3 gap-4 md:gap-6">
+    <div className="w-full" role="group" aria-label="Primary wallet actions">
+      <div className="mx-auto grid w-full max-w-3xl grid-cols-3 gap-4 md:gap-6" role="list">
         {buttons.map((b) => (
           <Link
             key={b.label}
@@ -57,10 +58,12 @@ export default function HomeActionButtons() {
             }}
             aria-disabled={locked}
             tabIndex={locked ? -1 : 0}
+            aria-describedby={locked ? unlockHintId : undefined}
             className={`block w-full bg-transparent p-0 border-0 outline-none appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saffron/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
               locked ? "pointer-events-none opacity-60" : ""
             }`}
-            aria-label={b.label}
+            aria-label={locked ? `${b.label}. Sign in required.` : b.label}
+            role="listitem"
           >
             <motion.div
               whileHover={{ y: -2 }}
@@ -75,9 +78,11 @@ export default function HomeActionButtons() {
         ))}
       </div>
       {locked && (
-        <UnlockActionsLink
-          className="mt-4 block w-full text-center text-xs uppercase tracking-[0.18em] text-saffron/75"
-        />
+        <div id={unlockHintId}>
+          <UnlockActionsLink
+            className="mt-4 block w-full text-center text-xs uppercase tracking-[0.18em] text-saffron/75"
+          />
+        </div>
       )}
     </div>
   )
