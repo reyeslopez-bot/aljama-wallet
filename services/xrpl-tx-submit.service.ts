@@ -1,11 +1,21 @@
 import { getXrplClient } from '@/infra/xrpl/client'
-import type { SignerAccountRef } from '@/lib/signing/types'
+import type {
+  BaseTransaction,
+  SubmittableTransaction,
+  TransactionMetadata,
+  TxResponse,
+} from 'xrpl'
+import {
+  assertXrplTransactionSigningAccount,
+  type SignerAccountRef,
+  type XrplPreparedTransaction,
+} from '@/lib/signing/types'
 import { type XrplNetworkId } from '@/lib/xrpl-networks'
 import { getErrorMessage } from '@/lib/security/errors'
 import { reserveIdempotencyKey } from '@/services/idempotency.service'
 import { getSigner, resolveSigningAccount } from '@/services/signer.service'
 
-export type XrplSubmitResult = {
+export type XrplSubmitResult<T extends BaseTransaction = SubmittableTransaction> = {
   account: string
   accountRef: string
   keyType: 'secp256k1' | 'ed25519'
@@ -16,20 +26,26 @@ export type XrplSubmitResult = {
   validated: boolean
   ledgerIndex: number | null
   sequence: number | null
-  rawResult: unknown
+  rawResult: TxResponse<T>
 }
 
-export type BuildUnsignedXrplTxParams = {
+type XrplSubmissionIntent<T extends SubmittableTransaction = SubmittableTransaction> = Omit<
+  T,
+  'Account' | 'SigningPubKey'
+> &
+  Partial<Pick<T, 'Account' | 'SigningPubKey'>>
+
+export type BuildUnsignedXrplTxParams<T extends SubmittableTransaction = SubmittableTransaction> = {
   networkId: XrplNetworkId
-  tx: Record<string, unknown>
+  tx: XrplSubmissionIntent<T>
   accountRef?: SignerAccountRef
 }
 
-type SubmitParams = {
+type SubmitParams<T extends SubmittableTransaction = SubmittableTransaction> = {
   scope: string
   idempotencyKey: string
   networkId: XrplNetworkId
-  tx: Record<string, unknown>
+  tx: XrplSubmissionIntent<T>
   retries?: number
   accountRef?: SignerAccountRef
 }
@@ -74,18 +90,32 @@ function getResolvedAccountRef(accountRef?: SignerAccountRef): SignerAccountRef 
   return accountRef ?? { kind: 'xrpl-env' }
 }
 
-export async function buildUnsignedXrplTx(params: BuildUnsignedXrplTxParams) {
-  const account = await resolveSigningAccount(getResolvedAccountRef(params.accountRef))
-  if (account.chain !== 'XRPL') {
-    throw new Error('SIGNER_CHAIN_MISMATCH')
+function readMetaTransactionResult<T extends BaseTransaction>(
+  meta: TransactionMetadata<T> | string | undefined,
+): string | null {
+  if (!meta || typeof meta !== 'object') {
+    return null
   }
 
+  return 'TransactionResult' in meta && typeof meta.TransactionResult === 'string'
+    ? meta.TransactionResult
+    : null
+}
+
+export async function buildUnsignedXrplTx<T extends SubmittableTransaction>(
+  params: BuildUnsignedXrplTxParams<T>,
+) {
+  // Guardrail: XRPL submission in this repo only supports classical XRPL signers.
+  const account = assertXrplTransactionSigningAccount(
+    await resolveSigningAccount(getResolvedAccountRef(params.accountRef)),
+  )
+
   const client = await getXrplClient(params.networkId)
-  const prepared = await client.autofill({
+  const prepared = await client.autofill<T>({
     ...params.tx,
     Account: account.address,
     ...(account.pubKey ? { SigningPubKey: account.pubKey } : {}),
-  } as unknown as Parameters<typeof client.autofill>[0])
+  } as T)
 
   return {
     account,
@@ -93,8 +123,8 @@ export async function buildUnsignedXrplTx(params: BuildUnsignedXrplTxParams) {
   }
 }
 
-export async function signUnsignedXrplTx(input: {
-  prepared: Record<string, unknown>
+export async function signUnsignedXrplTx<T extends XrplPreparedTransaction>(input: {
+  prepared: T
   accountRef?: SignerAccountRef
 }) {
   const accountRef = getResolvedAccountRef(input.accountRef)
@@ -113,14 +143,16 @@ export async function signUnsignedXrplTx(input: {
   return result
 }
 
-export async function submitSignedXrplTx(params: SubmitSignedXrplTxParams) {
+export async function submitSignedXrplTx<T extends SubmittableTransaction>(
+  params: SubmitSignedXrplTxParams,
+) {
   const client = await getXrplClient(params.networkId)
   const maxAttempts = Math.max(1, params.retries ?? 2)
   let lastError: unknown = null
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      return await client.submitAndWait(params.txBlob)
+      return await client.submitAndWait<T>(params.txBlob)
     } catch (error) {
       lastError = error
       if (!shouldRetry(error) || attempt >= maxAttempts) {
@@ -133,7 +165,9 @@ export async function submitSignedXrplTx(params: SubmitSignedXrplTxParams) {
   throw lastError ?? new Error('Failed to submit XRPL transaction')
 }
 
-export async function submitXrplTx(params: SubmitParams): Promise<XrplSubmitResult> {
+export async function submitXrplTx<T extends SubmittableTransaction>(
+  params: SubmitParams<T>,
+): Promise<XrplSubmitResult<T>> {
   await reserveIdempotencyKey({
     scope: params.scope,
     key: params.idempotencyKey,
@@ -146,18 +180,21 @@ export async function submitXrplTx(params: SubmitParams): Promise<XrplSubmitResu
     accountRef: params.accountRef,
   })
   const signed = await signUnsignedXrplTx({
-    prepared: prepared as Record<string, unknown>,
+    prepared,
     accountRef: params.accountRef,
   })
-  const submitResponse = await submitSignedXrplTx({
+  const submitResponse = await submitSignedXrplTx<T>({
     networkId: params.networkId,
     txBlob: signed.txBlob,
     retries: params.retries,
   })
 
-  const result = ((submitResponse as unknown as { result?: Record<string, unknown> }).result ?? {})
-  const meta = (result.meta as Record<string, unknown> | undefined) ?? {}
-  const engineResultRaw = meta.TransactionResult ?? result.engine_result
+  const result = submitResponse.result
+  const engineResultRaw =
+    readMetaTransactionResult(result.meta) ??
+    (typeof (result as { engine_result?: unknown }).engine_result === 'string'
+      ? ((result as unknown as { engine_result: string }).engine_result)
+      : null)
   const engineResult = typeof engineResultRaw === 'string' ? engineResultRaw : null
 
   return {
@@ -169,8 +206,8 @@ export async function submitXrplTx(params: SubmitParams): Promise<XrplSubmitResu
     txBlob: signed.txBlob,
     engineResult,
     validated: Boolean(result.validated),
-    ledgerIndex: parseLedgerIndex(result.validated_ledger_index ?? result.ledger_index),
-    sequence: parseSequence((prepared as { Sequence?: unknown }).Sequence),
+    ledgerIndex: parseLedgerIndex(result.ledger_index),
+    sequence: parseSequence(prepared.Sequence),
     rawResult: submitResponse,
   }
 }

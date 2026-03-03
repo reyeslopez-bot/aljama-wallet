@@ -1,5 +1,6 @@
 import { getAddress } from 'ethers'
 import { Prisma } from '@/prisma/generated/prisma-crdb'
+import { buildPqcBindingHashes } from '@/lib/pqc/commitment'
 import { prismaCrdb } from '@/lib/prisma-crdb'
 import { logWarn } from '@/lib/security/logging'
 import {
@@ -42,6 +43,7 @@ function mapWalletRecord(record: {
   derivationPath: string | null
   policy: unknown
   pqcBinding: unknown
+  pqcBindingHash: string | null
   encryptedPrivateKey: Uint8Array | null
   encryptionIv: Uint8Array | null
   keyVersion: number | null
@@ -62,6 +64,7 @@ function mapWalletRecord(record: {
         ? normalizeWalletAccountPolicy(record.policy as Partial<WalletAccountPolicy>)
         : normalizeWalletAccountPolicy(),
     pqcBinding: parseWalletPqcBinding(record.pqcBinding),
+    pqcBindingHash: record.pqcBindingHash?.trim() || null,
     encryptedPrivateKey: record.encryptedPrivateKey ? new Uint8Array(record.encryptedPrivateKey) : null,
     encryptionIv: record.encryptionIv ? new Uint8Array(record.encryptionIv) : null,
     keyVersion: record.keyVersion ?? null,
@@ -81,7 +84,8 @@ async function selectWalletByUnique(
   where:
     | { id: string }
     | { address: string }
-    | { accountRef: string },
+    | { accountRef: string }
+    | { pqcBindingHash: string },
 ) {
   const record = await prismaCrdb.wallet.findUnique({
     where,
@@ -97,6 +101,7 @@ async function selectWalletByUnique(
       derivationPath: true,
       policy: true,
       pqcBinding: true,
+      pqcBindingHash: true,
       encryptedPrivateKey: true,
       encryptionIv: true,
       keyVersion: true,
@@ -117,6 +122,7 @@ export type CreateWalletRecordInput = {
   derivationPath?: string | null
   policy?: Partial<WalletAccountPolicy>
   pqcBinding?: WalletPqcBinding | null
+  pqcBindingHash?: string | null
   encryptedPrivateKey?: Uint8Array | Buffer | null
   encryptionIv?: Uint8Array | Buffer | null
   keyVersion?: number | null
@@ -182,6 +188,22 @@ export async function getWalletByAccountRef(accountRef: string): Promise<Signing
   return selectWalletByUnique({ accountRef: normalized })
 }
 
+export async function getWalletByPqcBindingHash(
+  pqcBindingHash: string,
+): Promise<SigningAccountRecord | null> {
+  const normalized = pqcBindingHash.trim()
+  if (!normalized) return null
+  return selectWalletByUnique({ pqcBindingHash: normalized })
+}
+
+export async function setWalletPqcBindingHash(walletId: string, pqcBindingHash: string) {
+  return prismaCrdb.wallet.update({
+    where: { id: walletId },
+    data: { pqcBindingHash: pqcBindingHash.trim() },
+    select: { id: true, pqcBindingHash: true },
+  })
+}
+
 export async function createWalletRecord(input: CreateWalletRecordInput) {
   const chain = input.chain ?? 'EVM'
   const normalizedChain = normalizeSigningChain(chain)
@@ -190,12 +212,21 @@ export async function createWalletRecord(input: CreateWalletRecordInput) {
   const vaultId = normalizeVaultScope(input.vaultId)
   const address = normalizeAddress(input.address)
   const pubKey = normalizePubKey(input.pubKey)
+  const pqcBinding = input.pqcBinding ?? null
+  const pqcBindingHash =
+    input.pqcBindingHash?.trim() ||
+    (pqcBinding ? buildPqcBindingHashes(pqcBinding).bindingHash : null)
 
   if (
     signerBackend === 'local' &&
     (!input.encryptedPrivateKey || !input.encryptionIv || input.keyVersion === null || input.keyVersion === undefined)
   ) {
     throw new Error('encrypted signer material is required for local signer accounts')
+  }
+
+  // Guardrail: live EVM signing in this repo is classical secp256k1-only.
+  if (normalizedChain === 'EVM' && keyType !== 'secp256k1') {
+    throw new Error('unsupported EVM keyType; live EVM custody requires secp256k1')
   }
 
   if (normalizedChain === 'XRPL' && !pubKey) {
@@ -220,7 +251,8 @@ export async function createWalletRecord(input: CreateWalletRecordInput) {
       vaultId,
       derivationPath: input.derivationPath?.trim() || null,
       policy: normalizeWalletAccountPolicy(input.policy),
-      pqcBinding: input.pqcBinding ?? Prisma.DbNull,
+      pqcBinding: pqcBinding ?? Prisma.DbNull,
+      pqcBindingHash,
       encryptedPrivateKey: input.encryptedPrivateKey ? Buffer.from(input.encryptedPrivateKey) : null,
       encryptionIv: input.encryptionIv ? Buffer.from(input.encryptionIv) : null,
       keyVersion: input.keyVersion ?? null,

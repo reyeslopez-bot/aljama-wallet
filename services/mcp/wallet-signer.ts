@@ -63,6 +63,7 @@ function assertAuthorized(req: IncomingMessage): boolean {
 }
 
 async function signTx(input: z.infer<typeof signTxSchema>) {
+  // Guardrail: MCP transaction signing is a thin wrapper over the live classical signer.
   const result = await getSigner().sign(
     {
       kind: 'evm-transaction',

@@ -1,4 +1,5 @@
 import { ed25519 } from '@noble/curves/ed25519'
+import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js'
 import { base58, bech32 } from '@scure/base'
 import {
   HDNodeWallet,
@@ -11,6 +12,11 @@ import {
   sha256,
 } from 'ethers'
 import { encodeAccountID } from 'ripple-address-codec'
+import type {
+  WalletPqcDerivation,
+  WalletPqcDerivationChain,
+  WalletPqcDerivationCurve,
+} from '@/lib/pqc/types'
 
 export type Curve = 'secp256k1' | 'ed25519'
 export type Chain = 'BTC' | 'ETH' | 'XRPL_SECP' | 'XRPL_ED'
@@ -62,6 +68,26 @@ export type CounterState = {
   nextIndexByChainAccount: Record<string, number>
 }
 
+export type PqcKeyRequest = {
+  chain: WalletPqcDerivationChain
+  account: number
+  change?: 0 | 1
+  index: number
+}
+
+export type DerivedPqcKey = {
+  scheme: 'ml-dsa-65'
+  chain: WalletPqcDerivationChain
+  curve: WalletPqcDerivationCurve
+  path: string
+  account: number
+  change: 0 | 1
+  index: number
+  publicKey: Uint8Array
+  privateKey: Uint8Array
+  derivation: WalletPqcDerivation
+}
+
 type Slip10Node = {
   key: Uint8Array
   chainCode: Uint8Array
@@ -74,6 +100,9 @@ type PathSegment = {
 
 const HARDENED_OFFSET = 0x80000000
 const UINT31_MAX = 0x7fffffff
+const PQC_DERIVATION_DOMAIN = 'aljama-wallet:pqc:ml-dsa-65:v1'
+const PQC_MASTER_SALT = `${PQC_DERIVATION_DOMAIN}:master`
+const PQC_DERIVE_SALT = `${PQC_DERIVATION_DOMAIN}:derive`
 
 function bytesFromHex(hex: string): Uint8Array {
   return new Uint8Array(getBytes(hex))
@@ -105,6 +134,10 @@ function uint32ToBigEndian(value: number): Uint8Array {
     (value >>> 8) & 0xff,
     value & 0xff,
   ])
+}
+
+function utf8Bytes(value: string): Uint8Array {
+  return new TextEncoder().encode(value)
 }
 
 function hash160(data: Uint8Array): Uint8Array {
@@ -166,7 +199,32 @@ function pathToBip44Shape(path: string): { account: number; change: 0 | 1; index
 }
 
 function hmacSha512(key: Uint8Array, data: Uint8Array): Uint8Array {
-  return bytesFromHex(computeHmac('sha512', key, data))
+  return new Uint8Array(bytesFromHex(computeHmac('sha512', key, data)))
+}
+
+function hkdfSha512(
+  ikm: Uint8Array,
+  saltText: string,
+  infoText: string,
+  length: number,
+): Uint8Array {
+  const prk = hmacSha512(utf8Bytes(saltText), ikm)
+  const info = utf8Bytes(infoText)
+  const blocks: Uint8Array[] = []
+  let previous: Uint8Array<ArrayBufferLike> = new Uint8Array()
+
+  while (blocks.reduce((total, block) => total + block.length, 0) < length) {
+    const next = hmacSha512(prk, concatBytes(previous, info, new Uint8Array([blocks.length + 1])))
+    blocks.push(next)
+    previous = next
+  }
+
+  const combined = concatBytes(...blocks)
+  return new Uint8Array(combined.slice(0, length))
+}
+
+function isPqcCapableChain(chain: Chain): chain is WalletPqcDerivationChain {
+  return chain === 'ETH' || chain === 'XRPL_SECP' || chain === 'XRPL_ED'
 }
 
 function slip10FromSeedEd25519(seed: Uint8Array): Slip10Node {
@@ -323,6 +381,7 @@ export class DeterministicVault {
   private seed?: Uint8Array
   private secpRoot?: HDNodeWallet
   private edSeed?: Uint8Array
+  private pqcMasterSecret?: Uint8Array
   private counters: CounterState
 
   constructor(cfg: VaultConfig, options?: { passphrase?: string; deferUnlock?: boolean; counters?: CounterState }) {
@@ -345,18 +404,21 @@ export class DeterministicVault {
     this.seed = bip39SeedFromMnemonic(this.mnemonic, passphrase)
     this.secpRoot = secpRootFromSeed(this.seed)
     this.edSeed = cloneBytes(this.seed)
+    this.pqcMasterSecret = hkdfSha512(this.seed, PQC_MASTER_SALT, `vault=${this.id}`, 64)
   }
 
   lock(): void {
     wipeBytes(this.seed)
     wipeBytes(this.edSeed)
+    wipeBytes(this.pqcMasterSecret)
     this.seed = undefined
     this.edSeed = undefined
+    this.pqcMasterSecret = undefined
     this.secpRoot = undefined
   }
 
   isUnlocked(): boolean {
-    return Boolean(this.seed && this.secpRoot && this.edSeed)
+    return Boolean(this.seed && this.secpRoot && this.edSeed && this.pqcMasterSecret)
   }
 
   exportCounterState(): CounterState {
@@ -383,6 +445,84 @@ export class DeterministicVault {
       change,
       index: req.index,
     })
+  }
+
+  private derivePostQuantumSeedAtPath(
+    chain: WalletPqcDerivationChain,
+    path: string,
+    hints?: { account?: number; change?: 0 | 1; index?: number },
+  ): { seed: Uint8Array; derivation: WalletPqcDerivation } {
+    if (!this.pqcMasterSecret) {
+      throw new Error('Vault is locked (post-quantum root missing)')
+    }
+
+    const entry = REGISTRY[chain]
+    const shape = pathToBip44Shape(path)
+    const account = hints?.account ?? shape?.account ?? 0
+    const change = hints?.change ?? shape?.change ?? 0
+    const index = hints?.index ?? shape?.index ?? 0
+    const info =
+      `vault=${this.id}` +
+      `\0chain=${chain}` +
+      `\0curve=${entry.curve}` +
+      `\0account=${account}` +
+      `\0change=${change}` +
+      `\0index=${index}` +
+      `\0path=${path}`
+
+    return {
+      seed: hkdfSha512(this.pqcMasterSecret, PQC_DERIVE_SALT, info, ml_dsa65.lengths.seed ?? 32),
+      derivation: {
+        mode: 'deterministic-bip39-hkdf-sha512-v1',
+        vaultId: this.id,
+        chain,
+        curve: entry.curve,
+        account,
+        change,
+        index,
+        path,
+        kdf: 'hkdf-sha512',
+        domain: PQC_DERIVATION_DOMAIN,
+      },
+    }
+  }
+
+  derivePostQuantum(req: PqcKeyRequest): DerivedPqcKey {
+    const entry = REGISTRY[req.chain]
+    const change: 0 | 1 = entry.path.usesChange ? (req.change ?? 0) : 0
+    const path = entry.path.pathTemplate(req.account, change, req.index)
+
+    return this.derivePostQuantumAtPath(req.chain, path, {
+      account: req.account,
+      change,
+      index: req.index,
+    })
+  }
+
+  derivePostQuantumAtPath(
+    chain: WalletPqcDerivationChain,
+    path: string,
+    hints?: { account?: number; change?: 0 | 1; index?: number },
+  ): DerivedPqcKey {
+    if (!isPqcCapableChain(chain)) {
+      throw new Error(`Post-quantum derivation is not supported for chain: ${chain}`)
+    }
+
+    const { seed, derivation } = this.derivePostQuantumSeedAtPath(chain, path, hints)
+    const keys = ml_dsa65.keygen(seed)
+
+    return {
+      scheme: 'ml-dsa-65',
+      chain,
+      curve: derivation.curve,
+      path,
+      account: derivation.account,
+      change: derivation.change,
+      index: derivation.index,
+      publicKey: new Uint8Array(keys.publicKey),
+      privateKey: new Uint8Array(keys.secretKey),
+      derivation,
+    }
   }
 
   deriveAtPath(

@@ -4,6 +4,7 @@ import type {
   WalletPqcBoundKeyType,
   WalletPqcBoundScheme,
   WalletPqcBoundSubject,
+  WalletPqcDerivation,
   WalletPqcEncryptedMaterial,
   WalletPqcKeyPair,
   WalletPqcProviderBackend,
@@ -36,6 +37,20 @@ function base64ToBytes(value: string): Uint8Array {
 
 function encodeUtf8(value: string): Uint8Array {
   return new TextEncoder().encode(value)
+}
+
+export function encodeRawWalletPqcKeyPair(input: {
+  publicKey: Uint8Array
+  privateKey: Uint8Array
+}): WalletPqcKeyPair {
+  return {
+    scheme: 'ml-dsa-65',
+    provider: 'noble',
+    publicKey: bytesToBase64(input.publicKey),
+    publicKeyFormat: 'raw-base64',
+    privateKey: bytesToBase64(input.privateKey),
+    privateKeyFormat: 'raw-base64',
+  }
 }
 
 export function resolveWalletPqcSubjectScheme(keyType: WalletPqcBoundKeyType): WalletPqcBoundScheme {
@@ -81,14 +96,10 @@ class NobleWalletPqcProvider implements WalletPqcProvider {
 
   async generateKeyPair(): Promise<WalletPqcKeyPair> {
     const keys = ml_dsa65.keygen()
-    return {
-      scheme: 'ml-dsa-65',
-      provider: this.backend,
-      publicKey: bytesToBase64(keys.publicKey),
-      publicKeyFormat: 'raw-base64',
-      privateKey: bytesToBase64(keys.secretKey),
-      privateKeyFormat: 'raw-base64',
-    }
+    return encodeRawWalletPqcKeyPair({
+      publicKey: keys.publicKey,
+      privateKey: keys.secretKey,
+    })
   }
 
   supportsBinding(binding: WalletPqcBinding): boolean {
@@ -147,6 +158,36 @@ export function getDefaultWalletPqcProvider(): WalletPqcProvider {
   return defaultWalletPqcProvider
 }
 
+export function generateDeterministicKeyPair(seed: Uint8Array): WalletPqcKeyPair {
+  const expectedSeedLength = ml_dsa65.lengths.seed ?? 32
+  if (seed.length !== expectedSeedLength) {
+    throw new Error(`ML-DSA-65 seed must be ${expectedSeedLength} bytes`)
+  }
+
+  const keys = ml_dsa65.keygen(new Uint8Array(seed))
+  return encodeRawWalletPqcKeyPair({
+    publicKey: keys.publicKey,
+    privateKey: keys.secretKey,
+  })
+}
+
+export async function createWalletPqcEncryptedMaterialFromKeyPair(input: {
+  subject: WalletPqcBoundSubject
+  keyPair: WalletPqcKeyPair
+  provider?: WalletPqcProvider
+  attestedAt?: string
+  derivation?: WalletPqcDerivation
+}): Promise<WalletPqcEncryptedMaterial> {
+  const provider = input.provider ?? getDefaultWalletPqcProvider()
+  const binding = await provider.createBinding(input.subject, input.keyPair, input.attestedAt)
+
+  return {
+    keyPair: input.keyPair,
+    binding: input.derivation ? { ...binding, derivation: input.derivation } : binding,
+    ...(input.derivation ? { derivation: input.derivation } : {}),
+  }
+}
+
 export async function createWalletPqcEncryptedMaterial(input: {
   subject: WalletPqcBoundSubject
   provider?: WalletPqcProvider
@@ -154,12 +195,28 @@ export async function createWalletPqcEncryptedMaterial(input: {
 }): Promise<WalletPqcEncryptedMaterial> {
   const provider = input.provider ?? getDefaultWalletPqcProvider()
   const keyPair = await provider.generateKeyPair()
-  const binding = await provider.createBinding(input.subject, keyPair, input.attestedAt)
-
-  return {
+  return createWalletPqcEncryptedMaterialFromKeyPair({
     keyPair,
-    binding,
-  }
+    subject: input.subject,
+    provider,
+    attestedAt: input.attestedAt,
+  })
+}
+
+export async function createDeterministicWalletPqcEncryptedMaterial(input: {
+  seed: Uint8Array
+  subject: WalletPqcBoundSubject
+  attestedAt?: string
+  derivation: WalletPqcDerivation
+}): Promise<WalletPqcEncryptedMaterial> {
+  const keyPair = generateDeterministicKeyPair(input.seed)
+
+  return createWalletPqcEncryptedMaterialFromKeyPair({
+    keyPair,
+    subject: input.subject,
+    attestedAt: input.attestedAt,
+    derivation: input.derivation,
+  })
 }
 
 export async function verifyWalletPqcBinding(

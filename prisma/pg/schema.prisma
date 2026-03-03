@@ -19,6 +19,7 @@ model Wallet {
   derivationPath      String?
   policy              Json?
   pqcBinding          Json?
+  pqcBindingHash      String?  @unique
   encryptedPrivateKey Bytes?
   encryptionIv        Bytes?
   keyVersion          Int?

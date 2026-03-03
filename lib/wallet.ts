@@ -664,6 +664,7 @@ export {
   discoverAndLockChainPaths,
   discoverAccountsAndAddresses,
 } from '@/lib/crypto/deterministic-key-engine'
+export { deriveDeterministicWalletPqcMaterial } from '@/lib/pqc/deterministic'
 
 export type {
   Chain,
@@ -673,8 +674,10 @@ export type {
   CounterState,
   Curve,
   DerivedKey,
+  DerivedPqcKey,
   DerivationPurpose,
   KeyRequest,
+  PqcKeyRequest,
   PathCandidate,
   PathSpec,
   VaultConfig,

@@ -1,8 +1,8 @@
 import { Wallet as EvmWallet } from 'ethers'
 import { Wallet as XrplWallet } from 'xrpl'
 import { decryptPrivateKey, encryptPrivateKey } from '@/lib/crypto/wallet-crypto'
-import { createWalletPqcEncryptedMaterial, resolveWalletPqcSubjectScheme } from '@/lib/pqc/provider'
-import { getServerWalletPqcProvider } from '@/lib/pqc/provider.server'
+import { deriveDeterministicWalletPqcMaterial } from '@/lib/pqc/deterministic'
+import { resolveWalletPqcSubjectScheme } from '@/lib/pqc/provider'
 import {
   buildHybridWalletSecurityProfile,
   encodeWalletToEncrypted,
@@ -11,13 +11,15 @@ import {
 } from '@/lib/wallet'
 import { getXrplSignerAccount, getXrplSignerWallet } from '@/lib/xrpl-signer'
 import {
+  assertEvmTransactionSigningAccount,
+  assertXrplTransactionSigningAccount,
   buildAccountRef,
   type ResolvedSigningAccount,
   type SignRequest,
   type SignResult,
   type SignerAccountRef,
-  type SigningCurve,
-  type SigningScheme,
+  type LiveTransactionCurve,
+  type LiveTransactionScheme,
   type VaultScope,
 } from '@/lib/signing/types'
 import { createWalletRecord, getWalletById } from '@/services/wallet.service'
@@ -37,7 +39,7 @@ export interface Signer {
     accountRef: SignerAccountRef,
     evidence?: SigningEvidence,
   ): Promise<SignResult>
-  supports(curve: SigningCurve, scheme: SigningScheme): boolean
+  supports(curve: LiveTransactionCurve, scheme: LiveTransactionScheme): boolean
 }
 
 export type PrepareManagedWalletProvisioningInput = {
@@ -99,6 +101,7 @@ async function loadManagedSigningMaterial(accountRef: Extract<SignerAccountRef, 
     derivationPath: account.derivationPath,
     policy: account.policy,
     pqcBinding: account.pqcBinding,
+    pqcBindingHash: account.pqcBindingHash,
     createdAt: account.createdAt,
   }
 
@@ -126,8 +129,12 @@ export async function prepareManagedWalletProvisioning(
   })
 
   const wallet = new EvmWallet(prepared.wallet.privateKey)
-  const postQuantum = await createWalletPqcEncryptedMaterial({
-    provider: getServerWalletPqcProvider(),
+  const postQuantum = await deriveDeterministicWalletPqcMaterial({
+    mnemonic: prepared.mnemonic,
+    mnemonicPassphrase: input.mnemonicPassphrase,
+    vaultId: input.vaultId ?? 'public',
+    chain: 'ETH',
+    derivationPath: prepared.derivationPath,
     subject: {
       accountRef: buildAccountRef({
         chain: 'EVM',
@@ -174,7 +181,7 @@ export async function prepareManagedWalletProvisioning(
 }
 
 class LocalSigner implements Signer {
-  supports(curve: SigningCurve, scheme: SigningScheme): boolean {
+  supports(curve: LiveTransactionCurve, scheme: LiveTransactionScheme): boolean {
     if (curve === 'secp256k1' && scheme === 'ecdsa') return true
     if (curve === 'ed25519' && scheme === 'eddsa') return true
     return false
@@ -195,8 +202,10 @@ class LocalSigner implements Signer {
     accountRef: SignerAccountRef,
     evidence?: SigningEvidence,
   ): Promise<SignResult> {
+    // Guardrail: live chain execution is classical-only. PQ material is limited to
+    // off-chain binding/attestation and on-chain commitment hashes in this repo.
     if (accountRef.kind === 'xrpl-env') {
-      const account = getXrplSignerAccount()
+      const account = assertXrplTransactionSigningAccount(getXrplSignerAccount())
       assertPolicySatisfied(account, evidence)
 
       if (request.kind !== 'xrpl-transaction') {
@@ -218,9 +227,7 @@ class LocalSigner implements Signer {
     assertPolicySatisfied(account, evidence)
 
     if (request.kind === 'evm-transaction') {
-      if (account.chain !== 'EVM') {
-        throw new Error('SIGNER_CHAIN_MISMATCH')
-      }
+      const evmAccount = assertEvmTransactionSigningAccount(account)
 
       const wallet = new EvmWallet(privateKey)
       const signedPayload = await wallet.signTransaction({
@@ -230,19 +237,14 @@ class LocalSigner implements Signer {
       return {
         kind: 'evm-transaction',
         signedPayload,
-        publicKey: account.pubKey ?? wallet.signingKey.publicKey,
+        publicKey: evmAccount.pubKey ?? wallet.signingKey.publicKey,
       }
     }
 
-    if (account.chain !== 'XRPL') {
-      throw new Error('SIGNER_CHAIN_MISMATCH')
-    }
-    if (!account.pubKey) {
-      throw new Error('SIGNER_PUBLIC_KEY_MISSING')
-    }
+    const xrplAccount = assertXrplTransactionSigningAccount(account)
 
-    const wallet = new XrplWallet(account.pubKey, privateKey, {
-      masterAddress: account.address,
+    const wallet = new XrplWallet(xrplAccount.pubKey, privateKey, {
+      masterAddress: xrplAccount.address,
     })
     const signed = wallet.sign(
       request.preparedTransaction as Parameters<typeof wallet.sign>[0],
@@ -251,7 +253,7 @@ class LocalSigner implements Signer {
       kind: 'xrpl-transaction',
       txBlob: signed.tx_blob,
       txHash: signed.hash,
-      publicKey: account.pubKey,
+      publicKey: xrplAccount.pubKey,
     }
   }
 }

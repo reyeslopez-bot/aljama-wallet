@@ -34,6 +34,7 @@ export function getXrplSignerKeyType(): XrplKeyType {
 }
 
 export function getXrplSignerWallet() {
+  // Guardrail: env-backed XRPL execution remains classical-only in this repo.
   return createXrplWalletFromSeed(getXrplSignerSeed(), getXrplSignerKeyType())
 }
 
@@ -58,6 +59,7 @@ export function getXrplSignerAccount(): ResolvedSigningAccount {
     derivationPath: null,
     policy: normalizeWalletAccountPolicy(),
     pqcBinding: null,
+    pqcBindingHash: null,
     createdAt: new Date(0),
   }
 }

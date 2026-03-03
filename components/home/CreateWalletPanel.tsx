@@ -4,14 +4,12 @@ import { Wallet as EvmWallet } from 'ethers'
 import type { ClipboardEvent, FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
-import {
-  createWalletPqcEncryptedMaterial,
-  getDefaultWalletPqcProvider,
-  resolveWalletPqcSubjectScheme,
-} from '@/lib/pqc/provider'
+import { deriveDeterministicWalletPqcMaterial } from '@/lib/pqc/deterministic'
+import { resolveWalletPqcSubjectScheme } from '@/lib/pqc/provider'
 import { buildAccountRef } from '@/lib/signing/types'
 import { clearWalletId, persistEncryptedSession } from '@/lib/storage/walletSession'
 import {
+  DEFAULT_BIP44_PATH,
   DEFAULT_WALLET_SECURITY_PROFILE,
   UserDeterministicWallet,
   buildHybridWalletSecurityProfile,
@@ -503,8 +501,11 @@ export function CreateWalletPanel() {
 
   const finalizeWallet = async (draft: WalletDraft) => {
     const evmWallet = new EvmWallet(draft.main.privateKey)
-    const postQuantum = await createWalletPqcEncryptedMaterial({
-      provider: getDefaultWalletPqcProvider(),
+    const postQuantum = await deriveDeterministicWalletPqcMaterial({
+      mnemonic: draft.mnemonic,
+      vaultId: 'public',
+      chain: 'ETH',
+      derivationPath: DEFAULT_BIP44_PATH,
       subject: {
         accountRef: buildAccountRef({
           chain: 'EVM',

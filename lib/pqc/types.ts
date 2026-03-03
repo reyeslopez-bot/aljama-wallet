@@ -6,6 +6,8 @@ export type WalletPqcSignatureFormat = 'raw-base64'
 export type WalletPqcBoundChain = 'EVM' | 'XRPL'
 export type WalletPqcBoundKeyType = 'secp256k1' | 'ed25519'
 export type WalletPqcBoundScheme = 'ecdsa' | 'eddsa'
+export type WalletPqcDerivationChain = 'ETH' | 'XRPL_SECP' | 'XRPL_ED'
+export type WalletPqcDerivationCurve = 'secp256k1' | 'ed25519'
 
 export type WalletPqcBoundSubject = {
   accountRef: string
@@ -29,6 +31,27 @@ export type WalletPqcBindingProof = {
   attestedAt: string
 }
 
+export type WalletPqcDerivation = {
+  mode: 'deterministic-bip39-hkdf-sha512-v1'
+  vaultId: 'public' | 'vault'
+  chain: WalletPqcDerivationChain
+  curve: WalletPqcDerivationCurve
+  account: number
+  change: 0 | 1
+  index: number
+  path: string
+  kdf: 'hkdf-sha512'
+  domain: 'aljama-wallet:pqc:ml-dsa-65:v1'
+}
+
+export type WalletPqcCommitmentHashes = {
+  bindingHash: string
+  statementHash: string
+  signatureHash: string
+  publicKeyHash: string
+  uriHash: string | null
+}
+
 export type WalletPqcBinding = {
   version: 1
   role: 'vault-identity'
@@ -39,6 +62,7 @@ export type WalletPqcBinding = {
   subject: WalletPqcBoundSubject
   challenge: WalletPqcBindingChallenge
   proof: WalletPqcBindingProof
+  derivation?: WalletPqcDerivation
 }
 
 export type WalletPqcKeyPair = {
@@ -53,6 +77,7 @@ export type WalletPqcKeyPair = {
 export type WalletPqcEncryptedMaterial = {
   keyPair: WalletPqcKeyPair
   binding: WalletPqcBinding
+  derivation?: WalletPqcDerivation
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -61,6 +86,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 0
 }
 
 function isWalletPqcProviderBackend(value: unknown): value is WalletPqcProviderBackend {
@@ -73,6 +102,25 @@ function isWalletPqcPublicKeyFormat(value: unknown): value is WalletPqcPublicKey
 
 function isWalletPqcPrivateKeyFormat(value: unknown): value is WalletPqcPrivateKeyFormat {
   return value === 'raw-base64' || value === 'pkcs8-der-base64'
+}
+
+export function isWalletPqcDerivation(value: unknown): value is WalletPqcDerivation {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    value.mode === 'deterministic-bip39-hkdf-sha512-v1' &&
+    (value.vaultId === 'public' || value.vaultId === 'vault') &&
+    (value.chain === 'ETH' || value.chain === 'XRPL_SECP' || value.chain === 'XRPL_ED') &&
+    (value.curve === 'secp256k1' || value.curve === 'ed25519') &&
+    isNonNegativeInteger(value.account) &&
+    (value.change === 0 || value.change === 1) &&
+    isNonNegativeInteger(value.index) &&
+    isNonEmptyString(value.path) &&
+    value.kdf === 'hkdf-sha512' &&
+    value.domain === 'aljama-wallet:pqc:ml-dsa-65:v1'
+  )
 }
 
 function isWalletPqcBoundSubject(value: unknown): value is WalletPqcBoundSubject {
@@ -129,7 +177,8 @@ export function isWalletPqcBinding(value: unknown): value is WalletPqcBinding {
     isWalletPqcPublicKeyFormat(value.publicKeyFormat) &&
     isWalletPqcBoundSubject(value.subject) &&
     isWalletPqcBindingChallenge(value.challenge) &&
-    isWalletPqcBindingProof(value.proof)
+    isWalletPqcBindingProof(value.proof) &&
+    (value.derivation === undefined || isWalletPqcDerivation(value.derivation))
   )
 }
 
@@ -157,10 +206,16 @@ export function parseWalletPqcEncryptedMaterial(value: unknown): WalletPqcEncryp
     return null
   }
 
-  return isWalletPqcKeyPair(value.keyPair) && isWalletPqcBinding(value.binding)
-    ? {
-        keyPair: value.keyPair,
-        binding: value.binding,
-      }
-    : null
+  if (!isWalletPqcKeyPair(value.keyPair) || !isWalletPqcBinding(value.binding)) {
+    return null
+  }
+  if (value.derivation !== undefined && !isWalletPqcDerivation(value.derivation)) {
+    return null
+  }
+
+  return {
+    keyPair: value.keyPair,
+    binding: value.binding,
+    ...(value.derivation === undefined ? {} : { derivation: value.derivation }),
+  }
 }

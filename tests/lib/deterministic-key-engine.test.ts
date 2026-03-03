@@ -157,4 +157,76 @@ describe('deterministic-key-engine', () => {
     expect(vault.isUnlocked()).toBe(true)
     expect(() => vault.derive({ chain: 'ETH', account: 0, index: 0, change: 0 })).not.toThrow()
   })
+
+  it('derives reproducible ML-DSA-65 keys for the same mnemonic, vault, and path', () => {
+    const a = new DeterministicVault(
+      { id: 'public', mnemonic: TEST_MNEMONIC },
+      { passphrase: '' },
+    )
+    const b = new DeterministicVault(
+      { id: 'public', mnemonic: TEST_MNEMONIC },
+      { passphrase: '' },
+    )
+
+    const pqA = a.derivePostQuantum({ chain: 'ETH', account: 0, index: 0, change: 0 })
+    const pqB = b.derivePostQuantum({ chain: 'ETH', account: 0, index: 0, change: 0 })
+
+    expect(Buffer.from(pqA.publicKey).toString('hex')).toBe(Buffer.from(pqB.publicKey).toString('hex'))
+    expect(Buffer.from(pqA.privateKey).toString('hex')).toBe(Buffer.from(pqB.privateKey).toString('hex'))
+    expect(pqA.derivation).toEqual(pqB.derivation)
+  })
+
+  it('isolates deterministic ML-DSA-65 keys across vault spaces', () => {
+    const publicVault = new DeterministicVault(
+      { id: 'public', mnemonic: TEST_MNEMONIC },
+      { passphrase: '' },
+    )
+    const hiddenVault = new DeterministicVault(
+      { id: 'vault', mnemonic: TEST_MNEMONIC },
+      { passphrase: 'Hidden vault passphrase' },
+    )
+
+    const publicPq = publicVault.derivePostQuantum({ chain: 'ETH', account: 0, index: 0, change: 0 })
+    const hiddenPq = hiddenVault.derivePostQuantum({ chain: 'ETH', account: 0, index: 0, change: 0 })
+
+    expect(Buffer.from(publicPq.publicKey).toString('hex')).not.toBe(
+      Buffer.from(hiddenPq.publicKey).toString('hex'),
+    )
+  })
+
+  it('derives deterministic ML-DSA-65 keys for ETH and both XRPL key families', () => {
+    const vault = new DeterministicVault(
+      { id: 'public', mnemonic: TEST_MNEMONIC },
+      { passphrase: '' },
+    )
+
+    const ethPq = vault.derivePostQuantum({ chain: 'ETH', account: 0, index: 0, change: 0 })
+    const xrplSecpPq = vault.derivePostQuantum({ chain: 'XRPL_SECP', account: 0, index: 0, change: 0 })
+    const xrplEdPq = vault.derivePostQuantum({ chain: 'XRPL_ED', account: 0, index: 0, change: 0 })
+    const classicalEth = vault.derive({ chain: 'ETH', account: 0, index: 0, change: 0 })
+
+    expect(ethPq.derivation.chain).toBe('ETH')
+    expect(xrplSecpPq.derivation.chain).toBe('XRPL_SECP')
+    expect(xrplEdPq.derivation.chain).toBe('XRPL_ED')
+    expect(classicalEth.address).toBe('0x9858EfFD232B4033E47d90003D41EC34EcaEda94')
+    expect(Buffer.from(ethPq.publicKey).toString('hex')).not.toBe(
+      Buffer.from(xrplSecpPq.publicKey).toString('hex'),
+    )
+    expect(Buffer.from(xrplSecpPq.publicKey).toString('hex')).not.toBe(
+      Buffer.from(xrplEdPq.publicKey).toString('hex'),
+    )
+  })
+
+  it('blocks deterministic ML-DSA-65 derivation while the vault is locked', () => {
+    const vault = new DeterministicVault(
+      { id: 'public', mnemonic: TEST_MNEMONIC },
+      { passphrase: '' },
+    )
+
+    vault.lock()
+
+    expect(() => vault.derivePostQuantum({ chain: 'ETH', account: 0, index: 0, change: 0 })).toThrow(
+      /locked/,
+    )
+  })
 })

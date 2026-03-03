@@ -190,6 +190,7 @@ Production security baseline to set explicitly:
 - `SECURITY_ALERT_SOAR_URL`
 - `SECURITY_ALERT_RUNBOOK_BASE_URL` or `SECURITY_ALERT_RUNBOOK_MAP`
 - `WALLET_PQC_BACKEND` (`noble` by default for cross-platform parity; optional `native` on Node for ML-DSA-65 keygen/sign/verify)
+- `WALLET_PQC_REGISTRY_ADDRESSES` and `PQC_BINDING_PUBLIC_BASE_URL` for EVM PQ binding anchoring
 
 ## Documentation
 
@@ -198,3 +199,4 @@ Production security baseline to set explicitly:
 - Current audit and prioritized gap plan: `docs/audit.md`
 - Branch protection checklist for CI/security-gated auto-merge: `docs/branch-protection-checklist.md`
 - Payment structure and boundaries: `docs/payment-structure.md`
+- Post-quantum interface boundaries: `docs/pqc-interface-guidelines.md`

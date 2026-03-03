@@ -31,7 +31,11 @@
     "prisma:format:crdb": "prisma format --schema=prisma/crdb/schema.prisma",
     "prisma:format:pg": "prisma format --schema=prisma/pg/schema.prisma",
     "prisma:migrate:deploy:pg": "prisma migrate deploy --config=prisma/pg/prisma.config.ts",
-    "security:migrate-wallet-keys": "tsx scripts/migrate-wallet-encryption.ts"
+    "security:migrate-wallet-keys": "tsx scripts/migrate-wallet-encryption.ts",
+    "wallet:backfill-pqc-binding-hashes": "tsx scripts/backfill-pqc-binding-hashes.ts",
+    "contracts:build": "forge build --root contracts",
+    "contracts:test": "forge test --root contracts",
+    "contracts:abi": "tsx scripts/generate-pqc-binding-registry-abi.ts"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",
