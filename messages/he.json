@@ -357,7 +357,8 @@
     "connector": "מחבר",
     "tracking": "מעקב",
     "hoverView": "תצוגת ריחוף",
-    "expand": "הרחבה בריחוף",
+    "expand": "פתיחת פרטים",
+    "collapse": "הסתרת פרטים",
     "status": {
       "creating": "יוצר",
       "syncing": "מסנכרן",

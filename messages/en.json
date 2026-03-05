@@ -357,7 +357,8 @@
     "connector": "Connector",
     "tracking": "Tracking",
     "hoverView": "Hover view",
-    "expand": "Expand on hover",
+    "expand": "Open details",
+    "collapse": "Hide details",
     "status": {
       "creating": "Creating",
       "syncing": "Syncing",

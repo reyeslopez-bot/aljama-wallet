@@ -5,10 +5,20 @@ import {
 } from '../../infra/consent/constants'
 
 const HOME_ROUTE = '/en'
+const RTL_HOME_ROUTES = ['/ar', '/he'] as const
 const MAX_HOME_VISIBLE_MS = Number(process.env.MAX_HOME_VISIBLE_MS ?? 12_000)
 const MAX_DOM_CONTENT_LOADED_MS = Number(process.env.MAX_DOM_CONTENT_LOADED_MS ?? 10_000)
 const ENABLE_VISUAL_BASELINE = process.env.PLAYWRIGHT_VISUAL === 'true'
 const VISUAL_MAX_DIFF_PIXEL_RATIO = Number(process.env.PLAYWRIGHT_VISUAL_MAX_DIFF_RATIO ?? 0.01)
+const UNAUTHENTICATED_SESSION = { user: null, expires: '2099-01-01T00:00:00.000Z' }
+
+function jsonResponse(body: unknown) {
+  return {
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(body),
+  }
+}
 
 async function attachLocatorScreenshot(
   testInfo: TestInfo,
@@ -45,19 +55,45 @@ async function assertVisualBaseline(page: Page, name: string, target: 'page' | R
   })
 }
 
-async function mockHomeApi(page: Page) {
-  const json = (body: unknown) => ({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify(body),
+async function getViewportRect(target: ReturnType<Page['locator']>) {
+  return target.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    return {
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height,
+    }
   })
+}
 
-  await page.route('**/api/auth/session', (route) =>
-    route.fulfill(json({ user: null, expires: '2099-01-01T00:00:00.000Z' })),
-  )
+async function expectFullyInViewport(page: Page, target: ReturnType<Page['locator']>, label: string) {
+  const viewport = page.viewportSize()
+  expect(viewport).toBeTruthy()
+  await expect(target).toBeVisible()
+
+  const rect = await getViewportRect(target)
+  expect(rect.left, `${label}: left`).toBeGreaterThanOrEqual(-1)
+  expect(rect.top, `${label}: top`).toBeGreaterThanOrEqual(-1)
+  expect(rect.right, `${label}: right`).toBeLessThanOrEqual((viewport?.width ?? 0) + 1)
+  expect(rect.bottom, `${label}: bottom`).toBeLessThanOrEqual((viewport?.height ?? 0) + 1)
+}
+
+async function expectNoHorizontalOverflow(page: Page, label: string) {
+  const dimensions = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }))
+
+  expect(dimensions.scrollWidth, `${label}: scroll width`).toBeLessThanOrEqual(dimensions.clientWidth + 1)
+}
+
+async function mockHomeApi(page: Page) {
   await page.route('**/api/market-snapshot', (route) =>
     route.fulfill(
-      json({
+      jsonResponse({
         ok: true,
         source: 'fallback',
         updatedAt: '2026-02-20T00:00:00.000Z',
@@ -88,7 +124,7 @@ async function mockHomeApi(page: Page) {
   )
   await page.route('**/api/xrpl/dev-account**', (route) =>
     route.fulfill(
-      json({
+      jsonResponse({
         ok: true,
         network: 'testnet',
         account: {
@@ -100,7 +136,7 @@ async function mockHomeApi(page: Page) {
   )
   await page.route('**/api/xrpl/account-assets**', (route) =>
     route.fulfill(
-      json({
+      jsonResponse({
         ok: true,
         network: 'testnet',
         account: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
@@ -119,7 +155,7 @@ async function mockHomeApi(page: Page) {
   )
   await page.route('**/api/xrpl/nfts**', (route) =>
     route.fulfill(
-      json({
+      jsonResponse({
         ok: true,
         nfts: [
           {
@@ -138,7 +174,7 @@ async function mockHomeApi(page: Page) {
   )
   await page.route('**/api/xrpl/orderbook**', (route) =>
     route.fulfill(
-      json({
+      jsonResponse({
         ok: true,
         offers: [
           {
@@ -154,7 +190,7 @@ async function mockHomeApi(page: Page) {
   )
   await page.route('**/api/xrpl/action-history**', (route) =>
     route.fulfill(
-      json({
+      jsonResponse({
         ok: true,
         actions: [
           {
@@ -169,12 +205,17 @@ async function mockHomeApi(page: Page) {
       }),
     ),
   )
-  await page.route('**/api/telemetry', (route) => route.fulfill(json({ ok: true })))
-  await page.route('**/api/track-wallet', (route) => route.fulfill(json({ ok: true })))
+  await page.route('**/api/telemetry', (route) => route.fulfill(jsonResponse({ ok: true })))
+  await page.route('**/api/track-wallet', (route) => route.fulfill(jsonResponse({ ok: true })))
+}
+
+async function mockAuthSession(page: Page, session: unknown) {
+  await page.route('**/api/auth/session', (route) => route.fulfill(jsonResponse(session)))
 }
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
+  await mockAuthSession(page, UNAUTHENTICATED_SESSION)
   await mockHomeApi(page)
   await page.addInitScript(
     ({ promptKey, siteEntryKey }) => {
@@ -294,4 +335,131 @@ test('home load-time checks and wallet-section screenshot', async ({ page }, tes
     walletSection,
   )
   await assertVisualBaseline(page, 'home-wallet-section', walletSection)
+})
+
+test('dynamic info card stays inside the viewport across zoom-equivalent layouts', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'Desktop zoom coverage only')
+
+  const zoomCases = [
+    { label: 'zoom-67', viewport: { width: 2148, height: 1432 } },
+    { label: 'zoom-90', viewport: { width: 1600, height: 1067 } },
+    { label: 'zoom-110', viewport: { width: 1309, height: 873 } },
+    { label: 'zoom-125', viewport: { width: 1152, height: 768 } },
+    { label: 'zoom-150', viewport: { width: 960, height: 640 } },
+    { label: 'zoom-200', viewport: { width: 720, height: 480 } },
+  ] as const
+
+  for (const zoomCase of zoomCases) {
+    await page.setViewportSize(zoomCase.viewport)
+    await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
+    await expect(page.getByTestId('home-overview-section')).toBeVisible()
+
+    const infoCard = page.getByTestId('dynamic-info-card')
+    await expectFullyInViewport(page, infoCard, `${zoomCase.label} collapsed`)
+
+    await infoCard.hover()
+    await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
+    await expectFullyInViewport(page, infoCard, `${zoomCase.label} expanded`)
+  }
+})
+
+test('dynamic info card remains in frame when text scales up', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'Desktop text scaling coverage only')
+
+  await page.setViewportSize({ width: 960, height: 640 })
+  await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
+  await expect(page.getByTestId('home-overview-section')).toBeVisible()
+
+  await page.addStyleTag({
+    content: `
+      html {
+        font-size: 125% !important;
+      }
+    `,
+  })
+
+  const infoCard = page.getByTestId('dynamic-info-card')
+  await expectFullyInViewport(page, infoCard, 'text-scale-125 collapsed')
+
+  await infoCard.hover()
+  await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
+  await expectFullyInViewport(page, infoCard, 'text-scale-125 expanded')
+})
+
+test('home layout stays within frame on smartphone device projects', async ({ page, isMobile }, testInfo) => {
+  test.skip(!isMobile, 'Mobile device projects only')
+
+  await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
+  await expect(page.getByTestId('home-overview-section')).toBeVisible()
+
+  const label = testInfo.project.name
+  const infoCard = page.getByTestId('dynamic-info-card')
+  const toggleButton = page.getByTestId('dynamic-info-card-toggle')
+
+  await expectNoHorizontalOverflow(page, `${label} initial`)
+  await expectFullyInViewport(page, infoCard, `${label} collapsed`)
+  await expect(page.getByTestId('dynamic-info-card-collapsed')).toBeVisible()
+
+  await toggleButton.click()
+  await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
+  await expectFullyInViewport(page, infoCard, `${label} expanded`)
+  await expectNoHorizontalOverflow(page, `${label} expanded`)
+
+  await page.getByTestId('home-wallet-section').scrollIntoViewIfNeeded()
+  await expect(page.getByTestId('home-wallet-section')).toBeVisible()
+  await expectNoHorizontalOverflow(page, `${label} wallet-section`)
+})
+
+test('home supports keyboard interaction for the market chart and info card', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'Keyboard desktop coverage only')
+
+  await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
+  await expect(page.getByTestId('home-overview-section')).toBeVisible()
+
+  const chart = page.getByTestId('xrpl-market-chart')
+  await chart.focus()
+  await expect(chart).toBeFocused()
+  await chart.press('ArrowRight')
+  await expect(page.getByTestId('xrpl-market-hover-snapshot')).toBeVisible()
+  await expect(page.getByTestId('xrpl-market-hover-row-xrp')).toBeVisible()
+  await chart.press('End')
+  await expect(page.getByTestId('xrpl-market-hover-row-btc')).toBeVisible()
+
+  const collapsedToggle = page.getByTestId('dynamic-info-card-collapsed').getByTestId('dynamic-info-card-toggle')
+  await collapsedToggle.focus()
+  await expect(collapsedToggle).toBeFocused()
+  await collapsedToggle.press('Enter')
+  await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
+
+  const expandedToggle = page.getByTestId('dynamic-info-card-expanded').getByTestId('dynamic-info-card-toggle')
+  await expandedToggle.focus()
+  await expect(expandedToggle).toBeFocused()
+  await expandedToggle.press('Enter')
+  await expect(page.getByTestId('dynamic-info-card-collapsed')).toBeVisible()
+})
+
+test('rtl home routes avoid horizontal overflow', async ({ page }, testInfo) => {
+  for (const route of RTL_HOME_ROUTES) {
+    await page.goto(route, { waitUntil: 'domcontentloaded' })
+    await expect(page.getByTestId('home-overview-section')).toBeVisible()
+
+    const localeDir = await page.evaluate(() => document.documentElement.dataset.localeDir)
+    expect(localeDir).toBe('rtl')
+
+    const label = `${testInfo.project.name}-${route}`
+    const infoCard = page.getByTestId('dynamic-info-card')
+    const toggleButton = page.getByTestId('dynamic-info-card-toggle')
+
+    await expectNoHorizontalOverflow(page, `${label} initial`)
+    await expectFullyInViewport(page, infoCard, `${label} collapsed`)
+
+    await toggleButton.click()
+    await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
+    await expectFullyInViewport(page, infoCard, `${label} expanded`)
+    await expectNoHorizontalOverflow(page, `${label} expanded`)
+
+    await page.getByTestId('home-xrpl-section').scrollIntoViewIfNeeded()
+    await expect(page.getByTestId('home-xrpl-section')).toBeVisible()
+    await expectNoHorizontalOverflow(page, `${label} xrpl-section`)
+  }
 })

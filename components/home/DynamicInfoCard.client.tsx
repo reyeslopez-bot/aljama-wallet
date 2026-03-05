@@ -1,7 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion, useAnimationControls } from 'framer-motion'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useTranslations } from 'next-intl'
@@ -155,6 +155,7 @@ export default function DynamicInfoCard() {
   const { data: session, status: sessionStatus } = useSession()
   const showUnlockMessage = sessionStatus === 'unauthenticated'
   const [hovered, setHovered] = useState(false)
+  const [detailsPinned, setDetailsPinned] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
   const [networkTimezone, setNetworkTimezone] = useState(DUBAI_TIMEZONE)
   const [isLightTheme, setIsLightTheme] = useState(false)
@@ -327,12 +328,21 @@ export default function DynamicInfoCard() {
     : selectedXrplNetwork.canResetWithoutWarning
       ? 'bg-amber-300'
       : 'bg-emerald-400'
+  const detailsExpanded = hovered || detailsPinned
   const cardCornerClass = useMemo(() => {
     if (corner === 'top-left') return 'left-4 top-20 sm:left-6 sm:top-24 lg:left-8 lg:top-24'
     if (corner === 'bottom-left') return 'bottom-4 left-4 sm:bottom-6 sm:left-6 lg:bottom-8 lg:left-8'
     if (corner === 'bottom-right') return 'bottom-4 right-4 sm:bottom-6 sm:right-6 lg:bottom-8 lg:right-8'
     return 'right-4 top-20 sm:right-6 sm:top-24 lg:right-8 lg:top-24'
   }, [corner])
+  const cardViewportStyle = useMemo<CSSProperties>(
+    () => ({
+      width: 'clamp(260px, 24vw, 300px)',
+      maxWidth: 'calc(100vw - 2rem)',
+      maxHeight: corner.startsWith('top') ? 'calc(100vh - 6rem)' : 'calc(100vh - 2rem)',
+    }),
+    [corner],
+  )
 
   const jumpToSection = useCallback((sectionId: 'create' | 'xrpl') => {
     if (typeof document === 'undefined') return
@@ -355,6 +365,8 @@ export default function DynamicInfoCard() {
   return (
     <motion.aside
       ref={cardRef}
+      data-testid="dynamic-info-card"
+      aria-label="Dynamic info card"
       initial={false}
       drag
       dragMomentum={false}
@@ -371,9 +383,10 @@ export default function DynamicInfoCard() {
         })
       }}
       whileDrag={{ scale: 1.01, cursor: 'grabbing' }}
-      className={`fixed z-50 w-[260px] cursor-grab active:cursor-grabbing sm:w-[280px] lg:w-[300px] ${cardCornerClass}`}
+      style={cardViewportStyle}
+      className={`fixed z-50 cursor-grab overflow-hidden rounded-[18px] active:cursor-grabbing ${cardCornerClass}`}
     >
-      <div className="surface-panel panel-glow-saffron rounded-[18px]">
+      <div className="surface-panel panel-glow-saffron h-full max-h-full overflow-y-auto overscroll-contain rounded-[18px]">
         <div className="rounded-t-[18px] border-b border-white/10 bg-white/5 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -397,18 +410,18 @@ export default function DynamicInfoCard() {
 
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold tracking-tight text-ivory">{primaryLine}</div>
-                <div className="truncate text-[11px] tracking-wide text-ivory/60">{secondaryLine}</div>
+                <div className="truncate text-[0.6875rem] tracking-wide text-ivory/60">{secondaryLine}</div>
               </div>
             </div>
 
             <div className="flex shrink-0 flex-col items-end gap-1">
               <div
                 suppressHydrationWarning
-                className="text-[10px] font-semibold tabular-nums tracking-tight text-ivory/85"
+                className="text-[0.625rem] font-semibold tabular-nums tracking-tight text-ivory/85"
               >
                 {timeLabel}
               </div>
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-ivory/80">
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-ivory/80">
                 <StatusDot tone={statusTone} />
                 <span className="whitespace-nowrap">{statusLabel}</span>
               </div>
@@ -416,17 +429,17 @@ export default function DynamicInfoCard() {
           </div>
 
           {lastEvent ? (
-            <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-ivory/70">
+            <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[0.6875rem] text-ivory/70">
               <span className="font-semibold text-ivory/80">{t('signal')}:</span> {lastEvent.message}
             </div>
           ) : null}
 
-          <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px]">
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[0.6875rem]">
             <span className="uppercase tracking-[0.16em] text-ivory/55">{t('xrplNetwork')}</span>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 font-semibold tracking-wide text-ivory/85">
               <span className={`h-1.5 w-1.5 rounded-full ${xrplBadgeTone}`} />
               <span
-                className={`text-[11px] font-semibold tracking-wide ${
+                className={`text-[0.6875rem] font-semibold tracking-wide ${
                   isLightTheme ? 'text-[#1d2f45]/90' : 'text-ivory/85'
                 }`}
               >
@@ -438,9 +451,10 @@ export default function DynamicInfoCard() {
 
         <div className="p-3">
           <AnimatePresence mode="wait" initial={false}>
-            {hovered ? (
+            {detailsExpanded ? (
               <motion.div
                 key="expanded"
+                data-testid="dynamic-info-card-expanded"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
@@ -448,8 +462,8 @@ export default function DynamicInfoCard() {
                 className="space-y-3"
               >
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-ivory/50">{t('vaultSession')}</div>
-                  <div className="mt-2 grid gap-2 text-[11px] text-ivory/75">
+                  <div className="text-[0.6875rem] uppercase tracking-[0.18em] text-ivory/50">{t('vaultSession')}</div>
+                  <div className="mt-2 grid gap-2 text-[0.6875rem] text-ivory/75">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-ivory/50">{t('wallet')}</span>
                       <span className="font-mono text-ivory/80">
@@ -504,7 +518,7 @@ export default function DynamicInfoCard() {
                       jumpToSection('create')
                       pushEvent({ kind: 'info', message: tActions('createWallet') })
                     }}
-                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.16em] transition ${
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
                       isLightTheme
                         ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
                         : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
@@ -512,16 +526,33 @@ export default function DynamicInfoCard() {
                   >
                     {tActions('createWallet')}
                   </button>
+                  <button
+                    type="button"
+                    data-testid="dynamic-info-card-toggle"
+                    aria-expanded={detailsExpanded}
+                    onClick={() => {
+                      setDetailsPinned(false)
+                      setHovered(false)
+                    }}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
+                      isLightTheme
+                        ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
+                        : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
+                    }`}
+                  >
+                    {t('collapse')}
+                  </button>
                 </div>
                 {showUnlockMessage ? (
                   <UnlockActionsLink
-                    className="text-[10px] uppercase tracking-[0.14em] text-ivory/45"
+                    className="text-[0.625rem] uppercase tracking-[0.14em] text-ivory/45"
                   />
                 ) : null}
               </motion.div>
             ) : (
               <motion.div
                 key="collapsed"
+                data-testid="dynamic-info-card-collapsed"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
@@ -547,15 +578,19 @@ export default function DynamicInfoCard() {
                   }`}
                 />
 
-                <div
-                  className={`rounded-full border px-3 py-1 text-[11px] font-semibold tracking-wide ${
+                <button
+                  type="button"
+                  data-testid="dynamic-info-card-toggle"
+                  aria-expanded={detailsExpanded}
+                  onClick={() => setDetailsPinned(true)}
+                  className={`rounded-full border px-3 py-1 text-[0.6875rem] font-semibold tracking-wide transition ${
                     isLightTheme
-                      ? 'border-[#7fa3c1]/45 bg-white/70 text-[#36516d]/85'
-                      : 'border-white/10 bg-white/5 text-ivory/70'
+                      ? 'border-[#7fa3c1]/45 bg-white/70 text-[#36516d]/85 hover:bg-white'
+                      : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
                   }`}
                 >
                   {t('expand')}
-                </div>
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
