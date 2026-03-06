@@ -77,14 +77,13 @@ describe('HomeContent', () => {
     expect(getByText('Guided operational flows')).toBeTruthy()
 
     expect(getByTestId('home-region-map-section')).toBeTruthy()
-    expect(getByTestId('home-section-nav')).toBeTruthy()
-    expect((getByTestId('home-section-nav-overview') as HTMLAnchorElement).getAttribute('href')).toBe('#overview')
-    expect((getByTestId('home-section-nav-wallet') as HTMLAnchorElement).getAttribute('href')).toBe('#wallet')
-    expect((getByTestId('home-section-nav-xrpl') as HTMLAnchorElement).getAttribute('href')).toBe('#xrpl')
-    expect((getByTestId('home-section-nav-trade-desk') as HTMLAnchorElement).getAttribute('href')).toBe('#trade-desk')
+    expect(overview.getAttribute('id')).toBe('overview')
     expect(getByTestId('home-wallet-section')).toBeTruthy()
+    expect(getByTestId('home-wallet-section').getAttribute('id')).toBe('wallet')
     expect(getByTestId('home-xrpl-section')).toBeTruthy()
+    expect(getByTestId('home-xrpl-section').getAttribute('id')).toBe('xrpl')
     expect(getByTestId('home-trade-desk-section')).toBeTruthy()
+    expect(getByTestId('home-trade-desk-section').getAttribute('id')).toBe('trade-desk')
     expect(getByLabelText('Copyright 2026 Aljama Wallet')).toBeTruthy()
 
     expect(getByTestId('mock-client-track-wallet')).toBeTruthy()

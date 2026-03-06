@@ -86,6 +86,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Guardrail tests
+        run: pnpm test:guardrails
+
       - name: Test (Vitest)
         run: pnpm test
 
