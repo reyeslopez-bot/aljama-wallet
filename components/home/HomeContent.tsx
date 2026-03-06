@@ -31,11 +31,6 @@ type HeroOverviewSectionProps = {
   statBlocks: HeroStatBlock[]
 }
 
-type SectionNavLink = {
-  id: 'overview' | 'wallet' | 'xrpl' | 'trade-desk'
-  label: string
-}
-
 function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectionProps) {
   return (
     <section
@@ -150,32 +145,6 @@ function ShareSection() {
   return <ShareDock />
 }
 
-function SectionQuickNav({ links }: { links: SectionNavLink[] }) {
-  return (
-    <nav
-      data-testid="home-section-nav"
-      aria-label="In-page sections"
-      className={`${SURFACE_SOFT} sticky top-24 z-30 -mt-2 overflow-hidden px-3 py-2`}
-    >
-      <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <ul className="flex min-w-max items-center gap-2">
-          {links.map((link) => (
-            <li key={link.id}>
-              <a
-                data-testid={`home-section-nav-${link.id}`}
-                href={`#${link.id}`}
-                className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-ivory/68 transition hover:border-saffron/45 hover:text-saffron"
-              >
-                {link.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </nav>
-  )
-}
-
 function FooterCopyright() {
   const year = new Date().getFullYear()
   return (
@@ -192,7 +161,6 @@ function FooterCopyright() {
 
 export default function HomeContent() {
   const tHome = useTranslations('home')
-  const tNavbar = useTranslations('navbar')
   const showDevDeviation = process.env.NODE_ENV === 'development'
 
   const statBlocks = [
@@ -215,12 +183,6 @@ export default function HomeContent() {
       detail: tHome('stats.uxDetail'),
     },
   ] satisfies HeroStatBlock[]
-  const sectionNavLinks = [
-    { id: 'overview', label: tNavbar('overview') },
-    { id: 'wallet', label: tHome('sectionNav.wallet') },
-    { id: 'xrpl', label: tNavbar('xrpl') },
-    { id: 'trade-desk', label: tNavbar('tradeDesk') },
-  ] satisfies SectionNavLink[]
 
   return (
     <div
@@ -229,7 +191,6 @@ export default function HomeContent() {
     >
       <ClientTrackWallet />
       <DynamicInfoCard />
-      <SectionQuickNav links={sectionNavLinks} />
 
       <HeroOverviewSection
         title={tHome('hero.title')}
