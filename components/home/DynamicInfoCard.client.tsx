@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useAnimationControls } from 'framer-motion'
 import type { CSSProperties, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Image from 'next/image'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useTranslations } from 'next-intl'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
@@ -392,9 +393,12 @@ export default function DynamicInfoCard() {
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#c7794a] via-[#e0bf7f] to-[#4b9577] p-[1px]">
                 {avatarImage ? (
-                  <img
+                  <Image
                     src={avatarImage}
                     alt={`${primaryLine} avatar`}
+                    width={36}
+                    height={36}
+                    unoptimized
                     className="h-full w-full rounded-full border border-white/15 object-cover"
                   />
                 ) : (

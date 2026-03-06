@@ -12,7 +12,7 @@ const abi = parseAbi([
 
 const targetPath = path.resolve(
   process.cwd(),
-  'lib/contracts/generated/pqc-binding-registry.abi.json',
+  'lib/contracts/pqc-binding-registry.abi.json',
 )
 
 await writeFile(targetPath, `${JSON.stringify(abi, null, 2)}\n`, 'utf8')

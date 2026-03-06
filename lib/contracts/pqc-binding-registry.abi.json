@@ -1,0 +1,148 @@
+[
+  {
+    "name": "bindingOf",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "account"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "tuple",
+        "components": [
+          {
+            "type": "bytes32",
+            "name": "bindingHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "statementHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "signatureHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "publicKeyHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "uriHash"
+          },
+          {
+            "type": "uint64",
+            "name": "version"
+          },
+          {
+            "type": "uint64",
+            "name": "updatedAt"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "commitBinding",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "statementHash"
+      },
+      {
+        "type": "bytes32",
+        "name": "signatureHash"
+      },
+      {
+        "type": "bytes32",
+        "name": "publicKeyHash"
+      },
+      {
+        "type": "bytes32",
+        "name": "uriHash"
+      },
+      {
+        "type": "string",
+        "name": "uri"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bytes32",
+        "name": "bindingHash"
+      }
+    ]
+  },
+  {
+    "name": "clearBinding",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "name": "BindingCommitted",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "account",
+        "indexed": true
+      },
+      {
+        "type": "bytes32",
+        "name": "bindingHash",
+        "indexed": true
+      },
+      {
+        "type": "bytes32",
+        "name": "statementHash",
+        "indexed": true
+      },
+      {
+        "type": "bytes32",
+        "name": "signatureHash"
+      },
+      {
+        "type": "bytes32",
+        "name": "publicKeyHash"
+      },
+      {
+        "type": "bytes32",
+        "name": "uriHash"
+      },
+      {
+        "type": "string",
+        "name": "uri"
+      },
+      {
+        "type": "uint64",
+        "name": "version"
+      },
+      {
+        "type": "bytes32",
+        "name": "previousBindingHash"
+      }
+    ]
+  },
+  {
+    "name": "BindingCleared",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "account",
+        "indexed": true
+      },
+      {
+        "type": "bytes32",
+        "name": "previousBindingHash"
+      }
+    ]
+  }
+]

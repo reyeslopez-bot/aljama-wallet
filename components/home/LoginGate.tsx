@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import { signIn, useSession } from "next-auth/react"
 import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
@@ -425,9 +426,12 @@ export default function LoginGate({
               <p className="text-[11px] text-ivory/50">{t("profileImageHint")}</p>
               {profileImage ? (
                 <div className="surface-inner inline-flex items-center gap-3 px-3 py-2">
-                  <img
+                  <Image
                     src={profileImage}
                     alt={t("profileImagePreviewAlt")}
+                    width={40}
+                    height={40}
+                    unoptimized
                     className="h-10 w-10 rounded-full border border-white/15 object-cover"
                   />
                   <span className="text-xs text-ivory/70">{t("profileImageReady")}</span>

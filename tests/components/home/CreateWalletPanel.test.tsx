@@ -6,24 +6,58 @@ import { CreateWalletPanel } from '@/components/home/CreateWalletPanel'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useSession } from 'next-auth/react'
 
-const { mockGenerateMnemonicWallet, mockEncodeWalletToEncrypted } = vi.hoisted(() => ({
+const { mockGenerateMnemonicWallet, mockEncodeWalletToEncrypted, mockDeriveDeterministicWalletPqcMaterial } = vi.hoisted(() => ({
   mockGenerateMnemonicWallet: vi.fn(),
   mockEncodeWalletToEncrypted: vi.fn(),
+  mockDeriveDeterministicWalletPqcMaterial: vi.fn(),
 }))
 
 vi.mock('@/lib/wallet', async () => {
   const actual = await vi.importActual<typeof import('@/lib/wallet')>('@/lib/wallet')
+  class MockUserDeterministicWallet {
+    publicVault = {
+      derive: ({
+        chain,
+        account,
+        index,
+      }: {
+        chain: string
+        account: number
+        change?: 0 | 1
+        index: number
+      }) => ({ address: `${chain.toLowerCase()}-public-${account}-${index}` }),
+    }
+    privateVault = {
+      derive: ({
+        chain,
+        account,
+        index,
+      }: {
+        chain: string
+        account: number
+        change?: 0 | 1
+        index: number
+      }) => ({ address: `${chain.toLowerCase()}-hidden-${account}-${index}` }),
+    }
+    unlockPrivateVault() {}
+    lockPrivateVault() {}
+  }
   return {
     ...actual,
     generateMnemonicWallet: mockGenerateMnemonicWallet,
     encodeWalletToEncrypted: mockEncodeWalletToEncrypted,
+    UserDeterministicWallet: MockUserDeterministicWallet,
   }
 })
+
+vi.mock('@/lib/pqc/deterministic', () => ({
+  deriveDeterministicWalletPqcMaterial: mockDeriveDeterministicWalletPqcMaterial,
+}))
 
 const mockedUseSession = vi.mocked(useSession)
 const initialState = useDynamicInfoStore.getState()
 
-const testMnemonicWords = Array.from({ length: 24 }, () => 'able')
+const testMnemonicWords = [...Array.from({ length: 23 }, () => 'abandon'), 'art']
 
 const resetStore = () => {
   useDynamicInfoStore.setState(
@@ -42,7 +76,9 @@ function completeRecoveryCheck(
   const recoveryInputs = getAllByTestId('create-wallet-recovery-input') as HTMLInputElement[]
 
   for (const input of recoveryInputs) {
-    fireEvent.change(input, { target: { value: 'able' } })
+    const slot = Number.parseInt(input.id.replace('create-wallet-recovery-word-', ''), 10)
+    const word = Number.isFinite(slot) ? testMnemonicWords[slot] : ''
+    fireEvent.change(input, { target: { value: word } })
   }
 
   fireEvent.click(getByTestId('create-wallet-recovery-backed-up'))
@@ -65,6 +101,13 @@ describe('CreateWalletPanel', () => {
       wordCount: 24,
     })
     mockEncodeWalletToEncrypted.mockResolvedValue('encrypted-payload')
+    mockDeriveDeterministicWalletPqcMaterial.mockResolvedValue({
+      binding: {
+        subject: {
+          keyType: 'secp256k1',
+        },
+      },
+    })
 
     mockedUseSession.mockReturnValue({
       data: { user: { id: 'test-user', email: 'test@example.com' } },

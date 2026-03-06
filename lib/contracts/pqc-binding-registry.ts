@@ -1,5 +1,5 @@
 import { Interface, type InterfaceAbi } from 'ethers'
-import registryAbi from '@/lib/contracts/generated/pqc-binding-registry.abi.json'
+import registryAbi from '@/lib/contracts/pqc-binding-registry.abi.json'
 
 const registryInterface = new Interface(registryAbi as InterfaceAbi)
 
