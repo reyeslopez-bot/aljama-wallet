@@ -84,4 +84,24 @@ describe('PQC commitment hashing', () => {
     expect(memo.payload.sg).toMatch(/^0x[0-9a-f]{64}$/)
     expect(memo.Memo.MemoType).toBe(Buffer.from('aljama:pqc-binding:v1', 'utf8').toString('hex').toUpperCase())
   })
+
+  it('rejects unsupported PQC signature encodings when hashing bindings', async () => {
+    const binding = await buildBinding()
+    const malformed = {
+      ...binding,
+      proof: {
+        ...binding.proof,
+        signatureFormat: 'der-base64' as never,
+      },
+    }
+
+    expect(() => buildPqcBindingHashes(malformed)).toThrow(/Unsupported PQC binding signature format/)
+  })
+
+  it('requires a URI hash before building XRPL anchor memos', async () => {
+    const binding = await buildBinding()
+    const hashes = buildPqcBindingHashes(binding)
+
+    expect(() => buildXrplPqcAnchorMemo(hashes)).toThrow(/uriHash is required/)
+  })
 })

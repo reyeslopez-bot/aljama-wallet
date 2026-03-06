@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createDeterministicWalletPqcEncryptedMaterial,
   createWalletPqcEncryptedMaterial,
+  generateDeterministicKeyPair,
   verifyWalletPqcBinding,
 } from '@/lib/pqc/provider'
 import { buildAccountRef } from '@/lib/signing/types'
@@ -60,6 +61,38 @@ describe('wallet PQC binding provider', () => {
     await expect(verifyWalletPqcBinding(tampered)).resolves.toBe(false)
   })
 
+  it('fails verification if the ML-DSA signature bytes are tampered', async () => {
+    const material = await createWalletPqcEncryptedMaterial({
+      subject: {
+        accountRef: buildAccountRef({
+          chain: 'XRPL',
+          keyType: 'ed25519',
+          pubKey: 'EDABCDEF',
+          address: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+        }),
+        chain: 'XRPL',
+        address: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+        keyType: 'ed25519',
+        scheme: 'eddsa',
+        publicKey: 'EDABCDEF',
+        publicKeyFormat: 'hex',
+      },
+    })
+
+    const signatureBytes = Buffer.from(material.binding.proof.signature, 'base64')
+    signatureBytes[0] ^= 0x01
+
+    const tampered = {
+      ...material.binding,
+      proof: {
+        ...material.binding.proof,
+        signature: signatureBytes.toString('base64'),
+      },
+    }
+
+    await expect(verifyWalletPqcBinding(tampered)).resolves.toBe(false)
+  })
+
   it('creates reproducible deterministic ML-DSA-65 bindings from the same seed', async () => {
     const subject = {
       accountRef: buildAccountRef({
@@ -104,5 +137,9 @@ describe('wallet PQC binding provider', () => {
     expect(first.binding.publicKey).toBe(second.binding.publicKey)
     expect(first.binding.derivation).toEqual(derivation)
     await expect(verifyWalletPqcBinding(first.binding)).resolves.toBe(true)
+  })
+
+  it('rejects deterministic ML-DSA-65 seeds with the wrong length', () => {
+    expect(() => generateDeterministicKeyPair(new Uint8Array(16))).toThrow(/seed must be/i)
   })
 })
