@@ -3,6 +3,7 @@
 import React from 'react'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useSession } from 'next-auth/react'
 import XrplTradeDesk from '@/components/home/XrplTradeDesk.client'
 
 vi.mock('framer-motion', () => ({
@@ -12,9 +13,15 @@ vi.mock('framer-motion', () => ({
   },
 }))
 
+const mockedUseSession = vi.mocked(useSession)
+
 describe('XrplTradeDesk', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockedUseSession.mockReturnValue({
+      data: { user: { id: 'user-1', email: 'test@example.com' } },
+      status: 'authenticated',
+    } as any)
     Object.defineProperty(window, 'localStorage', {
       value: {
         getItem: vi.fn((key: string) => (key === 'aljama.region' ? 'us' : null)),
@@ -97,15 +104,26 @@ describe('XrplTradeDesk', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByTestId, getByText } = render(<XrplTradeDesk />)
+    const { getByTestId, getByText, queryByText } = render(<XrplTradeDesk />)
 
     await waitFor(() => {
       expect(getByTestId('xrpl-trade-desk-assets')).toBeTruthy()
-      expect(getByText('Demo NFT')).toBeTruthy()
-      expect(getByText('offer_create · validated')).toBeTruthy()
+      expect(getByText('Swap in three steps')).toBeTruthy()
     })
 
+    expect(queryByText('Recent Actions')).toBeNull()
+    expect(() => getByTestId('xrpl-trade-desk-refresh')).toThrow()
+    expect(queryByText('Show submission log')).toBeNull()
+    expect(() => getByTestId('xrpl-trade-desk-activity-rail')).toThrow()
+    expect(queryByText('Demo NFT')).toBeNull()
+
     fireEvent.click(getByTestId('xrpl-trade-desk-tab-advanced'))
+
+    await waitFor(() => {
+      expect(getByText('Demo NFT')).toBeTruthy()
+      expect(getByText('offer_create · validated')).toBeTruthy()
+      expect(getByTestId('xrpl-trade-desk-refresh')).toBeTruthy()
+    })
 
     fireEvent.change(getByTestId('xrpl-trade-desk-trustline-issuer'), {
       target: { value: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe' },
@@ -117,6 +135,60 @@ describe('XrplTradeDesk', () => {
 
     await waitFor(() => {
       expect(getByTestId('xrpl-trade-desk-action-status').textContent).toMatch(/trustline_set submitted/i)
+      expect(getByTestId('xrpl-trade-desk-log-toggle').textContent).toMatch(/show submission log/i)
     })
+
+    expect(() => getByTestId('xrpl-trade-desk-activity-rail')).toThrow()
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-log-toggle'))
+
+    await waitFor(() => {
+      expect(getByTestId('xrpl-trade-desk-activity-rail')).toBeTruthy()
+      expect(getByTestId('xrpl-trade-desk-retry-last-action')).toBeTruthy()
+      expect(getByTestId('xrpl-trade-desk-log-toggle').textContent).toMatch(/hide submission log/i)
+    })
+  })
+
+  it('loads live quotes even when unauthenticated', async () => {
+    mockedUseSession.mockReturnValue({
+      data: null,
+      status: 'unauthenticated',
+    } as any)
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.startsWith('/api/xrpl/orderbook')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            offers: [{ account: 'rOffer', sequence: 1, quality: '1.1', takerGets: '10', takerPays: '20' }],
+          }),
+        } as Response
+      }
+
+      return {
+        ok: false,
+        json: async () => ({ ok: false, error: 'not mocked' }),
+      } as Response
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByTestId, getByText, queryByTestId } = render(<XrplTradeDesk />)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(getByText('Live Quote')).toBeTruthy()
+      expect(getByText(/1 XRP is currently pricing near/i)).toBeTruthy()
+    })
+
+    expect(queryByTestId('xrpl-trade-desk-history')).toBeNull()
+    expect(queryByTestId('xrpl-trade-desk-refresh')).toBeNull()
+    expect((getByTestId('xrpl-trade-desk-orderbook-refresh') as HTMLButtonElement).disabled).toBe(false)
+    expect((getByTestId('xrpl-trade-desk-quick-swap-refresh-quote') as HTMLButtonElement).disabled).toBe(false)
+    expect(queryByTestId('xrpl-trade-desk-log-toggle')).toBeNull()
+    expect(queryByTestId('xrpl-trade-desk-activity-rail')).toBeNull()
   })
 })

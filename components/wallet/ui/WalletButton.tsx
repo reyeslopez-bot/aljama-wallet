@@ -41,7 +41,7 @@ export default function WalletButton() {
           }
           connect({ connector })
         }}
-        className="rounded-full border border-white/12 bg-white/5 px-4 py-2 text-xs font-semibold tracking-wide text-ivory/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-full border border-[#a7c5de]/35 bg-gradient-to-r from-[#7fb0d9] via-[#5c8db4] to-[#4b7c79] px-4 py-2 text-xs font-semibold tracking-wide text-white shadow-lg shadow-[#4b7c79]/25 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isPending ? t('connecting') : isConnected ? shortAddress ?? t('connected') : t('connect')}
       </button>

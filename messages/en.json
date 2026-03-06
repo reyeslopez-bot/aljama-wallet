@@ -291,9 +291,9 @@
   },
   "map": {
     "label": "Map",
-    "idle": "Using VPN/IP location. Dubai is fallback only when network lookup fails.",
+    "idle": "Using device location when available, with network fallback. Dubai is only used if both fail.",
     "blocked": "Location access is currently off.",
-    "loading": "Resolving VPN/IP location...",
+    "loading": "Resolving your location...",
     "centered": "Centered at",
     "error": "Map error.",
     "useLocation": "Use my location",

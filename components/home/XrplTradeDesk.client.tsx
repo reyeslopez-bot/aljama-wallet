@@ -121,6 +121,8 @@ const TRADE_CURRENCY_OPTIONS: CurrencyOption[] = [
 ]
 
 const ISSUED_CURRENCY_OPTIONS = TRADE_CURRENCY_OPTIONS.filter((option) => option.code !== 'XRP')
+const DEFAULT_QUOTE_ISSUER =
+  process.env.NEXT_PUBLIC_XRPL_DEFAULT_QUOTE_ISSUER?.trim() || 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe'
 
 function isXrpCurrency(currency: string): boolean {
   return currency.trim().toUpperCase() === 'XRP'
@@ -187,7 +189,7 @@ export default function XrplTradeDesk() {
   const [offersError, setOffersError] = useState<string | null>(null)
   const [pair, setPair] = useState({
     takerGetsCurrency: 'USD',
-    takerGetsIssuer: '',
+    takerGetsIssuer: DEFAULT_QUOTE_ISSUER,
     takerPaysCurrency: 'XRP',
     takerPaysIssuer: '',
   })
@@ -202,6 +204,7 @@ export default function XrplTradeDesk() {
   const [submitting, setSubmitting] = useState(false)
   const [activityRail, setActivityRail] = useState<ActivityRailItem[]>([])
   const [lastActionRequest, setLastActionRequest] = useState<LastActionRequest | null>(null)
+  const [showSubmissionLog, setShowSubmissionLog] = useState(false)
 
   const [trustlineForm, setTrustlineForm] = useState({
     issuer: '',
@@ -226,7 +229,7 @@ export default function XrplTradeDesk() {
     fromIssuer: '',
     fromValue: '50',
     toCurrency: 'USD',
-    toIssuer: '',
+    toIssuer: DEFAULT_QUOTE_ISSUER,
   })
   const [nftOfferCreateForm, setNftOfferCreateForm] = useState({
     nftokenId: '',
@@ -392,12 +395,11 @@ export default function XrplTradeDesk() {
   }, [locked, refreshAll])
 
   useEffect(() => {
-    if (locked) return
     const timer = window.setTimeout(() => {
       void loadOrderbook()
     }, 220)
     return () => window.clearTimeout(timer)
-  }, [loadOrderbook, locked])
+  }, [loadOrderbook])
 
   const pagedNfts = useMemo(() => {
     const start = (nftPage - 1) * pageSize
@@ -407,6 +409,8 @@ export default function XrplTradeDesk() {
 
   const quickSwapFromIsXrp = isXrpCurrency(quickSwapForm.fromCurrency)
   const quickSwapToIsXrp = isXrpCurrency(quickSwapForm.toCurrency)
+  const quickSwapFromCode = quickSwapForm.fromCurrency.trim().toUpperCase()
+  const quickSwapToCode = quickSwapForm.toCurrency.trim().toUpperCase()
   const quickSwapFromAmount = parsePositiveAmount(quickSwapForm.fromValue)
   const bestOfferQuality = useMemo(() => {
     for (const offer of offers) {
@@ -419,6 +423,10 @@ export default function XrplTradeDesk() {
     if (!quickSwapFromAmount || !bestOfferQuality) return null
     return quickSwapFromAmount / bestOfferQuality
   }, [bestOfferQuality, quickSwapFromAmount])
+  const quickSwapUnitReceive = useMemo(() => {
+    if (!bestOfferQuality) return null
+    return 1 / bestOfferQuality
+  }, [bestOfferQuality])
   const quickSwapValidationIssues = useMemo(() => {
     const issues: string[] = []
     if (!quickSwapFromAmount) {
@@ -431,7 +439,7 @@ export default function XrplTradeDesk() {
       issues.push('Issuer is required for non-XRP "To" currency.')
     }
     if (
-      quickSwapForm.fromCurrency.trim().toUpperCase() === quickSwapForm.toCurrency.trim().toUpperCase() &&
+      quickSwapFromCode === quickSwapToCode &&
       (quickSwapFromIsXrp ||
         quickSwapForm.fromIssuer.trim().toLowerCase() === quickSwapForm.toIssuer.trim().toLowerCase())
     ) {
@@ -443,29 +451,29 @@ export default function XrplTradeDesk() {
     return issues
   }, [
     bestOfferQuality,
-    quickSwapForm.fromCurrency,
     quickSwapForm.fromIssuer,
-    quickSwapForm.toCurrency,
     quickSwapForm.toIssuer,
+    quickSwapFromCode,
     quickSwapFromAmount,
     quickSwapFromIsXrp,
+    quickSwapToCode,
     quickSwapToIsXrp,
   ])
 
   useEffect(() => {
     setPair((prev) => ({
       ...prev,
-      takerGetsCurrency: quickSwapForm.toCurrency.trim().toUpperCase(),
+      takerGetsCurrency: quickSwapToCode,
       takerGetsIssuer: quickSwapToIsXrp ? '' : quickSwapForm.toIssuer.trim(),
-      takerPaysCurrency: quickSwapForm.fromCurrency.trim().toUpperCase(),
+      takerPaysCurrency: quickSwapFromCode,
       takerPaysIssuer: quickSwapFromIsXrp ? '' : quickSwapForm.fromIssuer.trim(),
     }))
   }, [
-    quickSwapForm.fromCurrency,
     quickSwapForm.fromIssuer,
-    quickSwapForm.toCurrency,
     quickSwapForm.toIssuer,
+    quickSwapFromCode,
     quickSwapFromIsXrp,
+    quickSwapToCode,
     quickSwapToIsXrp,
   ])
 
@@ -551,6 +559,18 @@ export default function XrplTradeDesk() {
     !quickSwapFromAmount
 
   const canRetryLastAction = !locked && !regionBlocked && !submitting && !!lastActionRequest
+  const hasSubmissionHistory = activityRail.length > 0
+  const showSubmissionRail = hasSubmissionHistory && showSubmissionLog
+  const shouldShowQuickRecentActions = hasSubmissionHistory
+  const shouldShowGlobalRefresh = mode === 'advanced' || hasSubmissionHistory
+
+  const handleRefreshVisibleData = () => {
+    if (locked) {
+      void loadOrderbook()
+      return
+    }
+    void refreshAll()
+  }
 
   const handleRetryLastAction = () => {
     if (!lastActionRequest) return
@@ -573,24 +593,21 @@ export default function XrplTradeDesk() {
     event.preventDefault()
     if (quickSwapSubmitDisabled || !quickSwapEstimatedReceive || !quickSwapFromAmount) return
 
-    const takerPaysCurrency = quickSwapForm.fromCurrency.trim().toUpperCase()
-    const takerGetsCurrency = quickSwapForm.toCurrency.trim().toUpperCase()
-
     void submitAction(
       '/api/xrpl/trade/offer/create',
       {
         takerGets: {
-          currency: takerGetsCurrency,
+          currency: quickSwapToCode,
           issuer: quickSwapToIsXrp ? undefined : quickSwapForm.toIssuer.trim() || undefined,
           value: formatPreviewAmount(quickSwapEstimatedReceive),
         },
         takerPays: {
-          currency: takerPaysCurrency,
+          currency: quickSwapFromCode,
           issuer: quickSwapFromIsXrp ? undefined : quickSwapForm.fromIssuer.trim() || undefined,
           value: formatPreviewAmount(quickSwapFromAmount),
         },
       },
-      'quick_swap_offer_create',
+      'simple_swap',
     )
   }
 
@@ -608,13 +625,15 @@ export default function XrplTradeDesk() {
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">XRPL Trade Desk</p>
           <h2 id={titleId} className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
-            RWT assets, NFTs, and offers
+            Simple swap first, expert tools when needed
           </h2>
           <p id={bodyId} className="text-sm text-ivory/70">
-            Unified control surface for trustlines, NFT actions, and XRPL order flow.
+            The default view is built for v1 users: check balances, get a quote, and submit a swap without digging
+            through raw XRPL controls.
           </p>
           <p className="mt-1 text-xs text-ivory/55">
-            Currency selectors focus on XRP, USD, EUR, AED, SAR, JPY, and XAU.
+            XRP plus the most common fiat-style quote assets stay up front. Trustlines, NFT actions, and raw offers
+            remain under expert tools.
           </p>
         </div>
         <div className="text-right">
@@ -656,7 +675,7 @@ export default function XrplTradeDesk() {
               : 'border-white/12 bg-white/5 text-ivory/70 hover:border-white/20 hover:text-ivory/90'
           }`}
         >
-          Quick Swap
+          Simple Swap
         </button>
         <button
           data-testid="xrpl-trade-desk-tab-advanced"
@@ -670,743 +689,942 @@ export default function XrplTradeDesk() {
               : 'border-white/12 bg-white/5 text-ivory/70 hover:border-white/20 hover:text-ivory/90'
           }`}
         >
-          Advanced
+          Expert Tools
         </button>
       </div>
 
-      <div className="relative mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]">
+      <div
+        className={`relative mt-6 grid gap-5 ${
+          showSubmissionRail ? 'xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]' : ''
+        }`}
+      >
         <div className="space-y-5">
-          <div className="grid gap-5 lg:grid-cols-2">
-        <div data-testid="xrpl-trade-desk-assets" className="surface-inner space-y-3 p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Asset Holdings</p>
-            <button
-              data-testid="xrpl-trade-desk-assets-refresh"
-              type="button"
-              disabled={locked}
-              onClick={() => void loadAssets()}
-              aria-label="Refresh asset holdings"
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
-            >
-              Refresh
-            </button>
-          </div>
-          {assetsLoading ? <p className="text-sm text-ivory/60">Loading assets...</p> : null}
-          {assetsError ? <p className="text-sm text-red-300">{assetsError}</p> : null}
-          {!assetsLoading && !assetsError ? (
-            <div className="space-y-2">
-              {assets.slice(0, 10).map((asset) => (
-                <div
-                  key={`${asset.currency}-${asset.issuer ?? 'xrp'}`}
-                  data-testid="xrpl-trade-desk-asset-row"
-                  className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm"
-                >
-                  <p className="font-semibold text-ivory">
-                    {asset.currency} {asset.assetType === 'issued' && asset.issuer ? `· ${shortHash(asset.issuer)}` : ''}
-                  </p>
-                  <p className="text-ivory/60">{asset.value}</p>
-                </div>
-              ))}
-              {assets.length === 0 ? <p className="text-sm text-ivory/55">No assets found.</p> : null}
-            </div>
-          ) : null}
-        </div>
-
-        <div data-testid="xrpl-trade-desk-orderbook" className="surface-inner space-y-3 p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Order Book Context</p>
-            <button
-              data-testid="xrpl-trade-desk-orderbook-refresh"
-              type="button"
-              disabled={locked}
-              onClick={() => void loadOrderbook()}
-              aria-label="Refresh order book"
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
-            >
-              Refresh
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <select
-              data-testid="xrpl-trade-desk-orderbook-taker-gets-currency"
-              value={pair.takerGetsCurrency}
-              onChange={(event) => {
-                const currency = event.target.value
-                setPair((prev) => ({
-                  ...prev,
-                  takerGetsCurrency: currency,
-                  takerGetsIssuer: isXrpCurrency(currency) ? '' : prev.takerGetsIssuer,
-                }))
-              }}
-              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory"
-              aria-label="Order book taker gets currency"
-            >
-              {TRADE_CURRENCY_OPTIONS.map((option) => (
-                <option key={`orderbook-gets-${option.code}`} value={option.code} className="bg-black text-ivory">
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <input
-              data-testid="xrpl-trade-desk-orderbook-taker-gets-issuer"
-              value={pair.takerGetsIssuer}
-              onChange={(event) => setPair((prev) => ({ ...prev, takerGetsIssuer: event.target.value }))}
-              disabled={isXrpCurrency(pair.takerGetsCurrency)}
-              aria-label="Order book taker gets issuer"
-              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder={isXrpCurrency(pair.takerGetsCurrency) ? 'No issuer for XRP' : 'Gets issuer'}
-            />
-            <select
-              data-testid="xrpl-trade-desk-orderbook-taker-pays-currency"
-              value={pair.takerPaysCurrency}
-              onChange={(event) => {
-                const currency = event.target.value
-                setPair((prev) => ({
-                  ...prev,
-                  takerPaysCurrency: currency,
-                  takerPaysIssuer: isXrpCurrency(currency) ? '' : prev.takerPaysIssuer,
-                }))
-              }}
-              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory"
-              aria-label="Order book taker pays currency"
-            >
-              {TRADE_CURRENCY_OPTIONS.map((option) => (
-                <option key={`orderbook-pays-${option.code}`} value={option.code} className="bg-black text-ivory">
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <input
-              data-testid="xrpl-trade-desk-orderbook-taker-pays-issuer"
-              value={pair.takerPaysIssuer}
-              onChange={(event) => setPair((prev) => ({ ...prev, takerPaysIssuer: event.target.value }))}
-              disabled={isXrpCurrency(pair.takerPaysCurrency)}
-              aria-label="Order book taker pays issuer"
-              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder={isXrpCurrency(pair.takerPaysCurrency) ? 'No issuer for XRP' : 'Pays issuer'}
-            />
-          </div>
-          {offersLoading ? <p className="text-sm text-ivory/60">Loading orderbook...</p> : null}
-          {offersError ? <p className="text-sm text-red-300">{offersError}</p> : null}
-          {!offersLoading && !offersError ? (
-            <div className="space-y-2">
-              {offers.slice(0, 6).map((offer) => (
-                <div
-                  key={`${offer.account ?? 'na'}-${offer.sequence ?? 0}`}
-                  data-testid="xrpl-trade-desk-orderbook-row"
-                  className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-ivory/75"
-                >
-                  <p>Seq {offer.sequence ?? '--'} · {shortHash(offer.account)}</p>
-                  <p>Quality: {offer.quality ?? '--'}</p>
-                </div>
-              ))}
-              {offers.length === 0 ? <p className="text-sm text-ivory/55">No orderbook entries.</p> : null}
-            </div>
-          ) : null}
-        </div>
-
-        <div data-testid="xrpl-trade-desk-nfts" className="surface-inner space-y-3 p-4 lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">NFT Gallery</p>
-            <button
-              data-testid="xrpl-trade-desk-nfts-refresh"
-              type="button"
-              disabled={locked}
-              onClick={() => void loadNfts()}
-              aria-label="Refresh NFT gallery"
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
-            >
-              Refresh
-            </button>
-          </div>
-          {nftsLoading ? <p className="text-sm text-ivory/60">Loading NFTs...</p> : null}
-          {nftsError ? <p className="text-sm text-red-300">{nftsError}</p> : null}
-          {!nftsLoading && !nftsError ? (
-            <>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {pagedNfts.map((nft, index) => (
-                  <div
-                    key={nft.nftokenId ?? `nft-${index}`}
-                    data-testid="xrpl-trade-desk-nft-card"
-                    className="rounded-xl border border-white/10 bg-black/30 p-3"
-                  >
-                    <p className="text-xs text-ivory/50">{shortHash(nft.nftokenId)}</p>
-                    <p className="mt-1 text-sm font-semibold text-ivory">{nft.metadata?.name ?? 'Untitled NFT'}</p>
-                    <p className="mt-1 line-clamp-2 text-xs text-ivory/60">{nft.metadata?.description ?? nft.uri ?? 'No metadata'}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between text-xs text-ivory/70">
-                <button
-                  type="button"
-                  onClick={() => setNftPage((page) => Math.max(1, page - 1))}
-                  disabled={nftPage <= 1}
-                  aria-label="Previous NFT page"
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 disabled:opacity-50"
-                >
-                  Prev
-                </button>
-                <span>Page {nftPage} / {pageCount}</span>
-                <button
-                  type="button"
-                  onClick={() => setNftPage((page) => Math.min(pageCount, page + 1))}
-                  disabled={nftPage >= pageCount}
-                  aria-label="Next NFT page"
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            </>
-          ) : null}
-        </div>
-
-        <div data-testid="xrpl-trade-desk-history" className="surface-inner space-y-3 p-4 lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Signed Action History</p>
-            <button
-              data-testid="xrpl-trade-desk-history-refresh"
-              type="button"
-              disabled={locked}
-              onClick={() => void loadHistory()}
-              aria-label="Refresh signed action history"
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
-            >
-              Refresh
-            </button>
-          </div>
-          {historyLoading ? <p className="text-sm text-ivory/60">Loading action history...</p> : null}
-          {historyError ? <p className="text-sm text-red-300">{historyError}</p> : null}
-          {!historyLoading && !historyError ? (
-            <div className="space-y-2">
-              {history.slice(0, 10).map((item) => (
-                <div
-                  key={item.id}
-                  data-testid="xrpl-trade-desk-history-row"
-                  className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-ivory/75"
-                >
-                  <p className="font-semibold text-ivory">{item.action} · {item.status}</p>
-                  <p>tx: {shortHash(item.txHash)}</p>
-                  <p>engine: {item.engineResult ?? '--'}</p>
-                </div>
-              ))}
-              {history.length === 0 ? <p className="text-sm text-ivory/55">No actions yet.</p> : null}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
           {mode === 'quick' ? (
-            <form
-              data-testid="xrpl-trade-desk-quick-swap-form"
-              className="surface-inner space-y-4 p-4"
-              aria-labelledby="xrpl-trade-desk-quick-swap-title"
-              aria-describedby={regionBlocked ? regionPolicyId : undefined}
-              onSubmit={handleQuickSwapSubmit}
-            >
-              <div className="flex items-center justify-between">
-                <p id="xrpl-trade-desk-quick-swap-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
-                  Quick Swap
+            <>
+              <div className="surface-inner rounded-[2rem] border border-saffron/15 bg-gradient-to-br from-[#f1d8ab]/10 via-transparent to-[#4b7c79]/10 p-5">
+                <p className="text-xs uppercase tracking-[0.16em] text-saffron/75">Starter Mode</p>
+                <h3 className="mt-2 text-xl font-semibold text-ivory">Swap in three steps</h3>
+                <p className="mt-2 max-w-2xl text-sm text-ivory/70">
+                  Stay on this tab for v1. It keeps the path limited to balances, a live quote, and one swap form.
                 </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-saffron/70">1. Access</p>
+                    <p className="mt-2 text-sm font-semibold text-ivory">{locked ? 'Sign in first' : 'Session ready'}</p>
+                    <p className="mt-1 text-xs text-ivory/60">
+                      {locked ? 'Trading stays locked until you sign in.' : 'Your wallet session can fetch balances and submit a swap.'}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-saffron/70">2. Pair</p>
+                    <p className="mt-2 text-sm font-semibold text-ivory">Choose what you pay and receive</p>
+                    <p className="mt-1 text-xs text-ivory/60">
+                      Non-XRP tokens need an issuer address. XRP never does.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-saffron/70">3. Review</p>
+                    <p className="mt-2 text-sm font-semibold text-ivory">Check the estimate before sending</p>
+                    <p className="mt-1 text-xs text-ivory/60">
+                      Refresh the quote any time before you submit.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-5 lg:grid-cols-2">
+                <div data-testid="xrpl-trade-desk-assets" className="surface-inner space-y-3 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Wallet Balances</p>
+                      <p className="mt-1 text-xs text-ivory/55">The first assets your wallet can trade with right now.</p>
+                    </div>
+                    <button
+                      data-testid="xrpl-trade-desk-assets-refresh"
+                      type="button"
+                      disabled={locked}
+                      onClick={() => void loadAssets()}
+                      aria-label="Refresh wallet balances"
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  {assetsLoading ? <p className="text-sm text-ivory/60">Loading balances...</p> : null}
+                  {assetsError ? <p className="text-sm text-red-300">{assetsError}</p> : null}
+                  {!assetsLoading && !assetsError ? (
+                    <div className="space-y-2">
+                      {assets.slice(0, 6).map((asset) => (
+                        <div
+                          key={`${asset.currency}-${asset.issuer ?? 'xrp'}`}
+                          data-testid="xrpl-trade-desk-asset-row"
+                          className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                        >
+                          <p className="font-semibold text-ivory">
+                            {asset.currency} {asset.assetType === 'issued' && asset.issuer ? `· ${shortHash(asset.issuer)}` : ''}
+                          </p>
+                          <p className="text-ivory/60">{asset.value}</p>
+                        </div>
+                      ))}
+                      {assets.length === 0 ? <p className="text-sm text-ivory/55">No balances found.</p> : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div data-testid="xrpl-trade-desk-orderbook" className="surface-inner space-y-3 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Live Quote</p>
+                      <p className="mt-1 text-xs text-ivory/55">
+                        {quickSwapFromCode} to {quickSwapToCode}
+                      </p>
+                    </div>
+                    <button
+                      data-testid="xrpl-trade-desk-orderbook-refresh"
+                      type="button"
+                      disabled={offersLoading}
+                      onClick={() => void loadOrderbook()}
+                      aria-label="Refresh live quote"
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
+                    >
+                      Refresh quote
+                    </button>
+                  </div>
+                  {offersLoading ? <p className="text-sm text-ivory/60">Loading quote...</p> : null}
+                  {offersError ? <p className="text-sm text-red-300">{offersError}</p> : null}
+                  {!offersLoading && !offersError ? (
+                    <div className="space-y-3">
+                      <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                        <p className="text-xs uppercase tracking-[0.14em] text-ivory/50">Estimated receive</p>
+                        <p className="mt-2 text-2xl font-semibold text-ivory">
+                          {quickSwapEstimatedReceive ? `${formatPreviewAmount(quickSwapEstimatedReceive)} ${quickSwapToCode}` : '--'}
+                        </p>
+                        <p className="mt-1 text-xs text-ivory/55">
+                          {quickSwapUnitReceive
+                            ? `1 ${quickSwapFromCode} is currently pricing near ${formatPreviewAmount(quickSwapUnitReceive)} ${quickSwapToCode}.`
+                            : 'Refresh the quote to estimate what you will receive.'}
+                        </p>
+                      </div>
+                      <div className="grid gap-2 text-xs text-ivory/70 sm:grid-cols-2">
+                        <p>Visible offers: <span className="font-semibold text-ivory">{offers.length}</span></p>
+                        <p>Network: <span className="font-semibold text-ivory">{networkConfig.name}</span></p>
+                        <p>Fee estimate: <span className="font-semibold text-ivory">~{networkFeeEstimateXrp} XRP</span></p>
+                        <p>Region: <span className="font-semibold text-ivory">{region.toUpperCase()}</span></p>
+                      </div>
+                      {!quickSwapFromIsXrp && !quickSwapForm.fromIssuer.trim() ? (
+                        <p className="text-xs text-saffron/80">Add the issuer address for the asset you are paying with.</p>
+                      ) : null}
+                      {!quickSwapToIsXrp && !quickSwapForm.toIssuer.trim() ? (
+                        <p className="text-xs text-saffron/80">Add the issuer address for the asset you want to receive.</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <form
+                data-testid="xrpl-trade-desk-quick-swap-form"
+                className="surface-inner space-y-4 p-5"
+                aria-labelledby="xrpl-trade-desk-quick-swap-title"
+                aria-describedby={regionBlocked ? regionPolicyId : undefined}
+                onSubmit={handleQuickSwapSubmit}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p id="xrpl-trade-desk-quick-swap-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+                      Simple Swap
+                    </p>
+                    <p className="mt-1 text-sm text-ivory/65">
+                      Pick the asset you want to spend, then the asset you want back.
+                    </p>
+                  </div>
+                  <button
+                    data-testid="xrpl-trade-desk-quick-swap-refresh-quote"
+                    type="button"
+                    onClick={() => void loadOrderbook()}
+                    disabled={offersLoading}
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
+                  >
+                    Refresh quote
+                  </button>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-ivory/50">You pay</p>
+                    <select
+                      data-testid="xrpl-trade-desk-quick-swap-from-currency"
+                      value={quickSwapForm.fromCurrency}
+                      onChange={(event) => {
+                        const currency = event.target.value
+                        setQuickSwapForm((prev) => ({
+                          ...prev,
+                          fromCurrency: currency,
+                          fromIssuer: isXrpCurrency(currency) ? '' : prev.fromIssuer,
+                        }))
+                      }}
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                      aria-label="Quick swap from currency"
+                    >
+                      {TRADE_CURRENCY_OPTIONS.map((option) => (
+                        <option key={`quick-from-${option.code}`} value={option.code} className="bg-black text-ivory">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      data-testid="xrpl-trade-desk-quick-swap-from-issuer"
+                      value={quickSwapForm.fromIssuer}
+                      onChange={(event) => setQuickSwapForm((prev) => ({ ...prev, fromIssuer: event.target.value }))}
+                      placeholder={quickSwapFromIsXrp ? 'No issuer needed for XRP' : 'Issuer address'}
+                      disabled={quickSwapFromIsXrp}
+                      aria-label="Quick swap from issuer"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-quick-swap-from-value"
+                      value={quickSwapForm.fromValue}
+                      onChange={(event) => setQuickSwapForm((prev) => ({ ...prev, fromValue: event.target.value }))}
+                      placeholder="Amount to spend"
+                      aria-label="Quick swap from amount"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                  </div>
+
+                  <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-ivory/50">You receive</p>
+                    <select
+                      data-testid="xrpl-trade-desk-quick-swap-to-currency"
+                      value={quickSwapForm.toCurrency}
+                      onChange={(event) => {
+                        const currency = event.target.value
+                        setQuickSwapForm((prev) => ({
+                          ...prev,
+                          toCurrency: currency,
+                          toIssuer: isXrpCurrency(currency) ? '' : prev.toIssuer,
+                        }))
+                      }}
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                      aria-label="Quick swap to currency"
+                    >
+                      {TRADE_CURRENCY_OPTIONS.map((option) => (
+                        <option key={`quick-to-${option.code}`} value={option.code} className="bg-black text-ivory">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      data-testid="xrpl-trade-desk-quick-swap-to-issuer"
+                      value={quickSwapForm.toIssuer}
+                      onChange={(event) => setQuickSwapForm((prev) => ({ ...prev, toIssuer: event.target.value }))}
+                      placeholder={quickSwapToIsXrp ? 'No issuer needed for XRP' : 'Issuer address'}
+                      disabled={quickSwapToIsXrp}
+                      aria-label="Quick swap to issuer"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <div
+                      data-testid="xrpl-trade-desk-quick-swap-preview"
+                      className="rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-ivory/75"
+                    >
+                      <p className="text-xs uppercase tracking-[0.14em] text-ivory/50">Preview</p>
+                      <p className="mt-2">
+                        Estimated receive:{' '}
+                        <span className="font-semibold text-ivory">
+                          {quickSwapEstimatedReceive ? `${formatPreviewAmount(quickSwapEstimatedReceive)} ${quickSwapToCode}` : '--'}
+                        </span>
+                      </p>
+                      <p className="mt-1">
+                        Network fee:{' '}
+                        <span className="font-semibold text-ivory">~{networkFeeEstimateXrp} XRP</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {quickSwapValidationIssues.length > 0 ? (
+                  <div data-testid="xrpl-trade-desk-quick-swap-validation" className="rounded-xl border border-red-300/25 bg-red-300/10 p-3 text-xs text-red-200">
+                    <ul className="space-y-1">
+                      {quickSwapValidationIssues.map((issue) => (
+                        <li key={issue}>{issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                <div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-ivory/65">
+                  If you need trustlines, raw order-book filters, or NFT controls, switch to the expert tools tab.
+                </div>
+
                 <button
-                  data-testid="xrpl-trade-desk-quick-swap-refresh-quote"
-                  type="button"
-                  onClick={() => void loadOrderbook()}
-                  disabled={locked}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
+                  data-testid="xrpl-trade-desk-quick-swap-submit"
+                  type="submit"
+                  disabled={quickSwapSubmitDisabled}
+                  className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#7fb0d9] via-[#5c8db4] to-[#4b7c79] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b7c79]/30 transition disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Refresh Quote
+                  Submit simple swap
                 </button>
-              </div>
+              </form>
 
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  data-testid="xrpl-trade-desk-quick-swap-from-currency"
-                  value={quickSwapForm.fromCurrency}
-                  onChange={(event) => {
-                    const currency = event.target.value
-                    setQuickSwapForm((prev) => ({
-                      ...prev,
-                      fromCurrency: currency,
-                      fromIssuer: isXrpCurrency(currency) ? '' : prev.fromIssuer,
-                    }))
-                  }}
-                  className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-                  aria-label="Quick swap from currency"
-                >
-                  {TRADE_CURRENCY_OPTIONS.map((option) => (
-                    <option key={`quick-from-${option.code}`} value={option.code} className="bg-black text-ivory">
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  data-testid="xrpl-trade-desk-quick-swap-from-issuer"
-                  value={quickSwapForm.fromIssuer}
-                  onChange={(event) => setQuickSwapForm((prev) => ({ ...prev, fromIssuer: event.target.value }))}
-                  placeholder={quickSwapFromIsXrp ? 'No issuer for XRP' : 'From issuer'}
-                  disabled={quickSwapFromIsXrp}
-                  aria-label="Quick swap from issuer"
-                  className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <input
-                  data-testid="xrpl-trade-desk-quick-swap-from-value"
-                  value={quickSwapForm.fromValue}
-                  onChange={(event) => setQuickSwapForm((prev) => ({ ...prev, fromValue: event.target.value }))}
-                  placeholder="From amount"
-                  aria-label="Quick swap from amount"
-                  className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-                />
-                <select
-                  data-testid="xrpl-trade-desk-quick-swap-to-currency"
-                  value={quickSwapForm.toCurrency}
-                  onChange={(event) => {
-                    const currency = event.target.value
-                    setQuickSwapForm((prev) => ({
-                      ...prev,
-                      toCurrency: currency,
-                      toIssuer: isXrpCurrency(currency) ? '' : prev.toIssuer,
-                    }))
-                  }}
-                  className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-                  aria-label="Quick swap to currency"
-                >
-                  {TRADE_CURRENCY_OPTIONS.map((option) => (
-                    <option key={`quick-to-${option.code}`} value={option.code} className="bg-black text-ivory">
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  data-testid="xrpl-trade-desk-quick-swap-to-issuer"
-                  value={quickSwapForm.toIssuer}
-                  onChange={(event) => setQuickSwapForm((prev) => ({ ...prev, toIssuer: event.target.value }))}
-                  placeholder={quickSwapToIsXrp ? 'No issuer for XRP' : 'To issuer'}
-                  disabled={quickSwapToIsXrp}
-                  aria-label="Quick swap to issuer"
-                  className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </div>
-
-              {quickSwapValidationIssues.length > 0 ? (
-                <div data-testid="xrpl-trade-desk-quick-swap-validation" className="rounded-xl border border-red-300/25 bg-red-300/10 p-3 text-xs text-red-200">
-                  <ul className="space-y-1">
-                    {quickSwapValidationIssues.map((issue) => (
-                      <li key={issue}>{issue}</li>
-                    ))}
-                  </ul>
+              {shouldShowQuickRecentActions ? (
+                <div data-testid="xrpl-trade-desk-history" className="surface-inner space-y-3 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Recent Actions</p>
+                      <p className="mt-1 text-xs text-ivory/55">The latest signed XRPL activity for this wallet session.</p>
+                    </div>
+                    <button
+                      data-testid="xrpl-trade-desk-history-refresh"
+                      type="button"
+                      disabled={historyLoading}
+                      onClick={() => void loadHistory()}
+                      aria-label="Refresh recent actions"
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  {historyLoading ? <p className="text-sm text-ivory/60">Loading recent actions...</p> : null}
+                  {historyError ? <p className="text-sm text-red-300">{historyError}</p> : null}
+                  {!historyLoading && !historyError ? (
+                    <div className="space-y-2">
+                      {history.slice(0, 4).map((item) => (
+                        <div
+                          key={item.id}
+                          data-testid="xrpl-trade-desk-history-row"
+                          className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-ivory/75"
+                        >
+                          <p className="font-semibold text-ivory">{item.action} · {item.status}</p>
+                          <p>tx: {shortHash(item.txHash)}</p>
+                          <p>engine: {item.engineResult ?? '--'}</p>
+                        </div>
+                      ))}
+                      {history.length === 0 ? <p className="text-sm text-ivory/55">No actions yet.</p> : null}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
+            </>
+          ) : (
+            <>
+              <div className="surface-inner rounded-[2rem] border border-white/10 bg-black/20 p-5">
+                <p className="text-xs uppercase tracking-[0.16em] text-saffron/75">Expert Mode</p>
+                <h3 className="mt-2 text-xl font-semibold text-ivory">Raw XRPL controls</h3>
+                <p className="mt-2 text-sm text-ivory/70">
+                  Use this tab only if you need trustlines, direct offer management, or NFT actions. The simple swap tab
+                  is the safer default for v1.
+                </p>
+              </div>
 
-              <div
-                data-testid="xrpl-trade-desk-quick-swap-preview"
-                className="rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-ivory/75"
-              >
-                <p className="text-xs uppercase tracking-[0.14em] text-ivory/50">Preview</p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <p>
-                    Estimated receive: <span className="font-semibold text-ivory">{quickSwapEstimatedReceive ? `${formatPreviewAmount(quickSwapEstimatedReceive)} ${quickSwapForm.toCurrency.toUpperCase()}` : '--'}</span>
-                  </p>
-                  <p>
-                    Quote quality: <span className="font-semibold text-ivory">{bestOfferQuality ? formatPreviewAmount(bestOfferQuality) : '--'}</span>
-                  </p>
-                  <p>
-                    Network: <span className="font-semibold text-ivory">{networkConfig.name}</span>
-                  </p>
-                  <p>
-                    Fee est.: <span className="font-semibold text-ivory">~{networkFeeEstimateXrp} XRP</span>
-                  </p>
+              <div className="grid gap-5 lg:grid-cols-2">
+                <div data-testid="xrpl-trade-desk-assets" className="surface-inner space-y-3 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Wallet Balances</p>
+                    <button
+                      data-testid="xrpl-trade-desk-assets-refresh"
+                      type="button"
+                      disabled={locked}
+                      onClick={() => void loadAssets()}
+                      aria-label="Refresh wallet balances"
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  {assetsLoading ? <p className="text-sm text-ivory/60">Loading balances...</p> : null}
+                  {assetsError ? <p className="text-sm text-red-300">{assetsError}</p> : null}
+                  {!assetsLoading && !assetsError ? (
+                    <div className="space-y-2">
+                      {assets.slice(0, 10).map((asset) => (
+                        <div
+                          key={`${asset.currency}-${asset.issuer ?? 'xrp'}`}
+                          data-testid="xrpl-trade-desk-asset-row"
+                          className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                        >
+                          <p className="font-semibold text-ivory">
+                            {asset.currency} {asset.assetType === 'issued' && asset.issuer ? `· ${shortHash(asset.issuer)}` : ''}
+                          </p>
+                          <p className="text-ivory/60">{asset.value}</p>
+                        </div>
+                      ))}
+                      {assets.length === 0 ? <p className="text-sm text-ivory/55">No balances found.</p> : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div data-testid="xrpl-trade-desk-orderbook" className="surface-inner space-y-3 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Raw Order Book</p>
+                    <button
+                      data-testid="xrpl-trade-desk-orderbook-refresh"
+                      type="button"
+                      disabled={offersLoading}
+                      onClick={() => void loadOrderbook()}
+                      aria-label="Refresh order book"
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <select
+                      data-testid="xrpl-trade-desk-orderbook-taker-gets-currency"
+                      value={pair.takerGetsCurrency}
+                      onChange={(event) => {
+                        const currency = event.target.value
+                        setPair((prev) => ({
+                          ...prev,
+                          takerGetsCurrency: currency,
+                          takerGetsIssuer: isXrpCurrency(currency) ? '' : prev.takerGetsIssuer,
+                        }))
+                      }}
+                      className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory"
+                      aria-label="Order book taker gets currency"
+                    >
+                      {TRADE_CURRENCY_OPTIONS.map((option) => (
+                        <option key={`orderbook-gets-${option.code}`} value={option.code} className="bg-black text-ivory">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      data-testid="xrpl-trade-desk-orderbook-taker-gets-issuer"
+                      value={pair.takerGetsIssuer}
+                      onChange={(event) => setPair((prev) => ({ ...prev, takerGetsIssuer: event.target.value }))}
+                      disabled={isXrpCurrency(pair.takerGetsCurrency)}
+                      aria-label="Order book taker gets issuer"
+                      className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder={isXrpCurrency(pair.takerGetsCurrency) ? 'No issuer for XRP' : 'Gets issuer'}
+                    />
+                    <select
+                      data-testid="xrpl-trade-desk-orderbook-taker-pays-currency"
+                      value={pair.takerPaysCurrency}
+                      onChange={(event) => {
+                        const currency = event.target.value
+                        setPair((prev) => ({
+                          ...prev,
+                          takerPaysCurrency: currency,
+                          takerPaysIssuer: isXrpCurrency(currency) ? '' : prev.takerPaysIssuer,
+                        }))
+                      }}
+                      className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory"
+                      aria-label="Order book taker pays currency"
+                    >
+                      {TRADE_CURRENCY_OPTIONS.map((option) => (
+                        <option key={`orderbook-pays-${option.code}`} value={option.code} className="bg-black text-ivory">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      data-testid="xrpl-trade-desk-orderbook-taker-pays-issuer"
+                      value={pair.takerPaysIssuer}
+                      onChange={(event) => setPair((prev) => ({ ...prev, takerPaysIssuer: event.target.value }))}
+                      disabled={isXrpCurrency(pair.takerPaysCurrency)}
+                      aria-label="Order book taker pays issuer"
+                      className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-ivory disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder={isXrpCurrency(pair.takerPaysCurrency) ? 'No issuer for XRP' : 'Pays issuer'}
+                    />
+                  </div>
+                  {offersLoading ? <p className="text-sm text-ivory/60">Loading order book...</p> : null}
+                  {offersError ? <p className="text-sm text-red-300">{offersError}</p> : null}
+                  {!offersLoading && !offersError ? (
+                    <div className="space-y-2">
+                      {offers.slice(0, 6).map((offer) => (
+                        <div
+                          key={`${offer.account ?? 'na'}-${offer.sequence ?? 0}`}
+                          data-testid="xrpl-trade-desk-orderbook-row"
+                          className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-ivory/75"
+                        >
+                          <p>Seq {offer.sequence ?? '--'} · {shortHash(offer.account)}</p>
+                          <p>Quality: {offer.quality ?? '--'}</p>
+                        </div>
+                      ))}
+                      {offers.length === 0 ? <p className="text-sm text-ivory/55">No orderbook entries.</p> : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div data-testid="xrpl-trade-desk-nfts" className="surface-inner space-y-3 p-4 lg:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Wallet NFTs</p>
+                    <button
+                      data-testid="xrpl-trade-desk-nfts-refresh"
+                      type="button"
+                      disabled={locked}
+                      onClick={() => void loadNfts()}
+                      aria-label="Refresh wallet NFTs"
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  {nftsLoading ? <p className="text-sm text-ivory/60">Loading NFTs...</p> : null}
+                  {nftsError ? <p className="text-sm text-red-300">{nftsError}</p> : null}
+                  {!nftsLoading && !nftsError ? (
+                    <>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {pagedNfts.map((nft, index) => (
+                          <div
+                            key={nft.nftokenId ?? `nft-${index}`}
+                            data-testid="xrpl-trade-desk-nft-card"
+                            className="rounded-xl border border-white/10 bg-black/30 p-3"
+                          >
+                            <p className="text-xs text-ivory/50">{shortHash(nft.nftokenId)}</p>
+                            <p className="mt-1 text-sm font-semibold text-ivory">{nft.metadata?.name ?? 'Untitled NFT'}</p>
+                            <p className="mt-1 line-clamp-2 text-xs text-ivory/60">{nft.metadata?.description ?? nft.uri ?? 'No metadata'}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-ivory/70">
+                        <button
+                          type="button"
+                          onClick={() => setNftPage((page) => Math.max(1, page - 1))}
+                          disabled={nftPage <= 1}
+                          aria-label="Previous NFT page"
+                          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 disabled:opacity-50"
+                        >
+                          Prev
+                        </button>
+                        <span>Page {nftPage} / {pageCount}</span>
+                        <button
+                          type="button"
+                          onClick={() => setNftPage((page) => Math.min(pageCount, page + 1))}
+                          disabled={nftPage >= pageCount}
+                          aria-label="Next NFT page"
+                          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 disabled:opacity-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+
+                <div data-testid="xrpl-trade-desk-history" className="surface-inner space-y-3 p-4 lg:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Recent Ledger Actions</p>
+                    <button
+                      data-testid="xrpl-trade-desk-history-refresh"
+                      type="button"
+                      disabled={locked}
+                      onClick={() => void loadHistory()}
+                      aria-label="Refresh recent ledger actions"
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  {historyLoading ? <p className="text-sm text-ivory/60">Loading recent actions...</p> : null}
+                  {historyError ? <p className="text-sm text-red-300">{historyError}</p> : null}
+                  {!historyLoading && !historyError ? (
+                    <div className="space-y-2">
+                      {history.slice(0, 10).map((item) => (
+                        <div
+                          key={item.id}
+                          data-testid="xrpl-trade-desk-history-row"
+                          className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-ivory/75"
+                        >
+                          <p className="font-semibold text-ivory">{item.action} · {item.status}</p>
+                          <p>tx: {shortHash(item.txHash)}</p>
+                          <p>engine: {item.engineResult ?? '--'}</p>
+                        </div>
+                      ))}
+                      {history.length === 0 ? <p className="text-sm text-ivory/55">No actions yet.</p> : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
-              <button
-                data-testid="xrpl-trade-desk-quick-swap-submit"
-                type="submit"
-                disabled={quickSwapSubmitDisabled}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#7fb0d9] via-[#5c8db4] to-[#4b7c79] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b7c79]/30 transition disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Submit Quick Swap
-              </button>
-            </form>
-          ) : null}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <form
+                  data-testid="xrpl-trade-desk-trustline-form"
+                  className="surface-inner space-y-3 p-4"
+                  aria-labelledby="xrpl-trade-desk-trustline-title"
+                  aria-describedby={regionBlocked ? regionPolicyId : undefined}
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void submitAction('/api/xrpl/trustline/set', trustlineForm, 'trustline_set')
+                  }}
+                >
+                  <p id="xrpl-trade-desk-trustline-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+                    Set Trustline
+                  </p>
+                  <input
+                    data-testid="xrpl-trade-desk-trustline-issuer"
+                    value={trustlineForm.issuer}
+                    onChange={(event) => setTrustlineForm((prev) => ({ ...prev, issuer: event.target.value }))}
+                    aria-label="Trustline issuer address"
+                    placeholder="Issuer address"
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      data-testid="xrpl-trade-desk-trustline-currency"
+                      value={trustlineForm.currency}
+                      onChange={(event) => setTrustlineForm((prev) => ({ ...prev, currency: event.target.value }))}
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                      aria-label="Trustline currency"
+                    >
+                      {ISSUED_CURRENCY_OPTIONS.map((option) => (
+                        <option key={`trustline-${option.code}`} value={option.code} className="bg-black text-ivory">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      data-testid="xrpl-trade-desk-trustline-limit"
+                      value={trustlineForm.limit}
+                      onChange={(event) => setTrustlineForm((prev) => ({ ...prev, limit: event.target.value }))}
+                      aria-label="Trustline limit"
+                      placeholder="Limit"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                  </div>
+                  <button
+                    data-testid="xrpl-trade-desk-trustline-submit"
+                    type="submit"
+                    disabled={locked || regionBlocked || submitting}
+                    className="rounded-xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    Submit Trustline
+                  </button>
+                </form>
 
-          {mode === 'advanced' ? (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <form
-          data-testid="xrpl-trade-desk-trustline-form"
-          className="surface-inner space-y-3 p-4"
-          aria-labelledby="xrpl-trade-desk-trustline-title"
-          aria-describedby={regionBlocked ? regionPolicyId : undefined}
-          onSubmit={(event) => {
-            event.preventDefault()
-            void submitAction('/api/xrpl/trustline/set', trustlineForm, 'trustline_set')
-          }}
-        >
-          <p id="xrpl-trade-desk-trustline-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
-            Set Trustline
-          </p>
-          <input
-            data-testid="xrpl-trade-desk-trustline-issuer"
-            value={trustlineForm.issuer}
-            onChange={(event) => setTrustlineForm((prev) => ({ ...prev, issuer: event.target.value }))}
-            aria-label="Trustline issuer address"
-            placeholder="Issuer address"
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              data-testid="xrpl-trade-desk-trustline-currency"
-              value={trustlineForm.currency}
-              onChange={(event) => setTrustlineForm((prev) => ({ ...prev, currency: event.target.value }))}
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-              aria-label="Trustline currency"
-            >
-              {ISSUED_CURRENCY_OPTIONS.map((option) => (
-                <option key={`trustline-${option.code}`} value={option.code} className="bg-black text-ivory">
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <input
-              data-testid="xrpl-trade-desk-trustline-limit"
-              value={trustlineForm.limit}
-              onChange={(event) => setTrustlineForm((prev) => ({ ...prev, limit: event.target.value }))}
-              aria-label="Trustline limit"
-              placeholder="Limit"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
-          </div>
-          <button
-            data-testid="xrpl-trade-desk-trustline-submit"
-            type="submit"
-            disabled={locked || regionBlocked || submitting}
-            className="rounded-xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            Submit Trustline
-          </button>
-        </form>
+                <form
+                  data-testid="xrpl-trade-desk-mint-form"
+                  className="surface-inner space-y-3 p-4"
+                  aria-labelledby="xrpl-trade-desk-mint-title"
+                  aria-describedby={regionBlocked ? regionPolicyId : undefined}
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void submitAction('/api/xrpl/nft/mint', {
+                      uri: mintForm.uri,
+                      taxon: Number(mintForm.taxon || 0),
+                    }, 'nft_mint')
+                  }}
+                >
+                  <p id="xrpl-trade-desk-mint-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+                    Mint NFT
+                  </p>
+                  <input
+                    data-testid="xrpl-trade-desk-mint-uri"
+                    value={mintForm.uri}
+                    onChange={(event) => setMintForm((prev) => ({ ...prev, uri: event.target.value }))}
+                    aria-label="NFT metadata URI"
+                    placeholder="Metadata URI (https://... or ipfs://...)"
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                  />
+                  <input
+                    data-testid="xrpl-trade-desk-mint-taxon"
+                    value={mintForm.taxon}
+                    onChange={(event) => setMintForm((prev) => ({ ...prev, taxon: event.target.value }))}
+                    aria-label="NFT taxon"
+                    placeholder="Taxon"
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                  />
+                  <button
+                    data-testid="xrpl-trade-desk-mint-submit"
+                    type="submit"
+                    disabled={locked || regionBlocked || submitting}
+                    className="rounded-xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-4 py-2 text-sm font-semibold text-[#1c120a] disabled:opacity-60"
+                  >
+                    Mint
+                  </button>
+                </form>
 
-              <form
-          data-testid="xrpl-trade-desk-mint-form"
-          className="surface-inner space-y-3 p-4"
-          aria-labelledby="xrpl-trade-desk-mint-title"
-          aria-describedby={regionBlocked ? regionPolicyId : undefined}
-          onSubmit={(event) => {
-            event.preventDefault()
-            void submitAction('/api/xrpl/nft/mint', {
-              uri: mintForm.uri,
-              taxon: Number(mintForm.taxon || 0),
-            }, 'nft_mint')
-          }}
-        >
-          <p id="xrpl-trade-desk-mint-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
-            Mint NFT
-          </p>
-          <input
-            data-testid="xrpl-trade-desk-mint-uri"
-            value={mintForm.uri}
-            onChange={(event) => setMintForm((prev) => ({ ...prev, uri: event.target.value }))}
-            aria-label="NFT metadata URI"
-            placeholder="Metadata URI (https://... or ipfs://...)"
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-          />
-          <input
-            data-testid="xrpl-trade-desk-mint-taxon"
-            value={mintForm.taxon}
-            onChange={(event) => setMintForm((prev) => ({ ...prev, taxon: event.target.value }))}
-            aria-label="NFT taxon"
-            placeholder="Taxon"
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-          />
-          <button
-            data-testid="xrpl-trade-desk-mint-submit"
-            type="submit"
-            disabled={locked || regionBlocked || submitting}
-            className="rounded-xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-4 py-2 text-sm font-semibold text-[#1c120a] disabled:opacity-60"
-          >
-            Mint
-          </button>
-        </form>
+                <form
+                  data-testid="xrpl-trade-desk-offer-form"
+                  className="surface-inner space-y-3 p-4"
+                  aria-labelledby="xrpl-trade-desk-offer-title"
+                  aria-describedby={regionBlocked ? regionPolicyId : undefined}
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void submitAction('/api/xrpl/trade/offer/create', {
+                      takerGets: {
+                        currency: offerForm.takerGetsCurrency.trim().toUpperCase(),
+                        issuer: isXrpCurrency(offerForm.takerGetsCurrency)
+                          ? undefined
+                          : offerForm.takerGetsIssuer || undefined,
+                        value: offerForm.takerGetsValue,
+                      },
+                      takerPays: {
+                        currency: offerForm.takerPaysCurrency.trim().toUpperCase(),
+                        issuer: isXrpCurrency(offerForm.takerPaysCurrency)
+                          ? undefined
+                          : offerForm.takerPaysIssuer || undefined,
+                        value: offerForm.takerPaysValue,
+                      },
+                    }, 'offer_create')
+                  }}
+                >
+                  <p id="xrpl-trade-desk-offer-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+                    Create Token Offer
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      data-testid="xrpl-trade-desk-offer-taker-gets-currency"
+                      value={offerForm.takerGetsCurrency}
+                      onChange={(event) => {
+                        const currency = event.target.value
+                        setOfferForm((prev) => ({
+                          ...prev,
+                          takerGetsCurrency: currency,
+                          takerGetsIssuer: isXrpCurrency(currency) ? '' : prev.takerGetsIssuer,
+                        }))
+                      }}
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                      aria-label="Offer taker gets currency"
+                    >
+                      {TRADE_CURRENCY_OPTIONS.map((option) => (
+                        <option key={`offer-gets-${option.code}`} value={option.code} className="bg-black text-ivory">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      data-testid="xrpl-trade-desk-offer-taker-gets-issuer"
+                      value={offerForm.takerGetsIssuer}
+                      onChange={(event) => setOfferForm((prev) => ({ ...prev, takerGetsIssuer: event.target.value }))}
+                      aria-label="Offer taker gets issuer"
+                      placeholder={isXrpCurrency(offerForm.takerGetsCurrency) ? 'No issuer for XRP' : 'Gets issuer'}
+                      disabled={isXrpCurrency(offerForm.takerGetsCurrency)}
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-offer-taker-gets-value"
+                      value={offerForm.takerGetsValue}
+                      onChange={(event) => setOfferForm((prev) => ({ ...prev, takerGetsValue: event.target.value }))}
+                      aria-label="Offer taker gets value"
+                      placeholder="Gets value"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <select
+                      data-testid="xrpl-trade-desk-offer-taker-pays-currency"
+                      value={offerForm.takerPaysCurrency}
+                      onChange={(event) => {
+                        const currency = event.target.value
+                        setOfferForm((prev) => ({
+                          ...prev,
+                          takerPaysCurrency: currency,
+                          takerPaysIssuer: isXrpCurrency(currency) ? '' : prev.takerPaysIssuer,
+                        }))
+                      }}
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                      aria-label="Offer taker pays currency"
+                    >
+                      {TRADE_CURRENCY_OPTIONS.map((option) => (
+                        <option key={`offer-pays-${option.code}`} value={option.code} className="bg-black text-ivory">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      data-testid="xrpl-trade-desk-offer-taker-pays-issuer"
+                      value={offerForm.takerPaysIssuer}
+                      onChange={(event) => setOfferForm((prev) => ({ ...prev, takerPaysIssuer: event.target.value }))}
+                      aria-label="Offer taker pays issuer"
+                      placeholder={isXrpCurrency(offerForm.takerPaysCurrency) ? 'No issuer for XRP' : 'Pays issuer'}
+                      disabled={isXrpCurrency(offerForm.takerPaysCurrency)}
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-offer-taker-pays-value"
+                      value={offerForm.takerPaysValue}
+                      onChange={(event) => setOfferForm((prev) => ({ ...prev, takerPaysValue: event.target.value }))}
+                      aria-label="Offer taker pays value"
+                      placeholder="Pays value"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                  </div>
+                  <button
+                    data-testid="xrpl-trade-desk-offer-submit"
+                    type="submit"
+                    disabled={locked || regionBlocked || submitting}
+                    className="rounded-xl bg-gradient-to-r from-[#7fb0d9] via-[#5c8db4] to-[#4b7c79] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    Create Offer
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <input
+                      data-testid="xrpl-trade-desk-offer-cancel-sequence"
+                      value={offerCancelSequence}
+                      onChange={(event) => setOfferCancelSequence(event.target.value)}
+                      aria-label="Offer sequence to cancel"
+                      placeholder="Offer sequence to cancel"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <button
+                      data-testid="xrpl-trade-desk-offer-cancel"
+                      type="button"
+                      disabled={locked || regionBlocked || submitting || !offerCancelSequence.trim()}
+                      onClick={() => {
+                        const sequence = Number(offerCancelSequence)
+                        if (!Number.isFinite(sequence) || sequence <= 0) return
+                        void submitAction('/api/xrpl/trade/offer/cancel', { offerSequence: Math.floor(sequence) }, 'offer_cancel')
+                      }}
+                      aria-label="Cancel token offer"
+                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
 
-              <form
-          data-testid="xrpl-trade-desk-offer-form"
-          className="surface-inner space-y-3 p-4"
-          aria-labelledby="xrpl-trade-desk-offer-title"
-          aria-describedby={regionBlocked ? regionPolicyId : undefined}
-          onSubmit={(event) => {
-            event.preventDefault()
-            void submitAction('/api/xrpl/trade/offer/create', {
-              takerGets: {
-                currency: offerForm.takerGetsCurrency.trim().toUpperCase(),
-                issuer: isXrpCurrency(offerForm.takerGetsCurrency)
-                  ? undefined
-                  : offerForm.takerGetsIssuer || undefined,
-                value: offerForm.takerGetsValue,
-              },
-              takerPays: {
-                currency: offerForm.takerPaysCurrency.trim().toUpperCase(),
-                issuer: isXrpCurrency(offerForm.takerPaysCurrency)
-                  ? undefined
-                  : offerForm.takerPaysIssuer || undefined,
-                value: offerForm.takerPaysValue,
-              },
-            }, 'offer_create')
-          }}
-        >
-          <p id="xrpl-trade-desk-offer-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
-            Create Token Offer
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              data-testid="xrpl-trade-desk-offer-taker-gets-currency"
-              value={offerForm.takerGetsCurrency}
-              onChange={(event) => {
-                const currency = event.target.value
-                setOfferForm((prev) => ({
-                  ...prev,
-                  takerGetsCurrency: currency,
-                  takerGetsIssuer: isXrpCurrency(currency) ? '' : prev.takerGetsIssuer,
-                }))
-              }}
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-              aria-label="Offer taker gets currency"
-            >
-              {TRADE_CURRENCY_OPTIONS.map((option) => (
-                <option key={`offer-gets-${option.code}`} value={option.code} className="bg-black text-ivory">
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <input
-              data-testid="xrpl-trade-desk-offer-taker-gets-issuer"
-              value={offerForm.takerGetsIssuer}
-              onChange={(event) => setOfferForm((prev) => ({ ...prev, takerGetsIssuer: event.target.value }))}
-              aria-label="Offer taker gets issuer"
-              placeholder={isXrpCurrency(offerForm.takerGetsCurrency) ? 'No issuer for XRP' : 'Gets issuer'}
-              disabled={isXrpCurrency(offerForm.takerGetsCurrency)}
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
-            />
-            <input
-              data-testid="xrpl-trade-desk-offer-taker-gets-value"
-              value={offerForm.takerGetsValue}
-              onChange={(event) => setOfferForm((prev) => ({ ...prev, takerGetsValue: event.target.value }))}
-              aria-label="Offer taker gets value"
-              placeholder="Gets value"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
-            <select
-              data-testid="xrpl-trade-desk-offer-taker-pays-currency"
-              value={offerForm.takerPaysCurrency}
-              onChange={(event) => {
-                const currency = event.target.value
-                setOfferForm((prev) => ({
-                  ...prev,
-                  takerPaysCurrency: currency,
-                  takerPaysIssuer: isXrpCurrency(currency) ? '' : prev.takerPaysIssuer,
-                }))
-              }}
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-              aria-label="Offer taker pays currency"
-            >
-              {TRADE_CURRENCY_OPTIONS.map((option) => (
-                <option key={`offer-pays-${option.code}`} value={option.code} className="bg-black text-ivory">
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <input
-              data-testid="xrpl-trade-desk-offer-taker-pays-issuer"
-              value={offerForm.takerPaysIssuer}
-              onChange={(event) => setOfferForm((prev) => ({ ...prev, takerPaysIssuer: event.target.value }))}
-              aria-label="Offer taker pays issuer"
-              placeholder={isXrpCurrency(offerForm.takerPaysCurrency) ? 'No issuer for XRP' : 'Pays issuer'}
-              disabled={isXrpCurrency(offerForm.takerPaysCurrency)}
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
-            />
-            <input
-              data-testid="xrpl-trade-desk-offer-taker-pays-value"
-              value={offerForm.takerPaysValue}
-              onChange={(event) => setOfferForm((prev) => ({ ...prev, takerPaysValue: event.target.value }))}
-              aria-label="Offer taker pays value"
-              placeholder="Pays value"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
-          </div>
-          <button
-            data-testid="xrpl-trade-desk-offer-submit"
-            type="submit"
-            disabled={locked || regionBlocked || submitting}
-            className="rounded-xl bg-gradient-to-r from-[#7fb0d9] via-[#5c8db4] to-[#4b7c79] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            Create Offer
-          </button>
-          <div className="flex items-center gap-2">
-            <input
-              data-testid="xrpl-trade-desk-offer-cancel-sequence"
-              value={offerCancelSequence}
-              onChange={(event) => setOfferCancelSequence(event.target.value)}
-              aria-label="Offer sequence to cancel"
-              placeholder="Offer sequence to cancel"
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
-            <button
-              data-testid="xrpl-trade-desk-offer-cancel"
-              type="button"
-              disabled={locked || regionBlocked || submitting || !offerCancelSequence.trim()}
-              onClick={() => {
-                const sequence = Number(offerCancelSequence)
-                if (!Number.isFinite(sequence) || sequence <= 0) return
-                void submitAction('/api/xrpl/trade/offer/cancel', { offerSequence: Math.floor(sequence) }, 'offer_cancel')
-              }}
-              aria-label="Cancel token offer"
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory disabled:opacity-60"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-
-              <form
-          data-testid="xrpl-trade-desk-nft-offer-form"
-          className="surface-inner space-y-3 p-4"
-          aria-labelledby="xrpl-trade-desk-nft-offer-title"
-          aria-describedby={regionBlocked ? regionPolicyId : undefined}
-          onSubmit={(event) => {
-            event.preventDefault()
-            void submitAction('/api/xrpl/nft/offer/create', nftOfferCreateForm, 'nft_offer_create')
-          }}
-        >
-          <p id="xrpl-trade-desk-nft-offer-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
-            NFT Offer Actions
-          </p>
-          <input
-            data-testid="xrpl-trade-desk-nft-offer-token-id"
-            value={nftOfferCreateForm.nftokenId}
-            onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, nftokenId: event.target.value }))}
-            aria-label="NFT offer token ID"
-            placeholder="NFTokenID"
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              data-testid="xrpl-trade-desk-nft-offer-mode"
-              value={nftOfferCreateForm.mode}
-              onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, mode: event.target.value as 'sell' | 'buy' }))}
-              aria-label="NFT offer mode"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            >
-              <option value="sell">Sell</option>
-              <option value="buy">Buy</option>
-            </select>
-            <input
-              data-testid="xrpl-trade-desk-nft-offer-amount"
-              value={nftOfferCreateForm.amountXrp}
-              onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, amountXrp: event.target.value }))}
-              aria-label="NFT offer amount in XRP"
-              placeholder="Amount XRP"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
-            <input
-              data-testid="xrpl-trade-desk-nft-offer-destination"
-              value={nftOfferCreateForm.destination}
-              onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, destination: event.target.value }))}
-              aria-label="NFT offer destination"
-              placeholder="Destination (optional)"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
-            <input
-              data-testid="xrpl-trade-desk-nft-offer-owner"
-              value={nftOfferCreateForm.owner}
-              onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, owner: event.target.value }))}
-              aria-label="NFT offer owner"
-              placeholder="Owner (optional)"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
-          </div>
-          <button
-            data-testid="xrpl-trade-desk-nft-offer-submit"
-            type="submit"
-            disabled={locked || regionBlocked || submitting}
-            className="rounded-xl bg-gradient-to-r from-[#90b889] via-[#5ea47e] to-[#3b7d66] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            Create NFT Offer
-          </button>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              data-testid="xrpl-trade-desk-nft-sell-offer"
-              value={nftOfferAcceptForm.sellOffer}
-              onChange={(event) => setNftOfferAcceptForm((prev) => ({ ...prev, sellOffer: event.target.value }))}
-              aria-label="NFT sell offer ID"
-              placeholder="Sell offer ID"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
-            <input
-              data-testid="xrpl-trade-desk-nft-buy-offer"
-              value={nftOfferAcceptForm.buyOffer}
-              onChange={(event) => setNftOfferAcceptForm((prev) => ({ ...prev, buyOffer: event.target.value }))}
-              aria-label="NFT buy offer ID"
-              placeholder="Buy offer ID"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
-          </div>
-          <button
-            data-testid="xrpl-trade-desk-nft-accept"
-            type="button"
-            disabled={locked || regionBlocked || submitting || (!nftOfferAcceptForm.sellOffer.trim() && !nftOfferAcceptForm.buyOffer.trim())}
-            onClick={() =>
-              void submitAction('/api/xrpl/nft/offer/accept', {
-                sellOffer: nftOfferAcceptForm.sellOffer || undefined,
-                buyOffer: nftOfferAcceptForm.buyOffer || undefined,
-              }, 'nft_offer_accept')
-            }
-            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory disabled:opacity-60"
-          >
-            Accept NFT Offer
-          </button>
-          <div className="flex items-center gap-2">
-            <input
-              data-testid="xrpl-trade-desk-nft-cancel-ids"
-              value={nftOfferCancelIds}
-              onChange={(event) => setNftOfferCancelIds(event.target.value)}
-              aria-label="NFT offer IDs to cancel"
-              placeholder="Offer IDs (comma-separated)"
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-            />
-            <button
-              data-testid="xrpl-trade-desk-nft-cancel"
-              type="button"
-              disabled={locked || regionBlocked || submitting || !nftOfferCancelIds.trim()}
-              onClick={() => {
-                const offerIds = nftOfferCancelIds
-                  .split(',')
-                  .map((id) => id.trim())
-                  .filter(Boolean)
-                if (offerIds.length === 0) return
-                void submitAction('/api/xrpl/nft/offer/cancel', { offerIds }, 'nft_offer_cancel')
-              }}
-              aria-label="Cancel NFT offers"
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory disabled:opacity-60"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-            </div>
-          ) : null}
+                <form
+                  data-testid="xrpl-trade-desk-nft-offer-form"
+                  className="surface-inner space-y-3 p-4"
+                  aria-labelledby="xrpl-trade-desk-nft-offer-title"
+                  aria-describedby={regionBlocked ? regionPolicyId : undefined}
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void submitAction('/api/xrpl/nft/offer/create', nftOfferCreateForm, 'nft_offer_create')
+                  }}
+                >
+                  <p id="xrpl-trade-desk-nft-offer-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+                    NFT Offer Actions
+                  </p>
+                  <input
+                    data-testid="xrpl-trade-desk-nft-offer-token-id"
+                    value={nftOfferCreateForm.nftokenId}
+                    onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, nftokenId: event.target.value }))}
+                    aria-label="NFT offer token ID"
+                    placeholder="NFTokenID"
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      data-testid="xrpl-trade-desk-nft-offer-mode"
+                      value={nftOfferCreateForm.mode}
+                      onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, mode: event.target.value as 'sell' | 'buy' }))}
+                      aria-label="NFT offer mode"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    >
+                      <option value="sell">Sell</option>
+                      <option value="buy">Buy</option>
+                    </select>
+                    <input
+                      data-testid="xrpl-trade-desk-nft-offer-amount"
+                      value={nftOfferCreateForm.amountXrp}
+                      onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, amountXrp: event.target.value }))}
+                      aria-label="NFT offer amount in XRP"
+                      placeholder="Amount XRP"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-nft-offer-destination"
+                      value={nftOfferCreateForm.destination}
+                      onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, destination: event.target.value }))}
+                      aria-label="NFT offer destination"
+                      placeholder="Destination (optional)"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-nft-offer-owner"
+                      value={nftOfferCreateForm.owner}
+                      onChange={(event) => setNftOfferCreateForm((prev) => ({ ...prev, owner: event.target.value }))}
+                      aria-label="NFT offer owner"
+                      placeholder="Owner (optional)"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                  </div>
+                  <button
+                    data-testid="xrpl-trade-desk-nft-offer-submit"
+                    type="submit"
+                    disabled={locked || regionBlocked || submitting}
+                    className="rounded-xl bg-gradient-to-r from-[#90b889] via-[#5ea47e] to-[#3b7d66] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    Create NFT Offer
+                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      data-testid="xrpl-trade-desk-nft-sell-offer"
+                      value={nftOfferAcceptForm.sellOffer}
+                      onChange={(event) => setNftOfferAcceptForm((prev) => ({ ...prev, sellOffer: event.target.value }))}
+                      aria-label="NFT sell offer ID"
+                      placeholder="Sell offer ID"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-nft-buy-offer"
+                      value={nftOfferAcceptForm.buyOffer}
+                      onChange={(event) => setNftOfferAcceptForm((prev) => ({ ...prev, buyOffer: event.target.value }))}
+                      aria-label="NFT buy offer ID"
+                      placeholder="Buy offer ID"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                  </div>
+                  <button
+                    data-testid="xrpl-trade-desk-nft-accept"
+                    type="button"
+                    disabled={locked || regionBlocked || submitting || (!nftOfferAcceptForm.sellOffer.trim() && !nftOfferAcceptForm.buyOffer.trim())}
+                    onClick={() =>
+                      void submitAction('/api/xrpl/nft/offer/accept', {
+                        sellOffer: nftOfferAcceptForm.sellOffer || undefined,
+                        buyOffer: nftOfferAcceptForm.buyOffer || undefined,
+                      }, 'nft_offer_accept')
+                    }
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory disabled:opacity-60"
+                  >
+                    Accept NFT Offer
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <input
+                      data-testid="xrpl-trade-desk-nft-cancel-ids"
+                      value={nftOfferCancelIds}
+                      onChange={(event) => setNftOfferCancelIds(event.target.value)}
+                      aria-label="NFT offer IDs to cancel"
+                      placeholder="Offer IDs (comma-separated)"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <button
+                      data-testid="xrpl-trade-desk-nft-cancel"
+                      type="button"
+                      disabled={locked || regionBlocked || submitting || !nftOfferCancelIds.trim()}
+                      onClick={() => {
+                        const offerIds = nftOfferCancelIds
+                          .split(',')
+                          .map((id) => id.trim())
+                          .filter(Boolean)
+                        if (offerIds.length === 0) return
+                        void submitAction('/api/xrpl/nft/offer/cancel', { offerIds }, 'nft_offer_cancel')
+                      }}
+                      aria-label="Cancel NFT offers"
+                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-ivory disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </>
+          )}
 
           <div className="space-y-3">
-            <motion.button
-              data-testid="xrpl-trade-desk-refresh"
-              type="button"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              disabled={locked}
-              onClick={() => void refreshAll()}
-              aria-describedby={regionBlocked ? regionPolicyId : undefined}
-              className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b9577]/30 transition disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Refresh Trade Desk
-            </motion.button>
+            {shouldShowGlobalRefresh ? (
+              <motion.button
+                data-testid="xrpl-trade-desk-refresh"
+                type="button"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                disabled={submitting || (locked && offersLoading)}
+                onClick={handleRefreshVisibleData}
+                aria-describedby={regionBlocked ? regionPolicyId : undefined}
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b9577]/30 transition disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Refresh trade data
+              </motion.button>
+            ) : null}
+
+            {hasSubmissionHistory ? (
+              <button
+                data-testid="xrpl-trade-desk-log-toggle"
+                type="button"
+                onClick={() => setShowSubmissionLog((open) => !open)}
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-ivory/85 transition hover:bg-white/10"
+              >
+                {showSubmissionRail ? 'Hide submission log' : `Show submission log (${activityRail.length})`}
+              </button>
+            ) : null}
 
             {locked ? (
               <div data-testid="xrpl-trade-desk-unlock">
@@ -1439,79 +1657,76 @@ export default function XrplTradeDesk() {
           </div>
         </div>
 
-        <aside
-          data-testid="xrpl-trade-desk-activity-rail"
-          className="surface-inner h-fit space-y-3 p-4 xl:sticky xl:top-24"
-          aria-label="Trade desk activity rail"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Activity Rail</p>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-ivory/70">
-              {networkConfig.id}
-            </span>
-          </div>
-          <p className="text-xs text-ivory/60">
-            Status feed for pending, successful, and failed submissions.
-          </p>
-          <button
-            data-testid="xrpl-trade-desk-retry-last-action"
-            type="button"
-            onClick={handleRetryLastAction}
-            disabled={!canRetryLastAction}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-ivory/80 disabled:opacity-50"
+        {showSubmissionRail ? (
+          <aside
+            data-testid="xrpl-trade-desk-activity-rail"
+            className="surface-inner h-fit space-y-3 p-4 xl:sticky xl:top-24"
+            aria-label="Trade desk submission log"
           >
-            Retry Last Payload
-          </button>
-          <div className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
-            {activityRail.map((item) => (
-              <div
-                key={item.id}
-                data-testid="xrpl-trade-desk-activity-item"
-                className="rounded-xl border border-white/10 bg-black/35 p-3 text-xs text-ivory/75"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold text-ivory">{item.action}</p>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${
-                      item.status === 'pending'
-                        ? 'bg-amber-300/15 text-amber-100'
-                        : item.status === 'success'
-                          ? 'bg-jade/20 text-jade'
-                          : 'bg-red-300/15 text-red-200'
-                    }`}
-                  >
-                    {item.status}
-                  </span>
-                </div>
-                <p className="mt-1 text-ivory/70">{item.message}</p>
-                {item.txHash ? (
-                  <div className="mt-2 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleCopyTxHash(item.txHash!)}
-                      className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-ivory/80"
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Submission Log</p>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-ivory/70">
+                {networkConfig.id}
+              </span>
+            </div>
+            <p className="text-xs text-ivory/60">
+              Pending, successful, and failed transactions show up here after you submit.
+            </p>
+            <button
+              data-testid="xrpl-trade-desk-retry-last-action"
+              type="button"
+              onClick={handleRetryLastAction}
+              disabled={!canRetryLastAction}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-ivory/80 disabled:opacity-50"
+            >
+              Retry last action
+            </button>
+            <div className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
+              {activityRail.map((item) => (
+                <div
+                  key={item.id}
+                  data-testid="xrpl-trade-desk-activity-item"
+                  className="rounded-xl border border-white/10 bg-black/35 p-3 text-xs text-ivory/75"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-ivory">{item.action}</p>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${
+                        item.status === 'pending'
+                          ? 'bg-amber-300/15 text-amber-100'
+                          : item.status === 'success'
+                            ? 'bg-jade/20 text-jade'
+                            : 'bg-red-300/15 text-red-200'
+                      }`}
                     >
-                      Copy tx
-                    </button>
-                    <a
-                      href={explorerTransactionUrl(selectedNetworkId, item.txHash)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-ivory/80"
-                    >
-                      Open explorer
-                    </a>
+                      {item.status}
+                    </span>
                   </div>
-                ) : null}
-              </div>
-            ))}
-            {activityRail.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-white/12 bg-black/25 p-3 text-xs text-ivory/50">
-                No actions yet. Submitted transactions will appear here.
-              </p>
-            ) : null}
-          </div>
-        </aside>
+                  <p className="mt-1 text-ivory/70">{item.message}</p>
+                  {item.txHash ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyTxHash(item.txHash!)}
+                        className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-ivory/80"
+                      >
+                        Copy tx
+                      </button>
+                      <a
+                        href={explorerTransactionUrl(selectedNetworkId, item.txHash)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-ivory/80"
+                      >
+                        Open explorer
+                      </a>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </aside>
+        ) : null}
       </div>
     </section>
   )

@@ -49,7 +49,7 @@ export default function HomeActionButtons() {
       kind: 'anchor',
       label: t('connectWallet'),
       href: `/${locale}#connect`,
-      bg: 'linear-gradient(135deg, rgba(127,176,217,0.2) 0%, rgba(92,141,180,0.18) 50%, rgba(75,124,121,0.2) 100%)',
+      bg: 'linear-gradient(135deg, #7fb0d9 0%, #5c8db4 50%, #4b7c79 100%)',
       testId: 'home-action-button-connect-wallet',
       tone: 'secondary',
     },
@@ -86,7 +86,7 @@ export default function HomeActionButtons() {
               className={`flex h-[84px] w-full items-center justify-center rounded-full px-7 text-[17px] font-semibold tracking-wide transition-all md:h-[88px] ${
                 button.tone === 'primary'
                   ? 'text-[#20140e] drop-shadow-[0_1px_0_rgba(255,255,255,0.26)]'
-                  : 'text-ivory/86'
+                  : 'text-ivory'
               }`}
               style={surface(button.bg, button.tone)}
             >

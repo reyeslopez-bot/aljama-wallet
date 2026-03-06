@@ -8,7 +8,7 @@ type Coords = {
   lat: number
   lng: number
   timestamp: number
-  source: 'default' | 'network'
+  source: 'default' | 'network' | 'device'
 }
 
 type RegulatoryRegion = 'uae' | 'israel' | 'eu' | 'us' | 'global'
@@ -28,6 +28,13 @@ type NetworkLocationResponse = {
     city: string | null
     timezone: string
   }
+}
+
+type ReverseGeocodeResponse = {
+  features?: Array<{
+    text?: string
+    place_type?: string[]
+  }>
 }
 
 const DEFAULT_CENTER = { lat: 25.204849, lng: 55.270783 } // Dubai fallback
@@ -90,7 +97,7 @@ export default function MapboxMap() {
   const [error, setError] = React.useState<string | null>(null)
   const [mapReady, setMapReady] = React.useState(false)
   const [mapError, setMapError] = React.useState<string | null>(null)
-  const [networkCity, setNetworkCity] = React.useState<string | null>(null)
+  const [placeLabel, setPlaceLabel] = React.useState<string | null>(null)
   const [isLightTheme, setIsLightTheme] = React.useState(false)
   const [showRegulations, setShowRegulations] = React.useState(false)
   const [locationEnabled, setLocationEnabled] = React.useState(false)
@@ -98,15 +105,81 @@ export default function MapboxMap() {
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
   const mapStyle = isLightTheme ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11'
 
-  const requestNetworkLocation = React.useCallback(async () => {
+  const resolvePlaceLabel = React.useCallback(
+    async (lat: number, lng: number, fallbackLabel: string | null = null) => {
+      if (!token) return fallbackLabel
+
+      try {
+        const params = new URLSearchParams({
+          access_token: token,
+          language: 'en',
+          limit: '5',
+          types: 'place,locality,neighborhood,district,region',
+        })
+        const res = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?${params.toString()}`,
+          { method: 'GET', cache: 'no-store' },
+        )
+        if (!res.ok) return fallbackLabel
+
+        const body = (await res.json()) as ReverseGeocodeResponse
+        const bestFeature = body.features?.find((feature) =>
+          feature.place_type?.some((type) => ['place', 'locality', 'district', 'region'].includes(type)),
+        )
+        return bestFeature?.text?.trim() || fallbackLabel
+      } catch {
+        return fallbackLabel
+      }
+    },
+    [token],
+  )
+
+  const requestBrowserLocation = React.useCallback(async () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return null
+
+    return new Promise<{ lat: number; lng: number } | null>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) =>
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          }),
+        () => resolve(null),
+        {
+          enableHighAccuracy: true,
+          maximumAge: 60_000,
+          timeout: 8_000,
+        },
+      )
+    })
+  }, [])
+
+  const requestPreferredLocation = React.useCallback(async () => {
     setError(null)
     setStatus('loading')
+
     try {
+      const deviceCoords = await requestBrowserLocation()
+      if (deviceCoords) {
+        const label = await resolvePlaceLabel(deviceCoords.lat, deviceCoords.lng)
+        setCoords({
+          lat: deviceCoords.lat,
+          lng: deviceCoords.lng,
+          timestamp: Date.now(),
+          source: 'device',
+        })
+        setPlaceLabel(label)
+        setStatus('ready')
+        return
+      }
+
       const res = await fetch('/api/network-location', { method: 'GET', cache: 'no-store' })
       const body = (await res.json()) as NetworkLocationResponse | { ok: false; error?: string }
       if (!res.ok || !body.ok) {
         throw new Error('Network location unavailable.')
       }
+
+      const label = await resolvePlaceLabel(body.location.latitude, body.location.longitude, body.location.city)
 
       setCoords({
         lat: body.location.latitude,
@@ -114,7 +187,7 @@ export default function MapboxMap() {
         timestamp: Date.now(),
         source: body.location.source === 'network' ? 'network' : 'default',
       })
-      setNetworkCity(body.location.city)
+      setPlaceLabel(label)
       setStatus('ready')
     } catch {
       setCoords({
@@ -123,11 +196,11 @@ export default function MapboxMap() {
         timestamp: Date.now(),
         source: 'default',
       })
-      setNetworkCity(null)
+      setPlaceLabel(null)
       setStatus('error')
       setError('Network location unavailable. Using Dubai fallback.')
     }
-  }, [])
+  }, [requestBrowserLocation, resolvePlaceLabel])
 
   React.useEffect(() => {
     const syncLocationConsent = () => {
@@ -147,8 +220,8 @@ export default function MapboxMap() {
 
   React.useEffect(() => {
     if (!locationEnabled) return
-    void requestNetworkLocation()
-  }, [locationEnabled, requestNetworkLocation])
+    void requestPreferredLocation()
+  }, [locationEnabled, requestPreferredLocation])
 
   React.useEffect(() => {
     if (typeof document === 'undefined') return
@@ -245,8 +318,8 @@ export default function MapboxMap() {
 
   const requestLocation = React.useCallback(() => {
     if (!locationEnabled) return
-    void requestNetworkLocation()
-  }, [locationEnabled, requestNetworkLocation])
+    void requestPreferredLocation()
+  }, [locationEnabled, requestPreferredLocation])
 
   const regulatoryRegion = React.useMemo(
     () => resolveRegulatoryRegion(coords.lat, coords.lng),
@@ -295,7 +368,7 @@ export default function MapboxMap() {
               <>
                 {t('centered')}{' '}
                 <span className="text-ivory">{t(`laws.${regulatoryRegion}.label`)}</span>
-                {networkCity ? ` · ${networkCity}` : null}
+                {placeLabel ? ` · ${placeLabel}` : null}
               </>
             )}
             {locationEnabled && status === 'error' && (error ?? t('error'))}
