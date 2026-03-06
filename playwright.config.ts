@@ -4,6 +4,7 @@ const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3000)
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`
 const ENABLE_ALL_BROWSERS = process.env.PLAYWRIGHT_ALL_BROWSERS === 'true'
 const ENABLE_EXTENDED_DEVICES = process.env.PLAYWRIGHT_EXTENDED_DEVICES === 'true'
+const INCLUDE_PRODLIKE_SPECS = process.env.PLAYWRIGHT_INCLUDE_PRODLIKE === 'true'
 const DISABLE_WEB_SERVER = process.env.PLAYWRIGHT_DISABLE_WEBSERVER === 'true'
 const WEB_SERVER_NODE_ENV = process.env.PLAYWRIGHT_NODE_ENV ?? 'test'
 const WEB_SERVER_NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET ?? 'playwright-nextauth-secret'
@@ -12,21 +13,32 @@ const SERVER_COMMAND =
   process.env.PLAYWRIGHT_SERVER_COMMAND ??
   `pnpm prisma:generate && pnpm exec next dev --turbopack --port ${PORT}`
 
+const defaultIgnoredSpecs = INCLUDE_PRODLIKE_SPECS ? [] : ['**/home.production.spec.ts']
+const desktopIgnoredSpecs = [...defaultIgnoredSpecs, '**/home.mobile.spec.ts']
+const mobileIgnoredSpecs = [
+  ...defaultIgnoredSpecs,
+  '**/home.frontend.spec.ts',
+  '**/home.cross-browser.spec.ts',
+]
+
 const projects = [
   {
     name: 'chromium',
+    testIgnore: desktopIgnoredSpecs,
     use: {
       ...devices['Desktop Chrome'],
     },
   },
   {
     name: 'iphone-13',
+    testIgnore: mobileIgnoredSpecs,
     use: {
       ...devices['iPhone 13'],
     },
   },
   {
     name: 'pixel-7',
+    testIgnore: mobileIgnoredSpecs,
     use: {
       ...devices['Pixel 7'],
     },
@@ -37,12 +49,14 @@ if (ENABLE_ALL_BROWSERS) {
   projects.push(
     {
       name: 'firefox',
+      testIgnore: desktopIgnoredSpecs,
       use: {
         ...devices['Desktop Firefox'],
       },
     },
     {
       name: 'webkit',
+      testIgnore: desktopIgnoredSpecs,
       use: {
         ...devices['Desktop Safari'],
       },
@@ -54,24 +68,28 @@ if (ENABLE_EXTENDED_DEVICES) {
   projects.push(
     {
       name: 'iphone-15-pro',
+      testIgnore: mobileIgnoredSpecs,
       use: {
         ...devices['iPhone 15 Pro'],
       },
     },
     {
       name: 'galaxy-s24',
+      testIgnore: mobileIgnoredSpecs,
       use: {
         ...devices['Galaxy S24'],
       },
     },
     {
       name: 'ipad-pro-11',
+      testIgnore: mobileIgnoredSpecs,
       use: {
         ...devices['iPad Pro 11'],
       },
     },
     {
       name: 'galaxy-tab-s9',
+      testIgnore: mobileIgnoredSpecs,
       use: {
         ...devices['Galaxy Tab S9'],
       },

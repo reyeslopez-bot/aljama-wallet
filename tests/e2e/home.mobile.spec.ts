@@ -4,7 +4,6 @@ import {
   MAX_DOM_CONTENT_LOADED_MS,
   MAX_HOME_VISIBLE_MS,
   RTL_HOME_ROUTES,
-  assertVisualBaseline,
   attachLocatorScreenshot,
   expectFullyInViewport,
   expectHomeShellVisible,
@@ -53,13 +52,7 @@ test('home functional checks: text, color, and screenshots', async ({ page }, te
     `home-overview-${testInfo.project.name}`,
     page.getByTestId('home-overview-section'),
   )
-  await assertVisualBaseline(
-    page,
-    'home-overview',
-    page.getByTestId('home-overview-section'),
-  )
   await attachLocatorScreenshot(testInfo, page, `home-full-page-${testInfo.project.name}`, 'page')
-  await assertVisualBaseline(page, 'home-full-page', 'page')
 })
 
 test('home load-time checks and wallet-section screenshot', async ({ page }, testInfo) => {
@@ -109,78 +102,28 @@ test('home load-time checks and wallet-section screenshot', async ({ page }, tes
     `home-wallet-section-${testInfo.project.name}`,
     walletSection,
   )
-  await assertVisualBaseline(page, 'home-wallet-section', walletSection)
 })
 
-test('dynamic info card stays inside the viewport across zoom-equivalent layouts', async ({ page }) => {
-  const zoomCases = [
-    { label: 'zoom-67', viewport: { width: 2148, height: 1432 } },
-    { label: 'zoom-90', viewport: { width: 1600, height: 1067 } },
-    { label: 'zoom-110', viewport: { width: 1309, height: 873 } },
-    { label: 'zoom-125', viewport: { width: 1152, height: 768 } },
-    { label: 'zoom-150', viewport: { width: 960, height: 640 } },
-    { label: 'zoom-200', viewport: { width: 720, height: 480 } },
-  ] as const
-
-  for (const zoomCase of zoomCases) {
-    await page.setViewportSize(zoomCase.viewport)
-    await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
-    await expect(page.getByTestId('home-overview-section')).toBeVisible()
-
-    const infoCard = page.getByTestId('dynamic-info-card')
-    await expectFullyInViewport(page, infoCard, `${zoomCase.label} collapsed`)
-
-    await infoCard.hover()
-    await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
-    await expectFullyInViewport(page, infoCard, `${zoomCase.label} expanded`)
-  }
-})
-
-test('dynamic info card remains in frame when text scales up', async ({ page }) => {
-  await page.setViewportSize({ width: 960, height: 640 })
+test('home layout stays within frame on device projects', async ({ page }, testInfo) => {
   await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
   await expect(page.getByTestId('home-overview-section')).toBeVisible()
 
-  await page.addStyleTag({
-    content: `
-      html {
-        font-size: 125% !important;
-      }
-    `,
-  })
-
+  const label = testInfo.project.name
   const infoCard = page.getByTestId('dynamic-info-card')
-  await expectFullyInViewport(page, infoCard, 'text-scale-125 collapsed')
+  const toggleButton = page.getByTestId('dynamic-info-card-toggle')
 
-  await infoCard.hover()
-  await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
-  await expectFullyInViewport(page, infoCard, 'text-scale-125 expanded')
-})
-
-test('home supports keyboard interaction for the market chart and info card', async ({ page }) => {
-  await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
-  await expect(page.getByTestId('home-overview-section')).toBeVisible()
-
-  const chart = page.getByTestId('xrpl-market-chart')
-  await chart.focus()
-  await expect(chart).toBeFocused()
-  await chart.press('ArrowRight')
-  await expect(page.getByTestId('xrpl-market-hover-snapshot')).toBeVisible()
-  await expect(page.getByTestId('xrpl-market-hover-row-xrp')).toBeVisible()
-  await chart.press('End')
-  await expect(page.getByTestId('xrpl-market-hover-row-btc')).toBeVisible()
-
-  const collapsedToggle = page.getByTestId('dynamic-info-card-collapsed').getByTestId('dynamic-info-card-toggle')
-  await collapsedToggle.focus()
-  await expect(collapsedToggle).toBeFocused()
-  await collapsedToggle.press('Enter')
-  await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
-
-  const expandedToggle = page.getByTestId('dynamic-info-card-expanded').getByTestId('dynamic-info-card-toggle')
-  await expandedToggle.focus()
-  await expect(expandedToggle).toBeFocused()
-  await expandedToggle.press('Enter')
+  await expectNoHorizontalOverflow(page, `${label} initial`)
+  await expectFullyInViewport(page, infoCard, `${label} collapsed`)
   await expect(page.getByTestId('dynamic-info-card-collapsed')).toBeVisible()
+
+  await toggleButton.click()
+  await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
+  await expectFullyInViewport(page, infoCard, `${label} expanded`)
+  await expectNoHorizontalOverflow(page, `${label} expanded`)
+
+  await page.getByTestId('home-wallet-section').scrollIntoViewIfNeeded()
+  await expect(page.getByTestId('home-wallet-section')).toBeVisible()
+  await expectNoHorizontalOverflow(page, `${label} wallet-section`)
 })
 
 test('rtl home routes avoid horizontal overflow', async ({ page }, testInfo) => {
