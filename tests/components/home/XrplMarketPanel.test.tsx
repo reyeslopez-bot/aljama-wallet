@@ -13,6 +13,7 @@ vi.mock('framer-motion', () => ({
       whileTap?: unknown
     }) => React.createElement('button', props),
   },
+  useReducedMotion: () => false,
 }))
 
 const mockedUseSession = vi.mocked(useSession)
@@ -72,12 +73,14 @@ describe('XrplMarketPanel', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByTestId, getByText, queryByTestId } = render(<XrplMarketPanel />)
+    const { getByTestId, getAllByText, queryByTestId } = render(<XrplMarketPanel />)
 
     await waitFor(() => {
-      expect(getByText('$0.62')).toBeTruthy()
-      expect(getByText('$69,000.00')).toBeTruthy()
-      expect(getByText('Bitcoin')).toBeTruthy()
+      expect(getAllByText('$0.62').length).toBeGreaterThan(0)
+      expect(getAllByText('$69,000.00').length).toBeGreaterThan(0)
+      expect(getAllByText('Bitcoin').length).toBeGreaterThan(0)
+      expect(getByTestId('xrpl-market-card-xrp')).toBeTruthy()
+      expect(getByTestId('xrpl-market-card-btc')).toBeTruthy()
     })
 
     fireEvent.click(getByTestId('xrpl-market-filter-xrpl'))
@@ -85,6 +88,8 @@ describe('XrplMarketPanel', () => {
     await waitFor(() => {
       expect(getByTestId('xrpl-market-row-xrp')).toBeTruthy()
       expect(queryByTestId('xrpl-market-row-btc')).toBeNull()
+      expect(getByTestId('xrpl-market-card-xrp')).toBeTruthy()
+      expect(queryByTestId('xrpl-market-card-btc')).toBeNull()
     })
 
     fireEvent.click(getByTestId('xrpl-market-refresh'))

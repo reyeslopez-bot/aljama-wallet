@@ -74,6 +74,7 @@ const ASSET_PALETTES: Record<string, AssetPalette> = {
 
 type ViewOption = 'all' | 'xrpl' | 'reference'
 type TimelineTick = { index: number; timestamp: number }
+type TimelineMarker = TimelineTick & { position: number }
 type ZoomWindow = { start: number; end: number }
 
 const CHART_WIDTH = 100
@@ -260,19 +261,20 @@ function buildTimelineTicks(
   pointCount: number,
   startIndex: number,
   endIndex: number,
+  targetTickCount: number,
 ): TimelineTick[] {
   if (!updatedAt || pointCount < 2) return []
   const safeStart = Math.max(startIndex, 0)
   const safeEnd = Math.min(endIndex, pointCount - 1)
   const span = safeEnd - safeStart
   if (span < 1) return []
+  const safeTickCount = Math.min(Math.max(targetTickCount, 2), span + 1)
   const indexes = Array.from(
-    new Set([
-      safeStart,
-      Math.round(safeStart + span / 3),
-      Math.round(safeStart + (span * 2) / 3),
-      safeEnd,
-    ]),
+    new Set(
+      Array.from({ length: safeTickCount }, (_, offset) =>
+        Math.round(safeStart + (span * offset) / (safeTickCount - 1)),
+      ),
+    ),
   )
   return indexes
     .map((index) => {
@@ -450,9 +452,24 @@ export default function XrplMarketPanel() {
   }, [pointCount])
 
   const timelineTicks = useMemo(
-    () => buildTimelineTicks(state.snapshot?.updatedAt, pointCount, chartWindow.start, chartWindow.end),
-    [chartWindow.end, chartWindow.start, state.snapshot?.updatedAt, pointCount],
+    () =>
+      buildTimelineTicks(
+        state.snapshot?.updatedAt,
+        pointCount,
+        chartWindow.start,
+        chartWindow.end,
+        chartViewportWidth >= 132 ? (chartWindow.isZoomed ? 6 : 5) : chartViewportWidth >= 96 ? 4 : 3,
+      ),
+    [chartViewportWidth, chartWindow.end, chartWindow.isZoomed, chartWindow.start, state.snapshot?.updatedAt, pointCount],
   )
+  const timelineMarkers = useMemo<TimelineMarker[]>(() => {
+    const span = chartWindow.end - chartWindow.start
+    if (span < 1) return []
+    return timelineTicks.map((tick) => ({
+      ...tick,
+      position: ((tick.index - chartWindow.start) / span) * 100,
+    }))
+  }, [chartWindow.end, chartWindow.start, timelineTicks])
 
   const hoverSnapshot = useMemo(() => {
     if (hoverIndex === null || !state.snapshot || pointCount < 2) return null
@@ -997,16 +1014,27 @@ export default function XrplMarketPanel() {
                     : ''}
               </p>
 
-              {timelineTicks.length > 0 ? (
+              {timelineMarkers.length > 0 ? (
                 <div data-testid="xrpl-market-timeline" className="space-y-2">
                   <p className="text-[10px] uppercase tracking-[0.12em] text-ivory/45">{t('timelineLabel')}</p>
-                  <div className="grid grid-cols-4 gap-2 text-[10px] text-ivory/45">
-                    {timelineTicks.map((tick, index) => (
+                  <div className="relative h-10">
+                    <div className="absolute inset-x-0 top-[3px] h-px bg-white/12" />
+                    {timelineMarkers.map((tick, index) => (
                       <div
                         key={`${tick.index}-${tick.timestamp}`}
-                        className={`flex flex-col ${index === timelineTicks.length - 1 ? 'items-end' : 'items-start'}`}
+                        className="absolute top-0 text-[10px] text-ivory/48"
+                        style={{
+                          left: `${tick.position.toFixed(3)}%`,
+                          transform:
+                            index === 0
+                              ? 'translateX(0)'
+                              : index === timelineMarkers.length - 1
+                                ? 'translateX(-100%)'
+                                : 'translateX(-50%)',
+                        }}
                       >
-                        <span>
+                        <span className="mx-auto h-2 w-px bg-white/25" />
+                        <span className="mt-1 block whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
                           {(chartWindow.isZoomed ? zoomedTimelineDateFormatter : timelineDateFormatter).format(
                             tick.timestamp,
                           )}
@@ -1106,7 +1134,38 @@ export default function XrplMarketPanel() {
         </div>
 
         <div data-testid="xrpl-market-table" className="surface-soft overflow-hidden p-4 text-sm text-ivory/70">
-          <table className="w-full border-collapse" aria-labelledby={tableLabelId}>
+          <div className="space-y-2 sm:hidden">
+            {visibleAssets.map((asset) => {
+              const changeClass = Number.isFinite(asset.change24h)
+                ? asset.change24h >= 0
+                  ? 'text-emerald-200'
+                  : 'text-red-300'
+                : 'text-ivory/55'
+              const marketLabel = asset.marketGroup === 'xrpl' ? t('table.xrpl') : t('table.reference')
+              return (
+                <article
+                  key={`${asset.id}-card`}
+                  data-testid={`xrpl-market-card-${asset.symbol.toLowerCase()}`}
+                  className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-semibold text-ivory">{asset.symbol}</p>
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-ivory/45">{marketLabel}</p>
+                  </div>
+                  <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                    <dt className="text-ivory/45">{t('table.price')}</dt>
+                    <dd className="text-right text-ivory">{formatUsd(asset.priceUsd, locale)}</dd>
+                    <dt className="text-ivory/45">{t('table.change')}</dt>
+                    <dd className={`text-right ${changeClass}`}>{formatPercentChange(asset.change24h, locale)}</dd>
+                    <dt className="text-ivory/45">{t('table.network')}</dt>
+                    <dd className="text-right text-ivory/70">{asset.network}</dd>
+                  </dl>
+                </article>
+              )
+            })}
+          </div>
+
+          <table className="hidden w-full border-collapse sm:table" aria-labelledby={tableLabelId}>
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-ivory/50">
                 <th id={tableLabelId} scope="col" className="pb-3 font-medium">{t('table.asset')}</th>

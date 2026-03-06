@@ -37,6 +37,9 @@
       "uxValue": "Guided operational flows",
       "uxDetail": "Step-by-step actions with clear state, risk cues, and recovery paths."
     },
+    "sectionNav": {
+      "wallet": "Wallet"
+    },
     "vaultIntel": {
       "label": "Vault Intelligence",
       "title": "Stay synced with live wallet context.",
