@@ -10,7 +10,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const textDirection = isRtlLocale(locale) ? 'rtl' : 'ltr'
 
   return (
-    <html lang={locale} dir="ltr" data-locale-dir={textDirection}>
+    <html lang={locale} dir={textDirection} data-locale-dir={textDirection}>
       <body className="dark min-h-screen flex flex-col antialiased text-foreground bg-surface">
         {children}
       </body>

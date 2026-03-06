@@ -67,63 +67,81 @@ const ASSETS = [
 
 const globalForMarket = globalThis as unknown as {
   aljamaMarketCache?: { expiresAt: number; data: MarketSnapshot }
+  aljamaLastMarketSnapshot?: MarketSnapshot
 }
 
-function downsample(prices: number[]): number[] {
-  if (prices.length <= MAX_POINTS) return prices
-  const step = Math.ceil(prices.length / MAX_POINTS)
-  const sampled: number[] = []
-  for (let i = 0; i < prices.length; i += step) {
-    sampled.push(prices[i]!)
+type MarketPoint = {
+  timestamp: number
+  price: number
+}
+
+function downsamplePoints(points: MarketPoint[]): MarketPoint[] {
+  if (points.length <= MAX_POINTS) return points
+  const step = Math.ceil(points.length / MAX_POINTS)
+  const sampled: MarketPoint[] = []
+  for (let i = 0; i < points.length; i += step) {
+    sampled.push(points[i]!)
+  }
+  const lastPoint = points[points.length - 1]
+  if (sampled[sampled.length - 1]?.timestamp !== lastPoint?.timestamp && lastPoint) {
+    sampled.push(lastPoint)
   }
   return sampled
 }
 
-function fallbackSnapshot(): MarketSnapshot {
-  const assets = ASSETS.map((asset, index) => {
-    const jitter = Array.from({ length: MAX_POINTS }, (_, day) => {
-      const trend = 1 + day * 0.0016
-      const wave = Math.sin((day + 1) * 0.38 + index * 0.45) * 0.026
-      return trend + wave + index * 0.0018
-    })
-    const last = jitter[jitter.length - 1] ?? 1
-    const first = jitter[0] ?? 1
-    return {
-      ...asset,
-      priceUsd: last,
-      change24h: ((last - first) / first) * 100,
-      series: jitter,
-    }
-  })
+function compute24hChange(points: MarketPoint[]): number {
+  if (points.length < 2) return 0
+  const latest = points[points.length - 1]
+  if (!latest || !Number.isFinite(latest.price)) return 0
 
-  return {
-    ok: true,
-    source: 'fallback',
-    updatedAt: new Date().toISOString(),
-    assets,
+  const cutoff = latest.timestamp - 24 * 60 * 60 * 1_000
+  let baseline = points[0]?.price ?? latest.price
+
+  for (let i = points.length - 1; i >= 0; i -= 1) {
+    const point = points[i]
+    if (!point) continue
+    if (point.timestamp <= cutoff) {
+      baseline = point.price
+      break
+    }
   }
+
+  if (!Number.isFinite(baseline) || baseline === 0) return 0
+  return ((latest.price - baseline) / baseline) * 100
 }
 
-async function fetchAssetSeries(assetId: string): Promise<number[]> {
+async function fetchAssetSeries(assetId: string): Promise<{ series: number[]; priceUsd: number; change24h: number }> {
   const url = `${COINGECKO_BASE}/coins/${assetId}/market_chart?vs_currency=usd&days=${DAYS_WINDOW}`
   const res = await fetch(url, { next: { revalidate: 60 } })
   if (!res.ok) throw new Error(`Market fetch failed for ${assetId}`)
   const json = (await res.json()) as { prices?: [number, number][] }
-  const series = (json.prices ?? []).map((entry) => entry[1])
-  return downsample(series)
+  const points = (json.prices ?? [])
+    .map(([timestamp, price]) => ({ timestamp, price }))
+    .filter((point) => Number.isFinite(point.timestamp) && Number.isFinite(point.price))
+    .sort((a, b) => a.timestamp - b.timestamp)
+
+  if (points.length < 2) {
+    throw new Error(`Market series unavailable for ${assetId}`)
+  }
+
+  const sampled = downsamplePoints(points)
+  const latest = points[points.length - 1]!
+  return {
+    series: sampled.map((point) => point.price),
+    priceUsd: latest.price,
+    change24h: compute24hChange(points),
+  }
 }
 
 async function buildSnapshot(): Promise<MarketSnapshot> {
   const seriesResults = await Promise.all(
     ASSETS.map(async (asset) => {
-      const series = await fetchAssetSeries(asset.id)
-      const first = series[0] ?? 1
-      const last = series[series.length - 1] ?? first
+      const marketData = await fetchAssetSeries(asset.id)
       return {
         ...asset,
-        priceUsd: last,
-        change24h: ((last - first) / first) * 100,
-        series,
+        priceUsd: marketData.priceUsd,
+        change24h: marketData.change24h,
+        series: marketData.series,
       }
     }),
   )
@@ -166,14 +184,34 @@ export async function GET(req?: Request) {
       data: snapshot,
       expiresAt: Date.now() + CACHE_TTL_MS,
     }
+    globalForMarket.aljamaLastMarketSnapshot = snapshot
     return NextResponse.json(snapshot)
   } catch (error) {
     logWarn('market-snapshot', error)
-    const snapshot = fallbackSnapshot()
-    globalForMarket.aljamaMarketCache = {
-      data: snapshot,
-      expiresAt: Date.now() + CACHE_TTL_MS,
+
+    const lastRealSnapshot = globalForMarket.aljamaLastMarketSnapshot
+    if (lastRealSnapshot) {
+      const fallbackSnapshot: MarketSnapshot = {
+        ...lastRealSnapshot,
+        source: 'fallback',
+      }
+      globalForMarket.aljamaMarketCache = {
+        data: fallbackSnapshot,
+        expiresAt: Date.now() + CACHE_TTL_MS,
+      }
+      return NextResponse.json(fallbackSnapshot)
     }
-    return NextResponse.json(snapshot)
+
+    return errorJson(
+      503,
+      'market_snapshot_unavailable',
+      'MARKET_SNAPSHOT_UNAVAILABLE',
+      { reason: 'No previous market snapshot is available.' },
+      {
+        headers: {
+          'cache-control': 'no-store, max-age=0',
+        },
+      },
+    )
   }
 }

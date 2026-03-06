@@ -269,7 +269,7 @@
     "table": {
       "asset": "Asset",
       "price": "Price",
-      "change": "30d",
+      "change": "24h",
       "network": "Network",
       "xrpl": "XRPL",
       "reference": "Reference"

@@ -2,9 +2,9 @@
 'use client'
 
 import { useCallback, useEffect, useId, useMemo, useState, type KeyboardEvent, type WheelEvent } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 
@@ -82,20 +82,6 @@ const PLOT_INSET_X = 3
 const PLOT_INSET_Y = 4
 const PLOT_RANGE_PADDING_RATIO = 0.08
 const MIN_PLOT_RANGE_PADDING = 0.015
-const TIMELINE_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-})
-const ZOOMED_TIMELINE_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric',
-})
-const POINT_AT_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
-  weekday: 'short',
-  month: 'short',
-  day: '2-digit',
-})
 
 function paletteForSymbol(symbol: string): AssetPalette {
   return (
@@ -218,29 +204,46 @@ function buildAreaPath(
   return `M ${first.x.toFixed(2)} ${baseY.toFixed(2)} ${head} L ${last.x.toFixed(2)} ${baseY.toFixed(2)} Z`
 }
 
-function formatUsd(value: number) {
+function formatUsd(value: number, locale: string) {
   if (!Number.isFinite(value)) return '--'
-  return value.toLocaleString('en-US', {
+  return value.toLocaleString(locale, {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: value < 1 ? 4 : 2,
   })
 }
 
-function formatUpdatedTimeAgo(updatedAt: string): string {
+function formatPercentChange(value: number, locale: string) {
+  if (!Number.isFinite(value)) return '--'
+  const formatted = Math.abs(value).toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+  if (value > 0) return `+${formatted}%`
+  if (value < 0) return `-${formatted}%`
+  return `${formatted}%`
+}
+
+function formatUpdatedTimeAgo(updatedAt: string, locale: string): string {
   const updated = new Date(updatedAt).getTime()
   if (!Number.isFinite(updated)) return ''
 
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
   const diffMs = Math.max(Date.now() - updated, 0)
-  const totalMinutes = Math.floor(diffMs / (60 * 1_000))
+  const totalMinutes = Math.floor(diffMs / (60 * 1_000)) || 0
 
   if (totalMinutes < 60) {
     const minutes = Math.max(totalMinutes, 1)
-    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`
+    return formatter.format(-minutes, 'minute')
   }
 
-  const hours = Math.floor(totalMinutes / 60)
-  return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+  if (totalMinutes < 24 * 60) {
+    const hours = Math.max(Math.floor(totalMinutes / 60), 1)
+    return formatter.format(-hours, 'hour')
+  }
+
+  const days = Math.max(Math.floor(totalMinutes / (24 * 60)), 1)
+  return formatter.format(-days, 'day')
 }
 
 function seriesIndexToTimestamp(updatedAt: string | null | undefined, index: number, pointCount: number): number | null {
@@ -283,6 +286,8 @@ function buildTimelineTicks(
 export default function XrplMarketPanel() {
   useComponentTelemetry('XrplMarketPanel')
   const t = useTranslations('market')
+  const locale = useLocale()
+  const reduceMotion = useReducedMotion()
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === 'unauthenticated'
   const chartClipId = useId().replace(/:/g, '')
@@ -491,6 +496,32 @@ export default function XrplMarketPanel() {
   const canZoomOut = chartWindow.isZoomed
   const viewOptionId = useCallback((optionId: ViewOption) => `${chartClipId}-view-${optionId}`, [chartClipId])
   const seriesOptionId = useCallback((symbol: string) => `${chartClipId}-series-${symbol}`, [chartClipId])
+  const timelineDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        month: 'short',
+        day: 'numeric',
+      }),
+    [locale],
+  )
+  const zoomedTimelineDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      }),
+    [locale],
+  )
+  const pointAtDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        weekday: 'short',
+        month: 'short',
+        day: '2-digit',
+      }),
+    [locale],
+  )
 
   const indexFromClientX = useCallback(
     (clientX: number, rect: DOMRect) => {
@@ -713,7 +744,7 @@ export default function XrplMarketPanel() {
           ))}
           <span data-testid="xrpl-market-updated" className="ml-auto text-[11px] text-ivory/40">
             {state.snapshot?.updatedAt
-              ? `${t('updated')} ${formatUpdatedTimeAgo(state.snapshot.updatedAt)}`
+              ? `${t('updated')} ${formatUpdatedTimeAgo(state.snapshot.updatedAt, locale)}`
               : ''}
           </span>
         </div>
@@ -736,8 +767,8 @@ export default function XrplMarketPanel() {
                     <p className="text-sm font-semibold text-ivory">
                       {displayedRange
                         ? t('chartRange', {
-                            start: TIMELINE_DATE_FORMATTER.format(displayedRange.start),
-                            end: TIMELINE_DATE_FORMATTER.format(displayedRange.end),
+                            start: timelineDateFormatter.format(displayedRange.start),
+                            end: timelineDateFormatter.format(displayedRange.end),
                           })
                         : '--'}
                     </p>
@@ -960,7 +991,7 @@ export default function XrplMarketPanel() {
               </div>
               <p id={chartLiveStatusId} className="sr-only" aria-live="polite">
                 {hoverSnapshot
-                  ? `${t('pointAt')} ${POINT_AT_DATE_FORMATTER.format(hoverSnapshot.timestamp)}`
+                  ? `${t('pointAt')} ${pointAtDateFormatter.format(hoverSnapshot.timestamp)}`
                   : chartWindow.isZoomed
                     ? t('zoomReset')
                     : ''}
@@ -976,7 +1007,7 @@ export default function XrplMarketPanel() {
                         className={`flex flex-col ${index === timelineTicks.length - 1 ? 'items-end' : 'items-start'}`}
                       >
                         <span>
-                          {(chartWindow.isZoomed ? ZOOMED_TIMELINE_DATE_FORMATTER : TIMELINE_DATE_FORMATTER).format(
+                          {(chartWindow.isZoomed ? zoomedTimelineDateFormatter : timelineDateFormatter).format(
                             tick.timestamp,
                           )}
                         </span>
@@ -1050,7 +1081,7 @@ export default function XrplMarketPanel() {
                   className="surface-soft rounded-2xl border border-white/10 p-3 text-[11px] text-ivory/75"
                 >
                   <p className="font-semibold uppercase tracking-[0.16em] text-ivory/55">
-                    {t('pointAt')} {POINT_AT_DATE_FORMATTER.format(hoverSnapshot.timestamp)}
+                    {t('pointAt')} {pointAtDateFormatter.format(hoverSnapshot.timestamp)}
                   </p>
                   <div className="mt-2 space-y-1.5">
                     {hoverSnapshot.rows.map((asset) => (
@@ -1062,7 +1093,7 @@ export default function XrplMarketPanel() {
                         <span className="truncate text-ivory/65">
                           {asset.marketGroup === 'xrpl' ? t('table.xrpl') : t('table.reference')} · {asset.explicitName} ({asset.symbol})
                         </span>
-                        <span className="font-semibold text-ivory">{formatUsd(asset.pointPrice)}</span>
+                        <span className="font-semibold text-ivory">{formatUsd(asset.pointPrice, locale)}</span>
                       </div>
                     ))}
                   </div>
@@ -1074,44 +1105,41 @@ export default function XrplMarketPanel() {
           )}
         </div>
 
-        <div
-          data-testid="xrpl-market-table"
-          className="surface-soft p-4 text-sm text-ivory/70"
-          role="group"
-          aria-labelledby={tableLabelId}
-        >
-          <div className="grid grid-cols-4 gap-3 text-xs uppercase tracking-wide text-ivory/50">
-            <span id={tableLabelId}>{t('table.asset')}</span>
-            <span>{t('table.price')}</span>
-            <span>{t('table.change')}</span>
-            <span>{t('table.network')}</span>
-          </div>
-          <div className="mt-3 space-y-2">
-            {visibleAssets.map((asset) => (
-              <div
-                key={asset.id}
-                data-testid={`xrpl-market-row-${asset.symbol.toLowerCase()}`}
-                className="grid grid-cols-4 gap-3"
-              >
-                <span className="font-medium text-ivory">{asset.symbol}</span>
-                <span>{formatUsd(asset.priceUsd)}</span>
-                <span className={asset.change24h >= 0 ? 'text-emerald-200' : 'text-red-300'}>
-                  {asset.change24h >= 0 ? '+' : ''}
-                  {asset.change24h.toFixed(2)}%
-                </span>
-                <span className="text-ivory/60">
-                  {asset.network}
-                </span>
-              </div>
-            ))}
-          </div>
+        <div data-testid="xrpl-market-table" className="surface-soft overflow-hidden p-4 text-sm text-ivory/70">
+          <table className="w-full border-collapse" aria-labelledby={tableLabelId}>
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-ivory/50">
+                <th id={tableLabelId} scope="col" className="pb-3 font-medium">{t('table.asset')}</th>
+                <th scope="col" className="pb-3 font-medium">{t('table.price')}</th>
+                <th scope="col" className="pb-3 font-medium">{t('table.change')}</th>
+                <th scope="col" className="pb-3 font-medium">{t('table.network')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleAssets.map((asset) => {
+                const changeClass = Number.isFinite(asset.change24h)
+                  ? asset.change24h >= 0
+                    ? 'text-emerald-200'
+                    : 'text-red-300'
+                  : 'text-ivory/55'
+                return (
+                  <tr key={asset.id} data-testid={`xrpl-market-row-${asset.symbol.toLowerCase()}`} className="align-top">
+                    <th scope="row" className="py-2 pr-3 text-left font-medium text-ivory">{asset.symbol}</th>
+                    <td className="py-2 pr-3">{formatUsd(asset.priceUsd, locale)}</td>
+                    <td className={`py-2 pr-3 ${changeClass}`}>{formatPercentChange(asset.change24h, locale)}</td>
+                    <td className="py-2 text-ivory/60">{asset.network}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
 
         <motion.button
           data-testid="xrpl-market-refresh"
           type="button"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={reduceMotion ? undefined : { scale: 1.02 }}
+          whileTap={reduceMotion ? undefined : { scale: 0.98 }}
           disabled={locked}
           onClick={() => void loadSnapshot()}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-5 py-3 text-base font-semibold tracking-wide text-ivory shadow-lg shadow-[#b26a49]/30 transition focus:outline-none focus:ring-2 focus:ring-saffron/40 disabled:cursor-not-allowed disabled:opacity-60"

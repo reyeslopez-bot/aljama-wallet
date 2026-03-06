@@ -145,13 +145,14 @@ function ShareSection() {
 }
 
 function FooterCopyright() {
+  const year = new Date().getFullYear()
   return (
     <footer className="flex justify-center pt-4">
       <span
-        aria-label="Copyright 2026 Aljama Wallet"
+        aria-label={`Copyright ${year} ${BRAND.name}`}
         className="inline-block text-sm font-semibold tracking-[0.08em] text-saffron/75 sm:text-base"
       >
-        © 2026 Aljama Wallet
+        © {year} {BRAND.name}
       </span>
     </footer>
   )
@@ -159,7 +160,6 @@ function FooterCopyright() {
 
 export default function HomeContent() {
   const tHome = useTranslations('home')
-  const noCopyEnabled = process.env.NODE_ENV === 'production'
   const showDevDeviation = process.env.NODE_ENV === 'development'
 
   const statBlocks = [
@@ -185,7 +185,6 @@ export default function HomeContent() {
 
   return (
     <div
-      data-no-copy={noCopyEnabled ? 'true' : undefined}
       data-dev-deviation={showDevDeviation ? 'true' : undefined}
       className="relative mx-auto max-w-7xl space-y-24 pb-32 pt-28"
     >
