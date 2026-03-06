@@ -3,11 +3,12 @@ import { NextResponse } from 'next/server'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { isStrictMode } from '@/lib/security/runtime'
 import { errorJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
 import { extractRequestSignalContext } from '@/lib/security/request-signal'
 import { logError } from '@/lib/security/logging'
 
-export async function GET(req: Request) {
+async function getDebugEnv(req: Request) {
   const signalContext = extractRequestSignalContext(req)
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
@@ -72,3 +73,5 @@ export async function GET(req: Request) {
     NODE_ENV: process.env.NODE_ENV ?? null,
   })
 }
+
+export const GET = withApiRoute({ scope: 'api:debug-env', timeoutMs: 5_000 }, getDebugEnv)

@@ -3,6 +3,7 @@ import { requireSession } from '@/lib/security/session'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { readJsonBody } from '@/lib/security/request-body'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
@@ -22,7 +23,7 @@ const schema = z.object({
   idempotencyKey: z.string().uuid(),
 })
 
-export async function POST(req: Request) {
+async function postXrplNftMint(req: Request) {
   let actionId: string | null = null
 
   try {
@@ -167,3 +168,5 @@ export async function POST(req: Request) {
     )
   }
 }
+
+export const POST = withApiRoute({ scope: 'api:xrpl-nft-mint', timeoutMs: 20_000 }, postXrplNftMint)

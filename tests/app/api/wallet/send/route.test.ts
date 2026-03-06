@@ -234,6 +234,7 @@ describe('app/api/wallet/send route', () => {
 
     expect(res.status).toBe(401)
     expect(body.code).toBe('unauthorized')
+    expect(res.headers.get('x-request-id')).toBeTruthy()
     expect(mockIsAllowedOrigin).not.toHaveBeenCalled()
   })
 

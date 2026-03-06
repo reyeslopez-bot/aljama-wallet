@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { recordTrackWalletEvent } from '@/services/track-wallet.service'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { logError } from '@/lib/security/logging'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
@@ -34,7 +35,7 @@ const trackWalletSchema = z.object({
   timestamp: z.string().datetime(),
 })
 
-export async function POST(req: Request) {
+async function postTrackWallet(req: Request) {
   const signalContext = extractRequestSignalContext(req)
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
@@ -170,3 +171,5 @@ export async function POST(req: Request) {
     return errorJson(500, 'server_error', 'Unexpected error')
   }
 }
+
+export const POST = withApiRoute({ scope: 'api:track-wallet', timeoutMs: 5_000 }, postTrackWallet)

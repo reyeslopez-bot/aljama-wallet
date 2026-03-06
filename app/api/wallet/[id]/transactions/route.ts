@@ -1,4 +1,5 @@
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { isAdminEmail, requireSession } from '@/lib/security/session'
@@ -22,8 +23,9 @@ function parseCursor(raw: string | null): Date | null {
   return cursor
 }
 
-export async function GET(
+async function getWalletTransactions(
   req: Request,
+  _routeContext: { requestId: string; startedAt: number; timeoutMs: number },
   context: { params: Promise<{ id: string }> },
 ) {
   const session = await requireSession()
@@ -86,3 +88,8 @@ export async function GET(
     return errorJson(500, 'wallet_transactions_failed', 'WALLET_TRANSACTIONS_FAILED')
   }
 }
+
+export const GET = withApiRoute<[{ params: Promise<{ id: string }> }]>(
+  { scope: 'api:wallet-transactions', timeoutMs: 10_000 },
+  getWalletTransactions,
+)

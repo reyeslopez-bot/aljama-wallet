@@ -6,6 +6,7 @@ import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { isStrictMode } from '@/lib/security/runtime'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
@@ -13,7 +14,7 @@ import { extractRequestSignalContext } from '@/lib/security/request-signal'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(req?: Request) {
+async function getTestDb(req?: Request) {
   const request = req ?? new Request('http://localhost')
   const signalContext = extractRequestSignalContext(request)
   const trackSignal = async (input: {
@@ -120,3 +121,5 @@ export async function GET(req?: Request) {
     return errorJson(500, 'test_db_failed', message)
   }
 }
+
+export const GET = withApiRoute({ scope: 'api:test-db', timeoutMs: 10_000 }, getTestDb)

@@ -5,9 +5,10 @@ import { requireSession, isAdminEmail } from "@/lib/security/session"
 import { getWalletIdsForUser } from "@/services/wallet-ownership.service"
 import { buildRateLimitKey, rateLimit } from "@/lib/security/rate-limit"
 import { errorJson } from "@/lib/security/api-response"
+import { withApiRoute } from "@/lib/security/api-route"
 import { isAllowedOrigin } from "@/lib/security/origin"
 
-export async function GET(req?: Request) {
+async function getWalletsRoute(req?: Request) {
   const session = await requireSession()
   if (!session) {
     return errorJson(401, "unauthorized", "UNAUTHORIZED")
@@ -44,3 +45,5 @@ export async function GET(req?: Request) {
   const wallets = await getWalletsByIds(walletIds)
   return NextResponse.json(wallets)
 }
+
+export const GET = withApiRoute({ scope: "api:wallets", timeoutMs: 10_000 }, getWalletsRoute)

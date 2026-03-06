@@ -3,6 +3,7 @@ import { requireSession } from '@/lib/security/session'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { readJsonBody } from '@/lib/security/request-body'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
@@ -18,7 +19,7 @@ const schema = z.object({
   offerIds: z.array(z.string().min(10).max(128)).min(1).max(20),
 })
 
-export async function POST(req: Request) {
+async function postXrplNftOfferCancel(req: Request) {
   let actionId: string | null = null
   try {
     const session = await requireSession()
@@ -152,3 +153,8 @@ export async function POST(req: Request) {
     )
   }
 }
+
+export const POST = withApiRoute(
+  { scope: 'api:xrpl-nft-offer-cancel', timeoutMs: 20_000 },
+  postXrplNftOfferCancel,
+)

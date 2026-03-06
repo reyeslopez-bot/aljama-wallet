@@ -29,6 +29,7 @@ import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
 import { extractRequestSignalContext } from '@/lib/security/request-signal'
+import { withApiRoute } from '@/lib/security/api-route'
 
 export const dynamic = 'force-dynamic'
 
@@ -390,6 +391,6 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
   }
 }
 
-export async function POST(req: Request) {
-  return sendWalletRequest(req)
-}
+export const POST = withApiRoute({ scope: 'api:wallet-send', timeoutMs: 20_000 }, async (req) =>
+  sendWalletRequest(req),
+)

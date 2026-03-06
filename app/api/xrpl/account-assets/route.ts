@@ -2,6 +2,7 @@ import { isValidClassicAddress } from 'xrpl'
 import { requireSession } from '@/lib/security/session'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
 import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
@@ -9,7 +10,7 @@ import { isXrplAccountNotFoundError } from '@/lib/xrpl-errors'
 import { getXrplSignerAddress } from '@/lib/xrpl-signer'
 import { getAllowedIssuerSet, getXrplAccountAssets } from '@/lib/xrpl-issued-assets'
 
-export async function GET(req: Request) {
+async function handleXrplAccountAssets(req: Request) {
   try {
     const session = await requireSession()
     if (!session) {
@@ -85,3 +86,8 @@ export async function GET(req: Request) {
     return errorJson(500, 'xrpl_assets_failed', getErrorMessage(error, 'Failed to load XRPL assets'))
   }
 }
+
+export const GET = withApiRoute(
+  { scope: 'api:xrpl-account-assets', timeoutMs: 12_000 },
+  handleXrplAccountAssets,
+)

@@ -105,6 +105,8 @@ describe('app/api/create-wallet route', () => {
       encrypted: 'enc',
       mode: 'custody',
     })
+    expect(res.headers.get('x-request-id')).toBeTruthy()
+    expect(res.headers.get('x-response-time-ms')).toBeTruthy()
   })
 
   it('returns session-only when DB write fails in non-production', async () => {

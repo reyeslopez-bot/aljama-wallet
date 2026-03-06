@@ -7,6 +7,7 @@ import { readJsonBody } from '@/lib/security/request-body'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
+import { withApiRoute } from '@/lib/security/api-route'
 
 const signupSchema = z.object({
   email: z.string().email().max(256),
@@ -14,7 +15,7 @@ const signupSchema = z.object({
   source: z.string().max(64).optional(),
 })
 
-export async function POST(req: Request) {
+async function postSignup(req: Request) {
   try {
     if (!isAllowedOrigin(req)) {
       return errorJson(403, 'invalid_origin', 'INVALID_ORIGIN')
@@ -64,3 +65,5 @@ export async function POST(req: Request) {
     return errorJson(500, 'signup_failed', getErrorMessage(error, 'Failed to save signup'))
   }
 }
+
+export const POST = withApiRoute({ scope: 'api:signup', timeoutMs: 5_000 }, postSignup)

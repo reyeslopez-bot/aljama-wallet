@@ -1,4 +1,5 @@
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { logError } from '@/lib/security/logging'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
@@ -32,7 +33,7 @@ function collectSignals(payload: unknown): unknown[] {
   return [body]
 }
 
-export async function POST(req: Request) {
+async function postSecuritySignals(req: Request) {
   const signalContext = extractRequestSignalContext(req)
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
@@ -201,3 +202,5 @@ export async function POST(req: Request) {
     results,
   })
 }
+
+export const POST = withApiRoute({ scope: 'api:security-signals', timeoutMs: 10_000 }, postSecuritySignals)

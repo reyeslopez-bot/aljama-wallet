@@ -52,6 +52,28 @@ describe('MapboxMap', () => {
     })
 
     vi.clearAllMocks()
+
+    Object.defineProperty(window.navigator, 'geolocation', {
+      value: {
+        getCurrentPosition: vi.fn((success: (position: GeolocationPosition) => void) => {
+          success({
+            coords: {
+              latitude: 32.0853,
+              longitude: 34.7818,
+              accuracy: 10,
+              altitude: null,
+              altitudeAccuracy: null,
+              heading: null,
+              speed: null,
+              toJSON: () => ({}),
+            },
+            timestamp: Date.now(),
+            toJSON: () => ({}),
+          } as GeolocationPosition)
+        }),
+      },
+      configurable: true,
+    })
   })
 
   it('keeps Dubai jurisdiction when network location falls back to default', async () => {
@@ -81,6 +103,70 @@ describe('MapboxMap', () => {
     await waitFor(() => {
       expect(getByTestId('mapbox-map-laws').textContent).toContain('Jurisdiction:')
       expect(getByTestId('mapbox-map-laws').textContent).toContain('UAE - Dubai')
+    })
+  })
+
+  it('uses VPN/network location by default even when device geolocation is available', async () => {
+    window.localStorage.setItem('aljama.location.consent', 'granted')
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        location: {
+          source: 'network',
+          latitude: 25.204849,
+          longitude: 55.270783,
+          country: 'AE',
+          region: null,
+          city: 'Dubai',
+          timezone: 'Asia/Dubai',
+        },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByTestId } = render(<MapboxMap />)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(getByTestId('mapbox-map-laws').textContent).toContain('UAE - Dubai')
+      expect(window.navigator.geolocation.getCurrentPosition).not.toHaveBeenCalled()
+    })
+  })
+
+  it('switches to device location when explicitly requested', async () => {
+    window.localStorage.setItem('aljama.location.consent', 'granted')
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        location: {
+          source: 'network',
+          latitude: 25.204849,
+          longitude: 55.270783,
+          country: 'AE',
+          region: null,
+          city: 'Dubai',
+          timezone: 'Asia/Dubai',
+        },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByTestId } = render(<MapboxMap />)
+
+    await waitFor(() => {
+      expect(getByTestId('mapbox-map-laws').textContent).toContain('UAE - Dubai')
+    })
+
+    fireEvent.click(getByTestId('mapbox-map-use-device-location'))
+
+    await waitFor(() => {
+      expect(window.navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(1)
+      expect(getByTestId('mapbox-map-laws').textContent).toContain('Israel')
+      expect(getByTestId('mapbox-map-status').textContent).toMatch(/Centered at/)
     })
   })
 

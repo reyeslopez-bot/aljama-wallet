@@ -1,4 +1,5 @@
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { buildRateLimitKey, getRateLimitBackendHealth, rateLimit } from '@/lib/security/rate-limit'
 import { getSecurityAlertsForensics } from '@/services/security-alert.service'
@@ -22,7 +23,7 @@ function parseLimit(value: string | null): number {
   return Math.min(parsed, MAX_LIMIT)
 }
 
-export async function GET(req: Request) {
+async function getSecurityAnomalies(req: Request) {
   const signalContext = extractRequestSignalContext(req)
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
@@ -114,3 +115,8 @@ export async function GET(req: Request) {
     rules: listSecurityAnomalyRules(),
   })
 }
+
+export const GET = withApiRoute(
+  { scope: 'api:security-anomalies', timeoutMs: 10_000 },
+  getSecurityAnomalies,
+)

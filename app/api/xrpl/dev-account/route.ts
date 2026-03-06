@@ -3,12 +3,13 @@ import { getDevXrplAccount } from '@/lib/xrpl'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { isStrictMode } from '@/lib/security/runtime'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 import { isXrplNetworkId, DEFAULT_XRPL_NETWORK_ID } from '@/lib/xrpl-networks'
 
-export async function GET(req: Request) {
+async function getXrplDevAccount(req: Request) {
   const rateKey = buildRateLimitKey(req, null)
   const limitState = await rateLimit({
     bucket: 'xrpl-dev-account',
@@ -54,3 +55,5 @@ export async function GET(req: Request) {
     return errorJson(500, 'xrpl_error', getErrorMessage(error, 'XRPL error'))
   }
 }
+
+export const GET = withApiRoute({ scope: 'api:xrpl-dev-account', timeoutMs: 10_000 }, getXrplDevAccount)

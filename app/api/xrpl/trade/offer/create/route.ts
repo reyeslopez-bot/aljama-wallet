@@ -3,6 +3,7 @@ import { requireSession } from '@/lib/security/session'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { readJsonBody } from '@/lib/security/request-body'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
@@ -44,7 +45,7 @@ function buildFlags(input: z.infer<typeof schema>): number | undefined {
   return flags > 0 ? flags : undefined
 }
 
-export async function POST(req: Request) {
+async function postXrplTradeOfferCreate(req: Request) {
   let actionId: string | null = null
 
   try {
@@ -190,3 +191,8 @@ export async function POST(req: Request) {
     )
   }
 }
+
+export const POST = withApiRoute(
+  { scope: 'api:xrpl-trade-offer-create', timeoutMs: 20_000 },
+  postXrplTradeOfferCreate,
+)

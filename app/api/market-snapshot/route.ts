@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { logWarn } from '@/lib/security/logging'
 
 type MarketAsset = {
@@ -154,7 +155,7 @@ async function buildSnapshot(): Promise<MarketSnapshot> {
   }
 }
 
-export async function GET(req?: Request) {
+async function getMarketSnapshot(req?: Request) {
   const request = req ?? new Request('http://localhost')
   const rateKey = buildRateLimitKey(request, null)
   const limit = await rateLimit({
@@ -215,3 +216,5 @@ export async function GET(req?: Request) {
     )
   }
 }
+
+export const GET = withApiRoute({ scope: 'api:market-snapshot', timeoutMs: 12_000 }, getMarketSnapshot)

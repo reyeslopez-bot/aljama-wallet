@@ -11,6 +11,7 @@ import { readJsonBody } from '@/lib/security/request-body'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 import { prepareManagedWalletProvisioning } from '@/services/signer.service'
+import { withApiRoute } from '@/lib/security/api-route'
 
 const MIN_PASSWORD_LENGTH = 16
 const UPPERCASE_PATTERN = /[A-Z]/
@@ -68,7 +69,7 @@ function missingCreateWalletConfig(): string[] {
   return missing
 }
 
-export async function POST(req: Request) {
+async function postCreateWallet(req: Request) {
   try {
     const session = await requireSession()
     if (!session) {
@@ -201,3 +202,5 @@ export async function POST(req: Request) {
     return errorJson(500, 'create_wallet_failed', message)
   }
 }
+
+export const POST = withApiRoute({ scope: 'api:create-wallet', timeoutMs: 20_000 }, postCreateWallet)

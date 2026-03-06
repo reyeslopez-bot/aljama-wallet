@@ -37,6 +37,57 @@ describe('app/api/network-location route', () => {
       city: 'Jerusalem',
       timezone: 'Asia/Jerusalem',
     })
+    expect(res.headers.get('x-request-id')).toBeTruthy()
+    expect(res.headers.get('x-response-time-ms')).toBeTruthy()
+  })
+
+  it('prefers explicit IPv4 geolocation when headers are missing', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input)
+
+        if (url === 'https://api.ipify.org?format=json') {
+          return {
+            ok: true,
+            json: async () => ({ ip: '176.229.151.144' }),
+          }
+        }
+
+        if (url === 'https://ipwho.is/176.229.151.144') {
+          return {
+            ok: true,
+            json: async () => ({
+              success: true,
+              latitude: 32.0852999,
+              longitude: 34.7817676,
+              country_code: 'IL',
+              region: 'Tel Aviv District',
+              city: 'Tel Aviv-Yafo',
+              timezone: 'Asia/Jerusalem',
+            }),
+          }
+        }
+
+        throw new Error(`Unexpected URL: ${url}`)
+      }),
+    )
+
+    const { GET } = await import('@/app/api/network-location/route')
+    const res = await GET(buildRequest())
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(body.location).toMatchObject({
+      source: 'network',
+      latitude: 32.0852999,
+      longitude: 34.7817676,
+      country: 'IL',
+      region: 'Tel Aviv District',
+      city: 'Tel Aviv-Yafo',
+      timezone: 'Asia/Jerusalem',
+    })
   })
 
   it('falls back to Dubai when location headers are missing', async () => {

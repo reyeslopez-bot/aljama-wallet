@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { encodeCommitPqcBindingCalldata } from '@/lib/contracts/pqc-binding-registry'
 import { buildPqcBindingHashes } from '@/lib/pqc/commitment'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { readJsonBody } from '@/lib/security/request-body'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
@@ -266,10 +267,16 @@ export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverri
   }
 }
 
-export async function POST(
+async function postWalletPqcAnchor(
   req: Request,
+  _routeContext: { requestId: string; startedAt: number; timeoutMs: number },
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params
   return anchorWalletPqcBindingRequest(req, id)
 }
+
+export const POST = withApiRoute<[{ params: Promise<{ id: string }> }]>(
+  { scope: 'api:wallet-pqc-anchor', timeoutMs: 20_000 },
+  postWalletPqcAnchor,
+)

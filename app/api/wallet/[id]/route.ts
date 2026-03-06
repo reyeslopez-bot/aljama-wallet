@@ -1,4 +1,5 @@
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { isAdminEmail, requireSession } from '@/lib/security/session'
@@ -6,8 +7,9 @@ import { WalletBoundaryError, getWalletSnapshotForUser } from '@/services/wallet
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(
+async function getWalletById(
   req: Request,
+  _routeContext: { requestId: string; startedAt: number; timeoutMs: number },
   context: { params: Promise<{ id: string }> },
 ) {
   const session = await requireSession()
@@ -60,3 +62,8 @@ export async function GET(
     return errorJson(500, 'wallet_snapshot_failed', 'WALLET_SNAPSHOT_FAILED')
   }
 }
+
+export const GET = withApiRoute<[{ params: Promise<{ id: string }> }]>(
+  { scope: 'api:wallet-by-id', timeoutMs: 10_000 },
+  getWalletById,
+)

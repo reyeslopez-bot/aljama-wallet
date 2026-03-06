@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { requireSession } from '@/lib/security/session'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 import { getXrplClient } from '@/infra/xrpl/client'
@@ -57,7 +58,7 @@ function parseRequest(url: string) {
   }
 }
 
-export async function GET(req: Request) {
+async function getXrplOrderbook(req: Request) {
   try {
     const session = await requireSession()
     if (!session) {
@@ -128,3 +129,5 @@ export async function GET(req: Request) {
     return errorJson(status, 'xrpl_orderbook_failed', message)
   }
 }
+
+export const GET = withApiRoute({ scope: 'api:xrpl-orderbook', timeoutMs: 10_000 }, getXrplOrderbook)

@@ -7,6 +7,7 @@ import { isAllowedOrigin } from '@/lib/security/origin'
 import { logError } from '@/lib/security/logging'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
 import { extractRequestSignalContext } from '@/lib/security/request-signal'
+import { withApiRoute } from '@/lib/security/api-route'
 
 const MAX_BODY_BYTES = 16_384
 
@@ -20,7 +21,7 @@ const telemetrySchema = z.object({
   payload: z.record(z.string(), z.unknown()).optional(),
 })
 
-export async function POST(req: Request) {
+async function postTelemetry(req: Request) {
   const signalContext = extractRequestSignalContext(req)
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
@@ -166,3 +167,5 @@ export async function POST(req: Request) {
     return errorJson(500, 'server_error', 'Unexpected error')
   }
 }
+
+export const POST = withApiRoute({ scope: 'api:telemetry', timeoutMs: 5_000 }, postTelemetry)

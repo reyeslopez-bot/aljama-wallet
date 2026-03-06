@@ -291,14 +291,18 @@
   },
   "map": {
     "label": "Map",
-    "idle": "Using device location when available, with network fallback. Dubai is only used if both fail.",
+    "idle": "Using VPN/IP location by default. Device location uses your browser and is more precise. Dubai is only used if both fail.",
     "blocked": "Location access is currently off.",
     "loading": "Resolving your location...",
     "centered": "Centered at",
     "error": "Map error.",
-    "useLocation": "Use my location",
-    "useNetworkLocation": "Use network location",
-    "refreshLocation": "Refresh location",
+    "useLocation": "Use device location",
+    "useNetworkLocation": "Use VPN/IP location",
+    "refreshLocation": "Refresh selected location",
+    "source": {
+      "device": "Device location",
+      "network": "VPN/IP location"
+    },
     "loadingTiles": "Loading map tiles...",
     "offline": "Map offline",
     "laws": {

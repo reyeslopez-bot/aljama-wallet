@@ -1,10 +1,11 @@
 import { requireSession } from '@/lib/security/session'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
 import { listXrplActions } from '@/services/xrpl-action-log.service'
 
-export async function GET(req: Request) {
+async function getXrplActionHistory(req: Request) {
   const session = await requireSession()
   if (!session) {
     return errorJson(401, 'unauthorized', 'UNAUTHORIZED')
@@ -45,3 +46,8 @@ export async function GET(req: Request) {
     network: requestedNetwork ?? DEFAULT_XRPL_NETWORK_ID,
   })
 }
+
+export const GET = withApiRoute(
+  { scope: 'api:xrpl-action-history', timeoutMs: 10_000 },
+  getXrplActionHistory,
+)

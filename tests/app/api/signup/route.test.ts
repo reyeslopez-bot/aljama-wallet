@@ -59,5 +59,7 @@ describe('app/api/signup route', () => {
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(body.email).toBe('test@example.com')
+    expect(res.headers.get('x-request-id')).toBeTruthy()
+    expect(res.headers.get('x-response-time-ms')).toBeTruthy()
   })
 })

@@ -1,10 +1,12 @@
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { getWalletByPqcBindingHash } from '@/services/wallet.service'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(
+async function getPublicPqcBinding(
   _req: Request,
+  _routeContext: { requestId: string; startedAt: number; timeoutMs: number },
   context: { params: Promise<{ bindingHash: string }> },
 ) {
   const { bindingHash } = await context.params
@@ -24,3 +26,8 @@ export async function GET(
     binding: wallet.pqcBinding,
   })
 }
+
+export const GET = withApiRoute<[{ params: Promise<{ bindingHash: string }> }]>(
+  { scope: 'api:public-pqc-binding', timeoutMs: 5_000 },
+  getPublicPqcBinding,
+)

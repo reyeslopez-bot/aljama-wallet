@@ -4,6 +4,7 @@ import { createUser, findUserByEmail, findUserByUsername } from '@/lib/auth/stor
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { readJsonBody } from '@/lib/security/request-body'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
@@ -37,7 +38,7 @@ const registerSchema = z.object({
   image: z.string().max(MAX_PROFILE_IMAGE_LENGTH).optional().nullable(),
 })
 
-export async function POST(req: Request) {
+async function postAuthRegister(req: Request) {
   const signalContext = extractRequestSignalContext(req)
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
@@ -198,3 +199,5 @@ export async function POST(req: Request) {
     return errorJson(500, 'register_failed', message)
   }
 }
+
+export const POST = withApiRoute({ scope: 'api:auth-register', timeoutMs: 10_000 }, postAuthRegister)

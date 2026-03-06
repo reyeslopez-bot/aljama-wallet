@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requireSession } from '@/lib/security/session'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
 import { getXrplClient } from '@/infra/xrpl/client'
@@ -18,7 +19,7 @@ const querySchema = z.object({
   marker: z.string().optional(),
 })
 
-export async function GET(req: Request) {
+async function getXrplNfts(req: Request) {
   try {
     const session = await requireSession()
     if (!session) {
@@ -123,3 +124,5 @@ export async function GET(req: Request) {
     return errorJson(500, 'xrpl_nfts_failed', getErrorMessage(error, 'Failed to load XRPL NFTs'))
   }
 }
+
+export const GET = withApiRoute({ scope: 'api:xrpl-nfts', timeoutMs: 15_000 }, getXrplNfts)

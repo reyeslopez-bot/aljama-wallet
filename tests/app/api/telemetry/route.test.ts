@@ -63,6 +63,8 @@ describe('app/api/telemetry route', () => {
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({ ok: true })
+    expect(res.headers.get('x-request-id')).toBeTruthy()
+    expect(res.headers.get('x-response-time-ms')).toBeTruthy()
     expect(mockRecordTelemetryEvent).toHaveBeenCalledTimes(1)
 
     const call = mockRecordTelemetryEvent.mock.calls[0]?.[0]

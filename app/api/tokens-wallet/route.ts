@@ -3,10 +3,11 @@ import { isAddress } from 'viem'
 import { getTokensByWallet } from '@/lib/getTokensByWallet'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson } from '@/lib/security/api-response'
+import { withApiRoute } from '@/lib/security/api-route'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 
-export async function GET(req: Request) {
+async function getTokensWallet(req: Request) {
   const rateKey = buildRateLimitKey(req, null)
   const limit = await rateLimit({
     bucket: 'tokens-wallet',
@@ -40,3 +41,5 @@ export async function GET(req: Request) {
     return errorJson(status, 'tokens_failed', message)
   }
 }
+
+export const GET = withApiRoute({ scope: 'api:tokens-wallet', timeoutMs: 10_000 }, getTokensWallet)
