@@ -105,6 +105,8 @@ describe('XrplTradeDesk', () => {
       expect(getByText('offer_create · validated')).toBeTruthy()
     })
 
+    fireEvent.click(getByTestId('xrpl-trade-desk-tab-advanced'))
+
     fireEvent.change(getByTestId('xrpl-trade-desk-trustline-issuer'), {
       target: { value: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe' },
     })

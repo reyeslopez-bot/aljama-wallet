@@ -42,39 +42,36 @@ describe('HomeActionButtons', () => {
     } as any)
   })
 
-  it('renders all CTA links and href targets when authenticated', () => {
+  it('renders create and connect CTA links when authenticated', () => {
     const { getByTestId, queryByTestId } = render(<HomeActionButtons />)
 
     const create = getByTestId('home-action-button-create-wallet') as HTMLAnchorElement
     const connect = getByTestId('home-action-button-connect-wallet') as HTMLAnchorElement
-    const xrpl = getByTestId('home-action-button-xrpl') as HTMLAnchorElement
 
     expect(create.getAttribute('href')).toBe('/en#create')
     expect(connect.getAttribute('href')).toBe('/en#connect')
-    expect(xrpl.getAttribute('href')).toBe('/en#xrpl')
+    expect(queryByTestId('home-action-button-xrpl')).toBeNull()
     expect(getByTestId('home-action-buttons')).toBeTruthy()
     expect(getByTestId('home-action-buttons-list')).toBeTruthy()
     expect(queryByTestId('home-action-buttons-unlock')).toBeNull()
   })
 
-  it('locks all CTA links when unauthenticated', () => {
+  it('locks create and connect CTA links when unauthenticated', () => {
     mockedUseSession.mockReturnValue({
       data: null,
       status: 'unauthenticated',
     } as any)
 
-    const { getByTestId } = render(<HomeActionButtons />)
+    const { getByTestId, queryByTestId } = render(<HomeActionButtons />)
 
     const create = getByTestId('home-action-button-create-wallet') as HTMLAnchorElement
     const connect = getByTestId('home-action-button-connect-wallet') as HTMLAnchorElement
-    const xrpl = getByTestId('home-action-button-xrpl') as HTMLAnchorElement
 
     expect(create.getAttribute('aria-disabled')).toBe('true')
     expect(connect.getAttribute('aria-disabled')).toBe('true')
-    expect(xrpl.getAttribute('aria-disabled')).toBe('true')
     expect(create.tabIndex).toBe(-1)
     expect(connect.tabIndex).toBe(-1)
-    expect(xrpl.tabIndex).toBe(-1)
+    expect(queryByTestId('home-action-button-xrpl')).toBeNull()
     expect(getByTestId('home-action-buttons-unlock')).toBeTruthy()
   })
 })

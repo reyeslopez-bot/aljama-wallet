@@ -53,21 +53,13 @@ export default function HomeActionButtons() {
       testId: 'home-action-button-connect-wallet',
       tone: 'secondary',
     },
-    {
-      kind: 'anchor',
-      label: t('xrpl'),
-      href: `/${locale}#xrpl`,
-      bg: 'linear-gradient(135deg, rgba(232,210,162,0.18) 0%, rgba(200,171,114,0.16) 50%, rgba(161,128,79,0.2) 100%)',
-      testId: 'home-action-button-xrpl',
-      tone: 'secondary',
-    },
   ]
 
   return (
     <div data-testid="home-action-buttons" className="w-full" role="group" aria-label="Primary wallet actions">
       <div
         data-testid="home-action-buttons-list"
-        className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,1fr)] sm:gap-4"
+        className="mx-auto grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4"
         role="list"
       >
         {buttons.map((button) => (
@@ -91,10 +83,10 @@ export default function HomeActionButtons() {
               whileHover={{ y: button.tone === 'primary' ? -2 : -1 }}
               whileTap={{ scale: button.tone === 'primary' ? 0.98 : 0.99 }}
               transition={{ type: 'spring', stiffness: 220, damping: 18 }}
-              className={`flex w-full items-center justify-center rounded-full px-7 tracking-wide transition-all ${
+              className={`flex h-[84px] w-full items-center justify-center rounded-full px-7 text-[17px] font-semibold tracking-wide transition-all md:h-[88px] ${
                 button.tone === 'primary'
-                  ? 'h-[84px] text-[18px] font-semibold text-[#20140e] drop-shadow-[0_1px_0_rgba(255,255,255,0.26)] md:h-[88px]'
-                  : 'h-[72px] text-[15px] font-medium text-ivory/86 md:h-[80px]'
+                  ? 'text-[#20140e] drop-shadow-[0_1px_0_rgba(255,255,255,0.26)]'
+                  : 'text-ivory/86'
               }`}
               style={surface(button.bg, button.tone)}
             >
