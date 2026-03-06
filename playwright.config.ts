@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test'
 const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3000)
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`
 const ENABLE_ALL_BROWSERS = process.env.PLAYWRIGHT_ALL_BROWSERS === 'true'
+const ENABLE_EXTENDED_DEVICES = process.env.PLAYWRIGHT_EXTENDED_DEVICES === 'true'
 const DISABLE_WEB_SERVER = process.env.PLAYWRIGHT_DISABLE_WEBSERVER === 'true'
 const WEB_SERVER_NODE_ENV = process.env.PLAYWRIGHT_NODE_ENV ?? 'test'
 const WEB_SERVER_NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET ?? 'playwright-nextauth-secret'
@@ -44,6 +45,35 @@ if (ENABLE_ALL_BROWSERS) {
       name: 'webkit',
       use: {
         ...devices['Desktop Safari'],
+      },
+    },
+  )
+}
+
+if (ENABLE_EXTENDED_DEVICES) {
+  projects.push(
+    {
+      name: 'iphone-15-pro',
+      use: {
+        ...devices['iPhone 15 Pro'],
+      },
+    },
+    {
+      name: 'galaxy-s24',
+      use: {
+        ...devices['Galaxy S24'],
+      },
+    },
+    {
+      name: 'ipad-pro-11',
+      use: {
+        ...devices['iPad Pro 11'],
+      },
+    },
+    {
+      name: 'galaxy-tab-s9',
+      use: {
+        ...devices['Galaxy Tab S9'],
       },
     },
   )

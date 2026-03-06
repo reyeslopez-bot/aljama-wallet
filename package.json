@@ -18,6 +18,7 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "test:e2e:install:all": "playwright install chromium firefox webkit",
+    "test:e2e:devices": "cross-env PLAYWRIGHT_EXTENDED_DEVICES=true playwright test tests/e2e/home.frontend.spec.ts --workers=1 --project=iphone-13 --project=pixel-7 --project=iphone-15-pro --project=galaxy-s24 --project=ipad-pro-11 --project=galaxy-tab-s9",
     "test:e2e:multi-browser": "playwright test tests/e2e/home.cross-browser.spec.ts --workers=1 --project=chromium --project=firefox --project=webkit",
     "test:e2e:real-backend": "playwright test tests/e2e/home.production.spec.ts --project=chromium",
     "test:e2e:visual": "playwright test tests/e2e/home.frontend.spec.ts --project=chromium",

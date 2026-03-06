@@ -214,7 +214,90 @@ jobs:
           if-no-files-found: ignore
 
   # ─────────────────────────────────────────────
-  # 3) Frontend CI: multi-browser (Chromium/Firefox/WebKit)
+  # 3) Frontend CI: explicit mobile/tablet device coverage
+  # ─────────────────────────────────────────────
+  frontend-devices-linux:
+    name: Frontend CI (Ubuntu · Devices)
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install pnpm
+        shell: bash
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if npm i -g pnpm@10.28.1; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
+
+      - name: Setup pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          cache: 'pnpm'
+
+      - name: Verify pnpm
+        run: pnpm -v
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          pnpm config set registry https://registry.npmjs.org/
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pnpm install failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
+
+      - name: Prisma generate (CRDB + PG)
+        run: pnpm prisma:generate
+
+      - name: Install Playwright browsers (Chromium + WebKit)
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Device functional tests (Playwright)
+        env:
+          CI: true
+          PLAYWRIGHT_EXTENDED_DEVICES: 'true'
+        run: pnpm test:e2e:devices
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-ubuntu-devices
+          path: playwright-report
+          if-no-files-found: ignore
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-ubuntu-devices
+          path: test-results
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────
+  # 4) Frontend CI: multi-browser (Chromium/Firefox/WebKit)
   # ─────────────────────────────────────────────
   frontend-multi-browser:
     name: Frontend CI (Ubuntu · Multi-browser)
@@ -297,7 +380,7 @@ jobs:
           if-no-files-found: ignore
 
   # ─────────────────────────────────────────────
-  # 4) Frontend CI: production-like real backend E2E
+  # 5) Frontend CI: production-like real backend E2E
   # ─────────────────────────────────────────────
   frontend-prodlike:
     name: Frontend CI (Ubuntu · Prod-like backend)
@@ -386,7 +469,7 @@ jobs:
           if-no-files-found: ignore
 
   # ─────────────────────────────────────────────
-  # 5) Frontend CI: visual baseline diffs
+  # 6) Frontend CI: visual baseline diffs
   # ─────────────────────────────────────────────
   frontend-visual:
     name: Frontend CI (macOS · Visual baselines)
@@ -470,7 +553,7 @@ jobs:
           if-no-files-found: ignore
 
   # ─────────────────────────────────────────────
-  # 6) XRPL live integration (env-gated)
+  # 7) XRPL live integration (env-gated)
   # ─────────────────────────────────────────────
   xrpl-live-integration:
     name: XRPL Live Integration (Testnet)
