@@ -75,12 +75,21 @@ jobs:
             sleep $((attempt * 15))
           done
 
-      - name: Detect install scripts
+      - name: Verify build-script policy
+        shell: bash
         run: |
-          if grep -R '"postinstall"' node_modules/*/package.json 2>/dev/null; then
-            echo "Install scripts detected"
+          ignored_builds="$(pnpm ignored-builds)"
+          auto_ignored="$(printf '%s\n' "$ignored_builds" | awk '
+            /^Automatically ignored builds during installation:/ { capture=1; next }
+            /^$/ && capture { exit }
+            capture { print }
+          ' | sed 's/^[[:space:]]*//')"
+          if [ "$auto_ignored" != "None" ]; then
+            echo "$ignored_builds"
+            echo "Unexpected blocked build scripts detected. Add each package to pnpm.onlyBuiltDependencies or pnpm.ignoredBuiltDependencies."
             exit 1
           fi
+          echo "Build-script policy matches pnpm allow/ignore lists."
 
       - name: Detect Npm Signatures
         run: |
@@ -223,6 +232,7 @@ jobs:
 
       - name: Verify dependency author
         if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'dependabot/')
+        shell: bash
         run: |
           if [[ "${{ github.actor }}" != "dependabot[bot]" ]]; then
             echo "Dependency changes must come from Dependabot"

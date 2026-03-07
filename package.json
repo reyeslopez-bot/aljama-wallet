@@ -125,6 +125,11 @@
       "sharp",
       "unrs-resolver",
       "utf-8-validate"
+    ],
+    "ignoredBuiltDependencies": [
+      "@parcel/watcher",
+      "@reown/appkit",
+      "@swc/core"
     ]
   },
   "engines": {
