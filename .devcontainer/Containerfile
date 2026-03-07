@@ -36,8 +36,8 @@ ARG NEXTAUTH_URL=http://127.0.0.1:3000
 ENV NEXTAUTH_SECRET=${NEXTAUTH_SECRET} \
     NEXTAUTH_URL=${NEXTAUTH_URL}
 
-# 1. Install deps (no prisma schema yet)
-COPY package.json pnpm-lock.yaml ./
+# 1. Install deps (no app source yet)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN --mount=type=cache,target=/root/.pnpm-store \
     pnpm config set store-dir /root/.pnpm-store && \
     pnpm config set registry https://registry.npmjs.org/ && \
@@ -61,22 +61,32 @@ RUN pnpm prisma generate --schema=prisma/crdb/schema.prisma \
     && ls -la prisma/generated/prisma-crdb \
     && test -f prisma/generated/prisma-crdb/index.d.ts
 # 3. Build Next
-RUN pnpm build
+RUN pnpm build \
+    && test -f .next/standalone/server.js
 
 # ---------- prod ----------
-FROM base AS prod
+FROM node:25.4.0-slim AS prod
 WORKDIR /workspace
 
 ENV NODE_ENV=production \
     PORT=2999 \
-    HOSTNAME=0.0.0.0
+    HOSTNAME=0.0.0.0 \
+    NEXT_TELEMETRY_DISABLED=1
 
-COPY --from=builder /workspace/package.json ./package.json
-COPY --from=builder /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=builder /workspace/.next ./.next
+COPY --from=builder /workspace/.next/standalone ./
+COPY --from=builder /workspace/.next/static ./.next/static
 COPY --from=builder /workspace/public ./public
-COPY --from=builder /workspace/node_modules ./node_modules
-COPY --from=builder /workspace/prisma ./prisma
+COPY --from=builder /workspace/prisma/generated ./prisma/generated
 
 EXPOSE 2999
-CMD ["pnpm","start"]
+CMD ["node","server.js"]
+
+# ---------- ci ----------
+FROM base AS ci
+WORKDIR /workspace
+
+ENV NODE_ENV=development \
+    PORT=2998 \
+    HOSTNAME=0.0.0.0
+
+CMD ["bash"]

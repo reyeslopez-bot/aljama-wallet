@@ -125,6 +125,22 @@ jobs:
           NEXTAUTH_URL: ${{ env.NEXTAUTH_URL }}
         run: pnpm build
 
+      - name: Verify standalone runtime artifact
+        env:
+          PORT: '3100'
+          NEXTAUTH_URL: http://127.0.0.1:3100
+        run: bash ./scripts/standalone-artifact.sh verify
+
+      - name: Prepare standalone runtime artifact
+        run: bash ./scripts/standalone-artifact.sh prepare artifacts/standalone-runtime
+
+      - name: Upload standalone runtime artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-runtime
+          path: artifacts/standalone-runtime
+          if-no-files-found: error
+
       - name: Check outdated dependencies
         run: pnpm outdated --depth 0 || true
 
@@ -206,6 +222,7 @@ jobs:
           done
 
       - name: Verify dependency author
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'dependabot/')
         run: |
           if [[ "${{ github.actor }}" != "dependabot[bot]" ]]; then
             echo "Dependency changes must come from Dependabot"
@@ -480,7 +497,7 @@ jobs:
           CI: true
           PLAYWRIGHT_REAL_BACKEND: 'true'
           PLAYWRIGHT_NODE_ENV: 'production'
-          PLAYWRIGHT_SERVER_COMMAND: pnpm build && pnpm start --port 3000
+          PLAYWRIGHT_SERVER_COMMAND: pnpm build && bash ./scripts/standalone-artifact.sh run
           NEXTAUTH_SECRET: ci-prodlike-nextauth-secret
           NEXTAUTH_URL: http://127.0.0.1:3000
           XRPL_RPC_URL: ${{ env.XRPL_RPC_URL }}
@@ -676,6 +693,7 @@ jobs:
         run: |
           IMAGE_NAME=aljama-wallet-ci
           podman build \
+            --target ci \
             -t "$IMAGE_NAME" \
             --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
             --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \

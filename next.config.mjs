@@ -9,6 +9,10 @@ const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
+  outputFileTracingIncludes: {
+    "/*": ["./prisma/generated/**/*"],
+  },
   async headers() {
     const baseHeaders = [
       { key: "X-Content-Type-Options", value: "nosniff" },
