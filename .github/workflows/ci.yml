@@ -13,6 +13,7 @@ concurrency:
   group: aljama-wallet-${{ github.ref }}
   cancel-in-progress: true
 
+
 env:
   XRPL_RPC_URL: wss://s.altnet.rippletest.net:51233
   NEXTAUTH_SECRET: ci-nextauth-secret
@@ -74,6 +75,30 @@ jobs:
             sleep $((attempt * 15))
           done
 
+      - name: Detect install scripts
+        run: |
+          if grep -R '"postinstall"' node_modules/*/package.json 2>/dev/null; then
+            echo "Install scripts detected"
+            exit 1
+          fi
+
+      - name: Detect Npm Signatures
+        run: |
+          if grep -R '"npm-signatures"' node_modules/*/package.json 2>/dev/null; then
+            echo "Npm Signatures detected"
+            exit 1
+          fi
+      - name: Generate SBOM
+        run: pnpm dlx @cyclonedx/cyclonedx-npm \
+          --output-format json \
+          --output-file sbom.json \
+
+      - name: Upload SBOM 
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+      
       - name: Prisma generate (CRDB + PG)
         run: pnpm prisma:generate
 
@@ -180,6 +205,13 @@ jobs:
             sleep $((attempt * 15))
           done
 
+      - name: Verify dependency author
+        run: |
+          if [[ "${{ github.actor }}" != "dependabot[bot]" ]]; then
+            echo "Dependency changes must come from Dependabot"
+            exit 1
+          fi
+      
       - name: Prisma generate (CRDB + PG)
         run: pnpm prisma:generate
 

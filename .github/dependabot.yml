@@ -1,41 +1,82 @@
 version: 2
 
+name: "Dependabot Auto Merge"
+
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "sunday"
       time: "03:00"
       timezone: "UTC"
-    open-pull-requests-limit: 20
+
+    open-pull-requests-limit: 10
+
     rebase-strategy: "auto"
+
     versioning-strategy: "increase-if-necessary"
+
     commit-message:
       prefix: "deps"
       include: "scope"
+
     labels:
       - "dependencies"
       - "npm"
+
     groups:
+
+      npm-safe:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+
       npm-patch-minor:
         patterns:
           - "*"
         update-types:
           - "patch"
           - "minor"
+
       npm-major:
         patterns:
           - "*"
         update-types:
           - "major"
 
+      npm-security:
+        applies-to:
+          - "security-updates"
+        patterns:
+          - "*"
+
+      ignore:
+        - dependency-name: "typescript"
+          update-types: {"version-update: semver-major"}
+
+        - dependency-name: "next"
+          update-types: {"version-update: semver-major"}
+        
+        - dependency-name: "react"
+          update-types: {"version-update: semver-major"}
+
+        - dependency-name: "@xrpl/*"
+        - dependency-name: "ethers"
+        - dependency-name: "tweetnacl"
+        - dependency-name: "libsodium"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "sunday"
       time: "03:30"
       timezone: "UTC"
-    open-pull-requests-limit: 10
+
+    open-pull-requests-limit: 5
     rebase-strategy: "auto"
     commit-message:
       prefix: "ci(deps)"
@@ -51,10 +92,13 @@ updates:
   - package-ecosystem: "docker"
     directory: "/.devcontainer"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "sunday"
       time: "04:00"
       timezone: "UTC"
+
     open-pull-requests-limit: 5
+
     rebase-strategy: "auto"
     commit-message:
       prefix: "build(deps)"
