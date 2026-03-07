@@ -98,9 +98,12 @@ jobs:
             exit 1
           fi
       - name: Generate SBOM
-        run: pnpm dlx @cyclonedx/cyclonedx-npm \
-          --output-format json \
-          --output-file sbom.json \
+        shell: bash
+        run: |
+          pnpm --package=@cyclonedx/cyclonedx-npm dlx cyclonedx-npm \
+            --ignore-npm-errors \
+            --output-format json \
+            --output-file sbom.json
 
       - name: Upload SBOM 
         uses: actions/upload-artifact@v4
