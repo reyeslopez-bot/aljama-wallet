@@ -8,7 +8,7 @@ type Coords = {
   lat: number
   lng: number
   timestamp: number
-  source: 'default' | 'network' | 'device'
+  source: 'default' | 'network'
 }
 
 type RegulatoryRegion = 'uae' | 'israel' | 'eu' | 'us' | 'global'
@@ -101,7 +101,6 @@ export default function MapboxMap() {
   const [isLightTheme, setIsLightTheme] = React.useState(false)
   const [showRegulations, setShowRegulations] = React.useState(false)
   const [locationEnabled, setLocationEnabled] = React.useState(false)
-  const [preferredSource, setPreferredSource] = React.useState<'network' | 'device'>('network')
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
   const mapStyle = isLightTheme ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11'
@@ -135,26 +134,6 @@ export default function MapboxMap() {
     [token],
   )
 
-  const requestBrowserLocation = React.useCallback(async () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return null
-
-    return new Promise<{ lat: number; lng: number } | null>((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) =>
-          resolve({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          }),
-        () => resolve(null),
-        {
-          enableHighAccuracy: true,
-          maximumAge: 60_000,
-          timeout: 8_000,
-        },
-      )
-    })
-  }, [])
-
   const requestNetworkLocation = React.useCallback(async () => {
     const res = await fetch('/api/network-location', { method: 'GET', cache: 'no-store' })
     const body = (await res.json()) as NetworkLocationResponse | { ok: false; error?: string }
@@ -174,50 +153,26 @@ export default function MapboxMap() {
     setStatus('ready')
   }, [resolvePlaceLabel])
 
-  const requestDeviceLocation = React.useCallback(async () => {
-    const deviceCoords = await requestBrowserLocation()
-    if (deviceCoords) {
-      const label = await resolvePlaceLabel(deviceCoords.lat, deviceCoords.lng)
+  const requestLocation = React.useCallback(async () => {
+    if (!locationEnabled) return
+
+    setError(null)
+    setStatus('loading')
+
+    try {
+      await requestNetworkLocation()
+    } catch {
       setCoords({
-        lat: deviceCoords.lat,
-        lng: deviceCoords.lng,
+        lat: DEFAULT_CENTER.lat,
+        lng: DEFAULT_CENTER.lng,
         timestamp: Date.now(),
-        source: 'device',
+        source: 'default',
       })
-      setPlaceLabel(label)
-      setStatus('ready')
-      return true
+      setPlaceLabel(null)
+      setStatus('error')
+      setError('Network location unavailable. Using Dubai fallback.')
     }
-
-    return false
-  }, [requestBrowserLocation, resolvePlaceLabel])
-
-  const requestPreferredLocation = React.useCallback(
-    async (source: 'network' | 'device') => {
-      setError(null)
-      setStatus('loading')
-
-      try {
-        if (source === 'device') {
-          const usedDevice = await requestDeviceLocation()
-          if (usedDevice) return
-        }
-
-        await requestNetworkLocation()
-      } catch {
-        setCoords({
-          lat: DEFAULT_CENTER.lat,
-          lng: DEFAULT_CENTER.lng,
-          timestamp: Date.now(),
-          source: 'default',
-        })
-        setPlaceLabel(null)
-        setStatus('error')
-        setError('Network location unavailable. Using Dubai fallback.')
-      }
-    },
-    [requestDeviceLocation, requestNetworkLocation],
-  )
+  }, [locationEnabled, requestNetworkLocation])
 
   React.useEffect(() => {
     const syncLocationConsent = () => {
@@ -237,8 +192,8 @@ export default function MapboxMap() {
 
   React.useEffect(() => {
     if (!locationEnabled) return
-    void requestPreferredLocation('network')
-  }, [locationEnabled, requestPreferredLocation])
+    void requestLocation()
+  }, [locationEnabled, requestLocation])
 
   React.useEffect(() => {
     if (typeof document === 'undefined') return
@@ -333,23 +288,6 @@ export default function MapboxMap() {
     map.flyTo({ center: lngLat, zoom: targetZoom, essential: true })
   }, [coords, mapReady])
 
-  const requestLocation = React.useCallback(() => {
-    if (!locationEnabled) return
-    void requestPreferredLocation(preferredSource)
-  }, [locationEnabled, preferredSource, requestPreferredLocation])
-
-  const useNetworkLocation = React.useCallback(() => {
-    if (!locationEnabled) return
-    setPreferredSource('network')
-    void requestPreferredLocation('network')
-  }, [locationEnabled, requestPreferredLocation])
-
-  const useDeviceLocation = React.useCallback(() => {
-    if (!locationEnabled) return
-    setPreferredSource('device')
-    void requestPreferredLocation('device')
-  }, [locationEnabled, requestPreferredLocation])
-
   const regulatoryRegion = React.useMemo(
     () => resolveRegulatoryRegion(coords.lat, coords.lng),
     [coords.lat, coords.lng],
@@ -382,72 +320,27 @@ export default function MapboxMap() {
       aria-describedby={`${statusId} ${lawsId}`}
       className="space-y-4"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
-          <p id={titleId} className="text-xs uppercase tracking-[0.18em] text-saffron/70">
-            {t('label')}
-          </p>
+      <div className="space-y-1">
+        <p id={titleId} className="text-xs uppercase tracking-[0.18em] text-saffron/70">
+          {t('label')}
+        </p>
 
-          <p id={statusId} data-testid="mapbox-map-status" aria-live="polite" className="text-sm text-ivory/70">
-            {!locationEnabled && t('blocked')}
-            {locationEnabled && status === 'idle' && t('idle')}
-            {locationEnabled && status === 'loading' && t('loading')}
-            {locationEnabled && status === 'ready' && coords.source === 'default' && t('idle')}
-            {locationEnabled && status === 'ready' && coords.source !== 'default' && (
-              <>
-                {t('centered')}{' '}
-                <span className="text-ivory">{t(`laws.${regulatoryRegion}.label`)}</span>
-                {placeLabel ? ` · ${placeLabel}` : null}
-                {' · '}
-                <span className="text-ivory/65">
-                  {coords.source === 'device' ? t('source.device') : t('source.network')}
-                </span>
-              </>
-            )}
-            {locationEnabled && status === 'error' && (error ?? t('error'))}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            data-testid="mapbox-map-use-network-location"
-            type="button"
-            onClick={useNetworkLocation}
-            disabled={status === 'loading' || !locationEnabled}
-            aria-describedby={statusId}
-            className={`rounded-full border px-4 py-2 text-sm backdrop-blur disabled:cursor-not-allowed disabled:opacity-60 ${
-              preferredSource === 'network'
-                ? 'border-saffron/50 bg-saffron/15 text-saffron'
-                : 'border-white/10 bg-white/5 text-ivory hover:bg-white/10'
-            }`}
-          >
-            {t('useNetworkLocation')}
-          </button>
-          <button
-            data-testid="mapbox-map-use-device-location"
-            type="button"
-            onClick={useDeviceLocation}
-            disabled={status === 'loading' || !locationEnabled}
-            aria-describedby={statusId}
-            className={`rounded-full border px-4 py-2 text-sm backdrop-blur disabled:cursor-not-allowed disabled:opacity-60 ${
-              preferredSource === 'device'
-                ? 'border-saffron/50 bg-saffron/15 text-saffron'
-                : 'border-white/10 bg-white/5 text-ivory hover:bg-white/10'
-            }`}
-          >
-            {t('useLocation')}
-          </button>
-          <button
-            data-testid="mapbox-map-refresh"
-            type="button"
-            onClick={requestLocation}
-            disabled={status === 'loading' || !locationEnabled}
-            aria-describedby={statusId}
-            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-ivory backdrop-blur hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {t('refreshLocation')}
-          </button>
-        </div>
+        <p id={statusId} data-testid="mapbox-map-status" aria-live="polite" className="text-sm text-ivory/70">
+          {!locationEnabled && t('blocked')}
+          {locationEnabled && status === 'idle' && t('idle')}
+          {locationEnabled && status === 'loading' && t('loading')}
+          {locationEnabled && status === 'ready' && coords.source === 'default' && t('idle')}
+          {locationEnabled && status === 'ready' && coords.source !== 'default' && (
+            <>
+              {t('centered')}{' '}
+              <span className="text-ivory">{t(`laws.${regulatoryRegion}.label`)}</span>
+              {placeLabel ? ` · ${placeLabel}` : null}
+              {' · '}
+              <span className="text-ivory/65">{t('source.network')}</span>
+            </>
+          )}
+          {locationEnabled && status === 'error' && (error ?? t('error'))}
+        </p>
       </div>
 
       <div
