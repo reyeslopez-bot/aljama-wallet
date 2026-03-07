@@ -502,6 +502,12 @@ jobs:
       - name: Prisma generate (CRDB + PG)
         run: pnpm prisma:generate
 
+      - name: Download standalone runtime artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: standalone-runtime
+          path: artifacts/standalone-runtime
+
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
@@ -510,7 +516,7 @@ jobs:
           CI: true
           PLAYWRIGHT_REAL_BACKEND: 'true'
           PLAYWRIGHT_NODE_ENV: 'production'
-          PLAYWRIGHT_SERVER_COMMAND: pnpm build && bash ./scripts/standalone-artifact.sh run
+          PLAYWRIGHT_SERVER_COMMAND: cd artifacts/standalone-runtime && HOSTNAME=127.0.0.1 PORT=3000 node server.js
           NEXTAUTH_SECRET: ci-prodlike-nextauth-secret
           NEXTAUTH_URL: http://127.0.0.1:3000
           XRPL_RPC_URL: ${{ env.XRPL_RPC_URL }}
