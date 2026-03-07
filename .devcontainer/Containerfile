@@ -85,8 +85,7 @@ CMD ["node","server.js"]
 FROM base AS ci
 WORKDIR /workspace
 
-ENV NODE_ENV=development \
-    PORT=2998 \
+ENV PORT=2998 \
     HOSTNAME=0.0.0.0
 
 CMD ["bash"]

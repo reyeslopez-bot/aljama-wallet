@@ -151,6 +151,7 @@ jobs:
         with:
           name: standalone-runtime
           path: artifacts/standalone-runtime
+          include-hidden-files: true
           if-no-files-found: error
 
       - name: Check outdated dependencies
@@ -507,6 +508,14 @@ jobs:
         with:
           name: standalone-runtime
           path: artifacts/standalone-runtime
+
+      - name: Verify downloaded standalone runtime artifact
+        shell: bash
+        run: |
+          test -f artifacts/standalone-runtime/server.js
+          test -f artifacts/standalone-runtime/.next/BUILD_ID
+          test -d artifacts/standalone-runtime/.next/static
+          test -d artifacts/standalone-runtime/public
 
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
