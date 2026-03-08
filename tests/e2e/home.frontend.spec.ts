@@ -170,13 +170,13 @@ test('home supports keyboard interaction for the market chart and info card', as
   await chart.press('End')
   await expect(page.getByTestId('xrpl-market-hover-row-btc')).toBeVisible()
 
-  const collapsedToggle = page.getByTestId('dynamic-info-card-collapsed').getByTestId('dynamic-info-card-toggle')
+  const collapsedToggle = page.getByTestId('dynamic-info-card-expand-button')
   await collapsedToggle.focus()
   await expect(collapsedToggle).toBeFocused()
   await collapsedToggle.press('Enter')
   await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
 
-  const expandedToggle = page.getByTestId('dynamic-info-card-expanded').getByTestId('dynamic-info-card-toggle')
+  const expandedToggle = page.getByTestId('dynamic-info-card-collapse-button')
   await expandedToggle.focus()
   await expect(expandedToggle).toBeFocused()
   await expandedToggle.press('Enter')
@@ -193,7 +193,7 @@ test('rtl home routes avoid horizontal overflow', async ({ page }, testInfo) => 
 
     const label = `${testInfo.project.name}-${route}`
     const infoCard = page.getByTestId('dynamic-info-card')
-    const toggleButton = page.getByTestId('dynamic-info-card-toggle')
+    const toggleButton = page.getByTestId('dynamic-info-card-expand-button')
 
     await expectNoHorizontalOverflow(page, `${label} initial`)
     await expectFullyInViewport(page, infoCard, `${label} collapsed`)

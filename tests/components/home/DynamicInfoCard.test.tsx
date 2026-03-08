@@ -90,13 +90,13 @@ describe('DynamicInfoCard', () => {
 
     expect(getByTestId('dynamic-info-card-collapsed')).toBeTruthy()
 
-    fireEvent.click(getByTestId('dynamic-info-card-toggle'))
+    fireEvent.click(getByTestId('dynamic-info-card-expand-button'))
 
     await waitFor(() => {
       expect(queryByTestId('dynamic-info-card-expanded')).toBeTruthy()
     })
 
-    fireEvent.click(getByTestId('dynamic-info-card-toggle'))
+    fireEvent.click(getByTestId('dynamic-info-card-collapse-button'))
 
     await waitFor(() => {
       expect(queryByTestId('dynamic-info-card-collapsed')).toBeTruthy()

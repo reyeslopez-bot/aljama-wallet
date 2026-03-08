@@ -1,7 +1,7 @@
 'use client'
 
 import { gsap } from 'gsap'
-import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
@@ -124,6 +124,7 @@ const DUBAI_TIMEZONE = 'Asia/Dubai'
 const DUBAI_UTC_LABEL = 'UTC+04:00'
 const TEST_FIXED_NOW_ISO = '2026-02-20T00:00:00.000Z'
 const DRAG_IGNORE_SELECTOR = 'button, a, input, textarea, select, [role="button"]'
+const HOVER_EXPAND_BLOCK_SELECTOR = '[data-dynamic-info-card-hover-block="true"]'
 
 type DragState = {
   pointerId: number | null
@@ -530,12 +531,36 @@ export default function DynamicInfoCard() {
     [finishDrag],
   )
 
+  const shouldExpandFromHoverTarget = useCallback(
+    (target: EventTarget | null) => {
+      if (detailsPinned) return true
+      return !(target instanceof Element && target.closest(HOVER_EXPAND_BLOCK_SELECTOR))
+    },
+    [detailsPinned],
+  )
+
+  const handleMouseEnter = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      setHovered(shouldExpandFromHoverTarget(event.target))
+    },
+    [shouldExpandFromHoverTarget],
+  )
+
+  const handleMouseMove = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      if (detailsPinned) return
+      setHovered(shouldExpandFromHoverTarget(event.target))
+    },
+    [detailsPinned, shouldExpandFromHoverTarget],
+  )
+
   return (
     <aside
       ref={cardRef}
       data-testid="dynamic-info-card"
       aria-label="Dynamic info card"
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={handleMouseEnter}
+      onMouseMove={handleMouseMove}
       onMouseLeave={() => setHovered(false)}
       style={cardViewportStyle}
       className={`fixed z-50 overflow-hidden rounded-[18px] ${cardCornerClass}`}
@@ -691,7 +716,8 @@ export default function DynamicInfoCard() {
                   </button>
                   <button
                     type="button"
-                    data-testid="dynamic-info-card-toggle"
+                    data-dynamic-info-card-toggle-state="expanded"
+                    data-testid="dynamic-info-card-collapse-button"
                     aria-expanded={detailsExpanded}
                     onClick={() => {
                       setDetailsPinned(false)
@@ -740,7 +766,9 @@ export default function DynamicInfoCard() {
 
                 <button
                   type="button"
-                  data-testid="dynamic-info-card-toggle"
+                  data-dynamic-info-card-hover-block="true"
+                  data-dynamic-info-card-toggle-state="collapsed"
+                  data-testid="dynamic-info-card-expand-button"
                   aria-expanded={detailsExpanded}
                   onClick={() => setDetailsPinned(true)}
                   className={`rounded-full border px-3 py-1 text-[0.6875rem] font-semibold tracking-wide transition ${

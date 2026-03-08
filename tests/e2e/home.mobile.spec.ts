@@ -110,7 +110,7 @@ test('home layout stays within frame on device projects', async ({ page }, testI
 
   const label = testInfo.project.name
   const infoCard = page.getByTestId('dynamic-info-card')
-  const toggleButton = page.getByTestId('dynamic-info-card-toggle')
+  const toggleButton = page.getByTestId('dynamic-info-card-expand-button')
 
   await expectNoHorizontalOverflow(page, `${label} initial`)
   await expectFullyInViewport(page, infoCard, `${label} collapsed`)
@@ -136,7 +136,7 @@ test('rtl home routes avoid horizontal overflow', async ({ page }, testInfo) => 
 
     const label = `${testInfo.project.name}-${route}`
     const infoCard = page.getByTestId('dynamic-info-card')
-    const toggleButton = page.getByTestId('dynamic-info-card-toggle')
+    const toggleButton = page.getByTestId('dynamic-info-card-expand-button')
 
     await expectNoHorizontalOverflow(page, `${label} initial`)
     await expectFullyInViewport(page, infoCard, `${label} collapsed`)
