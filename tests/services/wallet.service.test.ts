@@ -17,6 +17,10 @@ vi.mock('@/lib/prisma-crdb', () => ({
       aggregate: vi.fn(),
       create: vi.fn(),
     },
+    chainTransaction: {
+      aggregate: vi.fn(),
+      create: vi.fn(),
+    },
   },
 }))
 

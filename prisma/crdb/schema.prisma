@@ -28,7 +28,36 @@ model Wallet {
 
   sentTransactions     Transaction[] @relation("TxFromWallet")
   receivedTransactions Transaction[] @relation("TxToWallet")
+  outboundChainTransactions ChainTransaction[] @relation("ChainTxFromWallet")
+  inboundChainTransactions  ChainTransaction[] @relation("ChainTxToWallet")
   pqcAnchors           WalletPqcAnchor[]
+}
+
+model ChainTransaction {
+  id             String   @id @default(cuid())
+  chainType      String   @default("EVM")
+  networkId      String
+  txHash         String
+  status         String
+  asset          String   @default("native")
+  valueBaseUnits BigInt
+  blockHeight    BigInt?
+  fromAddress    String
+  toAddress      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  fromWalletId String
+  toWalletId   String?
+
+  fromWallet Wallet  @relation("ChainTxFromWallet", fields: [fromWalletId], references: [id])
+  toWallet   Wallet? @relation("ChainTxToWallet", fields: [toWalletId], references: [id])
+
+  @@unique([chainType, networkId, txHash])
+  @@index([fromWalletId, chainType, networkId, createdAt])
+  @@index([toWalletId, chainType, networkId, createdAt])
+  @@index([toAddress, chainType, networkId, createdAt])
+  @@index([status, createdAt])
 }
 
 model WalletPqcAnchor {

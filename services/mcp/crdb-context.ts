@@ -47,10 +47,44 @@ function assertAuthorized(req: IncomingMessage): boolean {
   return crypto.timingSafeEqual(bufA, bufB)
 }
 
+function addAssetDelta(store: Map<string, bigint>, asset: string, value: bigint) {
+  store.set(asset, (store.get(asset) ?? 0n) + value)
+}
+
 async function getWalletState(input: z.infer<typeof walletStateSchema>) {
   const chainKey = String(input.chainId)
 
-  const [sentCount, sentByAsset, receivedByAsset, lastTx] = await Promise.all([
+  const [
+    chainSentCount,
+    chainSentByAsset,
+    chainReceivedByAsset,
+    lastChainTx,
+    legacySentCount,
+    legacySentByAsset,
+    legacyReceivedByAsset,
+    lastLegacyTx,
+  ] = await Promise.all([
+    prismaCrdb.chainTransaction.count({
+      where: { fromWalletId: input.walletId, chainType: 'EVM', networkId: chainKey },
+    }),
+    prismaCrdb.chainTransaction.groupBy({
+      by: ['asset'],
+      where: { fromWalletId: input.walletId, chainType: 'EVM', networkId: chainKey },
+      _sum: { valueBaseUnits: true },
+    }),
+    prismaCrdb.chainTransaction.groupBy({
+      by: ['asset'],
+      where: { toWalletId: input.walletId, chainType: 'EVM', networkId: chainKey },
+      _sum: { valueBaseUnits: true },
+    }),
+    prismaCrdb.chainTransaction.findFirst({
+      where: {
+        chainType: 'EVM',
+        networkId: chainKey,
+        OR: [{ fromWalletId: input.walletId }, { toWalletId: input.walletId }],
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
     prismaCrdb.transaction.count({
       where: { fromWalletId: input.walletId, blockchain: chainKey },
     }),
@@ -75,33 +109,60 @@ async function getWalletState(input: z.infer<typeof walletStateSchema>) {
 
   const balances = new Map<string, bigint>()
 
-  for (const row of receivedByAsset) {
-    const value = (row._sum?.valueWei ?? 0n) as bigint
-    balances.set(row.asset, (balances.get(row.asset) ?? 0n) + value)
+  for (const row of chainReceivedByAsset) {
+    addAssetDelta(balances, row.asset, (row._sum?.valueBaseUnits ?? 0n) as bigint)
   }
 
-  for (const row of sentByAsset) {
-    const value = (row._sum?.valueWei ?? 0n) as bigint
-    balances.set(row.asset, (balances.get(row.asset) ?? 0n) - value)
+  for (const row of legacyReceivedByAsset) {
+    addAssetDelta(balances, row.asset, (row._sum?.valueWei ?? 0n) as bigint)
   }
+
+  for (const row of chainSentByAsset) {
+    addAssetDelta(balances, row.asset, -((row._sum?.valueBaseUnits ?? 0n) as bigint))
+  }
+
+  for (const row of legacySentByAsset) {
+    addAssetDelta(balances, row.asset, -((row._sum?.valueWei ?? 0n) as bigint))
+  }
+
+  const lastTx =
+    lastChainTx && (!lastLegacyTx || lastChainTx.createdAt >= lastLegacyTx.createdAt)
+      ? {
+          id: lastChainTx.id,
+          source: 'chain',
+          txHash: lastChainTx.txHash,
+          status: lastChainTx.status,
+          fromWalletId: lastChainTx.fromWalletId,
+          toWalletId: lastChainTx.toWalletId,
+          toAddress: lastChainTx.toAddress,
+          valueWei: lastChainTx.valueBaseUnits.toString(),
+          asset: lastChainTx.asset,
+          createdAt: lastChainTx.createdAt.toISOString(),
+        }
+      : lastLegacyTx
+        ? {
+            id: lastLegacyTx.id,
+            source: 'legacy',
+            txHash: null,
+            status: 'settled',
+            fromWalletId: lastLegacyTx.fromWalletId,
+            toWalletId: lastLegacyTx.toWalletId,
+            toAddress: null,
+            valueWei: lastLegacyTx.valueWei.toString(),
+            asset: lastLegacyTx.asset,
+            createdAt: lastLegacyTx.createdAt.toISOString(),
+          }
+        : null
 
   return {
     walletId: input.walletId,
     chainId: input.chainId,
-    sentCount,
+    sentCount: chainSentCount + legacySentCount,
+    balanceAuthority: 'derived_activity',
     balances: Object.fromEntries(
       Array.from(balances.entries()).map(([asset, amountWei]) => [asset, amountWei.toString()]),
     ),
-    lastTx: lastTx
-      ? {
-          id: lastTx.id,
-          fromWalletId: lastTx.fromWalletId,
-          toWalletId: lastTx.toWalletId,
-          valueWei: lastTx.valueWei.toString(),
-          asset: lastTx.asset,
-          createdAt: lastTx.createdAt.toISOString(),
-        }
-      : null,
+    lastTx,
   }
 }
 
@@ -111,12 +172,25 @@ async function getWalletLimits(input: z.infer<typeof walletLimitsSchema>) {
   const dailyLimitWei = BigInt(process.env.WALLET_DAILY_LIMIT_WEI ?? '0')
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
-  const spentToday = await prismaCrdb.transaction.aggregate({
-    where: { fromWalletId: input.walletId, blockchain: chainKey, createdAt: { gte: since } },
-    _sum: { valueWei: true },
-  })
+  const [chainSpentToday, legacySpentToday] = await Promise.all([
+    prismaCrdb.chainTransaction.aggregate({
+      where: {
+        fromWalletId: input.walletId,
+        chainType: 'EVM',
+        networkId: chainKey,
+        status: { in: ['broadcast', 'settled', 'validated'] },
+        createdAt: { gte: since },
+      },
+      _sum: { valueBaseUnits: true },
+    }),
+    prismaCrdb.transaction.aggregate({
+      where: { fromWalletId: input.walletId, blockchain: chainKey, createdAt: { gte: since } },
+      _sum: { valueWei: true },
+    }),
+  ])
 
-  const spentTodayWei = (spentToday._sum?.valueWei ?? 0n) as bigint
+  const spentTodayWei =
+    ((chainSpentToday._sum?.valueBaseUnits ?? 0n) + (legacySpentToday._sum?.valueWei ?? 0n)) as bigint
 
   return {
     walletId: input.walletId,

@@ -9,7 +9,7 @@ const {
   mockGetWalletSigningAccount,
   mockGetSpentTodayWei,
   mockGetWalletByAddress,
-  mockRecordTransaction,
+  mockRecordChainTransaction,
   mockRequireSession,
   mockIsAdminEmail,
   mockIsAllowedOrigin,
@@ -37,7 +37,7 @@ const {
   mockGetWalletSigningAccount: vi.fn(),
   mockGetSpentTodayWei: vi.fn(),
   mockGetWalletByAddress: vi.fn(),
-  mockRecordTransaction: vi.fn(),
+  mockRecordChainTransaction: vi.fn(),
   mockRequireSession: vi.fn(),
   mockIsAdminEmail: vi.fn(),
   mockIsAllowedOrigin: vi.fn(),
@@ -66,7 +66,7 @@ vi.mock('@/services/wallet.service', () => ({
   getWalletSigningAccount: mockGetWalletSigningAccount,
   getSpentTodayWei: mockGetSpentTodayWei,
   getWalletByAddress: mockGetWalletByAddress,
-  recordTransaction: mockRecordTransaction,
+  recordChainTransaction: mockRecordChainTransaction,
 }))
 
 vi.mock('@/services/evm-tx.service', () => ({
@@ -218,7 +218,7 @@ describe('app/api/wallet/send route', () => {
     mockDeriveSignedEvmTxHash.mockReturnValue('0xderived')
     mockSubmitSignedEvmTx.mockResolvedValue('0xtxhash')
     mockGetWalletByAddress.mockResolvedValue(null)
-    mockRecordTransaction.mockResolvedValue(undefined)
+    mockRecordChainTransaction.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -305,5 +305,26 @@ describe('app/api/wallet/send route', () => {
 
     expect(res.status).toBe(409)
     expect(body.code).toBe('idempotency_replay')
+  })
+
+  it('records a chain transaction even when the recipient is external', async () => {
+    const { POST } = await import('@/app/api/wallet/send/route')
+
+    const res = await POST(buildRequest())
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.recorded).toBe(true)
+    expect(mockRecordChainTransaction).toHaveBeenCalledWith({
+      chainId: 8453,
+      txHash: '0xtxhash',
+      fromWalletId: 'wallet-1',
+      fromAddress: '0x000000000000000000000000000000000000beef',
+      toWalletId: null,
+      toAddress: '0x000000000000000000000000000000000000dead',
+      valueBaseUnits: 1000000000000000n,
+      asset: 'native',
+      status: 'broadcast',
+    })
   })
 })

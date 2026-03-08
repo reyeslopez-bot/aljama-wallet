@@ -13,7 +13,7 @@ import {
   getSpentTodayWei,
   getWalletByAddress,
   getWalletSigningAccount,
-  recordTransaction,
+  recordChainTransaction,
 } from '@/services/wallet.service'
 import { requireSession, isAdminEmail } from '@/lib/security/session'
 import { isAllowedOrigin } from '@/lib/security/origin'
@@ -329,17 +329,23 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       await updateTransferStatus(transferLogId, 'broadcast')
     }
 
-    let recorded = false
     const recipient = await getWalletByAddress(intent.to).catch(() => null)
-    if (recipient) {
-      await recordTransaction({
+    let recorded = false
+    try {
+      await recordChainTransaction({
         chainId: intent.chainId,
+        txHash,
         fromWalletId: intent.fromWalletId,
-        toWalletId: recipient.id,
-        valueWei: BigInt(intent.amountWei),
+        fromAddress: wallet.address,
+        toWalletId: recipient?.id ?? null,
+        toAddress: intent.to,
+        valueBaseUnits: BigInt(intent.amountWei),
         asset: 'native',
+        status: 'broadcast',
       })
       recorded = true
+    } catch (recordError) {
+      logError('wallet-send:chain-transaction', recordError)
     }
 
     await trackSignal({

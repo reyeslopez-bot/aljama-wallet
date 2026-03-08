@@ -272,15 +272,64 @@ export async function createWalletRecord(input: CreateWalletRecordInput) {
 }
 
 export async function getSpentTodayWei(walletId: string, chainId: number) {
-  const chainKey = String(chainId)
+  const networkId = String(chainId)
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
-  const spentToday = await prismaCrdb.transaction.aggregate({
-    where: { fromWalletId: walletId, blockchain: chainKey, createdAt: { gte: since } },
-    _sum: { valueWei: true },
+  const [chainSpentToday, legacySpentToday] = await Promise.all([
+    prismaCrdb.chainTransaction.aggregate({
+      where: {
+        fromWalletId: walletId,
+        chainType: 'EVM',
+        networkId,
+        status: { in: ['broadcast', 'settled', 'validated'] },
+        createdAt: { gte: since },
+      },
+      _sum: { valueBaseUnits: true },
+    }),
+    prismaCrdb.transaction.aggregate({
+      where: { fromWalletId: walletId, blockchain: networkId, createdAt: { gte: since } },
+      _sum: { valueWei: true },
+    }),
+  ])
+
+  return ((chainSpentToday._sum?.valueBaseUnits ?? 0n) + (legacySpentToday._sum?.valueWei ?? 0n)) as bigint
+}
+
+export async function recordChainTransaction(params: {
+  chainId: number
+  txHash: string
+  fromWalletId: string
+  fromAddress: string
+  toAddress: string
+  toWalletId?: string | null
+  valueBaseUnits: bigint
+  asset?: string
+  status?: string
+  blockHeight?: bigint | null
+}) {
+  const record = await prismaCrdb.chainTransaction.create({
+    data: {
+      chainType: 'EVM',
+      networkId: String(params.chainId),
+      txHash: params.txHash,
+      status: params.status ?? 'broadcast',
+      asset: params.asset ?? 'native',
+      valueBaseUnits: params.valueBaseUnits,
+      blockHeight: params.blockHeight ?? null,
+      fromWalletId: params.fromWalletId,
+      toWalletId: params.toWalletId ?? null,
+      fromAddress: normalizeAddress(params.fromAddress),
+      toAddress: normalizeAddress(params.toAddress),
+    },
   })
 
-  return (spentToday._sum?.valueWei ?? 0n) as bigint
+  try {
+    await incrementDailySummary(new Date())
+  } catch (error) {
+    logWarn('wallet:daily-summary', error)
+  }
+
+  return record
 }
 
 export async function recordTransaction(params: {

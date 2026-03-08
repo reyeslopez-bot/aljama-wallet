@@ -13,6 +13,7 @@ import type {
   WalletReconciliation,
   WalletSnapshot,
   WalletTransactionItem,
+  WalletTransactionStatus,
   WalletTransactionsPage,
 } from '@/types/wallet-api'
 
@@ -32,6 +33,36 @@ function parseChainId(blockchain: string): number | null {
   const parsed = Number(blockchain)
   if (!Number.isInteger(parsed) || parsed <= 0) return null
   return parsed
+}
+
+function parseRecordedChainId(chainType: string, networkId: string): number | null {
+  if (chainType !== 'EVM') return null
+  return parseChainId(networkId)
+}
+
+function normalizeWalletTransactionStatus(status: string): WalletTransactionStatus {
+  switch (status) {
+    case 'initiated':
+    case 'approved':
+    case 'broadcast':
+    case 'failed':
+    case 'denied':
+    case 'review':
+    case 'settled':
+      return status
+    case 'validated':
+      return 'settled'
+    default:
+      return 'broadcast'
+  }
+}
+
+function latestTimestamp(...values: Array<Date | null | undefined>): string | null {
+  const latest = values
+    .filter((value): value is Date => value instanceof Date)
+    .sort((a, b) => b.getTime() - a.getTime())[0]
+
+  return latest ? latest.toISOString() : null
 }
 
 function parseNumeric(value: unknown): number | null {
@@ -118,22 +149,33 @@ export async function getWalletSnapshotForUser(input: {
   isAdmin: boolean
 }): Promise<WalletSnapshot> {
   const wallet = await assertReadableWallet(input)
-  const transactionalWhere = {
+  const chainTransactionalWhere = {
+    OR: [{ fromWalletId: wallet.id }, { toWalletId: wallet.id }],
+  }
+  const legacyTransactionalWhere = {
     OR: [{ fromWalletId: wallet.id }, { toWalletId: wallet.id }],
   }
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
   const [
-    transactionalTxCount,
+    chainTransactionalTxCount,
+    lastChainTransactional,
+    legacyTransactionalTxCount,
     lastTransactional,
     transferAttemptCount24h,
     latestTransferAttempt,
     reconciliation,
   ] = await Promise.all([
-    prismaCrdb.transaction.count({ where: transactionalWhere }),
+    prismaCrdb.chainTransaction.count({ where: chainTransactionalWhere }),
+    prismaCrdb.chainTransaction.findFirst({
+      where: chainTransactionalWhere,
+      select: { createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prismaCrdb.transaction.count({ where: legacyTransactionalWhere }),
     prismaCrdb.transaction.findFirst({
-      where: transactionalWhere,
+      where: legacyTransactionalWhere,
       select: { createdAt: true },
       orderBy: { createdAt: 'desc' },
     }),
@@ -141,6 +183,8 @@ export async function getWalletSnapshotForUser(input: {
     getLatestTransferAttempt(wallet.id),
     readXrplReconciliation(wallet.address),
   ])
+
+  const totalTransactionalTxCount = chainTransactionalTxCount + legacyTransactionalTxCount
 
   return {
     walletId: wallet.id,
@@ -152,9 +196,9 @@ export async function getWalletSnapshotForUser(input: {
       chain: 'xrpl',
     },
     summary: {
-      transactionalTxCount,
+      transactionalTxCount: totalTransactionalTxCount,
       transferAttemptCount24h,
-      lastTransactionalAt: lastTransactional?.createdAt.toISOString() ?? null,
+      lastTransactionalAt: latestTimestamp(lastChainTransactional?.createdAt, lastTransactional?.createdAt),
       lastTransferStatus: latestTransferAttempt?.status ?? null,
     },
     reconciliation,
@@ -173,14 +217,43 @@ export async function getWalletTransactionsForUser(input: {
   const limit = clampLimit(input.limit ?? 25)
   const before = input.cursor ?? null
 
-  const transactionalWhere = {
+  const chainTransactionalWhere = {
+    OR: [{ fromWalletId: wallet.id }, { toWalletId: wallet.id }],
+    ...(before ? { createdAt: { lt: before } } : {}),
+  }
+  const legacyTransactionalWhere = {
     OR: [{ fromWalletId: wallet.id }, { toWalletId: wallet.id }],
     ...(before ? { createdAt: { lt: before } } : {}),
   }
 
-  const [transactionRows, transferAttempts] = await Promise.all([
+  const [chainTransactionRows, legacyTransactionRows, transferAttempts] = await Promise.all([
+    prismaCrdb.chainTransaction.findMany({
+      where: chainTransactionalWhere,
+      select: {
+        id: true,
+        chainType: true,
+        networkId: true,
+        txHash: true,
+        status: true,
+        asset: true,
+        valueBaseUnits: true,
+        createdAt: true,
+        fromWalletId: true,
+        toWalletId: true,
+        fromAddress: true,
+        toAddress: true,
+        fromWallet: {
+          select: { address: true },
+        },
+        toWallet: {
+          select: { address: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit * 2,
+    }),
     prismaCrdb.transaction.findMany({
-      where: transactionalWhere,
+      where: legacyTransactionalWhere,
       select: {
         id: true,
         blockchain: true,
@@ -201,15 +274,32 @@ export async function getWalletTransactionsForUser(input: {
     }),
     listTransferAttempts({
       walletId: wallet.id,
-      limit: limit * 2,
+      limit: limit * 3,
       before,
     }),
   ])
 
-  const transactionalItems: WalletTransactionItem[] = transactionRows.map((row) => {
+  const chainTransactionItems: WalletTransactionItem[] = chainTransactionRows.map((row) => {
     const outgoing = row.fromWalletId === wallet.id
     return {
-      id: `crdb:${row.id}`,
+      id: `chain:${row.id}`,
+      source: 'transactional',
+      direction: outgoing ? 'outgoing' : 'incoming',
+      amountWei: row.valueBaseUnits.toString(),
+      asset: row.asset,
+      chainId: parseRecordedChainId(row.chainType, row.networkId),
+      status: normalizeWalletTransactionStatus(row.status),
+      counterparty: outgoing ? row.toWallet?.address ?? row.toAddress : row.fromWallet.address,
+      idempotencyKey: null,
+      txHash: row.txHash,
+      createdAt: row.createdAt.toISOString(),
+    }
+  })
+
+  const legacyTransactionalItems: WalletTransactionItem[] = legacyTransactionRows.map((row) => {
+    const outgoing = row.fromWalletId === wallet.id
+    return {
+      id: `legacy:${row.id}`,
       source: 'transactional',
       direction: outgoing ? 'outgoing' : 'incoming',
       amountWei: row.valueWei.toString(),
@@ -224,20 +314,20 @@ export async function getWalletTransactionsForUser(input: {
   })
 
   const analyticsItems: WalletTransactionItem[] = transferAttempts.map((item) => ({
-    id: `analytics:${item.id}`,
-    source: 'analytics',
-    direction: 'outgoing',
-    amountWei: item.amountWei.toString(),
-    asset: 'native',
-    chainId: item.chainId,
-    status: item.status,
-    counterparty: item.toAddress,
-    idempotencyKey: item.idempotencyKey,
-    txHash: null,
-    createdAt: new Date(item.createdAt).toISOString(),
-  }))
+      id: `analytics:${item.id}`,
+      source: 'analytics',
+      direction: 'outgoing',
+      amountWei: item.amountWei.toString(),
+      asset: 'native',
+      chainId: item.chainId,
+      status: item.status,
+      counterparty: item.toAddress,
+      idempotencyKey: item.idempotencyKey,
+      txHash: null,
+      createdAt: new Date(item.createdAt).toISOString(),
+    }))
 
-  const items = [...transactionalItems, ...analyticsItems]
+  const items = [...chainTransactionItems, ...legacyTransactionalItems, ...analyticsItems]
     .sort((a, b) => {
       const aTime = Date.parse(a.createdAt)
       const bTime = Date.parse(b.createdAt)
