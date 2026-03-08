@@ -1,34 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/container-common.sh
+source "$SCRIPT_DIR/scripts/lib/container-common.sh"
+
 ACTION="${1:-up}"
-
 RUNTIME="${CONTAINER_RUNTIME:-}"
-if [ -n "$RUNTIME" ]; then
-  command -v "$RUNTIME" >/dev/null
-else
-  if command -v podman >/dev/null 2>&1; then
-    RUNTIME=podman
-  elif command -v docker >/dev/null 2>&1; then
-    RUNTIME=docker
-  else
-    echo "Install podman or docker"
-    exit 1
-  fi
-fi
 
-if [ "$RUNTIME" = "podman" ]; then
-  if ! podman info >/dev/null 2>&1; then
-    if podman machine list >/dev/null 2>&1; then
-      echo "Podman not running; starting podman machine..."
-      podman machine start
-    fi
-  fi
-  if ! podman info >/dev/null 2>&1; then
-    echo "Cannot connect to Podman. Try: podman machine start"
-    exit 1
-  fi
-fi
+RUNTIME="$(detect_container_runtime "$RUNTIME")"
+ensure_runtime_ready "$RUNTIME"
 
 PG_CONTAINER="${PG_CONTAINER:-aljama-postgres}"
 CRDB_CONTAINER="${CRDB_CONTAINER:-aljama-cockroach}"
@@ -43,12 +24,8 @@ PG_DB="${PG_DB:-aljama_wallet}"
 PG_USER="${PG_USER:-postgres}"
 PG_PASSWORD="${PG_PASSWORD:-postgres}"
 
-container_exists() {
-  "$RUNTIME" ps -a --format '{{.Names}}' | grep -qx "$1"
-}
-
 start_postgres() {
-  if container_exists "$PG_CONTAINER"; then
+  if container_exists "$RUNTIME" "$PG_CONTAINER"; then
     "$RUNTIME" start "$PG_CONTAINER" >/dev/null
     return
   fi
@@ -64,7 +41,7 @@ start_postgres() {
 }
 
 start_cockroach() {
-  if container_exists "$CRDB_CONTAINER"; then
+  if container_exists "$RUNTIME" "$CRDB_CONTAINER"; then
     "$RUNTIME" start "$CRDB_CONTAINER" >/dev/null
     return
   fi
@@ -81,8 +58,9 @@ start_cockroach() {
 
 ensure_cockroach_db() {
   local attempts=20
-  local i
-  for i in $(seq 1 "$attempts"); do
+  local attempt
+
+  for attempt in $(seq 1 "$attempts"); do
     if "$RUNTIME" exec "$CRDB_CONTAINER" cockroach sql --insecure --host=localhost -e "SELECT 1" >/dev/null 2>&1; then
       "$RUNTIME" exec "$CRDB_CONTAINER" cockroach sql --insecure --host=localhost \
         -e "CREATE DATABASE IF NOT EXISTS ${PG_DB};" >/dev/null
@@ -90,6 +68,7 @@ ensure_cockroach_db() {
     fi
     sleep 0.5
   done
+
   echo "CockroachDB did not become ready in time."
   return 1
 }

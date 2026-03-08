@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Aljama Wallet Development Runner (Podman/Docker) — hardened for Turbopack on macOS
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/container-common.sh
+source "$SCRIPT_DIR/scripts/lib/container-common.sh"
 
 IMAGE_NAME="${IMAGE_NAME:-nextjs-dev}"
 CONTAINER_NAME="${CONTAINER_NAME:-nextjs-container}"
@@ -9,108 +12,150 @@ APP_URL="${APP_URL:-}"
 BUILD_CONTEXT="${BUILD_CONTEXT:-.}"
 REBUILD="${REBUILD:-false}"
 FORCE_CLEAN="${FORCE_CLEAN:-false}"
-RUNTIME="${CONTAINER_RUNTIME:-}" # podman|docker (auto if empty)
+RUNTIME="${CONTAINER_RUNTIME:-}"
 
-# Volumes
 PNPM_STORE_VOL="${PNPM_STORE_VOL:-aljama_pnpm_store}"
 NODE_MODULES_VOL="${NODE_MODULES_VOL:-aljama_node_modules}"
 NEXT_CACHE_VOL="${NEXT_CACHE_VOL:-aljama_next_cache}"
 
-# Tooling
 PNPM_VERSION="${PNPM_VERSION:-10.28.1}"
-echo "pnpm version pin: ${PNPM_VERSION:-unset}"
-
-# hash inputs
 DEPS_HASH_FILES=("package.json" "pnpm-lock.yaml" "pnpm-workspace.yaml" ".devcontainer/Containerfile" ".npmrc" ".env")
 DEP_HASH_FILE=".devcontainer/.last-deps-hash"
 
-STOP_ONLY=false
+MODE="start"
 SHELL_ONLY=false
 TAIL_LOGS=false
 DETACH=true
 
-# --- Load .env on HOST (for hashing / defaults only) ---
-if [ -f .env ]; then
-  if grep -qE '^[A-Z0-9_]+=\s+' .env; then
-    echo "Invalid .env format: spaces after '='"
-    exit 1
-  fi
-  set -a
-  source .env
-  set +a
-fi
+usage() {
+  cat <<'EOF'
+Usage: ./dev.sh [options]
 
-# --- CLI parsing ---
+Options:
+  --attach         Run the dev container in the foreground.
+  --clean          Remove the dev container, image, volumes, and local cache, then exit.
+  --detach         Run the dev container in the background (default).
+  --force-clean    Remove existing runtime artifacts before rebuilding/running.
+  --logs           Tail logs after starting the dev container in detached mode.
+  --logs-only      Tail logs from the running dev container and exit.
+  --port <number>  Set the application port.
+  --rebuild        Rebuild the dev image before starting.
+  --shell          Reuse or start the dev container, then open an interactive shell.
+  --status         Show the running dev container status.
+  --stop           Stop and remove the dev container.
+  -h, --help       Show this help text.
+EOF
+}
+
+set_mode() {
+  local next_mode="$1"
+
+  if [ "$MODE" != "start" ] && [ "$MODE" != "$next_mode" ]; then
+    fail "Choose only one of --stop, --status, --clean, or --logs-only"
+  fi
+
+  MODE="$next_mode"
+}
+
+clean_runtime_artifacts() {
+  remove_container_if_exists "$RUNTIME" "$CONTAINER_NAME"
+  "$RUNTIME" rmi -f "$IMAGE_NAME" >/dev/null 2>&1 || true
+  "$RUNTIME" volume rm -f "$PNPM_STORE_VOL" "$NODE_MODULES_VOL" "$NEXT_CACHE_VOL" >/dev/null 2>&1 || true
+}
+
+clean_local_artifacts() {
+  rm -rf .pnpm-store
+  rm -f "$DEP_HASH_FILE"
+}
+
 while (($#)); do
   case $1 in
     --force-clean) FORCE_CLEAN=true; shift ;;
-    --rebuild)     REBUILD=true; shift ;;
-    --stop)        STOP_ONLY=true; shift ;;
-    --shell)       SHELL_ONLY=true; shift ;;
-    --logs)        TAIL_LOGS=true; shift ;;
-    --attach)      DETACH=false; shift ;;
-    --detach)      DETACH=true; shift ;;
-    --port)        APP_PORT="${2:?}"; shift 2 ;;
-    --port=*)      APP_PORT="${1#*=}"; shift ;;
-    *) echo "Unknown option: $1"; exit 1 ;;
+    --rebuild) REBUILD=true; shift ;;
+    --stop) set_mode "stop"; shift ;;
+    --status) set_mode "status"; shift ;;
+    --clean) set_mode "clean"; shift ;;
+    --shell) SHELL_ONLY=true; shift ;;
+    --logs) TAIL_LOGS=true; shift ;;
+    --logs-only) set_mode "logs"; shift ;;
+    --attach) DETACH=false; shift ;;
+    --detach) DETACH=true; shift ;;
+    --port) APP_PORT="${2:?}"; shift 2 ;;
+    --port=*) APP_PORT="${1#*=}"; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) fail "Unknown option: $1" ;;
   esac
 done
+
+if [ "$MODE" != "start" ] && [ "$SHELL_ONLY" = true ]; then
+  fail "--shell can only be used when starting the dev container"
+fi
+
+if [ "$MODE" != "start" ] && [ "$TAIL_LOGS" = true ]; then
+  fail "--logs can only be used when starting the dev container"
+fi
+
+validate_port "$APP_PORT"
+load_env_exports true ".env" ".env.local"
 
 if [ -z "$APP_URL" ]; then
   APP_URL="http://localhost:$APP_PORT"
 fi
 
-# --- Runtime detection ---
-if [ -n "$RUNTIME" ]; then
-  command -v "$RUNTIME" >/dev/null
-else
-  if command -v podman >/dev/null 2>&1; then RUNTIME=podman
-  elif command -v docker >/dev/null 2>&1; then RUNTIME=docker
-  else echo "Install podman or docker"; exit 1
-  fi
-fi
+RUNTIME="$(detect_container_runtime "$RUNTIME")"
 
-# --- Stop only ---
-if [ "$STOP_ONLY" = true ]; then
-  "$RUNTIME" rm -f "$CONTAINER_NAME" || true
-  exit 0
-fi
-
-# --- Ensure Podman machine is running (macOS/Windows) ---
-if [ "$RUNTIME" = "podman" ]; then
-  if ! podman info >/dev/null 2>&1; then
-    if podman machine list >/dev/null 2>&1; then
-      echo "Podman not running; starting podman machine..."
-      podman machine start
+case "$MODE" in
+  stop)
+    remove_container_if_exists "$RUNTIME" "$CONTAINER_NAME"
+    exit 0
+    ;;
+  clean)
+    clean_runtime_artifacts
+    clean_local_artifacts
+    exit 0
+    ;;
+  status)
+    ensure_runtime_ready "$RUNTIME"
+    show_running_container_status "$RUNTIME" "$CONTAINER_NAME"
+    exit 0
+    ;;
+  logs)
+    ensure_runtime_ready "$RUNTIME"
+    if ! container_running "$RUNTIME" "$CONTAINER_NAME"; then
+      fail "Container '$CONTAINER_NAME' is not running."
     fi
-  fi
-  if ! podman info >/dev/null 2>&1; then
-    echo "Cannot connect to Podman. Try: podman machine start"
-    exit 1
+    tail_container_logs "$RUNTIME" "$CONTAINER_NAME"
+    ;;
+esac
+
+echo "pnpm version pin: ${PNPM_VERSION:-unset}"
+ensure_runtime_ready "$RUNTIME"
+
+if [ "$SHELL_ONLY" = true ] && [ "$REBUILD" = false ] && [ "$FORCE_CLEAN" = false ]; then
+  if container_running "$RUNTIME" "$CONTAINER_NAME"; then
+    exec_container_shell "$RUNTIME" "$CONTAINER_NAME"
   fi
 fi
 
-# --- Hash deps ---
 mkdir -p .devcontainer
 _hash_inputs=()
-for f in "${DEPS_HASH_FILES[@]}"; do
-  [ -f "$f" ] && _hash_inputs+=("$f")
+for file in "${DEPS_HASH_FILES[@]}"; do
+  [ -f "$file" ] && _hash_inputs+=("$file")
 done
-CURRENT_HASH=$(sha256sum "${_hash_inputs[@]}" 2>/dev/null | sha256sum | cut -d' ' -f1)
+CURRENT_HASH="$(sha256sum "${_hash_inputs[@]}" 2>/dev/null | sha256sum | cut -d' ' -f1)"
 LAST_HASH="$(cat "$DEP_HASH_FILE" 2>/dev/null || echo '')"
-if [[ "$CURRENT_HASH" != "$LAST_HASH" && "$FORCE_CLEAN" = false ]]; then
+
+if [ "$FORCE_CLEAN" = true ]; then
+  REBUILD=true
+elif [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
   REBUILD=true
 fi
 
-# --- Force clean ---
 if [ "$FORCE_CLEAN" = true ]; then
-  "$RUNTIME" rm -f "$CONTAINER_NAME" || true
-  "$RUNTIME" rmi -f "$IMAGE_NAME" || true
-  "$RUNTIME" volume rm -f "$PNPM_STORE_VOL" "$NODE_MODULES_VOL" "$NEXT_CACHE_VOL" || true
-  rm -f "$DEP_HASH_FILE" || true
+  clean_runtime_artifacts
+  clean_local_artifacts
 fi
 
-# --- Build ---
 if [ "$REBUILD" = true ]; then
   "$RUNTIME" build \
     -f .devcontainer/Containerfile \
@@ -120,12 +165,10 @@ if [ "$REBUILD" = true ]; then
   echo "$CURRENT_HASH" > "$DEP_HASH_FILE"
 fi
 
-# --- Restart if running ---
-if "$RUNTIME" ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
-  "$RUNTIME" rm -f "$CONTAINER_NAME"
+if container_running "$RUNTIME" "$CONTAINER_NAME"; then
+  remove_container_if_exists "$RUNTIME" "$CONTAINER_NAME"
 fi
 
-# --- Mounts ---
 RUN_EXTRA_ARGS=()
 WORKDIR_MOUNT="$PWD:/workspace"
 if [ "$RUNTIME" = "podman" ]; then
@@ -136,80 +179,74 @@ else
   RUN_EXTRA_ARGS+=(--user "$(id -u):$(id -g)")
 fi
 
-# --- ENV FILES (CRITICAL FIX) ---
 ENV_FILE_ARGS=()
-[ -f "$PWD/.env" ] && ENV_FILE_ARGS+=(--env-file "$PWD/.env")
-[ -f "$PWD/.env.local" ] && ENV_FILE_ARGS+=(--env-file "$PWD/.env.local")
+append_env_file_args ENV_FILE_ARGS "$PWD/.env" "$PWD/.env.local"
 
-# --- DB URL overrides for container runtime ---
 DB_ENV_ARGS=()
-DB_HOST_ALIAS="host.containers.internal"
-if [ "$RUNTIME" = "docker" ]; then
-  DB_HOST_ALIAS="host.docker.internal"
-fi
-
-rewrite_db_url() {
-  local url="$1"
-  local alias="$2"
-  url="${url/localhost/${alias}}"
-  url="${url/127.0.0.1/${alias}}"
-  echo "$url"
-}
-
-maybe_override_db_env() {
-  local var_name="$1"
-  local value="${!var_name:-}"
-  if [ -z "$value" ]; then
-    return
-  fi
-  if [[ "$value" == *"localhost"* || "$value" == *"127.0.0.1"* ]]; then
-    DB_ENV_ARGS+=(-e "${var_name}=$(rewrite_db_url "$value" "$DB_HOST_ALIAS")")
-  fi
-}
-
-maybe_override_db_env "PG_DATABASE_URL"
-maybe_override_db_env "CRDB_DATABASE_URL"
-maybe_override_db_env "POSTGRES_URL"
-maybe_override_db_env "COCKROACH_URL"
+DB_HOST_ALIAS="$(host_alias_for_runtime "$RUNTIME")"
+append_localhost_env_overrides \
+  DB_ENV_ARGS \
+  "$DB_HOST_ALIAS" \
+  "PG_DATABASE_URL" \
+  "CRDB_DATABASE_URL" \
+  "POSTGRES_URL" \
+  "COCKROACH_URL"
 
 PORT_PUBLISH="127.0.0.1:${APP_PORT}:${APP_PORT}"
+RUN_MODE_ARGS=()
+if [ "$SHELL_ONLY" = true ]; then
+  DETACH=true
+fi
 
-  # --- Run container ---
-  RUN_MODE_ARGS=()
-  if [ "$DETACH" = true ]; then
-    RUN_MODE_ARGS+=(-d)
-  else
-    RUN_MODE_ARGS+=(-it)
-  fi
+if [ "$DETACH" = true ]; then
+  RUN_MODE_ARGS+=(-d)
+else
+  RUN_MODE_ARGS+=(-it)
+fi
 
-  "$RUNTIME" run --rm "${RUN_MODE_ARGS[@]}" \
-    --name "$CONTAINER_NAME" \
-    "${ENV_FILE_ARGS[@]}" \
-    "${DB_ENV_ARGS[@]}" \
-    -p "$PORT_PUBLISH" \
-  -e AUTH_MODE="${AUTH_MODE:-memory}" \
-  -e NEXTAUTH_URL="${NEXTAUTH_URL:-http://localhost:${APP_PORT}}" \
-  -e PORT="$APP_PORT" \
-  -e PNPM_VERSION="$PNPM_VERSION" \
-  -e COREPACK_ENABLE_STRICT=1 \
-  -e PNPM_STORE_DIR="/workspace/.pnpm-store" \
-  -v "$WORKDIR_MOUNT" \
-  --volume "${PNPM_STORE_VOL}:/workspace/.pnpm-store" \
-  --volume "${NODE_MODULES_VOL}:/workspace/node_modules" \
-  --volume "${NEXT_CACHE_VOL}:/workspace/.next" \
-  "${RUN_EXTRA_ARGS[@]}" \
-  "$IMAGE_NAME" \
-bash -lc "
+RUN_CMD=("$RUNTIME" run "--rm")
+RUN_CMD+=("${RUN_MODE_ARGS[@]}")
+RUN_CMD+=("--name" "$CONTAINER_NAME")
+if [ "${#ENV_FILE_ARGS[@]}" -gt 0 ]; then
+  RUN_CMD+=("${ENV_FILE_ARGS[@]}")
+fi
+if [ "${#DB_ENV_ARGS[@]}" -gt 0 ]; then
+  RUN_CMD+=("${DB_ENV_ARGS[@]}")
+fi
+RUN_CMD+=(
+  -p "$PORT_PUBLISH"
+  -e "AUTH_MODE=${AUTH_MODE:-memory}"
+  -e "NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:${APP_PORT}}"
+  -e "PORT=$APP_PORT"
+  -e "PNPM_VERSION=$PNPM_VERSION"
+  -e "COREPACK_ENABLE_STRICT=1"
+  -e "PNPM_STORE_DIR=/workspace/.pnpm-store"
+  -v "$WORKDIR_MOUNT"
+  --volume "${PNPM_STORE_VOL}:/workspace/.pnpm-store"
+  --volume "${NODE_MODULES_VOL}:/workspace/node_modules"
+  --volume "${NEXT_CACHE_VOL}:/workspace/.next"
+)
+RUN_CMD+=("${RUN_EXTRA_ARGS[@]}")
+RUN_CMD+=("$IMAGE_NAME" bash -lc "
 corepack enable
 corepack prepare pnpm@${PNPM_VERSION} --activate
 pnpm config set store-dir /workspace/.pnpm-store
 
 pnpm install --prefer-offline || true
-
 pnpm prisma:generate || true
 
 exec pnpm dev --port \$PORT --hostname 0.0.0.0
-"
+")
+
+"${RUN_CMD[@]}"
 
 echo "Container: $CONTAINER_NAME"
 echo "App: $APP_URL"
+
+if [ "$SHELL_ONLY" = true ]; then
+  exec_container_shell "$RUNTIME" "$CONTAINER_NAME"
+fi
+
+if [ "$TAIL_LOGS" = true ] && [ "$DETACH" = true ]; then
+  tail_container_logs "$RUNTIME" "$CONTAINER_NAME"
+fi

@@ -1,10 +1,7 @@
 # justfile — Aljama Wallet Command Suite
 set shell := ["bash","-cu"]
 
-container_name := env_var_or_default("CONTAINER_NAME","nextjs-container")
-app_port       := env_var_or_default("APP_PORT","2998")
-
-runtime := `bash -lc 'command -v podman >/dev/null 2>&1 && echo podman || (command -v docker >/dev/null 2>&1 && echo docker || echo "")'`
+app_port := env_var_or_default("APP_PORT","2998")
 
 dev port=app_port:
 	APP_PORT={{port}} ./dev.sh --detach --logs
@@ -34,29 +31,28 @@ stop:
 	./dev.sh --stop
 
 dev-attach port=app_port:
-	APP_PORT={{port}} ./dev.sh --attach --logs
+	APP_PORT={{port}} ./dev.sh --attach
 
 rebuild-attach port=app_port:
-	APP_PORT={{port}} ./dev.sh --rebuild --attach --logs
+	APP_PORT={{port}} ./dev.sh --rebuild --attach
 
 shell:
-	bash -lc 'set -euo pipefail; R="{{runtime}}"; [ -n "$R" ] || { echo "No podman/docker"; exit 1; }; if ! "$R" ps --format "{{"{{.Names}}"}}" | grep -qx "{{container_name}}"; then echo "Starting {{container_name}} on port {{app_port}}..."; APP_PORT="{{app_port}}" ./dev.sh --detach; fi; exec "$R" exec -it "{{container_name}}" bash'
+	APP_PORT={{app_port}} ./dev.sh --shell
 
 rebuild-shell port=app_port:
-	APP_PORT={{port}} ./dev.sh --rebuild --detach
-	just shell
+	APP_PORT={{port}} ./dev.sh --rebuild --shell
 
 logs:
-	bash -lc 'R="{{runtime}}"; [ -n "$R" ] || exit 1; exec "$R" logs -f "{{container_name}}"'
+	./dev.sh --logs-only
 
 status:
-	bash -lc 'R="{{runtime}}"; [ -n "$R" ] || exit 1; echo "Runtime: $R"; "$R" ps | (head -n 1; grep -E "(\\s|^){{container_name}}(\\s|$$)" || true)'
+	./dev.sh --status
 
 ps:
-	bash -lc 'R="{{runtime}}"; [ -n "$R" ] || exit 1; exec "$R" ps'
+	bash -lc 'set -euo pipefail; source ./scripts/lib/container-common.sh; RUNTIME="$(detect_container_runtime "${CONTAINER_RUNTIME:-}")"; ensure_runtime_ready "$RUNTIME"; exec "$RUNTIME" ps'
 
 clean:
-	bash -lc 'R="{{runtime}}"; [ -n "$R" ] || exit 1; echo "Cleaning with $R"; "$R" rm -f "{{container_name}}" >/dev/null 2>&1 || true; "$R" rmi -f nextjs-dev >/dev/null 2>&1 || true; "$R" volume rm -f aljama_pnpm_store aljama_node_modules aljama_next_cache >/dev/null 2>&1 || true; rm -rf .pnpm-store .devcontainer/.last-deps-hash'
+	./dev.sh --clean
 
 preview port=app_port:
 	xdg-open "http://localhost:{{port}}" || open "http://localhost:{{port}}" || echo "Could not auto-open browser."
