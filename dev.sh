@@ -20,7 +20,10 @@ NEXT_CACHE_VOL="${NEXT_CACHE_VOL:-aljama_next_cache}"
 
 PNPM_VERSION="${PNPM_VERSION:-10.28.1}"
 DEPS_HASH_FILES=("package.json" "pnpm-lock.yaml" "pnpm-workspace.yaml" ".devcontainer/Containerfile" ".npmrc" ".env")
+PRISMA_HASH_FILES=("prisma/crdb/schema.prisma" "prisma/crdb/prisma.config.ts" "prisma/pg/schema.prisma" "prisma/pg/prisma.config.ts")
 DEP_HASH_FILE=".devcontainer/.last-deps-hash"
+DEPS_INSTALL_HASH_FILE=".devcontainer/.last-installed-deps-hash"
+PRISMA_GENERATE_HASH_FILE=".devcontainer/.last-prisma-generate-hash"
 
 MODE="start"
 SHELL_ONLY=false
@@ -47,6 +50,22 @@ Options:
 EOF
 }
 
+hash_existing_files() {
+  local file
+  local inputs=()
+
+  for file in "$@"; do
+    [ -f "$file" ] && inputs+=("$file")
+  done
+
+  if [ "${#inputs[@]}" -eq 0 ]; then
+    printf 'no-input-files\n' | sha256sum | cut -d' ' -f1
+    return 0
+  fi
+
+  sha256sum "${inputs[@]}" 2>/dev/null | sha256sum | cut -d' ' -f1
+}
+
 set_mode() {
   local next_mode="$1"
 
@@ -65,7 +84,7 @@ clean_runtime_artifacts() {
 
 clean_local_artifacts() {
   rm -rf .pnpm-store
-  rm -f "$DEP_HASH_FILE"
+  rm -f "$DEP_HASH_FILE" "$DEPS_INSTALL_HASH_FILE" "$PRISMA_GENERATE_HASH_FILE"
 }
 
 while (($#)); do
@@ -97,6 +116,7 @@ fi
 
 validate_port "$APP_PORT"
 load_env_exports true ".env" ".env.local"
+DEV_NEXTAUTH_SECRET="${NEXTAUTH_DEV_SECRET:-aljama-dev-nextauth-secret}"
 
 if [ -z "$APP_URL" ]; then
   APP_URL="http://localhost:$APP_PORT"
@@ -138,12 +158,9 @@ if [ "$SHELL_ONLY" = true ] && [ "$REBUILD" = false ] && [ "$FORCE_CLEAN" = fals
 fi
 
 mkdir -p .devcontainer
-_hash_inputs=()
-for file in "${DEPS_HASH_FILES[@]}"; do
-  [ -f "$file" ] && _hash_inputs+=("$file")
-done
-CURRENT_HASH="$(sha256sum "${_hash_inputs[@]}" 2>/dev/null | sha256sum | cut -d' ' -f1)"
+CURRENT_HASH="$(hash_existing_files "${DEPS_HASH_FILES[@]}")"
 LAST_HASH="$(cat "$DEP_HASH_FILE" 2>/dev/null || echo '')"
+CURRENT_PRISMA_HASH="$(hash_existing_files "${PRISMA_HASH_FILES[@]}")"
 
 if [ "$FORCE_CLEAN" = true ]; then
   REBUILD=true
@@ -217,26 +234,21 @@ RUN_CMD+=(
   -p "$PORT_PUBLISH"
   -e "AUTH_MODE=${AUTH_MODE:-memory}"
   -e "NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:${APP_PORT}}"
+  -e "NEXTAUTH_DEV_SECRET=${DEV_NEXTAUTH_SECRET}"
   -e "PORT=$APP_PORT"
   -e "PNPM_VERSION=$PNPM_VERSION"
-  -e "COREPACK_ENABLE_STRICT=1"
   -e "PNPM_STORE_DIR=/workspace/.pnpm-store"
+  -e "ALJAMA_DEPS_HASH=$CURRENT_HASH"
+  -e "ALJAMA_DEPS_MARKER_FILE=/workspace/${DEPS_INSTALL_HASH_FILE}"
+  -e "ALJAMA_PRISMA_HASH=$CURRENT_PRISMA_HASH"
+  -e "ALJAMA_PRISMA_MARKER_FILE=/workspace/${PRISMA_GENERATE_HASH_FILE}"
   -v "$WORKDIR_MOUNT"
   --volume "${PNPM_STORE_VOL}:/workspace/.pnpm-store"
   --volume "${NODE_MODULES_VOL}:/workspace/node_modules"
   --volume "${NEXT_CACHE_VOL}:/workspace/.next"
 )
 RUN_CMD+=("${RUN_EXTRA_ARGS[@]}")
-RUN_CMD+=("$IMAGE_NAME" bash -lc "
-corepack enable
-corepack prepare pnpm@${PNPM_VERSION} --activate
-pnpm config set store-dir /workspace/.pnpm-store
-
-pnpm install --prefer-offline || true
-pnpm prisma:generate || true
-
-exec pnpm dev --port \$PORT --hostname 0.0.0.0
-")
+RUN_CMD+=("$IMAGE_NAME" bash /workspace/scripts/dev-bootstrap.sh)
 
 "${RUN_CMD[@]}"
 

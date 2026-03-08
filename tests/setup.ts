@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { vi } from 'vitest'
 import messages from '../messages/en.json'
 
+process.env.NEXTAUTH_DEV_SECRET ??= 'test-nextauth-dev-secret'
+
 type MessageTree = Record<string, unknown>
 
 function resolveMessage(namespace: string, key: string): string {

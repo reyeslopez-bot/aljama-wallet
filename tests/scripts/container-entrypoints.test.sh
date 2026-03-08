@@ -232,13 +232,14 @@ prepare_workspace() {
   cp "$ROOT_DIR/prod.sh" "$workspace/prod.sh"
   cp "$ROOT_DIR/db.sh" "$workspace/db.sh"
   cp "$ROOT_DIR/justfile" "$workspace/justfile"
+  cp "$ROOT_DIR/scripts/dev-bootstrap.sh" "$workspace/scripts/dev-bootstrap.sh"
   cp "$ROOT_DIR/.devcontainer/Containerfile" "$workspace/.devcontainer/Containerfile"
   cp "$ROOT_DIR/scripts/lib/container-common.sh" "$workspace/scripts/lib/container-common.sh"
   printf '{ "name": "fixture" }\n' >"$workspace/package.json"
   printf 'lockfileVersion: 9\n' >"$workspace/pnpm-lock.yaml"
   printf 'packages:\n' >"$workspace/pnpm-workspace.yaml"
   printf 'registry=https://registry.npmjs.org/\n' >"$workspace/.npmrc"
-  chmod +x "$workspace/dev.sh" "$workspace/prod.sh" "$workspace/db.sh"
+  chmod +x "$workspace/dev.sh" "$workspace/prod.sh" "$workspace/db.sh" "$workspace/scripts/dev-bootstrap.sh"
 }
 
 assert_log_contains() {
@@ -297,8 +298,11 @@ EOF
   assert_log_contains "$log_file" "podman build -f .devcontainer/Containerfile --target dev -t nextjs-dev ."
   assert_log_contains "$log_file" "podman run --rm -d --name nextjs-container"
   assert_log_contains "$log_file" "--env-file $workspace/.env --env-file $workspace/.env.local"
+  assert_log_contains "$log_file" "-e NEXTAUTH_DEV_SECRET=aljama-dev-nextauth-secret"
   assert_log_contains "$log_file" "-e PG_DATABASE_URL=postgresql://postgres:postgres@host.containers.internal:5432/aljama_wallet -e CRDB_DATABASE_URL=postgresql://root@host.containers.internal:26257/aljama_wallet?sslmode=disable"
+  assert_log_contains "$log_file" "bash /workspace/scripts/dev-bootstrap.sh"
   assert_log_contains "$log_file" "podman logs -f nextjs-container"
+  assert_log_lacks "$log_file" "corepack enable"
 }
 
 test_dev_shell_reuses_running_container() {
