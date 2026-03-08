@@ -2,11 +2,11 @@
 'use client'
 
 import { useCallback, useEffect, useId, useMemo, useState, type KeyboardEvent, type WheelEvent } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useLocale, useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
+import { useGsapPressable } from '@/hooks/useGsapPressable'
 
 type MarketAsset = {
   id: string
@@ -289,7 +289,6 @@ export default function XrplMarketPanel() {
   useComponentTelemetry('XrplMarketPanel')
   const t = useTranslations('market')
   const locale = useLocale()
-  const reduceMotion = useReducedMotion()
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus === 'unauthenticated'
   const chartClipId = useId().replace(/:/g, '')
@@ -317,6 +316,11 @@ export default function XrplMarketPanel() {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const [zoomWindow, setZoomWindow] = useState<ZoomWindow | null>(null)
   const [focusSymbol, setFocusSymbol] = useState<string | null>(null)
+  const refreshButton = useGsapPressable<HTMLButtonElement>({
+    hover: { scale: 1.02 },
+    press: { scale: 0.98 },
+    respectReducedMotion: true,
+  })
 
   const loadSnapshot = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }))
@@ -1187,17 +1191,22 @@ export default function XrplMarketPanel() {
           </table>
         </div>
 
-        <motion.button
+        <button
+          ref={refreshButton.ref}
           data-testid="xrpl-market-refresh"
           type="button"
-          whileHover={reduceMotion ? undefined : { scale: 1.02 }}
-          whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+          onPointerEnter={refreshButton.onPointerEnter}
+          onPointerLeave={refreshButton.onPointerLeave}
+          onPointerDown={refreshButton.onPointerDown}
+          onPointerUp={refreshButton.onPointerUp}
+          onPointerCancel={refreshButton.onPointerCancel}
+          onBlur={refreshButton.onBlur}
           disabled={locked}
           onClick={() => void loadSnapshot()}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-5 py-3 text-base font-semibold tracking-wide text-ivory shadow-lg shadow-[#b26a49]/30 transition focus:outline-none focus:ring-2 focus:ring-saffron/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {t('refresh')}
-        </motion.button>
+        </button>
 
         {locked && (
           <div data-testid="xrpl-market-unlock">

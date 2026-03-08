@@ -1,8 +1,34 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { useEffect, useRef } from "react"
+import { gsap } from "gsap"
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion"
 
 export function LoadingPill({ message = "Loading..." }: { message?: string }) {
+  const spinnerRef = useRef<HTMLDivElement | null>(null)
+  const reduceMotion = usePrefersReducedMotion()
+
+  useEffect(() => {
+    const node = spinnerRef.current
+    if (!node) return
+
+    gsap.killTweensOf(node)
+    gsap.set(node, { rotate: 0, transformOrigin: "50% 50%" })
+
+    if (reduceMotion) return
+
+    const tween = gsap.to(node, {
+      rotate: 360,
+      duration: 0.9,
+      ease: "none",
+      repeat: -1,
+    })
+
+    return () => {
+      tween.kill()
+    }
+  }, [reduceMotion])
+
   return (
     <div className="min-h-[40vh] w-full flex items-center justify-center p-8">
       <div
@@ -21,15 +47,14 @@ export function LoadingPill({ message = "Loading..." }: { message?: string }) {
             style={{ border: "2px solid rgba(241,242,244,0.16)" }}
             aria-hidden
           />
-          <motion.div
+          <div
+            ref={spinnerRef}
             className="absolute inset-0 rounded-full"
             style={{
               border: "2px solid rgba(241,242,244,0.85)",
               borderTopColor: "transparent",
             }}
             aria-hidden
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
           />
         </div>
 

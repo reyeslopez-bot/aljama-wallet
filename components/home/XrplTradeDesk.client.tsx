@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
@@ -9,6 +8,7 @@ import { TelemetryContext } from '@/components/telemetry/TelemetryProvider.clien
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { resolveXrplNetwork } from '@/lib/xrpl-networks'
+import { useGsapPressable } from '@/hooks/useGsapPressable'
 
 type AssetsResponse = {
   ok: true
@@ -572,6 +572,10 @@ export default function XrplTradeDesk() {
   const hasSubmissionHistory = activityRail.length > 0
   const showSubmissionRail = hasSubmissionHistory && showSubmissionLog
   const shouldShowGlobalRefresh = showLaunchContext || showExpertTools || hasSubmissionHistory
+  const refreshButton = useGsapPressable<HTMLButtonElement>({
+    hover: { scale: 1.02 },
+    press: { scale: 0.98 },
+  })
 
   const handleRefreshVisibleData = () => {
     const refreshes: Array<Promise<unknown>> = [loadOrderbook()]
@@ -1509,18 +1513,23 @@ export default function XrplTradeDesk() {
 
             <div className="space-y-3">
             {shouldShowGlobalRefresh ? (
-              <motion.button
+              <button
+                ref={refreshButton.ref}
                 data-testid="xrpl-trade-desk-refresh"
                 type="button"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                onPointerEnter={refreshButton.onPointerEnter}
+                onPointerLeave={refreshButton.onPointerLeave}
+                onPointerDown={refreshButton.onPointerDown}
+                onPointerUp={refreshButton.onPointerUp}
+                onPointerCancel={refreshButton.onPointerCancel}
+                onBlur={refreshButton.onBlur}
                 disabled={submitting || (locked && offersLoading)}
                 onClick={handleRefreshVisibleData}
                 aria-describedby={regionBlocked ? regionPolicyId : undefined}
                 className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b9577]/30 transition disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Refresh trade data
-              </motion.button>
+              </button>
             ) : null}
 
             {hasSubmissionHistory ? (

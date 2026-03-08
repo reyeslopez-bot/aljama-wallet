@@ -21,16 +21,6 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ whileHover, whileTap, transition, ...props }: React.ComponentProps<'div'> & {
-      whileHover?: unknown
-      whileTap?: unknown
-      transition?: unknown
-    }) => React.createElement('div', props),
-  },
-}))
-
 const mockedUseSession = vi.mocked(useSession)
 
 describe('HomeActionButtons', () => {

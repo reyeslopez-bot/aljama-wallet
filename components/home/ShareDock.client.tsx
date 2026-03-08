@@ -1,16 +1,16 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { useGsapPressable } from '@/hooks/useGsapPressable'
 
 type ShareItem = {
   id: 'x' | 'linkedin' | 'facebook' | 'whatsapp' | 'email' | 'copy'
   label: string
   tone: string
-  tilt: string
+  tilt: number
   icon: ReactNode
 }
 
@@ -66,6 +66,41 @@ function openShare(url: string) {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
+function ShareActionButton(props: {
+  item: ShareItem
+  statusId: string
+  ariaLabel: string
+  onClick: () => void | Promise<void>
+}) {
+  const interactions = useGsapPressable<HTMLButtonElement>({
+    base: { rotate: props.item.tilt },
+    hover: { y: -3, rotate: 0, scale: 1.03 },
+    press: { scale: 0.98 },
+  })
+
+  return (
+    <button
+      ref={interactions.ref}
+      key={props.item.id}
+      type="button"
+      onPointerEnter={interactions.onPointerEnter}
+      onPointerLeave={interactions.onPointerLeave}
+      onPointerDown={interactions.onPointerDown}
+      onPointerUp={interactions.onPointerUp}
+      onPointerCancel={interactions.onPointerCancel}
+      onBlur={interactions.onBlur}
+      aria-label={props.ariaLabel}
+      aria-describedby={props.statusId}
+      title={props.item.label}
+      onClick={props.onClick}
+      className={`relative flex h-14 w-14 items-center justify-center border border-saffron/35 bg-gradient-to-br ${props.item.tone} text-[#f0d7a0] shadow-lg shadow-black/30 backdrop-blur-[10px] transition hover:border-saffron/55`}
+      style={{ borderRadius: 2 }}
+    >
+      {props.item.icon}
+    </button>
+  )
+}
+
 export default function ShareDock() {
   const t = useTranslations('share')
   const pathname = usePathname()
@@ -89,12 +124,12 @@ export default function ShareDock() {
   const shareTitle = t('title')
 
   const shareItems: ShareItem[] = [
-    { id: 'x', label: t('x'), tone: 'from-[#1d232a]/95 to-[#14191f]/95', tilt: 'rotate(-0.35deg)', icon: <XIcon /> },
-    { id: 'linkedin', label: t('linkedin'), tone: 'from-[#222831]/95 to-[#171c22]/95', tilt: 'rotate(-0.99deg)', icon: <LinkedinIcon /> },
-    { id: 'facebook', label: t('facebook'), tone: 'from-[#1f262f]/95 to-[#151b22]/95', tilt: 'rotate(-0.35deg)', icon: <FacebookIcon /> },
-    { id: 'whatsapp', label: t('whatsapp'), tone: 'from-[#202730]/95 to-[#171d24]/95', tilt: 'rotate(0deg)', icon: <WhatsappIcon /> },
-    { id: 'email', label: t('email'), tone: 'from-[#1f252d]/95 to-[#151b21]/95', tilt: 'rotate(-0.05deg)', icon: <EmailIcon /> },
-    { id: 'copy', label: copied ? t('copied') : t('copy'), tone: 'from-[#232931]/95 to-[#191f26]/95', tilt: 'rotate(0.24deg)', icon: <CopyIcon /> },
+    { id: 'x', label: t('x'), tone: 'from-[#1d232a]/95 to-[#14191f]/95', tilt: -0.35, icon: <XIcon /> },
+    { id: 'linkedin', label: t('linkedin'), tone: 'from-[#222831]/95 to-[#171c22]/95', tilt: -0.99, icon: <LinkedinIcon /> },
+    { id: 'facebook', label: t('facebook'), tone: 'from-[#1f262f]/95 to-[#151b22]/95', tilt: -0.35, icon: <FacebookIcon /> },
+    { id: 'whatsapp', label: t('whatsapp'), tone: 'from-[#202730]/95 to-[#171d24]/95', tilt: 0, icon: <WhatsappIcon /> },
+    { id: 'email', label: t('email'), tone: 'from-[#1f252d]/95 to-[#151b21]/95', tilt: -0.05, icon: <EmailIcon /> },
+    { id: 'copy', label: copied ? t('copied') : t('copy'), tone: 'from-[#232931]/95 to-[#191f26]/95', tilt: 0.24, icon: <CopyIcon /> },
   ]
 
   return (
@@ -126,20 +161,17 @@ export default function ShareDock() {
             aria-label={t('title')}
           >
             {shareItems.map((item) => (
-              <motion.button
+              <ShareActionButton
                 key={item.id}
-                type="button"
-                whileHover={{ y: -3, rotate: 0, scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
-                aria-label={
+                item={item}
+                statusId={statusId}
+                ariaLabel={
                   item.id === 'copy'
                     ? copied
                       ? `${t('copy')} copied`
                       : t('copy')
                     : item.label
                 }
-                aria-describedby={statusId}
-                title={item.label}
                 onClick={async () => {
                   const encodedTitle = encodeURIComponent(shareTitle)
                   const encodedUrl = encodeURIComponent(shareUrl)
@@ -173,11 +205,7 @@ export default function ShareDock() {
                     setCopied(false)
                   }
                 }}
-                className={`relative flex h-14 w-14 items-center justify-center border border-saffron/35 bg-gradient-to-br ${item.tone} text-[#f0d7a0] shadow-lg shadow-black/30 backdrop-blur-[10px] transition hover:border-saffron/55`}
-                style={{ borderRadius: 2, transform: item.tilt }}
-              >
-                {item.icon}
-              </motion.button>
+              />
             ))}
           </div>
           <p id={statusId} className="sr-only" aria-live="polite">

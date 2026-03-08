@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
@@ -12,6 +11,7 @@ import {
 } from '@/lib/xrpl-networks'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
+import { useGsapPressable } from '@/hooks/useGsapPressable'
 
 type XrplAccount = {
   address: string
@@ -76,6 +76,10 @@ export function XrplPanel() {
   const copyStatusId = 'xrpl-copy-status'
   const accountStatusId = 'xrpl-account-status'
   const networkOptionId = useCallback((networkId: string) => `xrpl-network-option-${networkId}`, [])
+  const refreshButton = useGsapPressable<HTMLButtonElement>({
+    hover: { scale: 1.02 },
+    press: { scale: 0.98 },
+  })
 
   useEffect(() => {
     if (!devnetFlagEnabled || typeof window === 'undefined') return
@@ -481,18 +485,23 @@ export function XrplPanel() {
           )}
         </div>
 
-        <motion.button
+        <button
+          ref={refreshButton.ref}
           data-testid="xrpl-panel-refresh"
           type="button"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          onPointerEnter={refreshButton.onPointerEnter}
+          onPointerLeave={refreshButton.onPointerLeave}
+          onPointerDown={refreshButton.onPointerDown}
+          onPointerUp={refreshButton.onPointerUp}
+          onPointerCancel={refreshButton.onPointerCancel}
+          onBlur={refreshButton.onBlur}
           disabled={locked}
           aria-describedby={accountStatusId}
           onClick={() => void loadAccount()}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-ivory shadow-lg shadow-[#4b9577]/30 transition focus:outline-none focus:ring-2 focus:ring-lapis/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {t('refresh')}
-        </motion.button>
+        </button>
 
         {locked && (
           <div data-testid="xrpl-panel-unlock">

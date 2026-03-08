@@ -6,16 +6,6 @@ import { ConnectWalletPanel } from '@/components/home/ConnectWalletPanel.client'
 import { useConnect, useConnectors, useConnection, useDisconnect } from 'wagmi'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { Connector } from 'wagmi'
-import React from 'react'
-
-vi.mock('framer-motion', () => ({
-  motion: {
-    button: ({ whileHover, whileTap, ...props }: React.ComponentProps<'button'> & {
-      whileHover?: unknown
-      whileTap?: unknown
-    }) => React.createElement('button', props),
-  },
-}))
 
 vi.mock('wagmi', () => ({
   useConnection: vi.fn(),

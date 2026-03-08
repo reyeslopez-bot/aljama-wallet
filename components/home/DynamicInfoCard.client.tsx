@@ -1,7 +1,7 @@
 'use client'
 
-import { AnimatePresence, motion, useAnimationControls } from 'framer-motion'
-import type { CSSProperties, ReactNode } from 'react'
+import { gsap } from 'gsap'
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
@@ -12,6 +12,7 @@ import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
 import { loadProfileImageForUsername } from '@/lib/storage/profileImage'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
 function formatShortAddress(address: string) {
   const trimmed = address.trim()
@@ -122,6 +123,15 @@ const CARD_CORNERS: CardCorner[] = ['top-left', 'top-right', 'bottom-left', 'bot
 const DUBAI_TIMEZONE = 'Asia/Dubai'
 const DUBAI_UTC_LABEL = 'UTC+04:00'
 const TEST_FIXED_NOW_ISO = '2026-02-20T00:00:00.000Z'
+const DRAG_IGNORE_SELECTOR = 'button, a, input, textarea, select, [role="button"]'
+
+type DragState = {
+  pointerId: number | null
+  startX: number
+  startY: number
+  x: number
+  y: number
+}
 
 function formatUtcOffsetForZone(date: Date, timeZone: string) {
   try {
@@ -161,8 +171,18 @@ export default function DynamicInfoCard() {
   const [networkTimezone, setNetworkTimezone] = useState(DUBAI_TIMEZONE)
   const [isLightTheme, setIsLightTheme] = useState(false)
   const [corner, setCorner] = useState<CardCorner>('top-right')
-  const dragControls = useAnimationControls()
+  const [isDragging, setIsDragging] = useState(false)
+  const reduceMotion = usePrefersReducedMotion()
   const cardRef = useRef<HTMLElement | null>(null)
+  const dragHandleRef = useRef<HTMLDivElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  const dragStateRef = useRef<DragState>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    x: 0,
+    y: 0,
+  })
 
   const user = useDynamicInfoStore((s) => s.user)
   const setUser = useDynamicInfoStore((s) => s.setUser)
@@ -173,23 +193,24 @@ export default function DynamicInfoCard() {
   const lastEvent = useDynamicInfoStore((s) => s.lastEvent)
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
   const selectedXrplNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
+  const availableStatusLabel = t('status.available')
 
   useEffect(() => {
     if (sessionStatus === 'loading') return
     if (sessionStatus === 'authenticated') {
       const email = session?.user?.email?.trim() ?? ''
-      const displayName = session?.user?.name?.trim() || (email ? email.split('@')[0] : t('status.available'))
+      const displayName = session?.user?.name?.trim() || (email ? email.split('@')[0] : availableStatusLabel)
       const sessionImage = session?.user?.image?.trim() || null
       const fallbackImage = sessionImage ? null : loadProfileImageForUsername(displayName)
       setUser({
         name: displayName,
-        role: email || t('status.available'),
+        role: email || availableStatusLabel,
         image: sessionImage ?? fallbackImage,
       })
       return
     }
     setUser(null)
-  }, [session?.user?.email, session?.user?.image, session?.user?.name, sessionStatus, setUser, t])
+  }, [availableStatusLabel, session?.user?.email, session?.user?.image, session?.user?.name, sessionStatus, setUser])
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'test') {
@@ -223,6 +244,18 @@ export default function DynamicInfoCard() {
     if (typeof window === 'undefined') return
     window.localStorage.setItem(INFO_CARD_CORNER_KEY, corner)
   }, [corner])
+
+  useEffect(() => {
+    const node = cardRef.current
+    if (!node) return
+
+    gsap.killTweensOf(node)
+    gsap.set(node, { x: dragStateRef.current.x, y: dragStateRef.current.y, scale: 1 })
+
+    return () => {
+      gsap.killTweensOf(node)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -361,34 +394,164 @@ export default function DynamicInfoCard() {
     const vertical = centerY < window.innerHeight / 2 ? 'top' : 'bottom'
     const nextCorner = `${vertical}-${horizontal}` as CardCorner
     setCorner(nextCorner)
+    return nextCorner
   }, [])
 
+  useEffect(() => {
+    const node = contentRef.current
+    if (!node) return
+
+    gsap.killTweensOf(node)
+
+    if (reduceMotion) {
+      gsap.set(node, { autoAlpha: 1, y: 0 })
+      return
+    }
+
+    gsap.fromTo(
+      node,
+      { autoAlpha: 0, y: 6 },
+      { autoAlpha: 1, y: 0, duration: 0.18, ease: 'power2.out', overwrite: 'auto' },
+    )
+  }, [detailsExpanded, reduceMotion])
+
+  const finishDrag = useCallback(
+    (pointerId: number) => {
+      const node = cardRef.current
+      if (!node) return
+
+      const dragHandle = dragHandleRef.current
+      if (dragHandle && typeof dragHandle.releasePointerCapture === 'function') {
+        try {
+          if (typeof dragHandle.hasPointerCapture === 'function' && dragHandle.hasPointerCapture(pointerId)) {
+            dragHandle.releasePointerCapture(pointerId)
+          }
+        } catch {
+          // ignore pointer capture release failures
+        }
+      }
+
+      dragStateRef.current.pointerId = null
+      setIsDragging(false)
+      snapToNearestCorner()
+
+      const resetTransform = () => {
+        const activeNode = cardRef.current
+        if (!activeNode) return
+
+        gsap.killTweensOf(activeNode)
+
+        if (reduceMotion) {
+          dragStateRef.current.x = 0
+          dragStateRef.current.y = 0
+          gsap.set(activeNode, { x: 0, y: 0, scale: 1 })
+          return
+        }
+
+        gsap.to(activeNode, {
+          x: 0,
+          y: 0,
+          scale: 1,
+          duration: 0.28,
+          ease: 'power3.out',
+          overwrite: 'auto',
+          onUpdate: () => {
+            dragStateRef.current.x = Number(gsap.getProperty(activeNode, 'x')) || 0
+            dragStateRef.current.y = Number(gsap.getProperty(activeNode, 'y')) || 0
+          },
+          onComplete: () => {
+            dragStateRef.current.x = 0
+            dragStateRef.current.y = 0
+          },
+        })
+      }
+
+      window.requestAnimationFrame(resetTransform)
+    },
+    [reduceMotion, snapToNearestCorner],
+  )
+
+  const handleDragPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return
+      if (!cardRef.current) return
+
+      const target = event.target as HTMLElement | null
+      if (target?.closest(DRAG_IGNORE_SELECTOR)) return
+
+      const node = cardRef.current
+      dragStateRef.current.pointerId = event.pointerId
+      dragStateRef.current.startX = event.clientX - dragStateRef.current.x
+      dragStateRef.current.startY = event.clientY - dragStateRef.current.y
+
+      if (typeof event.currentTarget.setPointerCapture === 'function') {
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId)
+        } catch {
+          // ignore pointer capture failures
+        }
+      }
+
+      gsap.killTweensOf(node)
+      if (reduceMotion) {
+        gsap.set(node, { scale: 1.01 })
+      } else {
+        gsap.to(node, { scale: 1.01, duration: 0.12, overwrite: 'auto' })
+      }
+      setIsDragging(true)
+      event.preventDefault()
+    },
+    [reduceMotion],
+  )
+
+  const handleDragPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragStateRef.current.pointerId !== event.pointerId || !cardRef.current) return
+
+    const nextX = event.clientX - dragStateRef.current.startX
+    const nextY = event.clientY - dragStateRef.current.startY
+    dragStateRef.current.x = nextX
+    dragStateRef.current.y = nextY
+    gsap.set(cardRef.current, { x: nextX, y: nextY })
+  }, [])
+
+  const handleDragPointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (dragStateRef.current.pointerId !== event.pointerId) return
+      finishDrag(event.pointerId)
+    },
+    [finishDrag],
+  )
+
+  const handleDragPointerCancel = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (dragStateRef.current.pointerId !== event.pointerId) return
+      finishDrag(event.pointerId)
+    },
+    [finishDrag],
+  )
+
   return (
-    <motion.aside
+    <aside
       ref={cardRef}
       data-testid="dynamic-info-card"
       aria-label="Dynamic info card"
-      initial={false}
-      drag
-      dragMomentum={false}
-      dragElastic={0.08}
-      animate={dragControls}
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
-      onDragEnd={() => {
-        snapToNearestCorner()
-        void dragControls.start({
-          x: 0,
-          y: 0,
-          transition: { type: 'spring', stiffness: 280, damping: 28, mass: 0.8 },
-        })
-      }}
-      whileDrag={{ scale: 1.01, cursor: 'grabbing' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={cardViewportStyle}
-      className={`fixed z-50 cursor-grab overflow-hidden rounded-[18px] active:cursor-grabbing ${cardCornerClass}`}
+      className={`fixed z-50 overflow-hidden rounded-[18px] ${cardCornerClass}`}
     >
       <div className="surface-panel panel-glow-saffron h-full max-h-full overflow-y-auto overscroll-contain rounded-[18px]">
-        <div className="rounded-t-[18px] border-b border-white/10 bg-white/5 p-3">
+        <div
+          ref={dragHandleRef}
+          data-testid="dynamic-info-card-handle"
+          onPointerDown={handleDragPointerDown}
+          onPointerMove={handleDragPointerMove}
+          onPointerUp={handleDragPointerUp}
+          onPointerCancel={handleDragPointerCancel}
+          className={`touch-none rounded-t-[18px] border-b border-white/10 bg-white/5 p-3 ${
+            isDragging ? 'cursor-grabbing' : 'cursor-grab'
+          }`}
+        >
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#c7794a] via-[#e0bf7f] to-[#4b9577] p-[1px]">
@@ -454,17 +617,13 @@ export default function DynamicInfoCard() {
         </div>
 
         <div className="p-3">
-          <AnimatePresence mode="wait" initial={false}>
-            {detailsExpanded ? (
-              <motion.div
-                key="expanded"
-                data-testid="dynamic-info-card-expanded"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                transition={{ duration: 0.18 }}
-                className="space-y-3"
-              >
+          {detailsExpanded ? (
+            <div
+              key="expanded"
+              ref={contentRef}
+              data-testid="dynamic-info-card-expanded"
+              className="space-y-3"
+            >
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                   <div className="text-[0.6875rem] uppercase tracking-[0.18em] text-ivory/50">{t('vaultSession')}</div>
                   <div className="mt-2 grid gap-2 text-[0.6875rem] text-ivory/75">
@@ -552,17 +711,14 @@ export default function DynamicInfoCard() {
                     className="text-[0.625rem] uppercase tracking-[0.14em] text-ivory/45"
                   />
                 ) : null}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="collapsed"
-                data-testid="dynamic-info-card-collapsed"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                transition={{ duration: 0.18 }}
-                className="flex items-center justify-between"
-              >
+            </div>
+          ) : (
+            <div
+              key="collapsed"
+              ref={contentRef}
+              data-testid="dynamic-info-card-collapsed"
+              className="flex items-center justify-between"
+            >
                 <div className="flex items-center gap-2">
                   <IconButton label="X" href="https://x.com" isLight={isLightTheme}>
                     <XIcon />
@@ -595,11 +751,10 @@ export default function DynamicInfoCard() {
                 >
                   {t('expand')}
                 </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            </div>
+          )}
         </div>
       </div>
-    </motion.aside>
+    </aside>
   )
 }

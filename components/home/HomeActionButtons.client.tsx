@@ -2,10 +2,10 @@
 'use client'
 
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
+import { useGsapPressable } from '@/hooks/useGsapPressable'
 
 type ButtonTone = 'primary' | 'secondary'
 
@@ -28,6 +28,33 @@ const surface = (bg: string, tone: ButtonTone) =>
         : '0 12px 26px rgba(6,9,14,0.32), inset 0 0 0 1px rgba(255,255,255,0.16)',
     border: tone === 'primary' ? '1px solid rgba(255,255,255,0.25)' : '1px solid rgba(255,255,255,0.14)',
   }) as const
+
+function ActionSurface({ button }: { button: Btn }) {
+  const interactions = useGsapPressable<HTMLDivElement>({
+    hover: { y: button.tone === 'primary' ? -2 : -1 },
+    press: { scale: button.tone === 'primary' ? 0.98 : 0.99 },
+  })
+
+  return (
+    <div
+      ref={interactions.ref}
+      onPointerEnter={interactions.onPointerEnter}
+      onPointerLeave={interactions.onPointerLeave}
+      onPointerDown={interactions.onPointerDown}
+      onPointerUp={interactions.onPointerUp}
+      onPointerCancel={interactions.onPointerCancel}
+      onBlur={interactions.onBlur}
+      className={`flex h-[84px] w-full items-center justify-center rounded-full px-7 text-[17px] font-semibold tracking-wide transition-all md:h-[88px] ${
+        button.tone === 'primary'
+          ? 'text-[#20140e] drop-shadow-[0_1px_0_rgba(255,255,255,0.26)]'
+          : 'text-ivory'
+      }`}
+      style={surface(button.bg, button.tone)}
+    >
+      <span>{button.label}</span>
+    </div>
+  )
+}
 
 export default function HomeActionButtons() {
   const t = useTranslations('actions')
@@ -79,19 +106,7 @@ export default function HomeActionButtons() {
             aria-label={locked ? `${button.label}. Sign in required.` : button.label}
             role="listitem"
           >
-            <motion.div
-              whileHover={{ y: button.tone === 'primary' ? -2 : -1 }}
-              whileTap={{ scale: button.tone === 'primary' ? 0.98 : 0.99 }}
-              transition={{ type: 'spring', stiffness: 220, damping: 18 }}
-              className={`flex h-[84px] w-full items-center justify-center rounded-full px-7 text-[17px] font-semibold tracking-wide transition-all md:h-[88px] ${
-                button.tone === 'primary'
-                  ? 'text-[#20140e] drop-shadow-[0_1px_0_rgba(255,255,255,0.26)]'
-                  : 'text-ivory'
-              }`}
-              style={surface(button.bg, button.tone)}
-            >
-              <span>{button.label}</span>
-            </motion.div>
+            <ActionSurface button={button} />
           </Link>
         ))}
       </div>

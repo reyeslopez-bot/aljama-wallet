@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { useConnection, useConnect, useConnectors, useDisconnect } from 'wagmi'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
@@ -8,6 +7,7 @@ import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
+import { useGsapPressable } from '@/hooks/useGsapPressable'
 
 function formatShortAddress(address: string | undefined): string {
   if (!address) return '—'
@@ -60,6 +60,10 @@ export function ConnectWalletPanel() {
   const detailId = 'connect-wallet-detail'
   const connectorNoteId = 'connect-wallet-connector-note'
   const errorId = 'connect-wallet-error'
+  const actionButton = useGsapPressable<HTMLButtonElement>({
+    hover: { scale: 1.02 },
+    press: { scale: 0.98 },
+  })
 
   useEffect(() => {
     setHydrated(true)
@@ -162,11 +166,16 @@ export function ConnectWalletPanel() {
           )}
         </div>
 
-        <motion.button
+        <button
+          ref={actionButton.ref}
           data-testid="connect-wallet-action"
           type="button"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          onPointerEnter={actionButton.onPointerEnter}
+          onPointerLeave={actionButton.onPointerLeave}
+          onPointerDown={actionButton.onPointerDown}
+          onPointerUp={actionButton.onPointerUp}
+          onPointerCancel={actionButton.onPointerCancel}
+          onBlur={actionButton.onBlur}
           disabled={locked || !canConnect || isPending}
           aria-describedby={[
             statusId,
@@ -188,7 +197,7 @@ export function ConnectWalletPanel() {
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#7fb0d9] via-[#5c8db4] to-[#4b7c79] px-5 py-3 text-base font-semibold tracking-wide text-ivory shadow-lg shadow-[#4b7c79]/30 transition focus:outline-none focus:ring-2 focus:ring-lapis/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? t('buttonConnecting') : connectLabel}
-        </motion.button>
+        </button>
 
         {showUnlockMessage && (
           <UnlockActionsLink

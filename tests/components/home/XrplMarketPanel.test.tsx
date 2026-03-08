@@ -1,20 +1,9 @@
 // @vitest-environment jsdom
 
-import React from 'react'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import XrplMarketPanel from '@/components/home/XrplMarketPanel.client'
 import { useSession } from 'next-auth/react'
-
-vi.mock('framer-motion', () => ({
-  motion: {
-    button: ({ whileHover, whileTap, ...props }: React.ComponentProps<'button'> & {
-      whileHover?: unknown
-      whileTap?: unknown
-    }) => React.createElement('button', props),
-  },
-  useReducedMotion: () => false,
-}))
 
 const mockedUseSession = vi.mocked(useSession)
 
