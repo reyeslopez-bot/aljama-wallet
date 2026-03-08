@@ -284,6 +284,7 @@ test_dev_rewrites_env_local_and_tails_logs() {
   write_fake_runtime "$workspace/fake-bin" podman
   printf 'AUTH_MODE=memory\n' >"$workspace/.env"
   cat >"$workspace/.env.local" <<'EOF'
+NEXT_PUBLIC_APP_NAME=Aljama Wallet
 PG_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/aljama_wallet
 CRDB_DATABASE_URL=postgresql://root@127.0.0.1:26257/aljama_wallet?sslmode=disable
 EOF

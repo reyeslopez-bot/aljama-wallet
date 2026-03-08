@@ -5,6 +5,33 @@ fail() {
   exit 1
 }
 
+trim_leading_whitespace() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  printf '%s' "$value"
+}
+
+trim_trailing_whitespace() {
+  local value="$1"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
+parse_env_value() {
+  local value="$1"
+
+  if [[ "$value" == \"*\" && "$value" == *\" && "${#value}" -ge 2 ]]; then
+    value="${value:1:${#value}-2}"
+  elif [[ "$value" == \'*\' && "$value" == *\' && "${#value}" -ge 2 ]]; then
+    value="${value:1:${#value}-2}"
+  else
+    value="$(trim_leading_whitespace "$value")"
+    value="$(trim_trailing_whitespace "$value")"
+  fi
+
+  printf '%s' "$value"
+}
+
 append_array_item() {
   local array_name="$1"
   local value="$2"
@@ -19,17 +46,48 @@ load_env_exports() {
   shift || true
 
   local file
+  local line
+  local key
+  local value
+  local normalized
   for file in "$@"; do
     [ -f "$file" ] || continue
 
-    if [ "$validate_no_space" = "true" ] && grep -qE '^[A-Z0-9_]+=\s+' "$file"; then
-      fail "Invalid $(basename "$file") format: spaces after '='"
-    fi
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line%$'\r'}"
+      normalized="$(trim_leading_whitespace "$line")"
 
-    set -a
-    # shellcheck disable=SC1090
-    source "$file"
-    set +a
+      [ -n "$normalized" ] || continue
+      case "$normalized" in
+        \#*) continue ;;
+      esac
+
+      if [[ "$normalized" == export[[:space:]]* ]]; then
+        normalized="${normalized#export}"
+        normalized="$(trim_leading_whitespace "$normalized")"
+      fi
+
+      case "$normalized" in
+        *=*) ;;
+        *) fail "Invalid $(basename "$file") line: $normalized" ;;
+      esac
+
+      key="${normalized%%=*}"
+      value="${normalized#*=}"
+      key="$(trim_trailing_whitespace "$key")"
+
+      if ! [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        fail "Invalid $(basename "$file") key: $key"
+      fi
+
+      if [ "$validate_no_space" = "true" ] && [[ "$value" =~ ^[[:space:]]+ ]]; then
+        fail "Invalid $(basename "$file") format: spaces after '='"
+      fi
+
+      value="$(parse_env_value "$value")"
+      printf -v "$key" '%s' "$value"
+      export "$key"
+    done <"$file"
   done
 }
 
