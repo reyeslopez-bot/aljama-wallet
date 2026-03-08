@@ -9,7 +9,12 @@ import { isStrictMode } from '@/lib/security/runtime'
 
 const usePg = usePgAuth()
 const configuredNextAuthSecret = process.env.NEXTAUTH_SECRET?.trim() ?? ''
-const devNextAuthSecret = process.env.NEXTAUTH_DEV_SECRET?.trim() || 'aljama-dev-nextauth-secret'
+const configuredDevNextAuthSecret = process.env.NEXTAUTH_DEV_SECRET?.trim() ?? ''
+const devNextAuthSecret = configuredDevNextAuthSecret || 'aljama-dev-nextauth-secret'
+const usingImplicitDevSecretFallback = !configuredNextAuthSecret && !configuredDevNextAuthSecret
+const globalForAuth = globalThis as typeof globalThis & {
+  nextAuthDevSecretFallbackWarningLogged?: boolean
+}
 
 if (isStrictMode && !configuredNextAuthSecret) {
   throw new Error('Missing NEXTAUTH_SECRET in strict mode')
@@ -17,8 +22,9 @@ if (isStrictMode && !configuredNextAuthSecret) {
 
 const nextAuthSecret = configuredNextAuthSecret || devNextAuthSecret
 
-if (!configuredNextAuthSecret) {
-  logWarn('next-auth:secret', new Error('Using stable NEXTAUTH_DEV_SECRET fallback in non-strict mode'))
+if (usingImplicitDevSecretFallback && !globalForAuth.nextAuthDevSecretFallbackWarningLogged) {
+  globalForAuth.nextAuthDevSecretFallbackWarningLogged = true
+  logWarn('next-auth:secret', { message: 'Using built-in NEXTAUTH_DEV_SECRET fallback in non-strict mode' })
 }
 
 export const authOptions: NextAuthOptions = {
