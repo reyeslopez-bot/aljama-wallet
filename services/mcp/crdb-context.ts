@@ -4,9 +4,11 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { z } from 'zod'
+import { ACTIVE_SPEND_CHAIN_TRANSACTION_STATUSES, normalizeChainTransactionType } from '@/lib/chain-transactions'
 import { prismaCrdb } from '@/lib/prisma-crdb'
 import crypto from 'node:crypto'
 import { getErrorMessage } from '@/lib/security/errors'
+import { syncRecentEvmChainTransactions } from '@/services/chain-transaction-sync.service'
 
 const requestSchema = z.object({
   tool: z.enum(['wallet.getState', 'wallet.getLimits']),
@@ -51,8 +53,17 @@ function addAssetDelta(store: Map<string, bigint>, asset: string, value: bigint)
   store.set(asset, (store.get(asset) ?? 0n) + value)
 }
 
+function startOfDayUtc(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+}
+
 async function getWalletState(input: z.infer<typeof walletStateSchema>) {
   const chainKey = String(input.chainId)
+  await syncRecentEvmChainTransactions({
+    walletId: input.walletId,
+    networkId: chainKey,
+    limit: 20,
+  })
 
   const [
     chainSentCount,
@@ -82,6 +93,27 @@ async function getWalletState(input: z.infer<typeof walletStateSchema>) {
         chainType: 'EVM',
         networkId: chainKey,
         OR: [{ fromWalletId: input.walletId }, { toWalletId: input.walletId }],
+      },
+      select: {
+        id: true,
+        txHash: true,
+        status: true,
+        txType: true,
+        asset: true,
+        fromWalletId: true,
+        toWalletId: true,
+        toAddress: true,
+        valueBaseUnits: true,
+        gasLimit: true,
+        gasPrice: true,
+        maxFeePerGas: true,
+        maxPriorityFeePerGas: true,
+        gasUsed: true,
+        blockHeight: true,
+        blockHash: true,
+        data: true,
+        confirmedAt: true,
+        createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
     }),
@@ -132,10 +164,20 @@ async function getWalletState(input: z.infer<typeof walletStateSchema>) {
           source: 'chain',
           txHash: lastChainTx.txHash,
           status: lastChainTx.status,
+          txType: normalizeChainTransactionType(lastChainTx.txType),
           fromWalletId: lastChainTx.fromWalletId,
           toWalletId: lastChainTx.toWalletId,
           toAddress: lastChainTx.toAddress,
           valueWei: lastChainTx.valueBaseUnits.toString(),
+          gasLimit: lastChainTx.gasLimit,
+          gasPrice: lastChainTx.gasPrice,
+          maxFeePerGas: lastChainTx.maxFeePerGas,
+          maxPriorityFeePerGas: lastChainTx.maxPriorityFeePerGas,
+          gasUsed: lastChainTx.gasUsed,
+          blockHeight: lastChainTx.blockHeight?.toString() ?? null,
+          blockHash: lastChainTx.blockHash,
+          data: lastChainTx.data,
+          confirmedAt: lastChainTx.confirmedAt?.toISOString() ?? null,
           asset: lastChainTx.asset,
           createdAt: lastChainTx.createdAt.toISOString(),
         }
@@ -144,11 +186,21 @@ async function getWalletState(input: z.infer<typeof walletStateSchema>) {
             id: lastLegacyTx.id,
             source: 'legacy',
             txHash: null,
-            status: 'settled',
+            status: 'confirmed',
+            txType: 'transfer',
             fromWalletId: lastLegacyTx.fromWalletId,
             toWalletId: lastLegacyTx.toWalletId,
             toAddress: null,
             valueWei: lastLegacyTx.valueWei.toString(),
+            gasLimit: null,
+            gasPrice: null,
+            maxFeePerGas: null,
+            maxPriorityFeePerGas: null,
+            gasUsed: null,
+            blockHeight: null,
+            blockHash: null,
+            data: null,
+            confirmedAt: null,
             asset: lastLegacyTx.asset,
             createdAt: lastLegacyTx.createdAt.toISOString(),
           }
@@ -168,9 +220,14 @@ async function getWalletState(input: z.infer<typeof walletStateSchema>) {
 
 async function getWalletLimits(input: z.infer<typeof walletLimitsSchema>) {
   const chainKey = String(input.chainId)
+  await syncRecentEvmChainTransactions({
+    walletId: input.walletId,
+    networkId: chainKey,
+    limit: 20,
+  })
 
   const dailyLimitWei = BigInt(process.env.WALLET_DAILY_LIMIT_WEI ?? '0')
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  const since = startOfDayUtc(new Date())
 
   const [chainSpentToday, legacySpentToday] = await Promise.all([
     prismaCrdb.chainTransaction.aggregate({
@@ -178,7 +235,7 @@ async function getWalletLimits(input: z.infer<typeof walletLimitsSchema>) {
         fromWalletId: input.walletId,
         chainType: 'EVM',
         networkId: chainKey,
-        status: { in: ['broadcast', 'settled', 'validated'] },
+        status: { in: [...ACTIVE_SPEND_CHAIN_TRANSACTION_STATUSES] },
         createdAt: { gte: since },
       },
       _sum: { valueBaseUnits: true },

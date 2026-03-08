@@ -1,6 +1,8 @@
+import { normalizeChainTransactionType, normalizeTransferWorkflowStatus } from '@/lib/chain-transactions'
 import { prismaCrdb } from '@/lib/prisma-crdb'
 import { logWarn } from '@/lib/security/logging'
 import { getXrplClient } from '@/infra/xrpl/client'
+import { syncRecentEvmChainTransactions } from '@/services/chain-transaction-sync.service'
 import { userOwnsWallet } from '@/services/wallet-ownership.service'
 import { getWalletById } from '@/services/wallet.service'
 import {
@@ -13,7 +15,6 @@ import type {
   WalletReconciliation,
   WalletSnapshot,
   WalletTransactionItem,
-  WalletTransactionStatus,
   WalletTransactionsPage,
 } from '@/types/wallet-api'
 
@@ -38,23 +39,6 @@ function parseChainId(blockchain: string): number | null {
 function parseRecordedChainId(chainType: string, networkId: string): number | null {
   if (chainType !== 'EVM') return null
   return parseChainId(networkId)
-}
-
-function normalizeWalletTransactionStatus(status: string): WalletTransactionStatus {
-  switch (status) {
-    case 'initiated':
-    case 'approved':
-    case 'broadcast':
-    case 'failed':
-    case 'denied':
-    case 'review':
-    case 'settled':
-      return status
-    case 'validated':
-      return 'settled'
-    default:
-      return 'broadcast'
-  }
 }
 
 function latestTimestamp(...values: Array<Date | null | undefined>): string | null {
@@ -121,6 +105,7 @@ async function assertReadableWallet(input: {
   isAdmin: boolean
 }): Promise<{
   id: string
+  chain: string
   address: string
   createdAt: Date
 }> {
@@ -138,6 +123,7 @@ async function assertReadableWallet(input: {
 
   return {
     id: wallet.id,
+    chain: wallet.chain,
     address: wallet.address,
     createdAt: wallet.createdAt,
   }
@@ -149,6 +135,9 @@ export async function getWalletSnapshotForUser(input: {
   isAdmin: boolean
 }): Promise<WalletSnapshot> {
   const wallet = await assertReadableWallet(input)
+  if (wallet.chain === 'EVM') {
+    await syncRecentEvmChainTransactions({ walletId: wallet.id, limit: 20 })
+  }
   const chainTransactionalWhere = {
     OR: [{ fromWalletId: wallet.id }, { toWalletId: wallet.id }],
   }
@@ -214,6 +203,9 @@ export async function getWalletTransactionsForUser(input: {
   cursor?: Date | null
 }): Promise<WalletTransactionsPage> {
   const wallet = await assertReadableWallet(input)
+  if (wallet.chain === 'EVM') {
+    await syncRecentEvmChainTransactions({ walletId: wallet.id, limit: 25 })
+  }
   const limit = clampLimit(input.limit ?? 25)
   const before = input.cursor ?? null
 
@@ -226,7 +218,7 @@ export async function getWalletTransactionsForUser(input: {
     ...(before ? { createdAt: { lt: before } } : {}),
   }
 
-  const [chainTransactionRows, legacyTransactionRows, transferAttempts] = await Promise.all([
+  const [chainTransactionRows, tokenTransferRows, legacyTransactionRows, transferAttempts] = await Promise.all([
     prismaCrdb.chainTransaction.findMany({
       where: chainTransactionalWhere,
       select: {
@@ -234,20 +226,57 @@ export async function getWalletTransactionsForUser(input: {
         chainType: true,
         networkId: true,
         txHash: true,
+        nonce: true,
         status: true,
+        txType: true,
         asset: true,
         valueBaseUnits: true,
+        gasLimit: true,
+        gasPrice: true,
+        maxFeePerGas: true,
+        maxPriorityFeePerGas: true,
+        gasUsed: true,
         createdAt: true,
+        confirmedAt: true,
+        blockHeight: true,
+        blockHash: true,
         fromWalletId: true,
         toWalletId: true,
         fromAddress: true,
         toAddress: true,
+        data: true,
         fromWallet: {
           select: { address: true },
         },
         toWallet: {
           select: { address: true },
         },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit * 2,
+    }),
+    prismaCrdb.tokenTransfer.findMany({
+      where: {
+        OR: [{ fromWalletId: wallet.id }, { toWalletId: wallet.id }],
+        ...(before ? { createdAt: { lt: before } } : {}),
+      },
+      select: {
+        id: true,
+        networkId: true,
+        txHash: true,
+        contractAddress: true,
+        tokenStandard: true,
+        assetSymbol: true,
+        amountBaseUnits: true,
+        tokenId: true,
+        fromWalletId: true,
+        toWalletId: true,
+        fromAddress: true,
+        toAddress: true,
+        blockHeight: true,
+        blockHash: true,
+        confirmedAt: true,
+        createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
       take: limit * 2,
@@ -288,10 +317,53 @@ export async function getWalletTransactionsForUser(input: {
       amountWei: row.valueBaseUnits.toString(),
       asset: row.asset,
       chainId: parseRecordedChainId(row.chainType, row.networkId),
-      status: normalizeWalletTransactionStatus(row.status),
+      txType: normalizeChainTransactionType(row.txType),
+      status: normalizeTransferWorkflowStatus(row.status),
       counterparty: outgoing ? row.toWallet?.address ?? row.toAddress : row.fromWallet.address,
       idempotencyKey: null,
       txHash: row.txHash,
+      nonce: row.nonce,
+      gasLimit: row.gasLimit,
+      gasPrice: row.gasPrice,
+      maxFeePerGas: row.maxFeePerGas,
+      maxPriorityFeePerGas: row.maxPriorityFeePerGas,
+      gasUsed: row.gasUsed,
+      blockHeight: row.blockHeight?.toString() ?? null,
+      blockHash: row.blockHash,
+      contractAddress: null,
+      tokenId: null,
+      data: row.data,
+      confirmedAt: row.confirmedAt?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+    }
+  })
+
+  const indexedTokenTransferItems: WalletTransactionItem[] = tokenTransferRows.map((row) => {
+    const outgoing = row.fromWalletId === wallet.id
+    return {
+      id: `token:${row.id}`,
+      source: 'indexed',
+      direction: outgoing ? 'outgoing' : 'incoming',
+      amountWei: row.amountBaseUnits ?? '1',
+      asset: row.assetSymbol ?? row.contractAddress,
+      chainId: parseChainId(row.networkId),
+      txType: 'token_transfer',
+      status: row.confirmedAt ? 'confirmed' : 'pending',
+      counterparty: outgoing ? row.toAddress : row.fromAddress,
+      idempotencyKey: null,
+      txHash: row.txHash,
+      nonce: null,
+      gasLimit: null,
+      gasPrice: null,
+      maxFeePerGas: null,
+      maxPriorityFeePerGas: null,
+      gasUsed: null,
+      blockHeight: row.blockHeight?.toString() ?? null,
+      blockHash: row.blockHash,
+      contractAddress: row.contractAddress,
+      tokenId: row.tokenId,
+      data: null,
+      confirmedAt: row.confirmedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
     }
   })
@@ -305,29 +377,59 @@ export async function getWalletTransactionsForUser(input: {
       amountWei: row.valueWei.toString(),
       asset: row.asset,
       chainId: parseChainId(row.blockchain),
-      status: 'settled',
+      txType: 'transfer',
+      status: 'confirmed',
       counterparty: outgoing ? row.toWallet.address : row.fromWallet.address,
       idempotencyKey: null,
       txHash: null,
+      nonce: null,
+      gasLimit: null,
+      gasPrice: null,
+      maxFeePerGas: null,
+      maxPriorityFeePerGas: null,
+      gasUsed: null,
+      blockHeight: null,
+      blockHash: null,
+      contractAddress: null,
+      tokenId: null,
+      data: null,
+      confirmedAt: null,
       createdAt: row.createdAt.toISOString(),
     }
   })
 
-  const analyticsItems: WalletTransactionItem[] = transferAttempts.map((item) => ({
+  const transactionalHashes = new Set(chainTransactionRows.map((row) => row.txHash))
+
+  const analyticsItems: WalletTransactionItem[] = transferAttempts
+    .filter((item) => !item.txHash || !transactionalHashes.has(item.txHash))
+    .map((item) => ({
       id: `analytics:${item.id}`,
       source: 'analytics',
       direction: 'outgoing',
       amountWei: item.amountWei.toString(),
       asset: 'native',
       chainId: item.chainId,
+      txType: item.txType ?? 'transfer',
       status: item.status,
       counterparty: item.toAddress,
       idempotencyKey: item.idempotencyKey,
-      txHash: null,
+      txHash: item.txHash ?? null,
+      nonce: item.nonce ?? null,
+      gasLimit: item.gasLimit ?? null,
+      gasPrice: item.gasPrice ?? null,
+      maxFeePerGas: item.maxFeePerGas ?? null,
+      maxPriorityFeePerGas: item.maxPriorityFeePerGas ?? null,
+      gasUsed: item.gasUsed ?? null,
+      blockHeight: item.blockHeight?.toString() ?? null,
+      blockHash: item.blockHash ?? null,
+      contractAddress: null,
+      tokenId: null,
+      data: item.data ?? null,
+      confirmedAt: item.confirmedAt ? new Date(item.confirmedAt).toISOString() : null,
       createdAt: new Date(item.createdAt).toISOString(),
     }))
 
-  const items = [...chainTransactionItems, ...legacyTransactionalItems, ...analyticsItems]
+  const items = [...chainTransactionItems, ...indexedTokenTransferItems, ...legacyTransactionalItems, ...analyticsItems]
     .sort((a, b) => {
       const aTime = Date.parse(a.createdAt)
       const bTime = Date.parse(b.createdAt)

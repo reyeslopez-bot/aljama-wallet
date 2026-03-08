@@ -157,12 +157,29 @@ model WalletTransferLog {
   amountWei      BigInt
   status         String
   idempotencyKey String
+  txHash         String?
+  nonce          String?
+  txType         String?
+  data           String?
+  gasLimit       String?
+  gasPrice       String?
+  maxFeePerGas   String?
+  maxPriorityFeePerGas String?
+  gasUsed        String?
+  blockHeight    BigInt?
+  blockHash      String?
+  replacedByTxHash String?
+  confirmedAt    DateTime?
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([walletId, createdAt])
+  @@index([walletId, chainId, nonce])
   @@index([userId, createdAt])
   @@index([toAddress])
   @@index([idempotencyKey])
+  @@index([txHash])
+  @@index([status, createdAt])
 }
 
 model RiskDecision {

@@ -4,6 +4,7 @@ import { encodeCommitPqcBindingCalldata } from '@/lib/contracts/pqc-binding-regi
 import { buildPqcBindingHashes } from '@/lib/pqc/commitment'
 import { errorJson, okJson } from '@/lib/security/api-response'
 import { withApiRoute } from '@/lib/security/api-route'
+import { logError } from '@/lib/security/logging'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { readJsonBody } from '@/lib/security/request-body'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
@@ -17,7 +18,7 @@ import {
 } from '@/services/evm-tx.service'
 import { reserveIdempotencyKey } from '@/services/idempotency.service'
 import { createWalletPqcAnchorRecord } from '@/services/wallet-pqc-anchor.service'
-import { getWalletSigningAccount, setWalletPqcBindingHash } from '@/services/wallet.service'
+import { getWalletSigningAccount, recordChainTransaction, setWalletPqcBindingHash } from '@/services/wallet.service'
 import { userOwnsWallet } from '@/services/wallet-ownership.service'
 
 export const dynamic = 'force-dynamic'
@@ -84,6 +85,11 @@ function normalizeUri(value: string): string {
 
 function rateLimitBucket(): string {
   return process.env.PQC_ANCHOR_RATE_LIMIT_BUCKET?.trim() || 'wallet-pqc-anchor'
+}
+
+function stringifyTxValue(value: string | bigint | number | null | undefined): string | null {
+  if (value === null || value === undefined) return null
+  return value.toString()
 }
 
 export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverride?: string) {
@@ -236,20 +242,51 @@ export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverri
       throw new Error('Unable to determine submitted transaction hash')
     }
 
-    await createWalletPqcAnchorRecord({
-      walletId: wallet.id,
-      chainType: 'EVM',
-      networkId: String(input.chainId),
-      registryAddress,
-      bindingHash: hashes.bindingHash,
-      statementHash: hashes.statementHash,
-      signatureHash: hashes.signatureHash,
-      publicKeyHash: hashes.publicKeyHash,
-      uri: canonicalUri,
-      uriHash: hashes.uriHash,
-      txHash,
-      status: 'submitted',
-    })
+    let anchorRecorded = false
+    let chainTransactionRecorded = false
+
+    try {
+      await createWalletPqcAnchorRecord({
+        walletId: wallet.id,
+        chainType: 'EVM',
+        networkId: String(input.chainId),
+        registryAddress,
+        bindingHash: hashes.bindingHash,
+        statementHash: hashes.statementHash,
+        signatureHash: hashes.signatureHash,
+        publicKeyHash: hashes.publicKeyHash,
+        uri: canonicalUri,
+        uriHash: hashes.uriHash,
+        txHash,
+        status: 'submitted',
+      })
+      anchorRecorded = true
+    } catch (recordError) {
+      logError('wallet-pqc-anchor:anchor-record', recordError)
+    }
+
+    try {
+      await recordChainTransaction({
+        chainId: input.chainId,
+        txHash,
+        fromWalletId: wallet.id,
+        fromAddress: wallet.address,
+        toAddress: registryAddress,
+        valueBaseUnits: 0n,
+        asset: 'native',
+        status: 'broadcasted',
+        txType: 'contract_call',
+        nonce: unsignedTx.nonce ?? null,
+        gasLimit: stringifyTxValue(unsignedTx.gasLimit ?? null),
+        gasPrice: stringifyTxValue(unsignedTx.gasPrice ?? null),
+        maxFeePerGas: stringifyTxValue(unsignedTx.maxFeePerGas ?? null),
+        maxPriorityFeePerGas: stringifyTxValue(unsignedTx.maxPriorityFeePerGas ?? null),
+        data,
+      })
+      chainTransactionRecorded = true
+    } catch (recordError) {
+      logError('wallet-pqc-anchor:chain-transaction', recordError)
+    }
 
     return okJson({
       walletId: wallet.id,
@@ -257,6 +294,8 @@ export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverri
       registryAddress,
       bindingHash: hashes.bindingHash,
       txHash,
+      anchorRecorded,
+      chainTransactionRecorded,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {

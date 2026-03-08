@@ -9,6 +9,7 @@ import {
   signUnsignedEvmTx,
   submitSignedEvmTx,
 } from '@/services/evm-tx.service'
+import { markReplacedTransferAttempts } from '@/services/chain-transaction-sync.service'
 import {
   getSpentTodayWei,
   getWalletByAddress,
@@ -46,6 +47,11 @@ const sendSchema = z.object({
 })
 
 const MAX_UINT256 = (1n << 256n) - 1n
+
+function stringifyTxValue(value: string | bigint | number | null | undefined): string | null {
+  if (value === null || value === undefined) return null
+  return value.toString()
+}
 
 function requireRpcUrl() {
   const rpcUrl = process.env.EVM_RPC_URL
@@ -282,6 +288,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
         amountWei: BigInt(intent.amountWei),
         status: risk.decision === 'deny' ? 'denied' : 'review',
         idempotencyKey: intent.idempotencyKey,
+        txType: 'transfer',
       })
 
       await trackSignal({
@@ -316,23 +323,43 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       chainId: intent.chainId,
       toAddress: intent.to,
       amountWei: BigInt(intent.amountWei),
-      status: 'approved',
+      status: 'created',
       idempotencyKey: intent.idempotencyKey,
+      txType: 'transfer',
     })
     transferLogId = log.id
+
+    await updateTransferStatus(log.id, 'pending_broadcast', {
+      nonce: stringifyTxValue(unsignedTx.nonce ?? null),
+      txType: 'transfer',
+      data: null,
+      gasLimit: stringifyTxValue(unsignedTx.gasLimit ?? null),
+      gasPrice: stringifyTxValue(unsignedTx.gasPrice ?? null),
+      maxFeePerGas: stringifyTxValue(unsignedTx.maxFeePerGas ?? null),
+      maxPriorityFeePerGas: stringifyTxValue(unsignedTx.maxPriorityFeePerGas ?? null),
+    })
 
     const signedTx = await signUnsignedEvmTx(input.walletId, input.chainId, unsignedTx)
     const derivedHash = deriveSignedEvmTxHash(signedTx)
 
     const txHash = await submitSignedEvmTx(provider, signedTx)
     if (transferLogId) {
-      await updateTransferStatus(transferLogId, 'broadcast')
+      await updateTransferStatus(transferLogId, 'broadcasted', {
+        txHash,
+        nonce: stringifyTxValue(unsignedTx.nonce ?? null),
+        txType: 'transfer',
+        data: null,
+        gasLimit: stringifyTxValue(unsignedTx.gasLimit ?? null),
+        gasPrice: stringifyTxValue(unsignedTx.gasPrice ?? null),
+        maxFeePerGas: stringifyTxValue(unsignedTx.maxFeePerGas ?? null),
+        maxPriorityFeePerGas: stringifyTxValue(unsignedTx.maxPriorityFeePerGas ?? null),
+      })
     }
 
     const recipient = await getWalletByAddress(intent.to).catch(() => null)
     let recorded = false
     try {
-      await recordChainTransaction({
+      const chainRecord = await recordChainTransaction({
         chainId: intent.chainId,
         txHash,
         fromWalletId: intent.fromWalletId,
@@ -341,8 +368,16 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
         toAddress: intent.to,
         valueBaseUnits: BigInt(intent.amountWei),
         asset: 'native',
-        status: 'broadcast',
+        status: 'broadcasted',
+        txType: 'transfer',
+        nonce: unsignedTx.nonce ?? null,
+        gasLimit: stringifyTxValue(unsignedTx.gasLimit ?? null),
+        gasPrice: stringifyTxValue(unsignedTx.gasPrice ?? null),
+        maxFeePerGas: stringifyTxValue(unsignedTx.maxFeePerGas ?? null),
+        maxPriorityFeePerGas: stringifyTxValue(unsignedTx.maxPriorityFeePerGas ?? null),
+        data: null,
       })
+      await markReplacedTransferAttempts(chainRecord.replacedTxHashes, txHash)
       recorded = true
     } catch (recordError) {
       logError('wallet-send:chain-transaction', recordError)

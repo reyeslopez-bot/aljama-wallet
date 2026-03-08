@@ -7,6 +7,7 @@ const {
   mockBuildRateLimitKey,
   mockRateLimit,
   mockGetWalletSigningAccount,
+  mockRecordChainTransaction,
   mockSetWalletPqcBindingHash,
   mockUserOwnsWallet,
   mockReserveIdempotencyKey,
@@ -25,6 +26,7 @@ const {
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
   mockGetWalletSigningAccount: vi.fn(),
+  mockRecordChainTransaction: vi.fn(),
   mockSetWalletPqcBindingHash: vi.fn(),
   mockUserOwnsWallet: vi.fn(),
   mockReserveIdempotencyKey: vi.fn(),
@@ -54,6 +56,7 @@ vi.mock('@/lib/security/rate-limit', () => ({
 
 vi.mock('@/services/wallet.service', () => ({
   getWalletSigningAccount: mockGetWalletSigningAccount,
+  recordChainTransaction: mockRecordChainTransaction,
   setWalletPqcBindingHash: mockSetWalletPqcBindingHash,
 }))
 
@@ -140,6 +143,7 @@ describe('app/api/wallet/[id]/pqc/anchor route', () => {
     mockDeriveSignedEvmTxHash.mockReturnValue('0xderived')
     mockSubmitSignedEvmTx.mockResolvedValue('0xtxhash')
     mockCreateWalletPqcAnchorRecord.mockResolvedValue({ id: 'anchor-1' })
+    mockRecordChainTransaction.mockResolvedValue({ record: { id: 'chain-1' }, replacedTxHashes: [] })
     mockSetWalletPqcBindingHash.mockResolvedValue({ id: 'wallet-1', pqcBindingHash: '0xhash' })
   })
 
@@ -333,6 +337,19 @@ describe('app/api/wallet/[id]/pqc/anchor route', () => {
         uriHash: hashes.uriHash,
         txHash: '0xtxhash',
         status: 'submitted',
+      }),
+    )
+    expect(mockRecordChainTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chainId: 8453,
+        txHash: '0xtxhash',
+        fromWalletId: 'wallet-1',
+        fromAddress: '0x000000000000000000000000000000000000beef',
+        toAddress: '0x000000000000000000000000000000000000beef',
+        valueBaseUnits: 0n,
+        status: 'broadcasted',
+        txType: 'contract_call',
+        nonce: 7,
       }),
     )
   })

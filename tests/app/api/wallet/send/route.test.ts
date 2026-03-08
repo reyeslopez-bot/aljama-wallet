@@ -10,6 +10,7 @@ const {
   mockGetSpentTodayWei,
   mockGetWalletByAddress,
   mockRecordChainTransaction,
+  mockMarkReplacedTransferAttempts,
   mockRequireSession,
   mockIsAdminEmail,
   mockIsAllowedOrigin,
@@ -38,6 +39,7 @@ const {
   mockGetSpentTodayWei: vi.fn(),
   mockGetWalletByAddress: vi.fn(),
   mockRecordChainTransaction: vi.fn(),
+  mockMarkReplacedTransferAttempts: vi.fn(),
   mockRequireSession: vi.fn(),
   mockIsAdminEmail: vi.fn(),
   mockIsAllowedOrigin: vi.fn(),
@@ -67,6 +69,10 @@ vi.mock('@/services/wallet.service', () => ({
   getSpentTodayWei: mockGetSpentTodayWei,
   getWalletByAddress: mockGetWalletByAddress,
   recordChainTransaction: mockRecordChainTransaction,
+}))
+
+vi.mock('@/services/chain-transaction-sync.service', () => ({
+  markReplacedTransferAttempts: mockMarkReplacedTransferAttempts,
 }))
 
 vi.mock('@/services/evm-tx.service', () => ({
@@ -218,7 +224,8 @@ describe('app/api/wallet/send route', () => {
     mockDeriveSignedEvmTxHash.mockReturnValue('0xderived')
     mockSubmitSignedEvmTx.mockResolvedValue('0xtxhash')
     mockGetWalletByAddress.mockResolvedValue(null)
-    mockRecordChainTransaction.mockResolvedValue(undefined)
+    mockRecordChainTransaction.mockResolvedValue({ record: { id: 'chain-1' }, replacedTxHashes: [] })
+    mockMarkReplacedTransferAttempts.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -324,7 +331,14 @@ describe('app/api/wallet/send route', () => {
       toAddress: '0x000000000000000000000000000000000000dead',
       valueBaseUnits: 1000000000000000n,
       asset: 'native',
-      status: 'broadcast',
+      status: 'broadcasted',
+      txType: 'transfer',
+      nonce: 7,
+      gasLimit: null,
+      gasPrice: null,
+      maxFeePerGas: null,
+      maxPriorityFeePerGas: null,
+      data: null,
     })
   })
 })

@@ -30,6 +30,8 @@ model Wallet {
   receivedTransactions Transaction[] @relation("TxToWallet")
   outboundChainTransactions ChainTransaction[] @relation("ChainTxFromWallet")
   inboundChainTransactions  ChainTransaction[] @relation("ChainTxToWallet")
+  sentTokenTransfers        TokenTransfer[]    @relation("TokenTransferFromWallet")
+  receivedTokenTransfers    TokenTransfer[]    @relation("TokenTransferToWallet")
   pqcAnchors           WalletPqcAnchor[]
 }
 
@@ -38,14 +40,25 @@ model ChainTransaction {
   chainType      String   @default("EVM")
   networkId      String
   txHash         String
+  nonce          String?
   status         String
+  txType         String   @default("transfer")
   asset          String   @default("native")
   valueBaseUnits BigInt
+  gasLimit       String?
+  gasPrice       String?
+  maxFeePerGas   String?
+  maxPriorityFeePerGas String?
+  gasUsed        String?
   blockHeight    BigInt?
+  blockHash      String?
   fromAddress    String
   toAddress      String
+  data           String?
+  confirmedAt    DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  replacedByTxHash String?
 
   fromWalletId String
   toWalletId   String?
@@ -57,7 +70,41 @@ model ChainTransaction {
   @@index([fromWalletId, chainType, networkId, createdAt])
   @@index([toWalletId, chainType, networkId, createdAt])
   @@index([toAddress, chainType, networkId, createdAt])
+  @@index([fromWalletId, chainType, networkId, nonce])
   @@index([status, createdAt])
+  @@index([confirmedAt])
+}
+
+model TokenTransfer {
+  id             String   @id @default(cuid())
+  chainType      String   @default("EVM")
+  networkId      String
+  txHash         String
+  logIndex       Int
+  contractAddress String
+  tokenStandard  String?
+  assetSymbol    String?
+  amountBaseUnits String?
+  tokenId        String?
+  fromAddress    String
+  toAddress      String
+  blockHeight    BigInt?
+  blockHash      String?
+  confirmedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  fromWalletId String?
+  toWalletId   String?
+
+  fromWallet Wallet? @relation("TokenTransferFromWallet", fields: [fromWalletId], references: [id])
+  toWallet   Wallet? @relation("TokenTransferToWallet", fields: [toWalletId], references: [id])
+
+  @@unique([chainType, networkId, txHash, logIndex])
+  @@index([fromWalletId, createdAt])
+  @@index([toWalletId, createdAt])
+  @@index([contractAddress, createdAt])
+  @@index([txHash])
 }
 
 model WalletPqcAnchor {

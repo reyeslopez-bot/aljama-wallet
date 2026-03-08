@@ -1,3 +1,8 @@
+import type {
+  ChainTransactionType,
+  TransferWorkflowStatus,
+} from '@/lib/chain-transactions'
+
 export type WalletAuthority = {
   transactional: 'cockroachdb'
   analytics: 'postgres' | 'memory'
@@ -27,16 +32,9 @@ export type WalletSnapshot = {
   updatedAt: string
 }
 
-export type WalletTransactionStatus =
-  | 'initiated'
-  | 'approved'
-  | 'broadcast'
-  | 'failed'
-  | 'denied'
-  | 'review'
-  | 'settled'
+export type WalletTransactionStatus = TransferWorkflowStatus
 
-export type WalletTransactionSource = 'transactional' | 'analytics' | 'optimistic'
+export type WalletTransactionSource = 'transactional' | 'analytics' | 'indexed' | 'optimistic'
 
 export type WalletTransactionItem = {
   id: string
@@ -45,10 +43,23 @@ export type WalletTransactionItem = {
   amountWei: string
   asset: string | null
   chainId: number | null
+  txType: ChainTransactionType | null
   status: WalletTransactionStatus
   counterparty: string | null
   idempotencyKey: string | null
   txHash: string | null
+  nonce: string | null
+  gasLimit: string | null
+  gasPrice: string | null
+  maxFeePerGas: string | null
+  maxPriorityFeePerGas: string | null
+  gasUsed: string | null
+  blockHeight: string | null
+  blockHash: string | null
+  contractAddress: string | null
+  tokenId: string | null
+  data: string | null
+  confirmedAt: string | null
   createdAt: string
 }
 

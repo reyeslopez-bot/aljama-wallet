@@ -1,4 +1,10 @@
 import { getAddress } from 'ethers'
+import type { ChainTransactionStatus, ChainTransactionType } from '@/lib/chain-transactions'
+import {
+  ACTIVE_SPEND_CHAIN_TRANSACTION_STATUSES,
+  normalizeChainTransactionStatus,
+  normalizeChainTransactionType,
+} from '@/lib/chain-transactions'
 import { Prisma } from '@/prisma/generated/prisma-crdb'
 import { buildPqcBindingHashes } from '@/lib/pqc/commitment'
 import { prismaCrdb } from '@/lib/prisma-crdb'
@@ -29,6 +35,16 @@ function normalizeAddress(address: string): string {
 function normalizePubKey(value?: string | null): string | null {
   if (!value?.trim()) return null
   return value.trim()
+}
+
+function startOfDayUtc(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+}
+
+function normalizeNullableString(value?: string | number | bigint | null): string | null {
+  if (value === undefined || value === null) return null
+  const normalized = String(value).trim()
+  return normalized ? normalized : null
 }
 
 function mapWalletRecord(record: {
@@ -273,7 +289,7 @@ export async function createWalletRecord(input: CreateWalletRecordInput) {
 
 export async function getSpentTodayWei(walletId: string, chainId: number) {
   const networkId = String(chainId)
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  const since = startOfDayUtc(new Date())
 
   const [chainSpentToday, legacySpentToday] = await Promise.all([
     prismaCrdb.chainTransaction.aggregate({
@@ -281,7 +297,7 @@ export async function getSpentTodayWei(walletId: string, chainId: number) {
         fromWalletId: walletId,
         chainType: 'EVM',
         networkId,
-        status: { in: ['broadcast', 'settled', 'validated'] },
+        status: { in: [...ACTIVE_SPEND_CHAIN_TRANSACTION_STATUSES] },
         createdAt: { gte: since },
       },
       _sum: { valueBaseUnits: true },
@@ -304,23 +320,90 @@ export async function recordChainTransaction(params: {
   toWalletId?: string | null
   valueBaseUnits: bigint
   asset?: string
-  status?: string
+  status?: ChainTransactionStatus
+  txType?: ChainTransactionType
+  nonce?: string | number | bigint | null
+  gasLimit?: string | number | bigint | null
+  gasPrice?: string | number | bigint | null
+  maxFeePerGas?: string | number | bigint | null
+  maxPriorityFeePerGas?: string | number | bigint | null
+  gasUsed?: string | number | bigint | null
   blockHeight?: bigint | null
+  blockHash?: string | null
+  data?: string | null
+  confirmedAt?: Date | null
 }) {
-  const record = await prismaCrdb.chainTransaction.create({
-    data: {
-      chainType: 'EVM',
-      networkId: String(params.chainId),
-      txHash: params.txHash,
-      status: params.status ?? 'broadcast',
-      asset: params.asset ?? 'native',
-      valueBaseUnits: params.valueBaseUnits,
-      blockHeight: params.blockHeight ?? null,
-      fromWalletId: params.fromWalletId,
-      toWalletId: params.toWalletId ?? null,
-      fromAddress: normalizeAddress(params.fromAddress),
-      toAddress: normalizeAddress(params.toAddress),
-    },
+  const networkId = String(params.chainId)
+  const txHash = params.txHash.trim()
+  const nonce = normalizeNullableString(params.nonce)
+  const normalizedStatus = normalizeChainTransactionStatus(params.status ?? 'broadcasted')
+  const normalizedTxType = normalizeChainTransactionType(params.txType ?? 'transfer')
+
+  const result = await prismaCrdb.$transaction(async (tx) => {
+    let replacedTxHashes: string[] = []
+
+    if (nonce) {
+      const replacedRows = await tx.chainTransaction.findMany({
+        where: {
+          fromWalletId: params.fromWalletId,
+          chainType: 'EVM',
+          networkId,
+          nonce,
+          txHash: { not: txHash },
+          status: { in: ['broadcasted', 'pending', 'confirmed'] },
+        },
+        select: { txHash: true },
+      })
+
+      replacedTxHashes = replacedRows.map((row) => row.txHash)
+      if (replacedTxHashes.length > 0) {
+        await tx.chainTransaction.updateMany({
+          where: {
+            fromWalletId: params.fromWalletId,
+            chainType: 'EVM',
+            networkId,
+            nonce,
+            txHash: { in: replacedTxHashes },
+          },
+          data: {
+            status: 'replaced',
+            replacedByTxHash: txHash,
+          },
+        })
+      }
+    }
+
+    const record = await tx.chainTransaction.create({
+      data: {
+        chainType: 'EVM',
+        networkId,
+        txHash,
+        nonce,
+        status: normalizedStatus,
+        txType: normalizedTxType,
+        asset: params.asset ?? 'native',
+        valueBaseUnits: params.valueBaseUnits,
+        gasLimit: normalizeNullableString(params.gasLimit),
+        gasPrice: normalizeNullableString(params.gasPrice),
+        maxFeePerGas: normalizeNullableString(params.maxFeePerGas),
+        maxPriorityFeePerGas: normalizeNullableString(params.maxPriorityFeePerGas),
+        gasUsed: normalizeNullableString(params.gasUsed),
+        blockHeight: params.blockHeight ?? null,
+        blockHash: normalizeNullableString(params.blockHash),
+        fromWalletId: params.fromWalletId,
+        toWalletId: params.toWalletId ?? null,
+        fromAddress: normalizeAddress(params.fromAddress),
+        toAddress: normalizeAddress(params.toAddress),
+        data: normalizeNullableString(params.data),
+        confirmedAt: params.confirmedAt ?? null,
+        replacedByTxHash: null,
+      },
+    })
+
+    return {
+      record,
+      replacedTxHashes,
+    }
   })
 
   try {
@@ -329,7 +412,7 @@ export async function recordChainTransaction(params: {
     logWarn('wallet:daily-summary', error)
   }
 
-  return record
+  return result
 }
 
 export async function recordTransaction(params: {
