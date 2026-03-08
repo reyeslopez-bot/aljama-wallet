@@ -31,6 +31,16 @@ type WagmiConfig = ReturnType<typeof createConfig>
 const globalForWagmi = globalThis as unknown as {
   aljamaWagmiConfig?: WagmiConfig
   aljamaWagmiConfigWithConnectors?: WagmiConfig
+  litIssuedWarnings?: Set<string>
+}
+
+function suppressLitDevModeWarning() {
+  if (process.env.NODE_ENV !== "development") return
+
+  // WalletConnect's Reown modal pulls Lit's development bundle in local dev.
+  // Pre-mark only the generic dev banner as issued so other Lit warnings still surface.
+  globalForWagmi.litIssuedWarnings ??= new Set<string>()
+  globalForWagmi.litIssuedWarnings.add("dev-mode")
 }
 
 function buildConnectors(module: WagmiConnectorsModule): CreateConfigParameters["connectors"] {
@@ -91,6 +101,7 @@ export default function Web3Providers({ children }: { children: ReactNode }) {
 
     const loadWalletConnect = async () => {
       try {
+        suppressLitDevModeWarning()
         const connectorsModule = await import("wagmi/connectors")
         if (cancelled) return
         const connectors = buildConnectors(connectorsModule)

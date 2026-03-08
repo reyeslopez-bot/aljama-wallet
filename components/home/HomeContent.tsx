@@ -40,20 +40,31 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
       aria-describedby="home-overview-subtitle"
       className={`relative scroll-mt-28 ${SURFACE} panel-glow-saffron overflow-hidden p-12 md:p-14`}
     >
+      <div
+        aria-hidden="true"
+        className="ethereal-orb absolute -left-14 top-18 h-40 w-40 bg-saffron/14 [animation:aurora-drift_18s_ease-in-out_infinite]"
+      />
+      <div
+        aria-hidden="true"
+        className="ethereal-orb absolute -right-10 bottom-[-3.5rem] h-56 w-56 bg-lapis/16 [animation:aurora-drift_24s_ease-in-out_infinite_reverse]"
+      />
       <div className="absolute inset-x-10 top-6 ornament-line" />
-      <div className="absolute right-10 top-10 h-20 w-20 rotate-12 rounded-[28px] border border-white/10 bg-white/5 opacity-40" />
+      <div className="pointer-events-none absolute inset-y-12 right-[14%] w-px bg-gradient-to-b from-white/0 via-white/12 to-white/0" />
+      <div className="pointer-events-none absolute right-8 top-8 h-24 w-24 rounded-full border border-white/10 bg-white/[0.04] shadow-[0_0_60px_rgba(126,170,211,0.12)]" />
 
       <div className="relative z-10 w-full space-y-8">
-        <p className="text-xs uppercase tracking-[0.35em] text-saffron/80">{BRAND.name}</p>
+        <p className="ethereal-pill inline-flex w-fit items-center px-4 py-1.5 text-xs uppercase tracking-[0.35em] text-saffron/80">
+          {BRAND.name}
+        </p>
 
         <h1
           id="home-overview-title"
-          className="font-display text-4xl font-semibold leading-tight tracking-tight text-ivory sm:text-5xl"
+          className="max-w-4xl font-display text-4xl font-semibold leading-tight tracking-tight text-ivory sm:text-5xl"
         >
           {title}
         </h1>
 
-        <p id="home-overview-subtitle" className="text-lg text-ivory/82">
+        <p id="home-overview-subtitle" className="max-w-3xl text-lg text-ivory/80">
           {subtitle}
         </p>
 
@@ -61,7 +72,11 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
 
         <div className="grid gap-5 pt-6 sm:grid-cols-3" role="list" aria-label="Wallet highlights">
           {statBlocks.map((stat) => (
-            <div key={stat.id} role="listitem" className={`${SURFACE_SOFT} p-5`}>
+            <div key={stat.id} role="listitem" className={`${SURFACE_SOFT} relative overflow-hidden p-5`}>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-white/0 via-white/18 to-white/0"
+              />
               <p className="text-[11px] uppercase tracking-[0.2em] text-saffron/80">{stat.label}</p>
               <p className="mt-3 text-2xl font-semibold text-ivory">{stat.value}</p>
               <p className="mt-2 text-sm leading-relaxed text-ivory/72">{stat.detail}</p>
@@ -148,12 +163,17 @@ function ShareSection() {
 function FooterCopyright() {
   const year = new Date().getFullYear()
   return (
-    <footer className="flex justify-center pt-4">
+    <footer className="relative flex justify-center pt-8">
+      <div
+        aria-hidden="true"
+        className="ethereal-orb absolute top-0 h-24 w-[min(34rem,82vw)] bg-lapis/14 [animation:aurora-drift_22s_ease-in-out_infinite]"
+      />
       <span
         aria-label={`Copyright ${year} ${BRAND.name}`}
-        className="inline-block text-sm font-semibold tracking-[0.08em] text-saffron/75 sm:text-base"
+        className="ethereal-pill relative inline-flex items-center gap-3 px-5 py-2.5 text-sm font-semibold tracking-[0.16em] text-ivory/78 sm:text-base"
       >
-        © {year} {BRAND.name}
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-saffron/75 shadow-[0_0_16px_rgba(210,167,98,0.55)]" />
+        <span>© {year} {BRAND.name}</span>
       </span>
     </footer>
   )
@@ -189,6 +209,8 @@ export default function HomeContent() {
       data-dev-deviation={showDevDeviation ? 'true' : undefined}
       className="relative mx-auto max-w-7xl space-y-16 pb-32 pt-28 lg:space-y-20"
     >
+      <div aria-hidden="true" className="ethereal-orb absolute -top-10 left-[-5rem] h-72 w-72 bg-saffron/10" />
+      <div aria-hidden="true" className="ethereal-orb absolute top-56 right-[-6rem] h-80 w-80 bg-lapis/12" />
       <ClientTrackWallet />
       <DynamicInfoCard />
 

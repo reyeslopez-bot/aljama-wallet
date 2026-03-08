@@ -300,7 +300,6 @@ export default function XrplMarketPanel() {
   const chartInstructionsId = `${chartClipId}-chart-instructions`
   const chartLiveStatusId = `${chartClipId}-chart-live-status`
   const chartControlsId = `${chartClipId}-chart-controls`
-  const legendTitleId = `${chartClipId}-legend-title`
   const tableLabelId = `${chartClipId}-table-label`
   const [chartSvgNode, setChartSvgNode] = useState<SVGSVGElement | null>(null)
   const [chartViewportWidth, setChartViewportWidth] = useState(CHART_WIDTH)
@@ -1051,13 +1050,7 @@ export default function XrplMarketPanel() {
                 </p>
               ) : null}
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p id={legendTitleId} className="text-[10px] uppercase tracking-[0.12em] text-ivory/45">
-                    {t('legendTitle')}
-                  </p>
-                  <p className="text-[10px] text-ivory/40">{t('legendHint')}</p>
-                </div>
+              <div>
                 <div
                   data-testid="xrpl-market-series-group"
                   className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
