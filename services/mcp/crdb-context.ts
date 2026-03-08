@@ -9,6 +9,7 @@ import { prismaCrdb } from '@/lib/prisma-crdb'
 import crypto from 'node:crypto'
 import { getErrorMessage } from '@/lib/security/errors'
 import { syncRecentEvmChainTransactions } from '@/services/chain-transaction-sync.service'
+import { getWalletDailyLimitWei } from '@/services/policy.service'
 
 const requestSchema = z.object({
   tool: z.enum(['wallet.getState', 'wallet.getLimits']),
@@ -117,20 +118,20 @@ async function getWalletState(input: z.infer<typeof walletStateSchema>) {
       },
       orderBy: { createdAt: 'desc' },
     }),
-    prismaCrdb.transaction.count({
+    prismaCrdb.internalOperation.count({
       where: { fromWalletId: input.walletId, blockchain: chainKey },
     }),
-    prismaCrdb.transaction.groupBy({
+    prismaCrdb.internalOperation.groupBy({
       by: ['asset'],
       where: { fromWalletId: input.walletId, blockchain: chainKey },
       _sum: { valueWei: true },
     }),
-    prismaCrdb.transaction.groupBy({
+    prismaCrdb.internalOperation.groupBy({
       by: ['asset'],
       where: { toWalletId: input.walletId, blockchain: chainKey },
       _sum: { valueWei: true },
     }),
-    prismaCrdb.transaction.findFirst({
+    prismaCrdb.internalOperation.findFirst({
       where: {
         blockchain: chainKey,
         OR: [{ fromWalletId: input.walletId }, { toWalletId: input.walletId }],
@@ -226,7 +227,11 @@ async function getWalletLimits(input: z.infer<typeof walletLimitsSchema>) {
     limit: 20,
   })
 
-  const dailyLimitWei = BigInt(process.env.WALLET_DAILY_LIMIT_WEI ?? '0')
+  const dailyLimitWei = await getWalletDailyLimitWei({
+    walletId: input.walletId,
+    chainType: 'EVM',
+    networkId: chainKey,
+  })
   const since = startOfDayUtc(new Date())
 
   const [chainSpentToday, legacySpentToday] = await Promise.all([
@@ -240,7 +245,7 @@ async function getWalletLimits(input: z.infer<typeof walletLimitsSchema>) {
       },
       _sum: { valueBaseUnits: true },
     }),
-    prismaCrdb.transaction.aggregate({
+    prismaCrdb.internalOperation.aggregate({
       where: { fromWalletId: input.walletId, blockchain: chainKey, createdAt: { gte: since } },
       _sum: { valueWei: true },
     }),

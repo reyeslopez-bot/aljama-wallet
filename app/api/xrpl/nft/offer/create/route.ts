@@ -10,6 +10,7 @@ import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
 import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
+import { recordXrplTransactionSubmission } from '@/services/xrpl-transaction-store.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
 import { getXrplSignerAccount } from '@/lib/xrpl-signer'
@@ -144,6 +145,12 @@ async function postXrplNftOfferCreate(req: Request) {
         ledgerIndex: result.ledgerIndex,
       },
     })
+
+    try {
+      await recordXrplTransactionSubmission({ actionId: action.id, result })
+    } catch (recordError) {
+      logError('xrpl-nft-offer-create:transaction-store', recordError)
+    }
 
     return okJson({
       network: networkId,

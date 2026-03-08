@@ -9,6 +9,7 @@ import { Prisma } from '@/prisma/generated/prisma-crdb'
 import { buildPqcBindingHashes } from '@/lib/pqc/commitment'
 import { prismaCrdb } from '@/lib/prisma-crdb'
 import { logWarn } from '@/lib/security/logging'
+import { seedDefaultWalletPolicies } from '@/services/policy.service'
 import {
   buildAccountRef,
   normalizeSignerBackend,
@@ -27,6 +28,8 @@ import {
   type WalletPqcBinding,
 } from '@/lib/signing/types'
 import { incrementDailySummary } from '@/services/summary.service'
+
+const WALLET_ADDRESS_ANY_NETWORK = '*'
 
 function normalizeAddress(address: string): string {
   return getAddress(address.trim())
@@ -99,7 +102,6 @@ function withoutSignerMaterial(record: SigningAccountRecord): ResolvedSigningAcc
 async function selectWalletByUnique(
   where:
     | { id: string }
-    | { address: string }
     | { accountRef: string }
     | { pqcBindingHash: string },
 ) {
@@ -128,9 +130,83 @@ async function selectWalletByUnique(
   return record ? mapWalletRecord(record) : null
 }
 
+async function selectWalletByAddress(
+  address: string,
+  scope?: { chainType?: SigningChain; networkId?: string | null },
+) {
+  const normalizedAddress = normalizeAddress(address)
+  const chainType = scope?.chainType ? normalizeSigningChain(scope.chainType) : undefined
+  const networkId = scope?.networkId?.trim() || null
+
+  const rows = await prismaCrdb.walletAddress.findMany({
+    where: {
+      address: normalizedAddress,
+      ...(chainType ? { chainType } : {}),
+      ...(networkId ? { networkId: { in: [networkId, WALLET_ADDRESS_ANY_NETWORK] } } : {}),
+    },
+    select: {
+      networkId: true,
+      wallet: {
+        select: {
+          id: true,
+          accountRef: true,
+          chain: true,
+          address: true,
+          pubKey: true,
+          keyType: true,
+          signerBackend: true,
+          vaultId: true,
+          derivationPath: true,
+          policy: true,
+          pqcBinding: true,
+          pqcBindingHash: true,
+          encryptedPrivateKey: true,
+          encryptionIv: true,
+          keyVersion: true,
+          createdAt: true,
+        },
+      },
+    },
+  })
+
+  const record = rows
+    .sort((left, right) => {
+      const leftSpecificity = left.networkId === networkId ? 1 : 0
+      const rightSpecificity = right.networkId === networkId ? 1 : 0
+      return rightSpecificity - leftSpecificity
+    })[0]?.wallet
+
+  if (record) return mapWalletRecord(record)
+
+  return prismaCrdb.wallet
+    .findUnique({
+      where: { address: normalizedAddress },
+      select: {
+        id: true,
+        accountRef: true,
+        chain: true,
+        address: true,
+        pubKey: true,
+        keyType: true,
+        signerBackend: true,
+        vaultId: true,
+        derivationPath: true,
+        policy: true,
+        pqcBinding: true,
+        pqcBindingHash: true,
+        encryptedPrivateKey: true,
+        encryptionIv: true,
+        keyVersion: true,
+        createdAt: true,
+      },
+    })
+    .then((fallback) => (fallback ? mapWalletRecord(fallback) : null))
+}
+
 export type CreateWalletRecordInput = {
   address: string
   chain?: SigningChain
+  networkId?: string | null
   pubKey?: string | null
   keyType?: SigningCurve
   signerBackend?: SignerBackend
@@ -194,8 +270,15 @@ export async function deleteWalletRecord(walletId: string) {
 }
 
 export async function getWalletByAddress(address: string): Promise<SigningAccountRecord | null> {
-  const normalized = normalizeAddress(address)
-  return selectWalletByUnique({ address: normalized })
+  return selectWalletByAddress(address)
+}
+
+export async function getWalletByChainAddress(input: {
+  address: string
+  chainType: SigningChain
+  networkId?: string | null
+}): Promise<SigningAccountRecord | null> {
+  return selectWalletByAddress(input.address, input)
 }
 
 export async function getWalletByAccountRef(accountRef: string): Promise<SigningAccountRecord | null> {
@@ -223,6 +306,7 @@ export async function setWalletPqcBindingHash(walletId: string, pqcBindingHash: 
 export async function createWalletRecord(input: CreateWalletRecordInput) {
   const chain = input.chain ?? 'EVM'
   const normalizedChain = normalizeSigningChain(chain)
+  const normalizedNetworkId = input.networkId?.trim() || WALLET_ADDRESS_ANY_NETWORK
   const keyType = normalizeSigningCurve(input.keyType ?? (normalizedChain === 'XRPL' ? 'ed25519' : 'secp256k1'))
   const signerBackend = normalizeSignerBackend(input.signerBackend)
   const vaultId = normalizeVaultScope(input.vaultId)
@@ -256,34 +340,67 @@ export async function createWalletRecord(input: CreateWalletRecordInput) {
     address,
   })
 
-  return prismaCrdb.wallet.create({
-    data: {
-      accountRef,
-      chain: normalizedChain,
-      address,
-      pubKey,
-      keyType,
-      signerBackend,
-      vaultId,
-      derivationPath: input.derivationPath?.trim() || null,
-      policy: normalizeWalletAccountPolicy(input.policy),
-      pqcBinding: pqcBinding ?? Prisma.DbNull,
-      pqcBindingHash,
-      encryptedPrivateKey: input.encryptedPrivateKey ? Buffer.from(input.encryptedPrivateKey) : null,
-      encryptionIv: input.encryptionIv ? Buffer.from(input.encryptionIv) : null,
-      keyVersion: input.keyVersion ?? null,
-    },
-    select: {
-      id: true,
-      accountRef: true,
-      chain: true,
-      address: true,
-      pubKey: true,
-      keyType: true,
-      signerBackend: true,
-      vaultId: true,
-      createdAt: true,
-    },
+  return prismaCrdb.$transaction(async (tx) => {
+    const record = await tx.wallet.create({
+      data: {
+        accountRef,
+        chain: normalizedChain,
+        address,
+        pubKey,
+        keyType,
+        signerBackend,
+        vaultId,
+        derivationPath: input.derivationPath?.trim() || null,
+        policy: normalizeWalletAccountPolicy(input.policy),
+        pqcBinding: pqcBinding ?? Prisma.DbNull,
+        pqcBindingHash,
+        encryptedPrivateKey: input.encryptedPrivateKey ? Buffer.from(input.encryptedPrivateKey) : null,
+        encryptionIv: input.encryptionIv ? Buffer.from(input.encryptionIv) : null,
+        keyVersion: input.keyVersion ?? null,
+      },
+      select: {
+        id: true,
+        accountRef: true,
+        chain: true,
+        address: true,
+        pubKey: true,
+        keyType: true,
+        signerBackend: true,
+        vaultId: true,
+        createdAt: true,
+      },
+    })
+
+    await tx.walletAddress.upsert({
+      where: {
+        chainType_networkId_address: {
+          chainType: normalizedChain,
+          networkId: normalizedNetworkId,
+          address,
+        },
+      },
+      update: {
+        walletId: record.id,
+        publicKey: pubKey,
+        derivationPath: input.derivationPath?.trim() || null,
+      },
+      create: {
+        walletId: record.id,
+        chainType: normalizedChain,
+        networkId: normalizedNetworkId,
+        address,
+        publicKey: pubKey,
+        derivationPath: input.derivationPath?.trim() || null,
+      },
+    })
+
+    await seedDefaultWalletPolicies(tx, {
+      walletId: record.id,
+      chainType: normalizedChain,
+      networkId: normalizedNetworkId,
+    })
+
+    return record
   })
 }
 
@@ -302,7 +419,7 @@ export async function getSpentTodayWei(walletId: string, chainId: number) {
       },
       _sum: { valueBaseUnits: true },
     }),
-    prismaCrdb.transaction.aggregate({
+    prismaCrdb.internalOperation.aggregate({
       where: { fromWalletId: walletId, blockchain: networkId, createdAt: { gte: since } },
       _sum: { valueWei: true },
     }),
@@ -373,6 +490,8 @@ export async function recordChainTransaction(params: {
       }
     }
 
+    const replacesTxHash = replacedTxHashes[0] ?? null
+
     const record = await tx.chainTransaction.create({
       data: {
         chainType: 'EVM',
@@ -396,6 +515,7 @@ export async function recordChainTransaction(params: {
         toAddress: normalizeAddress(params.toAddress),
         data: normalizeNullableString(params.data),
         confirmedAt: params.confirmedAt ?? null,
+        replacesTxHash,
         replacedByTxHash: null,
       },
     })
@@ -415,14 +535,14 @@ export async function recordChainTransaction(params: {
   return result
 }
 
-export async function recordTransaction(params: {
+export async function recordInternalOperation(params: {
   chainId: number
   fromWalletId: string
   toWalletId: string
   valueWei: bigint
   asset?: string
 }) {
-  const record = await prismaCrdb.transaction.create({
+  const record = await prismaCrdb.internalOperation.create({
     data: {
       blockchain: String(params.chainId),
       asset: params.asset ?? 'native',
@@ -440,3 +560,5 @@ export async function recordTransaction(params: {
 
   return record
 }
+
+export const recordTransaction = recordInternalOperation

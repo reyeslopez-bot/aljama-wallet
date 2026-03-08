@@ -14,6 +14,13 @@ export const CHAIN_TRANSACTION_TYPES = [
   'contract_call',
   'token_transfer',
   'approval',
+  'trustline_set',
+  'nft_mint',
+  'offer_create',
+  'offer_cancel',
+  'nft_offer_create',
+  'nft_offer_cancel',
+  'nft_offer_accept',
 ] as const
 
 export type ChainTransactionType = (typeof CHAIN_TRANSACTION_TYPES)[number]
@@ -75,6 +82,10 @@ export function normalizeTransferWorkflowStatus(status: string): TransferWorkflo
     case 'settled':
     case 'validated':
       return 'confirmed'
+    case 'submitted':
+      return 'pending'
+    case 'queued':
+      return 'created'
     case 'created':
     case 'pending_broadcast':
     case 'broadcasted':
@@ -97,6 +108,13 @@ export function normalizeChainTransactionType(value?: string | null): ChainTrans
     case 'contract_call':
     case 'token_transfer':
     case 'approval':
+    case 'trustline_set':
+    case 'nft_mint':
+    case 'offer_create':
+    case 'offer_cancel':
+    case 'nft_offer_create':
+    case 'nft_offer_cancel':
+    case 'nft_offer_accept':
       return value
     default:
       return 'contract_call'

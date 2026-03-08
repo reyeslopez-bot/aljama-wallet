@@ -48,16 +48,196 @@ function bigintToString(value: bigint | null | undefined): string | null {
   return value.toString()
 }
 
-async function resolveConfirmedAt(provider: JsonRpcProvider, blockHash?: string | null): Promise<Date | null> {
-  if (!blockHash) return null
+async function upsertIndexedBlock(
+  provider: JsonRpcProvider,
+  input: { chainType: string; networkId: string; blockHash?: string | null; blockHeight?: bigint | null },
+): Promise<Date | null> {
+  if (!input.blockHash) return null
   try {
-    const block = await provider.getBlock(blockHash)
+    const block = await provider.getBlock(input.blockHash)
     if (!block) return null
-    return new Date(Number(block.timestamp) * 1000)
+    const timestamp = new Date(Number(block.timestamp) * 1000)
+
+    await prismaCrdb.chainBlock.upsert({
+      where: {
+        chainType_networkId_blockHash: {
+          chainType: input.chainType,
+          networkId: input.networkId,
+          blockHash: input.blockHash,
+        },
+      },
+      update: {
+        blockHeight: input.blockHeight ?? BigInt(block.number),
+        parentHash: block.parentHash ?? null,
+        timestamp,
+      },
+      create: {
+        chainType: input.chainType,
+        networkId: input.networkId,
+        blockHeight: input.blockHeight ?? BigInt(block.number),
+        blockHash: input.blockHash,
+        parentHash: block.parentHash ?? null,
+        timestamp,
+      },
+    })
+
+    return timestamp
   } catch (error) {
-    logWarn('chain-tx-sync:block', error, { blockHash })
+    logWarn('chain-tx-sync:block', error, { blockHash: input.blockHash })
     return null
   }
+}
+
+async function persistChainIndexData(params: {
+  provider: JsonRpcProvider
+  chainType: string
+  networkId: string
+  txHash: string
+  receipt: {
+    blockHash: string | null
+    blockNumber: number | null
+    index?: number
+    status?: number | null
+    gasUsed?: bigint | null
+    effectiveGasPrice?: bigint | null
+    from?: string | null
+    to?: string | null
+    logs: ReadonlyArray<{
+      address: string
+      data: string
+      topics: readonly string[]
+      index?: number
+      logIndex?: number
+      removed?: boolean
+    }>
+  }
+}) {
+  const blockHeight =
+    params.receipt.blockNumber === null || params.receipt.blockNumber === undefined
+      ? null
+      : BigInt(params.receipt.blockNumber)
+  const confirmedAt = await upsertIndexedBlock(params.provider, {
+    chainType: params.chainType,
+    networkId: params.networkId,
+    blockHash: params.receipt.blockHash,
+    blockHeight,
+  })
+
+  const transaction = await params.provider.getTransaction(params.txHash).catch((error) => {
+    logWarn('chain-tx-sync:index-transaction', error, { txHash: params.txHash })
+    return null
+  })
+
+  await prismaCrdb.chainIndexTransaction.upsert({
+    where: {
+      chainType_networkId_txHash: {
+        chainType: params.chainType,
+        networkId: params.networkId,
+        txHash: params.txHash,
+      },
+    },
+    update: {
+      blockHeight,
+      blockHash: params.receipt.blockHash,
+      transactionIndex:
+        typeof params.receipt.index === 'number'
+          ? params.receipt.index
+          : typeof transaction?.index === 'number'
+            ? transaction.index
+            : null,
+      status:
+        params.receipt.status === null || params.receipt.status === undefined
+          ? null
+          : params.receipt.status === 1
+            ? 'confirmed'
+            : 'failed',
+      fromAddress: transaction?.from ?? params.receipt.from ?? null,
+      toAddress: transaction?.to ?? params.receipt.to ?? null,
+      nonce: typeof transaction?.nonce === 'number' ? String(transaction.nonce) : null,
+      valueBaseUnits: bigintToString(transaction?.value ?? null),
+      gasLimit: bigintToString(transaction?.gasLimit ?? null),
+      gasPrice: bigintToString(transaction?.gasPrice ?? null),
+      effectiveGasPrice: bigintToString(params.receipt.effectiveGasPrice ?? null),
+      gasUsed: bigintToString(params.receipt.gasUsed ?? null),
+      data: transaction?.data ?? null,
+    },
+    create: {
+      chainType: params.chainType,
+      networkId: params.networkId,
+      txHash: params.txHash,
+      blockHeight,
+      blockHash: params.receipt.blockHash,
+      transactionIndex:
+        typeof params.receipt.index === 'number'
+          ? params.receipt.index
+          : typeof transaction?.index === 'number'
+            ? transaction.index
+            : null,
+      status:
+        params.receipt.status === null || params.receipt.status === undefined
+          ? null
+          : params.receipt.status === 1
+            ? 'confirmed'
+            : 'failed',
+      fromAddress: transaction?.from ?? params.receipt.from ?? null,
+      toAddress: transaction?.to ?? params.receipt.to ?? null,
+      nonce: typeof transaction?.nonce === 'number' ? String(transaction.nonce) : null,
+      valueBaseUnits: bigintToString(transaction?.value ?? null),
+      gasLimit: bigintToString(transaction?.gasLimit ?? null),
+      gasPrice: bigintToString(transaction?.gasPrice ?? null),
+      effectiveGasPrice: bigintToString(params.receipt.effectiveGasPrice ?? null),
+      gasUsed: bigintToString(params.receipt.gasUsed ?? null),
+      data: transaction?.data ?? null,
+    },
+  })
+
+  if (params.receipt.logs.length > 0) {
+    await prismaCrdb.$transaction(
+      params.receipt.logs.flatMap((log) => {
+        const logIndex = log.index ?? log.logIndex
+        if (!Number.isInteger(logIndex)) return []
+
+        return prismaCrdb.chainLog.upsert({
+          where: {
+            chainType_networkId_txHash_logIndex: {
+              chainType: params.chainType,
+              networkId: params.networkId,
+              txHash: params.txHash,
+              logIndex: logIndex as number,
+            },
+          },
+          update: {
+            blockHeight,
+            blockHash: params.receipt.blockHash,
+            contractAddress: getAddress(log.address),
+            topic0: log.topics[0] ?? null,
+            topic1: log.topics[1] ?? null,
+            topic2: log.topics[2] ?? null,
+            topic3: log.topics[3] ?? null,
+            data: log.data ?? null,
+            removed: Boolean(log.removed),
+          },
+          create: {
+            chainType: params.chainType,
+            networkId: params.networkId,
+            txHash: params.txHash,
+            logIndex: logIndex as number,
+            blockHeight,
+            blockHash: params.receipt.blockHash,
+            contractAddress: getAddress(log.address),
+            topic0: log.topics[0] ?? null,
+            topic1: log.topics[1] ?? null,
+            topic2: log.topics[2] ?? null,
+            topic3: log.topics[3] ?? null,
+            data: log.data ?? null,
+            removed: Boolean(log.removed),
+          },
+        })
+      }),
+    )
+  }
+
+  return confirmedAt
 }
 
 async function persistTokenTransfers(params: {
@@ -186,7 +366,33 @@ async function syncRow(
     const blockHeight =
       receipt.blockNumber === null || receipt.blockNumber === undefined ? null : BigInt(receipt.blockNumber)
     const gasUsed = bigintToString(receipt.gasUsed ?? null)
-    const confirmedAt = await resolveConfirmedAt(provider, blockHash)
+    const confirmedAt = await persistChainIndexData({
+      provider,
+      chainType: row.chainType,
+      networkId: row.networkId,
+      txHash: row.txHash,
+      receipt: {
+        blockHash,
+        blockNumber: receipt.blockNumber ?? null,
+        index: 'index' in receipt ? receipt.index : undefined,
+        status: receipt.status ?? null,
+        gasUsed: receipt.gasUsed ?? null,
+        effectiveGasPrice:
+          'effectiveGasPrice' in receipt
+            ? ((receipt as { effectiveGasPrice?: bigint | null }).effectiveGasPrice ?? null)
+            : null,
+        from: 'from' in receipt ? receipt.from ?? null : null,
+        to: 'to' in receipt ? receipt.to ?? null : null,
+        logs: receipt.logs.map((log) => ({
+          address: log.address,
+          data: log.data,
+          topics: log.topics,
+          index: 'index' in log ? log.index : undefined,
+          logIndex: 'logIndex' in log ? (log as { logIndex?: number }).logIndex : undefined,
+          removed: 'removed' in log ? Boolean(log.removed) : false,
+        })),
+      },
+    })
 
     await prismaCrdb.chainTransaction.update({
       where: {

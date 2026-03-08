@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockWalletCreate } = vi.hoisted(() => ({
+const { mockWalletCreate, mockWalletAddressUpsert, mockPolicyUpsert, mockTransaction } = vi.hoisted(() => ({
   mockWalletCreate: vi.fn(),
+  mockWalletAddressUpsert: vi.fn(),
+  mockPolicyUpsert: vi.fn(),
+  mockTransaction: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma-crdb', () => ({
   prismaCrdb: {
+    $transaction: mockTransaction,
     wallet: {
       create: mockWalletCreate,
       findUnique: vi.fn(),
@@ -13,7 +17,15 @@ vi.mock('@/lib/prisma-crdb', () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
-    transaction: {
+    walletAddress: {
+      findMany: vi.fn(),
+      upsert: mockWalletAddressUpsert,
+    },
+    policy: {
+      findMany: vi.fn(),
+      upsert: mockPolicyUpsert,
+    },
+    internalOperation: {
       aggregate: vi.fn(),
       create: vi.fn(),
     },
@@ -36,6 +48,13 @@ describe('wallet.service createWalletRecord', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    mockTransaction.mockImplementation(async (callback: (tx: unknown) => unknown) =>
+      callback({
+        wallet: { create: mockWalletCreate },
+        walletAddress: { upsert: mockWalletAddressUpsert },
+        policy: { upsert: mockPolicyUpsert },
+      }),
+    )
     mockWalletCreate.mockResolvedValue({
       id: 'wallet-1',
       accountRef: 'EVM:secp256k1:0xabc',
@@ -47,6 +66,8 @@ describe('wallet.service createWalletRecord', () => {
       vaultId: 'public',
       createdAt: new Date('2026-03-03T00:00:00Z'),
     })
+    mockWalletAddressUpsert.mockResolvedValue(undefined)
+    mockPolicyUpsert.mockResolvedValue(undefined)
   })
 
   it('rejects EVM wallet records that try to use ed25519', async () => {

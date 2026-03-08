@@ -141,8 +141,16 @@ export async function getWalletSnapshotForUser(input: {
   const chainTransactionalWhere = {
     OR: [{ fromWalletId: wallet.id }, { toWalletId: wallet.id }],
   }
-  const legacyTransactionalWhere = {
+  const internalOperationWhere = {
     OR: [{ fromWalletId: wallet.id }, { toWalletId: wallet.id }],
+  }
+  const xrplTransactionalWhere = {
+    OR: [
+      { fromWalletId: wallet.id },
+      { toWalletId: wallet.id },
+      { account: wallet.address },
+      { destination: wallet.address },
+    ],
   }
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
@@ -150,8 +158,10 @@ export async function getWalletSnapshotForUser(input: {
   const [
     chainTransactionalTxCount,
     lastChainTransactional,
-    legacyTransactionalTxCount,
-    lastTransactional,
+    internalOperationCount,
+    lastInternalOperation,
+    xrplTransactionalCount,
+    lastXrplTransactional,
     transferAttemptCount24h,
     latestTransferAttempt,
     reconciliation,
@@ -162,9 +172,15 @@ export async function getWalletSnapshotForUser(input: {
       select: { createdAt: true },
       orderBy: { createdAt: 'desc' },
     }),
-    prismaCrdb.transaction.count({ where: legacyTransactionalWhere }),
-    prismaCrdb.transaction.findFirst({
-      where: legacyTransactionalWhere,
+    prismaCrdb.internalOperation.count({ where: internalOperationWhere }),
+    prismaCrdb.internalOperation.findFirst({
+      where: internalOperationWhere,
+      select: { createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prismaCrdb.xrplTransaction.count({ where: xrplTransactionalWhere }),
+    prismaCrdb.xrplTransaction.findFirst({
+      where: xrplTransactionalWhere,
       select: { createdAt: true },
       orderBy: { createdAt: 'desc' },
     }),
@@ -173,7 +189,7 @@ export async function getWalletSnapshotForUser(input: {
     readXrplReconciliation(wallet.address),
   ])
 
-  const totalTransactionalTxCount = chainTransactionalTxCount + legacyTransactionalTxCount
+  const totalTransactionalTxCount = chainTransactionalTxCount + internalOperationCount + xrplTransactionalCount
 
   return {
     walletId: wallet.id,
@@ -187,7 +203,11 @@ export async function getWalletSnapshotForUser(input: {
     summary: {
       transactionalTxCount: totalTransactionalTxCount,
       transferAttemptCount24h,
-      lastTransactionalAt: latestTimestamp(lastChainTransactional?.createdAt, lastTransactional?.createdAt),
+      lastTransactionalAt: latestTimestamp(
+        lastChainTransactional?.createdAt,
+        lastInternalOperation?.createdAt,
+        lastXrplTransactional?.createdAt,
+      ),
       lastTransferStatus: latestTransferAttempt?.status ?? null,
     },
     reconciliation,
@@ -213,12 +233,22 @@ export async function getWalletTransactionsForUser(input: {
     OR: [{ fromWalletId: wallet.id }, { toWalletId: wallet.id }],
     ...(before ? { createdAt: { lt: before } } : {}),
   }
-  const legacyTransactionalWhere = {
+  const internalOperationWhere = {
     OR: [{ fromWalletId: wallet.id }, { toWalletId: wallet.id }],
     ...(before ? { createdAt: { lt: before } } : {}),
   }
+  const xrplTransactionalWhere = {
+    OR: [
+      { fromWalletId: wallet.id },
+      { toWalletId: wallet.id },
+      { account: wallet.address },
+      { destination: wallet.address },
+    ],
+    ...(before ? { createdAt: { lt: before } } : {}),
+  }
 
-  const [chainTransactionRows, tokenTransferRows, legacyTransactionRows, transferAttempts] = await Promise.all([
+  const [chainTransactionRows, tokenTransferRows, internalOperationRows, xrplTransactionRows, transferAttempts] =
+    await Promise.all([
     prismaCrdb.chainTransaction.findMany({
       where: chainTransactionalWhere,
       select: {
@@ -227,6 +257,8 @@ export async function getWalletTransactionsForUser(input: {
         networkId: true,
         txHash: true,
         nonce: true,
+        replacesTxHash: true,
+        replacedByTxHash: true,
         status: true,
         txType: true,
         asset: true,
@@ -281,8 +313,8 @@ export async function getWalletTransactionsForUser(input: {
       orderBy: { createdAt: 'desc' },
       take: limit * 2,
     }),
-    prismaCrdb.transaction.findMany({
-      where: legacyTransactionalWhere,
+    prismaCrdb.internalOperation.findMany({
+      where: internalOperationWhere,
       select: {
         id: true,
         blockchain: true,
@@ -297,6 +329,30 @@ export async function getWalletTransactionsForUser(input: {
         toWallet: {
           select: { address: true },
         },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit * 2,
+    }),
+    prismaCrdb.xrplTransaction.findMany({
+      where: xrplTransactionalWhere,
+      select: {
+        id: true,
+        networkId: true,
+        txHash: true,
+        txType: true,
+        status: true,
+        engineResult: true,
+        ledgerIndex: true,
+        ledgerHash: true,
+        sequence: true,
+        feeDrops: true,
+        account: true,
+        destination: true,
+        confirmedAt: true,
+        createdAt: true,
+        rawTransaction: true,
+        fromWalletId: true,
+        toWalletId: true,
       },
       orderBy: { createdAt: 'desc' },
       take: limit * 2,
@@ -316,6 +372,8 @@ export async function getWalletTransactionsForUser(input: {
       direction: outgoing ? 'outgoing' : 'incoming',
       amountWei: row.valueBaseUnits.toString(),
       asset: row.asset,
+      chainType: row.chainType,
+      networkId: row.networkId,
       chainId: parseRecordedChainId(row.chainType, row.networkId),
       txType: normalizeChainTransactionType(row.txType),
       status: normalizeTransferWorkflowStatus(row.status),
@@ -323,6 +381,8 @@ export async function getWalletTransactionsForUser(input: {
       idempotencyKey: null,
       txHash: row.txHash,
       nonce: row.nonce,
+      replacesTxHash: row.replacesTxHash,
+      replacedByTxHash: row.replacedByTxHash,
       gasLimit: row.gasLimit,
       gasPrice: row.gasPrice,
       maxFeePerGas: row.maxFeePerGas,
@@ -346,6 +406,8 @@ export async function getWalletTransactionsForUser(input: {
       direction: outgoing ? 'outgoing' : 'incoming',
       amountWei: row.amountBaseUnits ?? '1',
       asset: row.assetSymbol ?? row.contractAddress,
+      chainType: 'EVM',
+      networkId: row.networkId,
       chainId: parseChainId(row.networkId),
       txType: 'token_transfer',
       status: row.confirmedAt ? 'confirmed' : 'pending',
@@ -353,6 +415,8 @@ export async function getWalletTransactionsForUser(input: {
       idempotencyKey: null,
       txHash: row.txHash,
       nonce: null,
+      replacesTxHash: null,
+      replacedByTxHash: null,
       gasLimit: null,
       gasPrice: null,
       maxFeePerGas: null,
@@ -368,14 +432,16 @@ export async function getWalletTransactionsForUser(input: {
     }
   })
 
-  const legacyTransactionalItems: WalletTransactionItem[] = legacyTransactionRows.map((row) => {
+  const internalOperationItems: WalletTransactionItem[] = internalOperationRows.map((row) => {
     const outgoing = row.fromWalletId === wallet.id
     return {
-      id: `legacy:${row.id}`,
+      id: `internal:${row.id}`,
       source: 'transactional',
       direction: outgoing ? 'outgoing' : 'incoming',
       amountWei: row.valueWei.toString(),
       asset: row.asset,
+      chainType: 'EVM',
+      networkId: row.blockchain,
       chainId: parseChainId(row.blockchain),
       txType: 'transfer',
       status: 'confirmed',
@@ -383,6 +449,8 @@ export async function getWalletTransactionsForUser(input: {
       idempotencyKey: null,
       txHash: null,
       nonce: null,
+      replacesTxHash: null,
+      replacedByTxHash: null,
       gasLimit: null,
       gasPrice: null,
       maxFeePerGas: null,
@@ -398,6 +466,61 @@ export async function getWalletTransactionsForUser(input: {
     }
   })
 
+  const xrplTransactionItems: WalletTransactionItem[] = xrplTransactionRows.map((row) => {
+    const outgoing = row.account === wallet.address || row.fromWalletId === wallet.id
+    const rawTransaction =
+      row.rawTransaction && typeof row.rawTransaction === 'object' && !Array.isArray(row.rawTransaction)
+        ? (row.rawTransaction as Record<string, unknown>)
+        : null
+    const derivedAsset =
+      row.txType === 'trustline_set' &&
+      rawTransaction?.LimitAmount &&
+      typeof rawTransaction.LimitAmount === 'object' &&
+      rawTransaction.LimitAmount !== null &&
+      'currency' in rawTransaction.LimitAmount &&
+      typeof rawTransaction.LimitAmount.currency === 'string'
+        ? rawTransaction.LimitAmount.currency
+        : row.txType.startsWith('nft_') || row.txType === 'nft_mint'
+          ? 'NFT'
+          : 'XRP'
+
+    return {
+      id: `xrpl:${row.id}`,
+      source: 'transactional',
+      direction: outgoing ? 'outgoing' : 'incoming',
+      amountWei:
+        typeof rawTransaction?.Amount === 'string'
+          ? rawTransaction.Amount
+          : typeof row.feeDrops === 'string'
+            ? row.feeDrops
+            : '0',
+      asset: derivedAsset,
+      chainType: 'XRPL',
+      networkId: row.networkId,
+      chainId: null,
+      txType: normalizeChainTransactionType(row.txType),
+      status: normalizeTransferWorkflowStatus(row.status),
+      counterparty: outgoing ? row.destination : row.account,
+      idempotencyKey: null,
+      txHash: row.txHash,
+      nonce: row.sequence !== null ? String(row.sequence) : null,
+      replacesTxHash: null,
+      replacedByTxHash: null,
+      gasLimit: null,
+      gasPrice: row.feeDrops,
+      maxFeePerGas: null,
+      maxPriorityFeePerGas: null,
+      gasUsed: null,
+      blockHeight: row.ledgerIndex?.toString() ?? null,
+      blockHash: row.ledgerHash,
+      contractAddress: null,
+      tokenId: null,
+      data: null,
+      confirmedAt: row.confirmedAt?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+    }
+  })
+
   const transactionalHashes = new Set(chainTransactionRows.map((row) => row.txHash))
 
   const analyticsItems: WalletTransactionItem[] = transferAttempts
@@ -408,6 +531,8 @@ export async function getWalletTransactionsForUser(input: {
       direction: 'outgoing',
       amountWei: item.amountWei.toString(),
       asset: 'native',
+      chainType: 'EVM',
+      networkId: String(item.chainId),
       chainId: item.chainId,
       txType: item.txType ?? 'transfer',
       status: item.status,
@@ -415,6 +540,8 @@ export async function getWalletTransactionsForUser(input: {
       idempotencyKey: item.idempotencyKey,
       txHash: item.txHash ?? null,
       nonce: item.nonce ?? null,
+      replacesTxHash: item.replacesTxHash ?? null,
+      replacedByTxHash: item.replacedByTxHash ?? null,
       gasLimit: item.gasLimit ?? null,
       gasPrice: item.gasPrice ?? null,
       maxFeePerGas: item.maxFeePerGas ?? null,
@@ -429,7 +556,13 @@ export async function getWalletTransactionsForUser(input: {
       createdAt: new Date(item.createdAt).toISOString(),
     }))
 
-  const items = [...chainTransactionItems, ...indexedTokenTransferItems, ...legacyTransactionalItems, ...analyticsItems]
+  const items = [
+    ...chainTransactionItems,
+    ...indexedTokenTransferItems,
+    ...internalOperationItems,
+    ...xrplTransactionItems,
+    ...analyticsItems,
+  ]
     .sort((a, b) => {
       const aTime = Date.parse(a.createdAt)
       const bTime = Date.parse(b.createdAt)

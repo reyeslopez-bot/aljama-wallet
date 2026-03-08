@@ -11,6 +11,7 @@ import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
 import { getAllowedIssuerSet } from '@/lib/xrpl-issued-assets'
 import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
+import { recordXrplTransactionSubmission } from '@/services/xrpl-transaction-store.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
 
@@ -148,6 +149,12 @@ async function postXrplTrustlineSet(req: Request) {
         ledgerIndex: result.ledgerIndex,
       },
     })
+
+    try {
+      await recordXrplTransactionSubmission({ actionId: action.id, result })
+    } catch (recordError) {
+      logError('xrpl-trustline-set:transaction-store', recordError)
+    }
 
     return okJson({
       network: networkId,

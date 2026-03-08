@@ -9,30 +9,77 @@ datasource db {
 }
 
 model Wallet {
-  id                  String        @id @default(cuid())
-  accountRef          String        @unique
-  chain               String        @default("EVM")
-  address             String        @unique
+  id                  String            @id @default(cuid())
+  accountRef          String            @unique
+  chain               String            @default("EVM")
+  address             String            @unique
   pubKey              String?
-  keyType             String        @default("secp256k1")
-  signerBackend       String        @default("local")
-  vaultId             String        @default("public")
+  keyType             String            @default("secp256k1")
+  signerBackend       String            @default("local")
+  vaultId             String            @default("public")
   derivationPath      String?
   policy              Json?
   pqcBinding          Json?
-  pqcBindingHash      String?       @unique
+  pqcBindingHash      String?           @unique
   encryptedPrivateKey Bytes?
   encryptionIv        Bytes?
   keyVersion          Int?
-  createdAt           DateTime      @default(now())
+  createdAt           DateTime          @default(now())
 
-  sentTransactions     Transaction[] @relation("TxFromWallet")
-  receivedTransactions Transaction[] @relation("TxToWallet")
-  outboundChainTransactions ChainTransaction[] @relation("ChainTxFromWallet")
-  inboundChainTransactions  ChainTransaction[] @relation("ChainTxToWallet")
-  sentTokenTransfers        TokenTransfer[]    @relation("TokenTransferFromWallet")
-  receivedTokenTransfers    TokenTransfer[]    @relation("TokenTransferToWallet")
-  pqcAnchors           WalletPqcAnchor[]
+  addresses                    WalletAddress[]
+  policies                     Policy[]
+  policyEvents                 PolicyEvent[]
+  sentInternalOperations       InternalOperation[] @relation("InternalOpFromWallet")
+  receivedInternalOperations   InternalOperation[] @relation("InternalOpToWallet")
+  outboundChainTransactions    ChainTransaction[]  @relation("ChainTxFromWallet")
+  inboundChainTransactions     ChainTransaction[]  @relation("ChainTxToWallet")
+  sentTokenTransfers           TokenTransfer[]     @relation("TokenTransferFromWallet")
+  receivedTokenTransfers       TokenTransfer[]     @relation("TokenTransferToWallet")
+  outboundXrplTransactions     XrplTransaction[]   @relation("XrplTxFromWallet")
+  inboundXrplTransactions      XrplTransaction[]   @relation("XrplTxToWallet")
+  xrplTrustLines               XrplTrustLine[]
+  ownedXrplNftTokens           XrplNftToken[]      @relation("XrplNftOwnerWallet")
+  pqcAnchors                   WalletPqcAnchor[]
+}
+
+model WalletAddress {
+  id             String   @id @default(cuid())
+  walletId       String
+  chainType      String
+  networkId      String
+  address        String
+  publicKey      String?
+  derivationPath String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@unique([chainType, networkId, address])
+  @@index([walletId, createdAt])
+  @@index([address])
+}
+
+model Policy {
+  id              String   @id @default(cuid())
+  walletId        String
+  policyType      String
+  scopeChainType  String   @default("GLOBAL")
+  scopeNetworkId  String   @default("GLOBAL")
+  limitAmount     String?
+  timeWindow      String?
+  enabled         Boolean  @default(true)
+  decisionMode    String?
+  config          Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  events PolicyEvent[]
+
+  @@unique([walletId, scopeChainType, scopeNetworkId, policyType])
+  @@index([walletId, enabled, policyType])
+  @@index([policyType, enabled])
 }
 
 model ChainTransaction {
@@ -58,6 +105,7 @@ model ChainTransaction {
   confirmedAt    DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  replacesTxHash String?
   replacedByTxHash String?
 
   fromWalletId String
@@ -73,6 +121,8 @@ model ChainTransaction {
   @@index([fromWalletId, chainType, networkId, nonce])
   @@index([status, createdAt])
   @@index([confirmedAt])
+  @@index([replacesTxHash])
+  @@index([replacedByTxHash])
 }
 
 model TokenTransfer {
@@ -107,6 +157,175 @@ model TokenTransfer {
   @@index([txHash])
 }
 
+model ChainBlock {
+  id          String   @id @default(cuid())
+  chainType   String
+  networkId   String
+  blockHeight BigInt
+  blockHash   String
+  parentHash  String?
+  timestamp   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([chainType, networkId, blockHeight])
+  @@unique([chainType, networkId, blockHash])
+  @@index([chainType, networkId, timestamp])
+}
+
+model ChainIndexTransaction {
+  id                String   @id @default(cuid())
+  chainType         String
+  networkId         String
+  txHash            String
+  blockHeight       BigInt?
+  blockHash         String?
+  transactionIndex  Int?
+  status            String?
+  fromAddress       String?
+  toAddress         String?
+  nonce             String?
+  valueBaseUnits    String?
+  gasLimit          String?
+  gasPrice          String?
+  effectiveGasPrice String?
+  gasUsed           String?
+  data              String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([chainType, networkId, txHash])
+  @@index([chainType, networkId, blockHeight])
+  @@index([fromAddress, createdAt])
+  @@index([toAddress, createdAt])
+}
+
+model ChainLog {
+  id              String   @id @default(cuid())
+  chainType       String
+  networkId       String
+  txHash          String
+  logIndex        Int
+  blockHeight     BigInt?
+  blockHash       String?
+  contractAddress String
+  topic0          String?
+  topic1          String?
+  topic2          String?
+  topic3          String?
+  data            String?
+  removed         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([chainType, networkId, txHash, logIndex])
+  @@index([chainType, networkId, blockHeight])
+  @@index([contractAddress, createdAt])
+}
+
+model XrplTransaction {
+  id              String   @id @default(cuid())
+  networkId       String
+  txHash          String
+  txType          String
+  status          String
+  engineResult    String?
+  ledgerIndex     BigInt?
+  ledgerHash      String?
+  sequence        Int?
+  feeDrops        String?
+  account         String
+  destination     String?
+  actionId        String?
+  memosJson       Json?
+  rawTransaction  Json?
+  rawResult       Json?
+  confirmedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  fromWalletId    String?
+  toWalletId      String?
+
+  fromWallet Wallet? @relation("XrplTxFromWallet", fields: [fromWalletId], references: [id], onDelete: SetNull)
+  toWallet   Wallet? @relation("XrplTxToWallet", fields: [toWalletId], references: [id], onDelete: SetNull)
+  events     XrplLedgerEvent[]
+
+  @@unique([networkId, txHash])
+  @@index([networkId, ledgerIndex])
+  @@index([fromWalletId, createdAt])
+  @@index([toWalletId, createdAt])
+  @@index([account, createdAt])
+  @@index([destination, createdAt])
+  @@index([status, createdAt])
+}
+
+model XrplLedgerEvent {
+  id          String   @id @default(cuid())
+  transactionId String
+  networkId   String
+  txHash      String
+  ledgerIndex BigInt?
+  eventType   String
+  objectType  String?
+  objectId    String?
+  payloadJson Json?
+  createdAt   DateTime @default(now())
+
+  transaction XrplTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId, createdAt])
+  @@index([networkId, ledgerIndex])
+  @@index([eventType, createdAt])
+}
+
+model XrplTrustLine {
+  id         String   @id @default(cuid())
+  walletId    String?
+  networkId  String
+  account    String
+  issuer     String
+  currency   String
+  balance    String?
+  limit      String?
+  limitPeer  String?
+  authorized Boolean?
+  freezeState String?
+  txHash     String?
+  ledgerIndex BigInt?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  wallet Wallet? @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@unique([networkId, account, issuer, currency])
+  @@index([walletId, updatedAt])
+  @@index([account, updatedAt])
+}
+
+model XrplNftToken {
+  id            String   @id @default(cuid())
+  networkId     String
+  tokenId       String
+  issuer        String?
+  owner         String
+  ownerWalletId String?
+  uri           String?
+  flags         Int?
+  taxon         Int?
+  transferFee   Int?
+  txHash        String?
+  ledgerIndex   BigInt?
+  mintedAt      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  ownerWallet Wallet? @relation("XrplNftOwnerWallet", fields: [ownerWalletId], references: [id], onDelete: SetNull)
+
+  @@unique([networkId, tokenId])
+  @@index([ownerWalletId, updatedAt])
+  @@index([owner, updatedAt])
+}
+
 model WalletPqcAnchor {
   id              String   @id @default(cuid())
   walletId        String
@@ -130,7 +349,7 @@ model WalletPqcAnchor {
   @@index([walletId, createdAt])
 }
 
-model Transaction {
+model InternalOperation {
   id         String   @id @default(cuid())
   blockchain String
   asset      String
@@ -140,10 +359,32 @@ model Transaction {
   fromWalletId String
   toWalletId   String
 
-  fromWallet Wallet @relation("TxFromWallet", fields: [fromWalletId], references: [id])
-  toWallet   Wallet @relation("TxToWallet", fields: [toWalletId], references: [id])
+  fromWallet Wallet @relation("InternalOpFromWallet", fields: [fromWalletId], references: [id])
+  toWallet   Wallet @relation("InternalOpToWallet", fields: [toWalletId], references: [id])
 
   @@index([blockchain, fromWalletId, createdAt])
   @@index([blockchain, toWalletId, createdAt])
   @@index([asset])
+  @@map("Transaction")
+}
+
+model PolicyEvent {
+  id             String   @id @default(cuid())
+  policyId        String?
+  walletId        String
+  scopeChainType  String?
+  scopeNetworkId  String?
+  policyType      String
+  eventType       String
+  decision        String
+  txHash          String?
+  idempotencyKey  String?
+  payload         Json?
+  createdAt       DateTime @default(now())
+
+  policy Policy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  wallet Wallet  @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, createdAt])
+  @@index([policyType, createdAt])
 }

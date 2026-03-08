@@ -12,10 +12,15 @@ import {
 import { markReplacedTransferAttempts } from '@/services/chain-transaction-sync.service'
 import {
   getSpentTodayWei,
-  getWalletByAddress,
+  getWalletByChainAddress,
   getWalletSigningAccount,
   recordChainTransaction,
 } from '@/services/wallet.service'
+import {
+  evaluateStoredWalletPolicies,
+  getWalletDailyLimitWei,
+  recordPolicyEvents,
+} from '@/services/policy.service'
 import { requireSession, isAdminEmail } from '@/lib/security/session'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
@@ -46,8 +51,6 @@ const sendSchema = z.object({
   maxPriorityFeePerGasWei: z.string().regex(/^\d+$/).optional(),
 })
 
-const MAX_UINT256 = (1n << 256n) - 1n
-
 function stringifyTxValue(value: string | bigint | number | null | undefined): string | null {
   if (value === null || value === undefined) return null
   return value.toString()
@@ -73,16 +76,6 @@ function parseAllowedChains(): Set<number> {
     .map((value) => Number(value.trim()))
     .filter((value) => Number.isInteger(value) && value > 0)
   return new Set(entries)
-}
-
-function readDailyLimitWei(): bigint {
-  const raw = process.env.WALLET_DAILY_LIMIT_WEI
-  if (raw === undefined || raw === null || raw === '') {
-    if (isStrictMode) throw new Error('Missing WALLET_DAILY_LIMIT_WEI')
-    return MAX_UINT256
-  }
-  const parsed = BigInt(raw)
-  return parsed
 }
 
 function safeUuid() {
@@ -245,28 +238,136 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
     const unsignedTx = await buildUnsignedEvmTx(input, wallet.address, provider)
 
     const spentTodayWei = await getSpentTodayWei(input.walletId, input.chainId)
-    const dailyLimitWei = readDailyLimitWei()
+    const dailyLimitWei = await getWalletDailyLimitWei({
+      walletId: input.walletId,
+      chainType: 'EVM',
+      networkId: String(input.chainId),
+    })
+    const normalizedDestination = getAddress(input.to)
+    const storedPolicyEvaluation = await evaluateStoredWalletPolicies({
+      walletId: input.walletId,
+      chainType: 'EVM',
+      networkId: String(input.chainId),
+      toAddress: normalizedDestination,
+      amountBaseUnits: BigInt(input.amountWei),
+      spentInWindowBaseUnits: spentTodayWei,
+    })
 
-    const intent = approveTransfer(
-      {
-        type: 'Transfer',
+    if (storedPolicyEvaluation.decision !== 'allow') {
+      await recordTransferAttempt({
+        walletId: input.walletId,
+        userId: session.user.id,
         chainId: input.chainId,
-        fromWalletId: input.walletId,
-        to: getAddress(input.to),
-        amountWei: input.amountWei,
-        maxFeePerGasWei: input.maxFeePerGasWei,
-        nonce: unsignedTx.nonce,
+        toAddress: normalizedDestination,
+        amountWei: BigInt(input.amountWei),
+        status: storedPolicyEvaluation.decision === 'deny' ? 'denied' : 'review',
         idempotencyKey,
-        correlationId,
-      },
-      {
-        userId: process.env.WALLET_ACTOR_USER_ID ?? 'system',
-        role: process.env.WALLET_ACTOR_ROLE === 'user' ? 'user' : 'admin',
-        dailyLimitWei,
-        spentTodayWei,
-        allowChains: allowedChains.size > 0 ? allowedChains : new Set([input.chainId]),
-      },
-    )
+        txType: 'transfer',
+      })
+
+      await recordPolicyEvents({
+        walletId: input.walletId,
+        chainType: 'EVM',
+        networkId: String(input.chainId),
+        idempotencyKey,
+        payload: {
+          reasons: storedPolicyEvaluation.reasons,
+          amountWei: input.amountWei,
+          spentTodayWei: spentTodayWei.toString(),
+          dailyLimitWei: dailyLimitWei.toString(),
+          toAddress: normalizedDestination,
+        },
+        triggeredPolicies: storedPolicyEvaluation.triggeredPolicies,
+      }).catch((error) => {
+        logError('wallet-send:policy-events', error)
+      })
+
+      await trackSignal({
+        outcome: 'blocked',
+        statusCode: 403,
+        userId: session.user.id,
+        details: {
+          reason: storedPolicyEvaluation.decision === 'deny' ? 'policy_denied' : 'policy_review',
+          walletId: input.walletId,
+          policyReasons: storedPolicyEvaluation.reasons,
+        },
+      })
+
+      return errorJson(
+        403,
+        storedPolicyEvaluation.decision === 'deny' ? 'policy_denied' : 'policy_review',
+        storedPolicyEvaluation.decision === 'deny' ? 'POLICY_DENIED' : 'POLICY_REVIEW',
+        { reasons: storedPolicyEvaluation.reasons },
+      )
+    }
+
+    let intent
+    try {
+      intent = approveTransfer(
+        {
+          type: 'Transfer',
+          chainId: input.chainId,
+          fromWalletId: input.walletId,
+          to: normalizedDestination,
+          amountWei: input.amountWei,
+          maxFeePerGasWei: input.maxFeePerGasWei,
+          nonce: unsignedTx.nonce,
+          idempotencyKey,
+          correlationId,
+        },
+        {
+          userId: process.env.WALLET_ACTOR_USER_ID ?? 'system',
+          role: process.env.WALLET_ACTOR_ROLE === 'user' ? 'user' : 'admin',
+          dailyLimitWei,
+          spentTodayWei,
+          allowChains: allowedChains.size > 0 ? allowedChains : new Set([input.chainId]),
+        },
+      )
+    } catch (error) {
+      if (getErrorMessage(error, '') === 'LIMIT') {
+        await recordTransferAttempt({
+          walletId: input.walletId,
+          userId: session.user.id,
+          chainId: input.chainId,
+          toAddress: normalizedDestination,
+          amountWei: BigInt(input.amountWei),
+          status: 'denied',
+          idempotencyKey,
+          txType: 'transfer',
+        })
+        await recordPolicyEvents({
+          walletId: input.walletId,
+          chainType: 'EVM',
+          networkId: String(input.chainId),
+          idempotencyKey,
+          payload: {
+            reason: 'daily_spend_limit_exceeded',
+            amountWei: input.amountWei,
+            spentTodayWei: spentTodayWei.toString(),
+            dailyLimitWei: dailyLimitWei.toString(),
+            toAddress: normalizedDestination,
+          },
+          triggeredPolicies: [
+            {
+              id: null,
+              policyType: 'daily_spend_limit',
+              decision: 'deny',
+              eventType: 'limit_exceeded',
+              reason: 'daily_spend_limit_exceeded',
+              limitAmount: dailyLimitWei.toString(),
+              timeWindow: 'utc_day',
+              config: null,
+            },
+          ],
+        }).catch((policyError) => {
+          logError('wallet-send:policy-limit', policyError)
+        })
+
+        return errorJson(403, 'limit_exceeded', 'LIMIT_EXCEEDED')
+      }
+
+      throw error
+    }
 
     const risk = await assessTransferRisk({
       walletId: intent.fromWalletId,
@@ -356,7 +457,11 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       })
     }
 
-    const recipient = await getWalletByAddress(intent.to).catch(() => null)
+    const recipient = await getWalletByChainAddress({
+      address: intent.to,
+      chainType: 'EVM',
+      networkId: String(intent.chainId),
+    }).catch(() => null)
     let recorded = false
     try {
       const chainRecord = await recordChainTransaction({
@@ -377,6 +482,11 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
         maxPriorityFeePerGas: stringifyTxValue(unsignedTx.maxPriorityFeePerGas ?? null),
         data: null,
       })
+      if (transferLogId) {
+        await updateTransferStatus(transferLogId, 'broadcasted', {
+          replacesTxHash: chainRecord.replacedTxHashes[0] ?? null,
+        })
+      }
       await markReplacedTransferAttempts(chainRecord.replacedTxHashes, txHash)
       recorded = true
     } catch (recordError) {

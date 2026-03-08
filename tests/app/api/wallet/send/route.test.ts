@@ -8,9 +8,12 @@ const {
   mockSubmitSignedEvmTx,
   mockGetWalletSigningAccount,
   mockGetSpentTodayWei,
-  mockGetWalletByAddress,
+  mockGetWalletByChainAddress,
   mockRecordChainTransaction,
   mockMarkReplacedTransferAttempts,
+  mockGetWalletDailyLimitWei,
+  mockEvaluateStoredWalletPolicies,
+  mockRecordPolicyEvents,
   mockRequireSession,
   mockIsAdminEmail,
   mockIsAllowedOrigin,
@@ -37,9 +40,12 @@ const {
   mockSubmitSignedEvmTx: vi.fn(),
   mockGetWalletSigningAccount: vi.fn(),
   mockGetSpentTodayWei: vi.fn(),
-  mockGetWalletByAddress: vi.fn(),
+  mockGetWalletByChainAddress: vi.fn(),
   mockRecordChainTransaction: vi.fn(),
   mockMarkReplacedTransferAttempts: vi.fn(),
+  mockGetWalletDailyLimitWei: vi.fn(),
+  mockEvaluateStoredWalletPolicies: vi.fn(),
+  mockRecordPolicyEvents: vi.fn(),
   mockRequireSession: vi.fn(),
   mockIsAdminEmail: vi.fn(),
   mockIsAllowedOrigin: vi.fn(),
@@ -67,8 +73,14 @@ vi.mock('@/infra/agentic/wallet-policy', () => ({
 vi.mock('@/services/wallet.service', () => ({
   getWalletSigningAccount: mockGetWalletSigningAccount,
   getSpentTodayWei: mockGetSpentTodayWei,
-  getWalletByAddress: mockGetWalletByAddress,
+  getWalletByChainAddress: mockGetWalletByChainAddress,
   recordChainTransaction: mockRecordChainTransaction,
+}))
+
+vi.mock('@/services/policy.service', () => ({
+  getWalletDailyLimitWei: mockGetWalletDailyLimitWei,
+  evaluateStoredWalletPolicies: mockEvaluateStoredWalletPolicies,
+  recordPolicyEvents: mockRecordPolicyEvents,
 }))
 
 vi.mock('@/services/chain-transaction-sync.service', () => ({
@@ -223,7 +235,14 @@ describe('app/api/wallet/send route', () => {
     mockSignUnsignedEvmTx.mockResolvedValue('0xsigned')
     mockDeriveSignedEvmTxHash.mockReturnValue('0xderived')
     mockSubmitSignedEvmTx.mockResolvedValue('0xtxhash')
-    mockGetWalletByAddress.mockResolvedValue(null)
+    mockGetWalletByChainAddress.mockResolvedValue(null)
+    mockGetWalletDailyLimitWei.mockResolvedValue(1000000000000000000n)
+    mockEvaluateStoredWalletPolicies.mockResolvedValue({
+      decision: 'allow',
+      reasons: [],
+      triggeredPolicies: [],
+    })
+    mockRecordPolicyEvents.mockResolvedValue(undefined)
     mockRecordChainTransaction.mockResolvedValue({ record: { id: 'chain-1' }, replacedTxHashes: [] })
     mockMarkReplacedTransferAttempts.mockResolvedValue(undefined)
   })

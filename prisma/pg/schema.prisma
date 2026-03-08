@@ -168,6 +168,7 @@ model WalletTransferLog {
   gasUsed        String?
   blockHeight    BigInt?
   blockHash      String?
+  replacesTxHash String?
   replacedByTxHash String?
   confirmedAt    DateTime?
   createdAt      DateTime @default(now())
@@ -180,6 +181,7 @@ model WalletTransferLog {
   @@index([idempotencyKey])
   @@index([txHash])
   @@index([status, createdAt])
+  @@index([replacesTxHash])
 }
 
 model RiskDecision {

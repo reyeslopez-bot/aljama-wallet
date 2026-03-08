@@ -42,6 +42,8 @@ export type WalletTransactionItem = {
   direction: 'incoming' | 'outgoing'
   amountWei: string
   asset: string | null
+  chainType: string | null
+  networkId: string | null
   chainId: number | null
   txType: ChainTransactionType | null
   status: WalletTransactionStatus
@@ -49,6 +51,8 @@ export type WalletTransactionItem = {
   idempotencyKey: string | null
   txHash: string | null
   nonce: string | null
+  replacesTxHash: string | null
+  replacedByTxHash: string | null
   gasLimit: string | null
   gasPrice: string | null
   maxFeePerGas: string | null

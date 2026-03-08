@@ -26,6 +26,7 @@ export type TransferLogInput = {
   gasUsed?: string | null
   blockHeight?: bigint | null
   blockHash?: string | null
+  replacesTxHash?: string | null
   replacedByTxHash?: string | null
   confirmedAt?: Date | null
 }
@@ -43,6 +44,7 @@ export type TransferLogUpdateInput = {
   gasUsed?: string | null
   blockHeight?: bigint | null
   blockHash?: string | null
+  replacesTxHash?: string | null
   replacedByTxHash?: string | null
   confirmedAt?: Date | null
 }
@@ -93,6 +95,7 @@ function toRecord(input: TransferLogInput & { id: string; createdAt: number; upd
     maxPriorityFeePerGas: normalizeNullableString(input.maxPriorityFeePerGas),
     gasUsed: normalizeNullableString(input.gasUsed),
     blockHash: normalizeNullableString(input.blockHash),
+    replacesTxHash: normalizeNullableString(input.replacesTxHash),
     replacedByTxHash: normalizeNullableString(input.replacedByTxHash),
     confirmedAt: input.confirmedAt ? input.confirmedAt.getTime() : null,
   }
@@ -118,6 +121,7 @@ function mapDbRecord(record: {
   gasUsed: string | null
   blockHeight: bigint | null
   blockHash: string | null
+  replacesTxHash: string | null
   replacedByTxHash: string | null
   confirmedAt: Date | null
   createdAt: Date
@@ -143,6 +147,7 @@ function mapDbRecord(record: {
     gasUsed: record.gasUsed,
     blockHeight: record.blockHeight,
     blockHash: record.blockHash,
+    replacesTxHash: record.replacesTxHash,
     replacedByTxHash: record.replacedByTxHash,
     confirmedAt: record.confirmedAt?.getTime() ?? null,
     createdAt: record.createdAt.getTime(),
@@ -169,6 +174,10 @@ function applyTransferLogUpdates(record: TransferLogRecord, updates: TransferLog
     gasUsed: updates.gasUsed !== undefined ? normalizeNullableString(updates.gasUsed) : record.gasUsed,
     blockHeight: updates.blockHeight !== undefined ? updates.blockHeight : record.blockHeight,
     blockHash: updates.blockHash !== undefined ? normalizeNullableString(updates.blockHash) : record.blockHash,
+    replacesTxHash:
+      updates.replacesTxHash !== undefined
+        ? normalizeNullableString(updates.replacesTxHash)
+        : record.replacesTxHash,
     replacedByTxHash:
       updates.replacedByTxHash !== undefined
         ? normalizeNullableString(updates.replacedByTxHash)
@@ -199,6 +208,9 @@ function buildPgUpdateData(updates: TransferLogUpdateInput) {
     ...(updates.gasUsed !== undefined ? { gasUsed: normalizeNullableString(updates.gasUsed) } : {}),
     ...(updates.blockHeight !== undefined ? { blockHeight: updates.blockHeight } : {}),
     ...(updates.blockHash !== undefined ? { blockHash: normalizeNullableString(updates.blockHash) } : {}),
+    ...(updates.replacesTxHash !== undefined
+      ? { replacesTxHash: normalizeNullableString(updates.replacesTxHash) }
+      : {}),
     ...(updates.replacedByTxHash !== undefined
       ? { replacedByTxHash: normalizeNullableString(updates.replacedByTxHash) }
       : {}),
@@ -229,6 +241,7 @@ export async function recordTransferAttempt(input: TransferLogInput): Promise<{ 
           gasUsed: normalizeNullableString(input.gasUsed),
           blockHeight: input.blockHeight ?? null,
           blockHash: normalizeNullableString(input.blockHash),
+          replacesTxHash: normalizeNullableString(input.replacesTxHash),
           replacedByTxHash: normalizeNullableString(input.replacedByTxHash),
           confirmedAt: input.confirmedAt ?? null,
         },
@@ -301,7 +314,11 @@ export async function updateTransferAttemptByTxHash(txHash: string, updates: Tra
   }
 }
 
-export async function replaceTransferAttemptsByTxHashes(txHashes: string[], replacedByTxHash: string) {
+export async function replaceTransferAttemptsByTxHashes(
+  txHashes: string[],
+  replacedByTxHash: string,
+  replacesTxHash?: string | null,
+) {
   const normalizedTxHashes = txHashes
     .map((value) => normalizeNullableString(value))
     .filter((value): value is string => Boolean(value))
@@ -315,6 +332,7 @@ export async function replaceTransferAttemptsByTxHashes(txHashes: string[], repl
         data: buildPgUpdateData({
           status: 'replaced',
           replacedByTxHash,
+          ...(replacesTxHash ? { replacesTxHash } : {}),
         }),
       })
       return
@@ -330,6 +348,7 @@ export async function replaceTransferAttemptsByTxHashes(txHashes: string[], repl
     memoryLogs[index] = applyTransferLogUpdates(memoryLogs[index], {
       status: 'replaced',
       replacedByTxHash,
+      ...(replacesTxHash ? { replacesTxHash } : {}),
     })
   }
 }
