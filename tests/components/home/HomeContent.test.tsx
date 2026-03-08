@@ -66,6 +66,7 @@ describe('HomeContent', () => {
     expect(heroTitle).toBeTruthy()
     expect(heroTitle.className).toContain('text-ivory')
     expect(brandMark.className).toContain('text-saffron/80')
+    expect(getByTestId('home-hero-stage')).toBeTruthy()
 
     expect(
       getByText(
