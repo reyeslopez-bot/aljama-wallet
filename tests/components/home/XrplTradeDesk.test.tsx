@@ -107,17 +107,18 @@ describe('XrplTradeDesk', () => {
     const { getByTestId, getByText, queryByText } = render(<XrplTradeDesk />)
 
     await waitFor(() => {
-      expect(getByTestId('xrpl-trade-desk-assets')).toBeTruthy()
-      expect(getByText('Swap in three steps')).toBeTruthy()
+      expect(getByText('One swap flow, nothing extra')).toBeTruthy()
+      expect(getByTestId('xrpl-trade-desk-quick-swap-form')).toBeTruthy()
     })
 
+    expect(queryByText('Wallet Balances')).toBeNull()
     expect(queryByText('Recent Actions')).toBeNull()
     expect(() => getByTestId('xrpl-trade-desk-refresh')).toThrow()
     expect(queryByText('Show submission log')).toBeNull()
     expect(() => getByTestId('xrpl-trade-desk-activity-rail')).toThrow()
     expect(queryByText('Demo NFT')).toBeNull()
 
-    fireEvent.click(getByTestId('xrpl-trade-desk-tab-advanced'))
+    fireEvent.click(getByTestId('xrpl-trade-desk-expert-toggle'))
 
     await waitFor(() => {
       expect(getByText('Demo NFT')).toBeTruthy()
@@ -180,13 +181,13 @@ describe('XrplTradeDesk', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
-      expect(getByText('Live Quote')).toBeTruthy()
-      expect(getByText(/1 XRP is currently pricing near/i)).toBeTruthy()
+      expect(getByText('One swap flow, nothing extra')).toBeTruthy()
+      expect(getByTestId('xrpl-trade-desk-quick-swap-preview')).toBeTruthy()
     })
 
     expect(queryByTestId('xrpl-trade-desk-history')).toBeNull()
+    expect(queryByTestId('xrpl-trade-desk-launch-context')).toBeNull()
     expect(queryByTestId('xrpl-trade-desk-refresh')).toBeNull()
-    expect((getByTestId('xrpl-trade-desk-orderbook-refresh') as HTMLButtonElement).disabled).toBe(false)
     expect((getByTestId('xrpl-trade-desk-quick-swap-refresh-quote') as HTMLButtonElement).disabled).toBe(false)
     expect(queryByTestId('xrpl-trade-desk-log-toggle')).toBeNull()
     expect(queryByTestId('xrpl-trade-desk-activity-rail')).toBeNull()
