@@ -493,20 +493,22 @@ async function emitAnomaly(signal: SecuritySignalRecord, anomaly: SecurityAnomal
   anomalyBuffer.push(anomaly)
   trimBuffers()
 
-  logWarn('security-anomaly', new Error(anomaly.summary), {
-    anomalyId: anomaly.id,
-    ruleId: anomaly.ruleId,
-    ruleType: anomaly.ruleType,
-    severity: anomaly.severity,
-    repetitive: anomaly.repetitive,
-    source: signal.source,
-    route: signal.route ?? null,
-    outcome: signal.outcome,
-    statusCode: signal.statusCode ?? null,
-    details: anomaly.details,
-  })
-
-  if (!shouldAlert(anomaly.severity)) return
+  const alertable = shouldAlert(anomaly.severity)
+  if (!alertable) {
+    logWarn('security-anomaly', { message: anomaly.summary }, {
+      anomalyId: anomaly.id,
+      ruleId: anomaly.ruleId,
+      ruleType: anomaly.ruleType,
+      severity: anomaly.severity,
+      repetitive: anomaly.repetitive,
+      source: signal.source,
+      route: signal.route ?? null,
+      outcome: signal.outcome,
+      statusCode: signal.statusCode ?? null,
+      details: anomaly.details,
+    })
+    return
+  }
 
   const fingerprint = signal.ipHash ?? signal.userId ?? signal.sessionId ?? signal.deviceId ?? 'anon'
   await emitSecurityAlert({

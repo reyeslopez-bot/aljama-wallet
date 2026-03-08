@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearSecurityAnomalyStateForTests,
   getRecentSecuritySignals,
@@ -18,6 +18,10 @@ describe('security-anomaly.service', () => {
     clearSecurityAnomalyStateForTests()
     clearSecurityAlertsForTests()
     vi.unstubAllEnvs()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('detects repetitive failure bursts from one IP/source', async () => {
@@ -260,6 +264,63 @@ describe('security-anomaly.service', () => {
     })
 
     expect(result.anomalies.some((item) => item.ruleId === 'custom.always')).toBe(true)
+  })
+
+  it('logs low-severity anomalies without fabricating error stacks', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    registerSecurityAnomalyRule({
+      id: 'custom.low',
+      type: 'non_repetitive',
+      description: 'Test rule',
+      evaluate: () => ({
+        severity: 'low',
+        score: 40,
+        summary: 'custom-low-anomaly',
+      }),
+    })
+
+    await recordSecuritySignal({
+      source: 'wallet.track',
+      outcome: 'success',
+    })
+
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(String(warnSpy.mock.calls[0]?.[0])).toContain('[security-anomaly] custom-low-anomaly')
+    expect(warnSpy.mock.calls[0]?.[1]).toMatchObject({
+      ruleId: 'custom.low',
+      error: { message: 'custom-low-anomaly' },
+    })
+    expect(warnSpy.mock.calls[0]?.[1]?.error).not.toBeInstanceOf(Error)
+  })
+
+  it('routes alertable anomalies through alerts without duplicate warning logs', async () => {
+    vi.stubEnv('SECURITY_ANOMALY_VELOCITY_THRESHOLD', '2')
+    vi.stubEnv('SECURITY_ANOMALY_RULES_DISABLED', 'failure.burst,probe.multi_principal')
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+
+    await recordSecuritySignal({
+      source: 'telemetry.ingest',
+      route: '/api/telemetry',
+      outcome: 'success',
+      statusCode: 200,
+      ipHash: 'ip-hash-telemetry',
+    })
+    await recordSecuritySignal({
+      source: 'telemetry.ingest',
+      route: '/api/telemetry',
+      outcome: 'success',
+      statusCode: 200,
+      ipHash: 'ip-hash-telemetry',
+    })
+
+    expect(warnSpy).not.toHaveBeenCalled()
+    expect(infoSpy).toHaveBeenCalledTimes(1)
+    expect(String(infoSpy.mock.calls[0]?.[0])).toContain(
+      '[security-alert] High request velocity detected from a single source/IP pair.',
+    )
   })
 
   it('falls back to in-memory forensic reads when Postgres is not configured', async () => {

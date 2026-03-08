@@ -839,27 +839,30 @@ export async function emitSecurityAlert(input: SecurityAlertInput): Promise<Secu
 
   const containmentActions = containmentActionsForRule(record.ruleId)
   const socPayload = buildSocPayload(record, containmentActions)
+  const shouldLogRecord = shouldDeliverFromDedup(record)
 
-  logInfo('security-alert', record.title, {
-    alertId: record.id,
-    ruleId: record.ruleId,
-    source: record.source,
-    severity: record.severity,
-    priority: record.priority,
-    baseSeverity: record.baseSeverity,
-    repetitive: record.repetitive,
-    deduped: record.deduped,
-    duplicateCount: record.dedup.duplicateCount,
-    dedupWindowMs: record.dedup.windowMs,
-    dedupTtlMs: record.dedup.ttlMs,
-    escalated: record.dedup.escalated,
-    runbookId: record.runbook.id,
-    runbookUrl: record.runbook.url,
-    containmentEnabled: shouldRunContainment(record),
-    containmentActions,
-    context: record.context ?? null,
-  })
-  record.delivered.log = true
+  if (shouldLogRecord) {
+    logInfo('security-alert', record.title, {
+      alertId: record.id,
+      ruleId: record.ruleId,
+      source: record.source,
+      severity: record.severity,
+      priority: record.priority,
+      baseSeverity: record.baseSeverity,
+      repetitive: record.repetitive,
+      deduped: record.deduped,
+      duplicateCount: record.dedup.duplicateCount,
+      dedupWindowMs: record.dedup.windowMs,
+      dedupTtlMs: record.dedup.ttlMs,
+      escalated: record.dedup.escalated,
+      runbookId: record.runbook.id,
+      runbookUrl: record.runbook.url,
+      containmentEnabled: shouldRunContainment(record),
+      containmentActions,
+      context: record.context ?? null,
+    })
+    record.delivered.log = true
+  }
 
   record.delivered.webhook = await deliverWebhook(record, socPayload)
   record.delivered.siem = await deliverSiem(record, socPayload)

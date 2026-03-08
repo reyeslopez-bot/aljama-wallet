@@ -123,6 +123,46 @@ describe('security-alert.service', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('logs only first and escalated duplicates by default', async () => {
+    vi.stubEnv('SECURITY_ALERT_DEDUP_WINDOW_MS', '60000')
+    vi.stubEnv('SECURITY_ALERT_DUPLICATE_ESCALATE_AFTER', '2')
+    vi.stubEnv('SECURITY_ALERT_DUPLICATE_ESCALATE_EVERY', '2')
+
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+
+    await emitSecurityAlert({
+      ruleId: 'failure.burst',
+      source: 'auth.register',
+      severity: 'high',
+      repetitive: true,
+      title: 'first',
+      description: 'first',
+      fingerprint: 'ip-log',
+    })
+    await emitSecurityAlert({
+      ruleId: 'failure.burst',
+      source: 'auth.register',
+      severity: 'high',
+      repetitive: true,
+      title: 'second',
+      description: 'second',
+      fingerprint: 'ip-log',
+    })
+    await emitSecurityAlert({
+      ruleId: 'failure.burst',
+      source: 'auth.register',
+      severity: 'high',
+      repetitive: true,
+      title: 'third',
+      description: 'third',
+      fingerprint: 'ip-log',
+    })
+
+    expect(infoSpy).toHaveBeenCalledTimes(2)
+    expect(String(infoSpy.mock.calls[0]?.[0])).toContain('[security-alert] first')
+    expect(String(infoSpy.mock.calls[1]?.[0])).toContain('[security-alert] third')
+  })
+
   it('delivers structured events to SIEM and SOAR with priority and runbook metadata', async () => {
     vi.stubEnv('SECURITY_ALERT_SIEM_URL', 'https://siem.example.test/ingest')
     vi.stubEnv('SECURITY_ALERT_SOAR_URL', 'https://soar.example.test/events')
