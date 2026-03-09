@@ -325,11 +325,11 @@
 
   .home-hero-stage {
     background:
-      radial-gradient(circle at 24% 22%, rgb(var(--saffron) / 0.16), transparent 28%),
-      radial-gradient(circle at 72% 34%, rgb(var(--lapis) / 0.16), transparent 34%),
+      radial-gradient(circle at 24% 22%, rgb(var(--saffron) / 0.1), transparent 28%),
+      radial-gradient(circle at 72% 34%, rgb(var(--lapis) / 0.1), transparent 34%),
       linear-gradient(145deg, rgb(8 11 15 / 0.94), rgb(12 16 22 / 0.84), rgb(8 10 14 / 0.94));
     box-shadow:
-      0 30px 90px rgb(2 4 6 / 0.58),
+      0 18px 48px rgb(2 4 6 / 0.36),
       inset 0 1px 0 rgb(255 255 255 / 0.05);
   }
 
@@ -342,7 +342,7 @@
     background-size: 38px 38px, 38px 38px, 84px 84px, 84px 84px;
     background-position: center;
     mask-image: radial-gradient(circle at 50% 50%, black 0, black 66%, transparent 92%);
-    opacity: 0.78;
+    opacity: 0.22;
   }
 
   .home-route-scan {
@@ -356,14 +356,14 @@
         rgb(255 255 255 / 0.03) 11px
       );
     mix-blend-mode: screen;
-    opacity: 0.5;
+    opacity: 0.06;
   }
 
   .home-route-badge {
-    border: 1px solid rgb(255 255 255 / 0.1);
-    background: linear-gradient(145deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.03));
+    border: 1px solid rgb(255 255 255 / 0.08);
+    background: linear-gradient(145deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.02));
     box-shadow:
-      0 16px 36px rgb(4 6 8 / 0.28),
+      0 8px 20px rgb(4 6 8 / 0.14),
       inset 0 1px 0 rgb(255 255 255 / 0.06);
     backdrop-filter: blur(16px);
   }
@@ -377,7 +377,7 @@
     background-size: 54px 54px, 54px 54px, 108px 108px, 108px 108px;
     background-position: 0 0;
     mask-image: linear-gradient(180deg, transparent, black 8%, black 92%, transparent);
-    opacity: 0.36;
+    opacity: 0.06;
   }
 
   .home-page-rosette {
@@ -390,13 +390,13 @@
       linear-gradient(-45deg, transparent 48%, rgb(255 255 255 / 0.06) 50%, transparent 52%);
     box-shadow:
       inset 0 0 0 1px rgb(255 255 255 / 0.03),
-      0 0 48px rgb(var(--lapis) / 0.06);
-    opacity: 0.34;
+      0 0 32px rgb(var(--lapis) / 0.04);
+    opacity: 0.14;
   }
 
   .home-page-route-node {
-    height: 44px;
-    width: 44px;
+    height: 30px;
+    width: 30px;
   }
 
   .home-page-route-node-halo,
@@ -409,28 +409,28 @@
   }
 
   .home-page-route-node-halo {
-    height: 44px;
-    width: 44px;
+    height: 30px;
+    width: 30px;
     border-radius: 9999px;
-    background: radial-gradient(circle, rgb(var(--saffron) / 0.18), transparent 68%);
+    background: radial-gradient(circle, rgb(var(--saffron) / 0.07), transparent 68%);
   }
 
   .home-page-route-node-frame {
-    height: 18px;
-    width: 18px;
-    border-radius: 5px;
+    height: 12px;
+    width: 12px;
+    border-radius: 4px;
     transform: translate(-50%, -50%) rotate(45deg);
-    border: 1px solid rgb(255 255 255 / 0.18);
-    background: linear-gradient(145deg, rgb(var(--saffron) / 0.82), rgb(var(--lapis) / 0.82));
-    box-shadow: 0 0 24px rgb(var(--lapis) / 0.12);
+    border: 1px solid rgb(255 255 255 / 0.12);
+    background: linear-gradient(145deg, rgb(var(--saffron) / 0.68), rgb(var(--lapis) / 0.68));
+    box-shadow: 0 0 12px rgb(var(--lapis) / 0.06);
   }
 
   .home-page-route-node-core {
-    height: 8px;
-    width: 8px;
+    height: 5px;
+    width: 5px;
     border-radius: 9999px;
     background: rgb(255 244 223);
-    box-shadow: 0 0 18px rgb(var(--saffron) / 0.35);
+    box-shadow: 0 0 8px rgb(var(--saffron) / 0.18);
   }
 
   body.light .surface-panel {
@@ -464,11 +464,11 @@
 
   body.light .home-hero-stage {
     background:
-      radial-gradient(circle at 24% 22%, rgb(var(--saffron) / 0.14), transparent 30%),
-      radial-gradient(circle at 72% 34%, rgb(var(--lapis) / 0.14), transparent 36%),
+      radial-gradient(circle at 24% 22%, rgb(var(--saffron) / 0.1), transparent 30%),
+      radial-gradient(circle at 72% 34%, rgb(var(--lapis) / 0.1), transparent 36%),
       linear-gradient(145deg, rgb(255 255 255 / 0.96), rgb(238 245 252 / 0.9), rgb(244 238 230 / 0.92));
     box-shadow:
-      0 28px 80px rgb(91 122 148 / 0.22),
+      0 18px 44px rgb(91 122 148 / 0.12),
       inset 0 1px 0 rgb(255 255 255 / 0.92);
   }
 
@@ -481,14 +481,14 @@
   }
 
   body.light .home-route-scan {
-    opacity: 0.32;
+    opacity: 0.05;
   }
 
   body.light .home-route-badge {
-    border-color: rgb(63 94 122 / 0.12);
-    background: linear-gradient(145deg, rgb(255 255 255 / 0.78), rgb(255 255 255 / 0.48));
+    border-color: rgb(63 94 122 / 0.1);
+    background: linear-gradient(145deg, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.42));
     box-shadow:
-      0 16px 34px rgb(91 122 148 / 0.16),
+      0 8px 20px rgb(91 122 148 / 0.1),
       inset 0 1px 0 rgb(255 255 255 / 0.9);
   }
 
@@ -498,15 +498,15 @@
       linear-gradient(to bottom, rgb(63 94 122 / 0.05) 1px, transparent 1px),
       linear-gradient(45deg, transparent 47%, rgb(var(--saffron) / 0.08) 50%, transparent 53%),
       linear-gradient(-45deg, transparent 47%, rgb(var(--lapis) / 0.08) 50%, transparent 53%);
-    opacity: 0.24;
+    opacity: 0.05;
   }
 
   body.light .home-page-rosette {
     border-color: rgb(63 94 122 / 0.12);
     box-shadow:
       inset 0 0 0 1px rgb(255 255 255 / 0.42),
-      0 0 44px rgb(var(--lapis) / 0.06);
-    opacity: 0.26;
+      0 0 28px rgb(var(--lapis) / 0.04);
+    opacity: 0.12;
   }
 
   body.light .home-page-route-node-frame {

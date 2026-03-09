@@ -55,38 +55,6 @@ function HeroRouteStage() {
         </div>
       </div>
 
-      <div data-home-hero-badge className="home-route-badge absolute right-5 top-8 w-28 sm:w-32">
-        <div className="flex items-center justify-between">
-          <span className="h-1.5 w-1.5 rounded-full bg-lapis/80" />
-          <span className="h-1.5 w-1.5 rounded-full bg-jade/80" />
-          <span className="h-1.5 w-1.5 rounded-full bg-saffron/80" />
-        </div>
-        <div className="mt-3 h-px w-full bg-gradient-to-r from-transparent via-white/35 to-transparent" />
-        <div className="mt-2 h-1.5 w-2/3 rounded-full bg-white/10" />
-      </div>
-
-      <div data-home-hero-badge className="home-route-badge absolute left-7 top-[44%] hidden w-20 lg:block">
-        <div className="flex gap-2">
-          <span className="h-10 w-1 rounded-full bg-saffron/45" />
-          <div className="flex-1 space-y-2">
-            <span className="block h-1.5 rounded-full bg-white/12" />
-            <span className="block h-1.5 w-3/4 rounded-full bg-jade/25" />
-          </div>
-        </div>
-      </div>
-
-      <div data-home-hero-badge className="home-route-badge absolute right-7 top-[50%] hidden w-24 lg:block">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-lapis/75" />
-          <span className="h-px flex-1 bg-gradient-to-r from-lapis/70 to-transparent" />
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-1.5">
-          <span className="h-6 rounded-md bg-white/7" />
-          <span className="h-6 rounded-md bg-saffron/12" />
-          <span className="h-6 rounded-md bg-white/7" />
-        </div>
-      </div>
-
       <div data-home-hero-core="true" className="absolute inset-0">
         <svg
           viewBox="0 0 360 300"
@@ -118,9 +86,8 @@ function HeroRouteStage() {
 
           {[
             { x: 54, y: 238 },
-            { x: 126, y: 188 },
-            { x: 188, y: 146 },
-            { x: 224, y: 100 },
+            { x: 132, y: 184 },
+            { x: 206, y: 118 },
             { x: 282, y: 60 },
           ].map((point, index) => (
             <g
@@ -144,7 +111,7 @@ function HeroRouteStage() {
         </svg>
       </div>
 
-      <div className="absolute bottom-5 left-5 right-5 grid gap-3 sm:grid-cols-2">
+      <div className="absolute bottom-5 left-5 right-5">
         <div data-home-hero-badge className="home-route-badge px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-saffron/80" />
@@ -154,16 +121,6 @@ function HeroRouteStage() {
             <span className="block h-1.5 w-4/5 rounded-full bg-white/12" />
             <span className="block h-1.5 w-full rounded-full bg-lapis/25" />
           </div>
-        </div>
-
-        <div data-home-hero-badge className="home-route-badge px-4 py-3">
-          <div className="grid grid-cols-4 gap-1.5">
-            <span className="h-7 rounded-md bg-white/8" />
-            <span className="h-7 rounded-md bg-saffron/12" />
-            <span className="h-7 rounded-md bg-white/8" />
-            <span className="h-7 rounded-md bg-jade/12" />
-          </div>
-          <div className="mt-3 h-px w-full bg-gradient-to-r from-transparent via-white/35 to-transparent" />
         </div>
       </div>
     </div>
@@ -183,36 +140,15 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
     >
       <div className="absolute inset-x-10 top-6 ornament-line" />
       <div className="absolute left-[-4rem] top-8 h-32 w-32 rounded-full bg-[radial-gradient(circle,rgba(210,167,98,0.18),rgba(210,167,98,0)_70%)] blur-2xl" />
-      <div className="absolute right-10 top-10 h-20 w-20 rotate-12 rounded-[28px] border border-white/10 bg-white/5 opacity-40" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-64 md:block" aria-hidden="true">
+      <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-52 md:block" aria-hidden="true">
         <div
           data-home-hero-accent
-          className="absolute right-12 top-16 h-28 w-28 rounded-full border border-saffron/18"
+          className="absolute right-12 top-16 h-24 w-24 rounded-full border border-saffron/12"
         />
         <div
           data-home-hero-accent
-          className="absolute right-24 top-28 h-3 w-3 rounded-full bg-saffron/80 shadow-[0_0_22px_rgba(210,167,98,0.5)]"
+          className="absolute right-24 top-27 h-2.5 w-2.5 rounded-full bg-saffron/72 shadow-[0_0_18px_rgba(210,167,98,0.34)]"
         />
-        <div
-          data-home-hero-accent
-          className="absolute left-8 bottom-20 h-32 w-32 rounded-full border border-lapis/18"
-        />
-        <svg
-          data-home-hero-accent
-          viewBox="0 0 240 120"
-          className="absolute bottom-12 left-0 h-28 w-60 text-[#7fb0d9]/40"
-          fill="none"
-        >
-          <path
-            d="M10 94C42 86 72 58 105 46C134 35 174 32 230 20"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeDasharray="4 8"
-          />
-          <circle cx="104" cy="46" r="4" fill="currentColor" />
-          <circle cx="172" cy="33" r="3" fill="currentColor" />
-        </svg>
       </div>
 
       <div className="relative z-10 w-full space-y-8">
