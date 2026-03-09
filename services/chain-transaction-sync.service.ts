@@ -49,6 +49,89 @@ function bigintToString(value: bigint | null | undefined): string | null {
   return value.toString()
 }
 
+async function clearIndexedEventData(input: {
+  chainType: string
+  networkId: string
+  txHash: string
+}) {
+  await prismaCrdb.$transaction([
+    prismaCrdb.tokenTransfer.deleteMany({
+      where: {
+        chainType: input.chainType,
+        networkId: input.networkId,
+        txHash: input.txHash,
+      },
+    }),
+    prismaCrdb.chainLog.deleteMany({
+      where: {
+        chainType: input.chainType,
+        networkId: input.networkId,
+        txHash: input.txHash,
+      },
+    }),
+  ])
+}
+
+async function clearIndexedReceiptData(input: {
+  chainType: string
+  networkId: string
+  txHash: string
+  status: 'pending' | 'dropped'
+}) {
+  await prismaCrdb.$transaction([
+    prismaCrdb.tokenTransfer.deleteMany({
+      where: {
+        chainType: input.chainType,
+        networkId: input.networkId,
+        txHash: input.txHash,
+      },
+    }),
+    prismaCrdb.chainLog.deleteMany({
+      where: {
+        chainType: input.chainType,
+        networkId: input.networkId,
+        txHash: input.txHash,
+      },
+    }),
+    prismaCrdb.chainIndexTransaction.updateMany({
+      where: {
+        chainType: input.chainType,
+        networkId: input.networkId,
+        txHash: input.txHash,
+      },
+      data: {
+        blockHeight: null,
+        blockHash: null,
+        transactionIndex: null,
+        status: input.status,
+        effectiveGasPrice: null,
+        gasUsed: null,
+      },
+    }),
+  ])
+}
+
+async function readCanonicalBlock(
+  provider: JsonRpcProvider,
+  row: { txHash: string; blockHash: string | null; blockHeight: bigint | null },
+) {
+  if (row.blockHeight !== null) {
+    return provider.getBlock(Number(row.blockHeight)).catch((error) => {
+      logWarn('chain-tx-sync:block-height', error, {
+        txHash: row.txHash,
+        blockHeight: row.blockHeight?.toString() ?? null,
+      })
+      return null
+    })
+  }
+
+  if (!row.blockHash) return null
+  return provider.getBlock(row.blockHash).catch((error) => {
+    logWarn('chain-tx-sync:block-hash', error, { txHash: row.txHash, blockHash: row.blockHash })
+    return null
+  })
+}
+
 async function upsertIndexedBlock(
   provider: JsonRpcProvider,
   input: { chainType: string; networkId: string; blockHash?: string | null; blockHeight?: bigint | null },
@@ -351,10 +434,11 @@ async function syncRow(
     txHash: string
     status: string
     blockHash: string | null
+    blockHeight: bigint | null
     createdAt: Date
   },
 ) {
-  const normalizedStatus = normalizeChainTransactionStatus(row.status)
+  let normalizedStatus = normalizeChainTransactionStatus(row.status)
   const receipt = await provider.getTransactionReceipt(row.txHash).catch((error) => {
     logWarn('chain-tx-sync:receipt', error, { txHash: row.txHash })
     return null
@@ -365,6 +449,24 @@ async function syncRow(
     const blockHash = receipt.blockHash ?? null
     const blockHeight =
       receipt.blockNumber === null || receipt.blockNumber === undefined ? null : BigInt(receipt.blockNumber)
+    if (normalizedStatus === 'confirmed' && row.blockHash && blockHash && row.blockHash !== blockHash) {
+      logWarn(
+        'chain-tx-sync:reorg',
+        new Error('Confirmed transaction moved to a different canonical block'),
+        {
+          txHash: row.txHash,
+          previousBlockHash: row.blockHash,
+          nextBlockHash: blockHash,
+          previousBlockHeight: row.blockHeight?.toString() ?? null,
+          nextBlockHeight: blockHeight?.toString() ?? null,
+        },
+      )
+      await clearIndexedEventData({
+        chainType: row.chainType,
+        networkId: row.networkId,
+        txHash: row.txHash,
+      })
+    }
     const gasUsed = bigintToString(receipt.gasUsed ?? null)
     const confirmedAt = await persistChainIndexData({
       provider,
@@ -439,35 +541,55 @@ async function syncRow(
     return
   }
 
-  if (normalizedStatus === 'confirmed' && row.blockHash) {
-    const existingBlock = await provider.getBlock(row.blockHash).catch(() => null)
-    if (!existingBlock) {
-      await prismaCrdb.chainTransaction.update({
-        where: {
-          chainType_networkId_txHash: {
-            chainType: row.chainType,
-            networkId: row.networkId,
-            txHash: row.txHash,
-          },
-        },
-        data: {
-          status: 'pending',
-          blockHeight: null,
-          blockHash: null,
-          gasUsed: null,
-          confirmedAt: null,
-        },
-      })
+  if (normalizedStatus === 'confirmed' && (row.blockHash || row.blockHeight !== null)) {
+    const canonicalBlock = await readCanonicalBlock(provider, row)
+    if (canonicalBlock && (!row.blockHash || canonicalBlock.hash === row.blockHash)) {
+      return
+    }
 
-      await updateTransferAttemptByTxHash(row.txHash, {
+    logWarn(
+      'chain-tx-sync:reorg',
+      new Error('Confirmed transaction is no longer on the canonical chain'),
+      {
+        txHash: row.txHash,
+        previousBlockHash: row.blockHash,
+        previousBlockHeight: row.blockHeight?.toString() ?? null,
+        canonicalBlockHash: canonicalBlock?.hash ?? null,
+      },
+    )
+
+    await clearIndexedReceiptData({
+      chainType: row.chainType,
+      networkId: row.networkId,
+      txHash: row.txHash,
+      status: 'pending',
+    })
+
+    await prismaCrdb.chainTransaction.update({
+      where: {
+        chainType_networkId_txHash: {
+          chainType: row.chainType,
+          networkId: row.networkId,
+          txHash: row.txHash,
+        },
+      },
+      data: {
         status: 'pending',
         blockHeight: null,
         blockHash: null,
         gasUsed: null,
         confirmedAt: null,
-      })
-      return
-    }
+      },
+    })
+
+    await updateTransferAttemptByTxHash(row.txHash, {
+      status: 'pending',
+      blockHeight: null,
+      blockHash: null,
+      gasUsed: null,
+      confirmedAt: null,
+    })
+    normalizedStatus = 'pending'
   }
 
   const transaction = await provider.getTransaction(row.txHash).catch((error) => {
@@ -498,6 +620,13 @@ async function syncRow(
   }
 
   if (Date.now() - row.createdAt.getTime() >= DROP_AFTER_MS && normalizedStatus !== 'dropped') {
+    await clearIndexedReceiptData({
+      chainType: row.chainType,
+      networkId: row.networkId,
+      txHash: row.txHash,
+      status: 'dropped',
+    })
+
     await prismaCrdb.chainTransaction.update({
       where: {
         chainType_networkId_txHash: {
@@ -524,7 +653,13 @@ export async function syncRecentEvmChainTransactions(params?: {
   limit?: number
 }) {
   const provider = getSyncProvider()
-  if (!provider) return
+  if (!provider) {
+    return {
+      processedCount: 0,
+      succeededCount: 0,
+      failedCount: 0,
+    }
+  }
 
   const rows = await prismaCrdb.chainTransaction.findMany({
     where: {
@@ -544,13 +679,20 @@ export async function syncRecentEvmChainTransactions(params?: {
       txHash: true,
       status: true,
       blockHash: true,
+      blockHeight: true,
       createdAt: true,
     },
     orderBy: { updatedAt: 'desc' },
     take: Math.min(Math.max(params?.limit ?? 20, 1), 50),
   })
 
-  await Promise.allSettled(rows.map((row) => syncRow(provider, row)))
+  const results = await Promise.allSettled(rows.map((row) => syncRow(provider, row)))
+
+  return {
+    processedCount: rows.length,
+    succeededCount: results.filter((result) => result.status === 'fulfilled').length,
+    failedCount: results.filter((result) => result.status === 'rejected').length,
+  }
 }
 
 export async function markReplacedTransferAttempts(replacedTxHashes: string[], replacedByTxHash: string) {

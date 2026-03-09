@@ -66,6 +66,9 @@ preview port=app_port:
 prod port='2999' container='aljama-prod':
 	APP_PORT={{port}} CONTAINER_NAME={{container}} ./prod.sh
 
+prod-with-worker port='2999' container='aljama-prod' worker='aljama-chain-sync-worker':
+	APP_PORT={{port}} CONTAINER_NAME={{container}} WORKER_CONTAINER_NAME={{worker}} ./prod.sh --with-chain-sync-worker
+
 prisma-generate:
 	pnpm prisma generate --schema=prisma/crdb/schema.prisma
 	pnpm prisma generate --schema=prisma/pg/schema.prisma

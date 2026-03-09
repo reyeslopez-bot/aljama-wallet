@@ -1,5 +1,9 @@
 import { pathToFileURL } from 'node:url'
 import { logError, logInfo, logWarn } from '@/lib/security/logging'
+import {
+  collectChainTransactionSyncMetrics,
+  observeChainTransactionSyncPass,
+} from '@/services/chain-transaction-monitor.service'
 import { syncRecentEvmChainTransactions } from '@/services/chain-transaction-sync.service'
 
 type ChainTransactionSyncWorkerConfig = {
@@ -57,14 +61,27 @@ export function startChainTransactionSyncWorker(input?: Partial<ChainTransaction
 
     inFlight = true
     try {
-      await syncRecentEvmChainTransactions({
+      const result = await syncRecentEvmChainTransactions({
         networkId: config.networkId,
         limit: config.limit,
       })
+      const metrics = await collectChainTransactionSyncMetrics({
+        trigger,
+        networkId: config.networkId,
+        processedCount: result.processedCount,
+        succeededCount: result.succeededCount,
+        failedCount: result.failedCount,
+      })
+      await observeChainTransactionSyncPass(metrics)
       logInfo('chain-tx-sync-worker', 'Completed EVM chain transaction sync pass', {
         trigger,
         networkId: config.networkId,
         limit: config.limit,
+        processedCount: metrics.processedCount,
+        succeededCount: metrics.succeededCount,
+        failedCount: metrics.failedCount,
+        stuckBroadcasted: metrics.stuckBroadcasted.count,
+        stuckPending: metrics.stuckPending.count,
       })
     } catch (error) {
       logError('chain-tx-sync-worker:pass', error, {

@@ -124,6 +124,16 @@ const defaultRunbooks: Record<string, { id: string; title: string; slug: string 
     title: 'Handle security queue backpressure',
     slug: 'security-queue-backpressure',
   },
+  'wallet.chain_transaction.stuck_broadcasted': {
+    id: 'RB-WALLET-001',
+    title: 'Investigate stuck broadcasted EVM transactions',
+    slug: 'wallet-chain-transaction-stuck-broadcasted',
+  },
+  'wallet.chain_transaction.stuck_pending': {
+    id: 'RB-WALLET-002',
+    title: 'Investigate stuck pending EVM transactions',
+    slug: 'wallet-chain-transaction-stuck-pending',
+  },
 }
 
 const defaultContainmentActions: Record<string, string[]> = {

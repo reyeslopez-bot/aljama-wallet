@@ -137,6 +137,12 @@ pnpm test
 pnpm build
 ```
 
+Worker operations:
+```bash
+pnpm worker:chain-sync
+./prod.sh --with-chain-sync-worker
+```
+
 Frontend-focused tests:
 ```bash
 pnpm test:frontend:components
@@ -177,7 +183,7 @@ Use `.env.example` as source of truth for current variables.
 
 High-impact groups:
 - Auth and strict mode: `NEXTAUTH_*`, `SECURITY_*`, `AUTH_*`
-- Custody and transfer: `WALLET_*`, `EVM_RPC_URL`
+- Custody and transfer: `WALLET_*`, `EVM_RPC_URL`, `CHAIN_TRANSACTION_*`
 - XRPL: `XRPL_*`
 - Security detection/alerts: `SECURITY_SIGNAL_*`, `SECURITY_ALERT_*`, `SECURITY_ANOMALY_*`, `SECURITY_RATE_LIMIT_*`
 - Risk engine: `RISK_*`

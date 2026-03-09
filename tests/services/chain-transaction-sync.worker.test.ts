@@ -2,18 +2,27 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockSyncRecentEvmChainTransactions,
+  mockCollectChainTransactionSyncMetrics,
   mockLogError,
   mockLogInfo,
   mockLogWarn,
+  mockObserveChainTransactionSyncPass,
 } = vi.hoisted(() => ({
   mockSyncRecentEvmChainTransactions: vi.fn(),
+  mockCollectChainTransactionSyncMetrics: vi.fn(),
   mockLogError: vi.fn(),
   mockLogInfo: vi.fn(),
   mockLogWarn: vi.fn(),
+  mockObserveChainTransactionSyncPass: vi.fn(),
 }))
 
 vi.mock('@/services/chain-transaction-sync.service', () => ({
   syncRecentEvmChainTransactions: mockSyncRecentEvmChainTransactions,
+}))
+
+vi.mock('@/services/chain-transaction-monitor.service', () => ({
+  collectChainTransactionSyncMetrics: mockCollectChainTransactionSyncMetrics,
+  observeChainTransactionSyncPass: mockObserveChainTransactionSyncPass,
 }))
 
 vi.mock('@/lib/security/logging', () => ({
@@ -29,7 +38,19 @@ describe('chain-transaction-sync.worker', () => {
     vi.clearAllMocks()
     vi.unstubAllEnvs()
 
-    mockSyncRecentEvmChainTransactions.mockResolvedValue(undefined)
+    mockSyncRecentEvmChainTransactions.mockResolvedValue({
+      processedCount: 1,
+      succeededCount: 1,
+      failedCount: 0,
+    })
+    mockCollectChainTransactionSyncMetrics.mockResolvedValue({
+      processedCount: 1,
+      succeededCount: 1,
+      failedCount: 0,
+      stuckBroadcasted: { count: 0 },
+      stuckPending: { count: 0 },
+    })
+    mockObserveChainTransactionSyncPass.mockResolvedValue(undefined)
   })
 
   it('runs an immediate sync pass and repeats on the configured interval', async () => {
@@ -44,6 +65,16 @@ describe('chain-transaction-sync.worker', () => {
       networkId: '11155111',
       limit: 12,
     })
+    await vi.waitFor(() =>
+      expect(mockCollectChainTransactionSyncMetrics).toHaveBeenCalledWith({
+        trigger: 'startup',
+        networkId: '11155111',
+        processedCount: 1,
+        succeededCount: 1,
+        failedCount: 0,
+      }),
+    )
+    await vi.waitFor(() => expect(mockObserveChainTransactionSyncPass).toHaveBeenCalledTimes(1))
 
     await vi.advanceTimersByTimeAsync(1000)
 
@@ -55,10 +86,10 @@ describe('chain-transaction-sync.worker', () => {
   it('skips an interval pass when the previous sync is still in flight', async () => {
     vi.stubEnv('CHAIN_TRANSACTION_SYNC_INTERVAL_MS', '1000')
 
-    let resolveSync: ((value: void | PromiseLike<void>) => void) | undefined
+    let resolveSync: ((value: { processedCount: number; succeededCount: number; failedCount: number }) => void) | undefined
     mockSyncRecentEvmChainTransactions.mockImplementation(
       () =>
-        new Promise<void>((resolve) => {
+        new Promise<{ processedCount: number; succeededCount: number; failedCount: number }>((resolve) => {
           resolveSync = resolve
         }),
     )
@@ -76,7 +107,11 @@ describe('chain-transaction-sync.worker', () => {
     )
 
     if (resolveSync) {
-      resolveSync(undefined)
+      resolveSync({
+        processedCount: 1,
+        succeededCount: 1,
+        failedCount: 0,
+      })
     }
     await Promise.resolve()
     worker.stop()

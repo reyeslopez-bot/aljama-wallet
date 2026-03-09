@@ -81,6 +81,17 @@ COPY --from=builder /workspace/prisma/generated ./prisma/generated
 EXPOSE 2999
 CMD ["node","server.js"]
 
+# ---------- worker ----------
+FROM base AS worker
+WORKDIR /workspace
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=builder /workspace /workspace
+
+CMD ["pnpm","worker:chain-sync"]
+
 # ---------- ci ----------
 FROM base AS ci
 WORKDIR /workspace

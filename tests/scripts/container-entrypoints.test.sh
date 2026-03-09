@@ -175,7 +175,7 @@ case "$command_name" in
           container_name="${2:-}"
           shift 2
           ;;
-        --env-file|-e|-p|-v|--volume|--user|--userns|--add-host|-w)
+        --env-file|-e|-p|-v|--volume|--user|--userns|--add-host|-w|--restart)
           shift 2
           ;;
         --rm|-d|-it)
@@ -342,9 +342,29 @@ test_prod_uses_shared_runtime_and_env_loading() {
   run_in_workspace "$workspace" env CONTAINER_RUNTIME=docker APP_PORT=4550 ./prod.sh --runtime docker --image-name prod-image --container-name prod-container
 
   assert_log_contains "$log_file" "docker build -f .devcontainer/Containerfile --target prod -t prod-image ."
-  assert_log_contains "$log_file" "docker run --rm -d --name prod-container -p 4550:4550 -e PORT=4550 -e HOSTNAME=0.0.0.0"
+  assert_log_contains "$log_file" "docker run -d --name prod-container --restart unless-stopped -p 4550:4550 -e PORT=4550 -e HOSTNAME=0.0.0.0"
   assert_log_contains "$log_file" "--env-file $workspace/.env.local"
   assert_log_contains "$log_file" "-v $workspace/infra/runtime:/runtime prod-image"
+}
+
+test_prod_can_launch_chain_sync_worker() {
+  local workspace="$TEST_TMPDIR/prod-worker"
+  local log_file="$workspace/runtime.log"
+
+  prepare_workspace "$workspace"
+  mkdir -p "$workspace/fake-bin" "$workspace/state"
+  write_fake_runtime "$workspace/fake-bin" docker
+  printf 'NEXTAUTH_SECRET=test-secret\n' >"$workspace/.env.local"
+
+  FAKE_RUNTIME_LOG="$log_file" \
+  FAKE_RUNTIME_STATE_DIR="$workspace/state" \
+  FAKE_RUNTIME_INFO_MODE="ok" \
+  run_in_workspace "$workspace" env CONTAINER_RUNTIME=docker ./prod.sh --with-chain-sync-worker --runtime docker --image-name prod-image --worker-image-name worker-image --container-name prod-container --worker-container-name prod-worker
+
+  assert_log_contains "$log_file" "docker build -f .devcontainer/Containerfile --target prod -t prod-image ."
+  assert_log_contains "$log_file" "docker build -f .devcontainer/Containerfile --target worker -t worker-image ."
+  assert_log_contains "$log_file" "docker run -d --name prod-container --restart unless-stopped -p 2999:2999 -e PORT=2999 -e HOSTNAME=0.0.0.0 --env-file $workspace/.env.local -v $workspace/infra/runtime:/runtime prod-image"
+  assert_log_contains "$log_file" "docker run -d --name prod-worker --restart unless-stopped --env-file $workspace/.env.local -v $workspace/infra/runtime:/runtime worker-image"
 }
 
 test_db_boots_after_starting_podman_machine() {
@@ -407,6 +427,7 @@ test_dev_force_clean_still_rebuilds() {
 test_dev_rewrites_env_local_and_tails_logs
 test_dev_shell_reuses_running_container
 test_prod_uses_shared_runtime_and_env_loading
+test_prod_can_launch_chain_sync_worker
 test_db_boots_after_starting_podman_machine
 test_just_recipes_delegate_to_dev_script
 test_dev_force_clean_still_rebuilds
