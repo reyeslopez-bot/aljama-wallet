@@ -31,8 +31,10 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
   const searchParams = useSearchParams()
   const [consent, setConsent] = useState<TelemetryConsent>('unset')
   const [context, setContext] = useState<TelemetryContextSnapshot>({})
+  const contextRef = useRef<TelemetryContextSnapshot>({})
   const sessionStartRef = useRef<number>(Date.now())
   const pageStartRef = useRef<number>(Date.now())
+  const bootstrappedRef = useRef(false)
   const lastPathRef = useRef<string>('')
 
   const fullPath = useMemo(() => {
@@ -46,13 +48,26 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
   }, [])
 
   useEffect(() => {
-    if (consent !== 'granted') return
+    contextRef.current = context
+  }, [context])
+
+  useEffect(() => {
+    if (consent !== 'granted') {
+      bootstrappedRef.current = false
+      contextRef.current = {}
+      setContext({})
+      return
+    }
+
+    if (bootstrappedRef.current) return
+    bootstrappedRef.current = true
 
     const deviceId = getDeviceId()
     const sessionId = getSessionId()
     if (!deviceId || !sessionId) return
 
     const baseContext = getBasicContext() as TelemetryContextSnapshot
+    contextRef.current = baseContext
     setContext(baseContext)
 
     const init = async () => {
@@ -83,6 +98,7 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
         // keep base context if network location lookup fails
       }
 
+      contextRef.current = enriched
       setContext(enriched)
 
       await sendTelemetryEvent({
@@ -113,7 +129,7 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
         sessionId,
         deviceId,
         path,
-        context,
+        context: contextRef.current,
         payload: { durationMs },
       })
     }
@@ -131,9 +147,9 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
       sessionId,
       deviceId,
       path: fullPath,
-      context,
+      context: contextRef.current,
     })
-  }, [consent, context, fullPath])
+  }, [consent, fullPath])
 
   useEffect(() => {
     if (consent !== 'granted') return
@@ -160,7 +176,7 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
         sessionId,
         deviceId,
         path: fullPath,
-        context,
+        context: contextRef.current,
         payload: {
           tag: interactive.tagName.toLowerCase(),
           text: text || undefined,
@@ -172,7 +188,7 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
 
     document.addEventListener('click', handleClick, true)
     return () => document.removeEventListener('click', handleClick, true)
-  }, [consent, context, fullPath])
+  }, [consent, fullPath])
 
   useEffect(() => {
     if (consent !== 'granted') return
@@ -188,7 +204,7 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
         sessionId,
         deviceId,
         path: fullPath,
-        context,
+        context: contextRef.current,
         payload: { durationMs },
         immediate: true,
       })
@@ -210,7 +226,7 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('pagehide', handlePageHide)
     }
-  }, [consent, context, fullPath])
+  }, [consent, fullPath])
 
   useEffect(() => {
     if (consent !== 'granted') return
@@ -229,7 +245,7 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
         sessionId,
         deviceId,
         path: fullPath,
-        context,
+        context: contextRef.current,
         payload: {
           ttfb: nav ? nav.responseStart - nav.requestStart : null,
           domContentLoaded: nav ? nav.domContentLoadedEventEnd : null,
@@ -246,7 +262,7 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
 
     window.addEventListener('load', sendPerf, { once: true })
     return () => window.removeEventListener('load', sendPerf)
-  }, [consent, context, fullPath])
+  }, [consent, fullPath])
 
   const track = useCallback(
     (event: string, payload?: Record<string, unknown>) => {
@@ -259,11 +275,11 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
         sessionId,
         deviceId,
         path: fullPath,
-        context,
+        context: contextRef.current,
         payload,
       })
     },
-    [consent, context, fullPath],
+    [consent, fullPath],
   )
 
   const value = useMemo<TelemetryContextValue>(() => ({ consent, track }), [consent, track])

@@ -302,18 +302,18 @@ describe('security-anomaly.service', () => {
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
 
     await recordSecuritySignal({
-      source: 'telemetry.ingest',
-      route: '/api/telemetry',
+      source: 'wallet.track',
+      route: '/api/track-wallet',
       outcome: 'success',
       statusCode: 200,
-      ipHash: 'ip-hash-telemetry',
+      ipHash: 'ip-hash-wallet-track',
     })
     await recordSecuritySignal({
-      source: 'telemetry.ingest',
-      route: '/api/telemetry',
+      source: 'wallet.track',
+      route: '/api/track-wallet',
       outcome: 'success',
       statusCode: 200,
-      ipHash: 'ip-hash-telemetry',
+      ipHash: 'ip-hash-wallet-track',
     })
 
     expect(warnSpy).not.toHaveBeenCalled()
@@ -321,6 +321,34 @@ describe('security-anomaly.service', () => {
     expect(String(infoSpy.mock.calls[0]?.[0])).toContain(
       '[security-alert] High request velocity detected from a single source/IP pair.',
     )
+  })
+
+  it('does not raise velocity alerts for successful telemetry ingest traffic', async () => {
+    vi.stubEnv('SECURITY_ANOMALY_VELOCITY_THRESHOLD', '2')
+    vi.stubEnv('SECURITY_ANOMALY_RULES_DISABLED', 'failure.burst,probe.multi_principal')
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+
+    const first = await recordSecuritySignal({
+      source: 'telemetry.ingest',
+      route: '/api/telemetry',
+      outcome: 'success',
+      statusCode: 200,
+      ipHash: 'ip-hash-telemetry',
+    })
+    const second = await recordSecuritySignal({
+      source: 'telemetry.ingest',
+      route: '/api/telemetry',
+      outcome: 'success',
+      statusCode: 200,
+      ipHash: 'ip-hash-telemetry',
+    })
+
+    expect(first.anomalies).toHaveLength(0)
+    expect(second.anomalies).toHaveLength(0)
+    expect(warnSpy).not.toHaveBeenCalled()
+    expect(infoSpy).not.toHaveBeenCalled()
   })
 
   it('falls back to in-memory forensic reads when Postgres is not configured', async () => {

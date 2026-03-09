@@ -1,5 +1,6 @@
 import { okJson } from '@/lib/security/api-response'
 import { withApiRoute } from '@/lib/security/api-route'
+import { getClientIp } from '@/lib/security/rate-limit'
 
 type NetworkLocation = {
   source: 'network' | 'default'
@@ -50,6 +51,29 @@ const DUBAI_FALLBACK: NetworkLocation = {
   region: null,
   city: 'Dubai',
   timezone: 'Asia/Dubai',
+}
+
+const NETWORK_LOCATION_LOOKUP_TIMEOUT_MS = 2_500
+const NETWORK_LOCATION_CACHE_TTL_MS = 5 * 60 * 1_000
+
+const globalForNetworkLocation = globalThis as typeof globalThis & {
+  __aljamaNetworkLocationCache?: Map<string, { location: NetworkLocation; expiresAt: number }>
+  __aljamaNetworkLocationInflight?: Map<string, Promise<NetworkLocation | null>>
+}
+
+const networkLocationCache =
+  globalForNetworkLocation.__aljamaNetworkLocationCache ??
+  new Map<string, { location: NetworkLocation; expiresAt: number }>()
+
+if (!globalForNetworkLocation.__aljamaNetworkLocationCache) {
+  globalForNetworkLocation.__aljamaNetworkLocationCache = networkLocationCache
+}
+
+const networkLocationInflight =
+  globalForNetworkLocation.__aljamaNetworkLocationInflight ?? new Map<string, Promise<NetworkLocation | null>>()
+
+if (!globalForNetworkLocation.__aljamaNetworkLocationInflight) {
+  globalForNetworkLocation.__aljamaNetworkLocationInflight = networkLocationInflight
 }
 
 function parseCoordinate(value: string | null, min: number, max: number) {
@@ -196,43 +220,81 @@ function buildIpApiProvider(ip?: string) {
 
 async function resolveNetworkLocation(
   providers: Array<(signal: AbortSignal) => Promise<NetworkLocation | null>>,
-  signal: AbortSignal,
+  timeoutMs = NETWORK_LOCATION_LOOKUP_TIMEOUT_MS,
 ): Promise<NetworkLocation | null> {
-  for (const provider of providers) {
-    try {
-      const location = await provider(signal)
-      if (location) return location
-    } catch {
-      continue
-    }
-  }
-
-  return null
-}
-
-async function fetchVpnNetworkLocation(): Promise<NetworkLocation | null> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5000)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    const ipv4 = await fetchPublicIpv4(controller.signal)
-    if (ipv4) {
-      const ipv4Location = await resolveNetworkLocation(
-        [buildIpWhoIsProvider(ipv4), buildIpInfoProvider(ipv4), buildIpApiProvider(ipv4)],
-        controller.signal,
-      )
-      if (ipv4Location) return ipv4Location
-    }
+    const attempts = providers.map(async (provider) => {
+      const location = await provider(controller.signal)
+      if (!location) {
+        throw new Error('network_location_provider_empty')
+      }
+      return location
+    })
 
-    return await resolveNetworkLocation(
-      [buildIpWhoIsProvider(), buildIpInfoProvider(), buildIpApiProvider()],
-      controller.signal,
-    )
+    return await Promise.any(attempts)
   } catch {
     return null
   } finally {
     clearTimeout(timeout)
+    controller.abort()
   }
+}
+
+function readCachedNetworkLocation(cacheKey: string): NetworkLocation | null {
+  const cached = networkLocationCache.get(cacheKey)
+  if (!cached) return null
+  if (cached.expiresAt <= Date.now()) {
+    networkLocationCache.delete(cacheKey)
+    return null
+  }
+  return cached.location
+}
+
+function writeCachedNetworkLocation(cacheKey: string, location: NetworkLocation) {
+  networkLocationCache.set(cacheKey, {
+    location,
+    expiresAt: Date.now() + NETWORK_LOCATION_CACHE_TTL_MS,
+  })
+}
+
+async function fetchVpnNetworkLocation(ip: string | null): Promise<NetworkLocation | null> {
+  const directIp = parseIpv4(ip)
+  if (directIp) {
+    const directLocation = await resolveNetworkLocation([
+      buildIpWhoIsProvider(directIp),
+      buildIpInfoProvider(directIp),
+      buildIpApiProvider(directIp),
+    ])
+    if (directLocation) return directLocation
+  }
+
+  const publicIpController = new AbortController()
+  const publicIpTimeout = setTimeout(() => publicIpController.abort(), 1_200)
+
+  try {
+    const publicIpv4 = await fetchPublicIpv4(publicIpController.signal)
+    if (publicIpv4) {
+      const publicLocation = await resolveNetworkLocation([
+        buildIpWhoIsProvider(publicIpv4),
+        buildIpInfoProvider(publicIpv4),
+        buildIpApiProvider(publicIpv4),
+      ])
+      if (publicLocation) return publicLocation
+    }
+  } catch {
+    // fall through to implicit provider resolution
+  } finally {
+    clearTimeout(publicIpTimeout)
+  }
+
+  return await resolveNetworkLocation([
+    buildIpWhoIsProvider(),
+    buildIpInfoProvider(),
+    buildIpApiProvider(),
+  ])
 }
 
 async function getNetworkLocation(req: Request) {
@@ -253,8 +315,26 @@ async function getNetworkLocation(req: Request) {
     })
   }
 
-  const vpnLocation = await fetchVpnNetworkLocation()
+  const clientIp = parseIpv4(getClientIp(req))
+  const cacheKey = clientIp ? `ip:${clientIp}` : 'public'
+  const cachedLocation = readCachedNetworkLocation(cacheKey)
+  if (cachedLocation) {
+    return okJson({
+      location: cachedLocation,
+    })
+  }
+
+  let inflightLookup = networkLocationInflight.get(cacheKey)
+  if (!inflightLookup) {
+    inflightLookup = fetchVpnNetworkLocation(clientIp).finally(() => {
+      networkLocationInflight.delete(cacheKey)
+    })
+    networkLocationInflight.set(cacheKey, inflightLookup)
+  }
+
+  const vpnLocation = await inflightLookup
   if (vpnLocation) {
+    writeCachedNetworkLocation(cacheKey, vpnLocation)
     return okJson({
       location: vpnLocation,
     })

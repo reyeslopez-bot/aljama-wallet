@@ -2,7 +2,7 @@
 
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { signIn } from 'next-auth/react'
+import { signIn, useSession } from 'next-auth/react'
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -18,6 +18,7 @@ vi.mock('next/navigation', () => ({
 import LoginGate from '@/components/home/LoginGate'
 
 const mockedSignIn = vi.mocked(signIn)
+const mockedUseSession = vi.mocked(useSession)
 
 describe('LoginGate', () => {
   beforeEach(() => {
@@ -75,6 +76,11 @@ describe('LoginGate', () => {
 
     vi.clearAllMocks()
     mocks.pathname = '/en/login'
+    mockedUseSession.mockReturnValue({
+      data: null,
+      status: 'unauthenticated',
+      update: vi.fn(),
+    } as any)
     mockedSignIn.mockResolvedValue({ error: null, ok: true } as any)
     vi.stubGlobal(
       'fetch',
@@ -109,7 +115,29 @@ describe('LoginGate', () => {
 
     fireEvent.click(getByLabelText('Return to Home'))
 
-    expect(mocks.push).toHaveBeenCalledWith('/en')
+    expect(mocks.replace).toHaveBeenCalledWith('/en')
+  })
+
+  it('closes correctly when rendered in explicit login mode', () => {
+    window.history.replaceState({}, '', '/en/login?mode=login')
+
+    const { getByLabelText } = render(<LoginGate showBackLink={false} initialMode="login" />)
+
+    fireEvent.click(getByLabelText('Return to Home'))
+
+    expect(mocks.replace).toHaveBeenCalledWith('/en')
+  })
+
+  it('prefers the explicit onClose handler over router navigation', () => {
+    const onClose = vi.fn()
+    const { getByLabelText } = render(<LoginGate showBackLink={false} onClose={onClose} />)
+    const replaceCallsBeforeClick = mocks.replace.mock.calls.length
+
+    fireEvent.click(getByLabelText('Return to Home'))
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(mocks.push).not.toHaveBeenCalled()
+    expect(mocks.replace).toHaveBeenCalledTimes(replaceCallsBeforeClick)
   })
 
   it('does not render permissions controls on auth gate', () => {

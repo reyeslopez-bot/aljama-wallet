@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 function buildRequest(headers?: Record<string, string>) {
   return new Request('http://localhost/api/network-location', {
@@ -8,6 +8,12 @@ function buildRequest(headers?: Record<string, string>) {
 }
 
 describe('app/api/network-location route', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    delete (globalThis as { __aljamaNetworkLocationCache?: unknown }).__aljamaNetworkLocationCache
+    delete (globalThis as { __aljamaNetworkLocationInflight?: unknown }).__aljamaNetworkLocationInflight
+  })
+
   afterEach(() => {
     vi.unstubAllGlobals()
   })
@@ -41,40 +47,31 @@ describe('app/api/network-location route', () => {
     expect(res.headers.get('x-response-time-ms')).toBeTruthy()
   })
 
-  it('prefers explicit IPv4 geolocation when headers are missing', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: string | URL | Request) => {
-        const url = String(input)
+  it('prefers explicit request IP geolocation when headers are missing', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input)
 
-        if (url === 'https://api.ipify.org?format=json') {
-          return {
-            ok: true,
-            json: async () => ({ ip: '176.229.151.144' }),
-          }
+      if (url === 'https://ipwho.is/176.229.151.144') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            latitude: 32.0852999,
+            longitude: 34.7817676,
+            country_code: 'IL',
+            region: 'Tel Aviv District',
+            city: 'Tel Aviv-Yafo',
+            timezone: 'Asia/Jerusalem',
+          }),
         }
+      }
 
-        if (url === 'https://ipwho.is/176.229.151.144') {
-          return {
-            ok: true,
-            json: async () => ({
-              success: true,
-              latitude: 32.0852999,
-              longitude: 34.7817676,
-              country_code: 'IL',
-              region: 'Tel Aviv District',
-              city: 'Tel Aviv-Yafo',
-              timezone: 'Asia/Jerusalem',
-            }),
-          }
-        }
-
-        throw new Error(`Unexpected URL: ${url}`)
-      }),
-    )
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
 
     const { GET } = await import('@/app/api/network-location/route')
-    const res = await GET(buildRequest())
+    const res = await GET(buildRequest({ 'x-forwarded-for': '176.229.151.144' }))
 
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -88,6 +85,7 @@ describe('app/api/network-location route', () => {
       city: 'Tel Aviv-Yafo',
       timezone: 'Asia/Jerusalem',
     })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
   it('falls back to Dubai when location headers are missing', async () => {
@@ -105,5 +103,38 @@ describe('app/api/network-location route', () => {
       city: 'Dubai',
       timezone: 'Asia/Dubai',
     })
+  })
+
+  it('reuses cached network location results for repeated request IP lookups', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input)
+
+      if (url === 'https://ipwho.is/176.229.151.144') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            latitude: 32.0852999,
+            longitude: 34.7817676,
+            country_code: 'IL',
+            region: 'Tel Aviv District',
+            city: 'Tel Aviv-Yafo',
+            timezone: 'Asia/Jerusalem',
+          }),
+        }
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { GET } = await import('@/app/api/network-location/route')
+
+    const first = await GET(buildRequest({ 'x-forwarded-for': '176.229.151.144' }))
+    const second = await GET(buildRequest({ 'x-forwarded-for': '176.229.151.144' }))
+
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 })

@@ -38,6 +38,29 @@ class ApiRouteTimeoutError extends Error {
   }
 }
 
+function getRequestPath(req: Request) {
+  try {
+    return new URL(req.url).pathname
+  } catch {
+    return null
+  }
+}
+
+function buildApiLogDetails(
+  req: Request,
+  context: ApiRouteContext,
+  details?: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    requestId: context.requestId,
+    timeoutMs: context.timeoutMs,
+    durationMs: Math.max(0, Date.now() - context.startedAt),
+    method: req.method,
+    path: getRequestPath(req),
+    ...details,
+  }
+}
+
 function resolveRequestId(req: Request): string {
   const candidates = [req.headers.get('x-request-id'), req.headers.get('x-correlation-id')]
 
@@ -96,8 +119,7 @@ export function withApiRoute<TArgs extends unknown[]>(
     } catch (error) {
       if (error instanceof ApiRouteTimeoutError) {
         logWarn(options.scope, error, {
-          requestId: context.requestId,
-          timeoutMs: context.timeoutMs,
+          ...buildApiLogDetails(request, context),
         })
         return appendApiRouteHeaders(errorJson(504, 'request_timeout', 'REQUEST_TIMEOUT'), context)
       }
@@ -107,7 +129,7 @@ export function withApiRoute<TArgs extends unknown[]>(
         return appendApiRouteHeaders(response, context)
       }
 
-      logError(options.scope, error, { requestId: context.requestId })
+      logError(options.scope, error, buildApiLogDetails(request, context))
       return appendApiRouteHeaders(
         errorJson(
           500,

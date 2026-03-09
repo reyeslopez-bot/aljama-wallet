@@ -6,18 +6,28 @@ import { TelemetryContext } from '@/components/telemetry/TelemetryProvider.clien
 export function useComponentTelemetry(name: string, payload?: Record<string, unknown>) {
   const { track, consent } = useContext(TelemetryContext)
   const startRef = useRef<number | null>(null)
+  const trackRef = useRef(track)
+  const payloadRef = useRef(payload)
+
+  useEffect(() => {
+    trackRef.current = track
+  }, [track])
+
+  useEffect(() => {
+    payloadRef.current = payload
+  }, [payload])
 
   useEffect(() => {
     if (consent !== 'granted') return
     startRef.current = Date.now()
-    track('component_view', { name, ...payload })
+    trackRef.current('component_view', { name, ...(payloadRef.current ?? {}) })
 
     return () => {
       if (consent !== 'granted') return
       const started = startRef.current
       if (!started) return
       const durationMs = Date.now() - started
-      track('component_time', { name, durationMs, ...payload })
+      trackRef.current('component_time', { name, durationMs, ...(payloadRef.current ?? {}) })
     }
-  }, [consent, name, payload, track])
+  }, [consent, name])
 }

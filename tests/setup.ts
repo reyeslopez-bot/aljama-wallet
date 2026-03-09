@@ -25,9 +25,56 @@ vi.mock('next-intl', () => ({
 }))
 
 const gsapTween = () => ({ kill: vi.fn() })
+const gsapTimeline = () => {
+  const timeline = {
+    addLabel: vi.fn(() => timeline),
+    call: vi.fn((callback?: () => void) => {
+      if (typeof callback === 'function') callback()
+      return timeline
+    }),
+    from: vi.fn((_target: unknown, vars?: Record<string, unknown>) => {
+      const onUpdate = vars?.onUpdate
+      const onComplete = vars?.onComplete
+      if (typeof onUpdate === 'function') onUpdate()
+      if (typeof onComplete === 'function') onComplete()
+      return timeline
+    }),
+    fromTo: vi.fn((_target: unknown, _fromVars?: Record<string, unknown>, toVars?: Record<string, unknown>) => {
+      const onUpdate = toVars?.onUpdate
+      const onComplete = toVars?.onComplete
+      if (typeof onUpdate === 'function') onUpdate()
+      if (typeof onComplete === 'function') onComplete()
+      return timeline
+    }),
+    set: vi.fn(() => timeline),
+    to: vi.fn((_target: unknown, vars?: Record<string, unknown>) => {
+      const onUpdate = vars?.onUpdate
+      const onComplete = vars?.onComplete
+      if (typeof onUpdate === 'function') onUpdate()
+      if (typeof onComplete === 'function') onComplete()
+      return timeline
+    }),
+  }
+  return timeline
+}
 const gsapMock = {
+  context: vi.fn((callback: () => void) => {
+    callback()
+    return { revert: vi.fn() }
+  }),
   killTweensOf: vi.fn(),
+  quickTo: vi.fn((_target: unknown, _property: string, vars?: Record<string, unknown>) => {
+    const setter = vi.fn((_value: unknown) => {
+      const onUpdate = vars?.onUpdate
+      const onComplete = vars?.onComplete
+      if (typeof onUpdate === 'function') onUpdate()
+      if (typeof onComplete === 'function') onComplete()
+    })
+    return setter
+  }),
+  registerPlugin: vi.fn(),
   set: vi.fn(),
+  timeline: vi.fn(() => gsapTimeline()),
   to: vi.fn((_target: unknown, vars?: Record<string, unknown>) => {
     const onUpdate = vars?.onUpdate
     const onComplete = vars?.onComplete
@@ -42,6 +89,9 @@ const gsapMock = {
     if (typeof onComplete === 'function') onComplete()
     return gsapTween()
   }),
+  utils: {
+    toArray: vi.fn((selector: string) => Array.from(document.querySelectorAll(selector))),
+  },
   getProperty: vi.fn((_target: unknown, property: string) => (property === 'scale' ? 1 : 0)),
 }
 

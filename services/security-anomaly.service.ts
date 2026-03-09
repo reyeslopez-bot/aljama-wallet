@@ -543,6 +543,13 @@ const builtInRules: SecurityAnomalyRuleDefinition[] = [
     description: 'High request velocity from one IP/source pair over a sliding window.',
     evaluate: (ctx) => {
       if (!ctx.signal.ipHash) return null
+      if (
+        ctx.signal.source === 'telemetry.ingest' &&
+        ctx.signal.route === '/api/telemetry' &&
+        ctx.signal.outcome === 'success'
+      ) {
+        return null
+      }
 
       const windowMs = envInt('SECURITY_ANOMALY_VELOCITY_WINDOW_MS', DEFAULTS.velocityWindowMs)
       const threshold = envInt('SECURITY_ANOMALY_VELOCITY_THRESHOLD', DEFAULTS.velocityThreshold)
