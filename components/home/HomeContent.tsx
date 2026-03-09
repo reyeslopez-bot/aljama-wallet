@@ -38,7 +38,7 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
       data-testid="home-overview-section"
       aria-labelledby="home-overview-title"
       aria-describedby="home-overview-subtitle"
-      className={`relative scroll-mt-28 ${SURFACE} panel-glow-saffron overflow-hidden p-12 md:p-14`}
+      className={`relative scroll-mt-28 ${SURFACE} panel-glow-saffron overflow-hidden p-12 md:p-14 lg:min-h-[56rem]`}
     >
       <div className="absolute inset-x-10 top-6 ornament-line" />
       <div className="absolute right-10 top-10 h-20 w-20 rotate-12 rounded-[28px] border border-white/10 bg-white/5 opacity-40" />
@@ -57,16 +57,23 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
           {subtitle}
         </p>
 
-        <HomeActionButtons />
+        <div data-testid="home-overview-visual" className="space-y-6">
+          <HomeActionButtons />
 
-        <div className="grid gap-5 pt-6 sm:grid-cols-3" role="list" aria-label="Wallet highlights">
-          {statBlocks.map((stat) => (
-            <div key={stat.id} role="listitem" className={`${SURFACE_SOFT} p-5`}>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-saffron/80">{stat.label}</p>
-              <p className="mt-3 text-2xl font-semibold text-ivory">{stat.value}</p>
-              <p className="mt-2 text-sm leading-relaxed text-ivory/72">{stat.detail}</p>
-            </div>
-          ))}
+          <div
+            data-testid="home-overview-stat-grid"
+            className="grid gap-5 pt-2 sm:grid-cols-3"
+            role="list"
+            aria-label="Wallet highlights"
+          >
+            {statBlocks.map((stat) => (
+              <div key={stat.id} role="listitem" className={`${SURFACE_SOFT} p-5`}>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-saffron/80">{stat.label}</p>
+                <p className="mt-3 text-2xl font-semibold text-ivory">{stat.value}</p>
+                <p className="mt-2 text-sm leading-relaxed text-ivory/72">{stat.detail}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

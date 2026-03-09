@@ -125,6 +125,7 @@ const DUBAI_TIMEZONE = 'Asia/Dubai'
 const DUBAI_UTC_LABEL = 'UTC+04:00'
 const DRAG_IGNORE_SELECTOR = 'button, a, input, textarea, select, [role="button"]'
 const HOVER_EXPAND_BLOCK_SELECTOR = '[data-dynamic-info-card-hover-block="true"]'
+const HOVER_ENABLED_QUERY = '(hover: hover) and (pointer: fine)'
 
 type DragState = {
   pointerId: number | null
@@ -173,6 +174,7 @@ export default function DynamicInfoCard() {
   const [isLightTheme, setIsLightTheme] = useState(false)
   const [corner, setCorner] = useState<CardCorner>('top-right')
   const [isDragging, setIsDragging] = useState(false)
+  const [hoverExpansionEnabled, setHoverExpansionEnabled] = useState(false)
   const reduceMotion = usePrefersReducedMotion()
   const cardRef = useRef<HTMLElement | null>(null)
   const dragHandleRef = useRef<HTMLDivElement | null>(null)
@@ -217,6 +219,27 @@ export default function DynamicInfoCard() {
     setNow(getHomeNow())
     const intervalId = setInterval(() => setNow(getHomeNow()), 30_000)
     return () => clearInterval(intervalId)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+
+    const mediaQuery = window.matchMedia(HOVER_ENABLED_QUERY)
+    const syncHoverMode = () => {
+      const nextEnabled = mediaQuery.matches
+      setHoverExpansionEnabled(nextEnabled)
+      if (!nextEnabled) setHovered(false)
+    }
+
+    syncHoverMode()
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncHoverMode)
+      return () => mediaQuery.removeEventListener('change', syncHoverMode)
+    }
+
+    mediaQuery.addListener(syncHoverMode)
+    return () => mediaQuery.removeListener(syncHoverMode)
   }, [])
 
   useEffect(() => {
@@ -358,7 +381,7 @@ export default function DynamicInfoCard() {
     : selectedXrplNetwork.canResetWithoutWarning
       ? 'bg-amber-300'
       : 'bg-emerald-400'
-  const detailsExpanded = hovered || detailsPinned
+  const detailsExpanded = detailsPinned || (hoverExpansionEnabled && hovered)
   const cardCornerClass = useMemo(() => {
     if (corner === 'top-left') return 'left-4 top-20 sm:left-6 sm:top-24 lg:left-8 lg:top-24'
     if (corner === 'bottom-left') return 'bottom-4 left-4 sm:bottom-6 sm:left-6 lg:bottom-8 lg:left-8'
@@ -536,17 +559,18 @@ export default function DynamicInfoCard() {
 
   const handleMouseEnter = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => {
+      if (!hoverExpansionEnabled) return
       setHovered(shouldExpandFromHoverTarget(event.target))
     },
-    [shouldExpandFromHoverTarget],
+    [hoverExpansionEnabled, shouldExpandFromHoverTarget],
   )
 
   const handleMouseMove = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => {
-      if (detailsPinned) return
+      if (!hoverExpansionEnabled || detailsPinned) return
       setHovered(shouldExpandFromHoverTarget(event.target))
     },
-    [detailsPinned, shouldExpandFromHoverTarget],
+    [detailsPinned, hoverExpansionEnabled, shouldExpandFromHoverTarget],
   )
 
   return (
@@ -556,7 +580,10 @@ export default function DynamicInfoCard() {
       aria-label="Dynamic info card"
       onMouseEnter={handleMouseEnter}
       onMouseMove={handleMouseMove}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={() => {
+        if (!hoverExpansionEnabled) return
+        setHovered(false)
+      }}
       style={cardViewportStyle}
       className={`fixed z-50 overflow-hidden rounded-[18px] ${cardCornerClass}`}
     >

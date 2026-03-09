@@ -1,7 +1,6 @@
 /* globals.css */
 /* stylelint-disable at-rule-no-unknown */
 
-@import url("https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;600;700&family=Manrope:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 @import "mapbox-gl/dist/mapbox-gl.css";
@@ -32,10 +31,6 @@
    ========================================================= */
 
 :root {
-  /* Typography */
-  --font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
-  --font-display: "El Messiri", "Georgia", serif;
-
   /* Core palette */
   --foreground: 237 229 215; /* warm parchment */
   --foreground-muted: 190 176 160;

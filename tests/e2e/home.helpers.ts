@@ -217,6 +217,15 @@ async function getViewportRect(target: LocatorTarget) {
   })
 }
 
+async function waitForStableTypography(page: Page) {
+  await page.evaluate(async () => {
+    await document.fonts?.ready
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
+  })
+}
+
 export async function prepareMockedHome(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await mockAuthSession(page, UNAUTHENTICATED_SESSION)
@@ -303,6 +312,7 @@ export async function expectFullyInViewport(page: Page, target: LocatorTarget, l
   const viewport = page.viewportSize()
   expect(viewport).toBeTruthy()
   await expect(target).toBeVisible()
+  await waitForStableTypography(page)
 
   const rect = await getViewportRect(target)
   expect(rect.left, `${label}: left`).toBeGreaterThanOrEqual(-1)
@@ -312,6 +322,7 @@ export async function expectFullyInViewport(page: Page, target: LocatorTarget, l
 }
 
 export async function expectNoHorizontalOverflow(page: Page, label: string) {
+  await waitForStableTypography(page)
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,

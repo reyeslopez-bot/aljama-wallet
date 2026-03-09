@@ -58,7 +58,7 @@ test('home functional checks: text, color, and screenshots', async ({ page }, te
   await assertVisualBaseline(
     page,
     'home-overview',
-    page.getByTestId('home-overview-section'),
+    page.getByTestId('home-overview-visual'),
   )
   await attachLocatorScreenshot(testInfo, page, `home-full-page-${testInfo.project.name}`, 'page')
   await assertVisualBaseline(page, 'home-full-page', 'page')
