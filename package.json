@@ -26,6 +26,7 @@
     "test:e2e:visual:update": "playwright test tests/e2e/home.frontend.spec.ts --project=chromium --update-snapshots",
     "test:integration:xrpl": "cross-env NODE_ENV=test vitest --run tests/integration/xrpl.live.integration.test.ts",
     "test:frontend": "pnpm test:frontend:components && pnpm test:e2e",
+    "worker:chain-sync": "tsx services/chain-transaction-sync.worker.ts",
     "sync:check": "pnpm lint && pnpm typecheck && pnpm test:guardrails",
     "prisma:generate": "pnpm prisma:generate:crdb && pnpm prisma:generate:pg",
     "prisma:generate:crdb": "prisma generate --schema=prisma/crdb/schema.prisma",

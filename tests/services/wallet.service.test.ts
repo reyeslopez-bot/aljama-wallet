@@ -1,7 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockWalletCreate, mockWalletAddressUpsert, mockPolicyUpsert, mockTransaction } = vi.hoisted(() => ({
+const {
+  mockWalletCreate,
+  mockWalletFindMany,
+  mockWalletAddressFindMany,
+  mockWalletAddressUpsert,
+  mockPolicyUpsert,
+  mockTransaction,
+} = vi.hoisted(() => ({
   mockWalletCreate: vi.fn(),
+  mockWalletFindMany: vi.fn(),
+  mockWalletAddressFindMany: vi.fn(),
   mockWalletAddressUpsert: vi.fn(),
   mockPolicyUpsert: vi.fn(),
   mockTransaction: vi.fn(),
@@ -13,12 +22,12 @@ vi.mock('@/lib/prisma-crdb', () => ({
     wallet: {
       create: mockWalletCreate,
       findUnique: vi.fn(),
-      findMany: vi.fn(),
+      findMany: mockWalletFindMany,
       update: vi.fn(),
       delete: vi.fn(),
     },
     walletAddress: {
-      findMany: vi.fn(),
+      findMany: mockWalletAddressFindMany,
       upsert: mockWalletAddressUpsert,
     },
     policy: {
@@ -66,6 +75,8 @@ describe('wallet.service createWalletRecord', () => {
       vaultId: 'public',
       createdAt: new Date('2026-03-03T00:00:00Z'),
     })
+    mockWalletFindMany.mockResolvedValue([])
+    mockWalletAddressFindMany.mockResolvedValue([])
     mockWalletAddressUpsert.mockResolvedValue(undefined)
     mockPolicyUpsert.mockResolvedValue(undefined)
   })
@@ -102,5 +113,57 @@ describe('wallet.service createWalletRecord', () => {
     })
 
     expect(mockWalletCreate).toHaveBeenCalledTimes(1)
+  })
+
+  it('prefers wallet-address ownership over the primary wallet address for network-scoped lookups', async () => {
+    mockWalletFindMany.mockResolvedValue([
+      {
+        id: 'wallet-primary',
+        address: '0x000000000000000000000000000000000000bEEF',
+      },
+    ])
+    mockWalletAddressFindMany.mockResolvedValue([
+      {
+        walletId: 'wallet-wildcard',
+        address: '0x000000000000000000000000000000000000bEEF',
+        networkId: '*',
+      },
+      {
+        walletId: 'wallet-network-specific',
+        address: '0x000000000000000000000000000000000000bEEF',
+        networkId: '11155111',
+      },
+    ])
+
+    const { resolveWalletIdsByAddresses } = await import('@/services/wallet.service')
+    const walletIdByAddress = await resolveWalletIdsByAddresses({
+      addresses: ['0x000000000000000000000000000000000000beef'],
+      chainType: 'EVM',
+      networkId: '11155111',
+    })
+
+    expect(walletIdByAddress.get('0x000000000000000000000000000000000000bEEF')).toBe(
+      'wallet-network-specific',
+    )
+  })
+
+  it('falls back to the primary wallet address when no wallet-address row matches', async () => {
+    mockWalletFindMany.mockResolvedValue([
+      {
+        id: 'wallet-primary',
+        address: '0x000000000000000000000000000000000000bEEF',
+      },
+    ])
+
+    const { resolveWalletIdsByAddresses } = await import('@/services/wallet.service')
+    const walletIdByAddress = await resolveWalletIdsByAddresses({
+      addresses: ['0x000000000000000000000000000000000000beef'],
+      chainType: 'EVM',
+      networkId: '11155111',
+    })
+
+    expect(walletIdByAddress.get('0x000000000000000000000000000000000000bEEF')).toBe(
+      'wallet-primary',
+    )
   })
 })

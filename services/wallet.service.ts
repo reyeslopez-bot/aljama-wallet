@@ -281,6 +281,79 @@ export async function getWalletByChainAddress(input: {
   return selectWalletByAddress(input.address, input)
 }
 
+export async function resolveWalletIdsByAddresses(input: {
+  addresses: string[]
+  chainType?: SigningChain
+  networkId?: string | null
+}): Promise<Map<string, string>> {
+  const normalizedChainType = input.chainType ? normalizeSigningChain(input.chainType) : undefined
+  const normalizedNetworkId = input.networkId?.trim() || null
+  const uniqueAddresses = Array.from(
+    new Set(
+      input.addresses
+        .map((value) => {
+          const trimmed = value.trim()
+          if (!trimmed) return null
+
+          if (normalizedChainType && normalizedChainType !== 'EVM') {
+            return trimmed
+          }
+
+          try {
+            return normalizeAddress(trimmed)
+          } catch {
+            return trimmed
+          }
+        })
+        .filter((value): value is string => Boolean(value)),
+    ),
+  )
+
+  if (uniqueAddresses.length === 0) {
+    return new Map<string, string>()
+  }
+
+  const [walletRows, walletAddressRows] = await Promise.all([
+    prismaCrdb.wallet.findMany({
+      where: { address: { in: uniqueAddresses } },
+      select: { id: true, address: true },
+    }),
+    prismaCrdb.walletAddress.findMany({
+      where: {
+        address: { in: uniqueAddresses },
+        ...(normalizedChainType ? { chainType: normalizedChainType } : {}),
+        ...(normalizedNetworkId
+          ? { networkId: { in: [normalizedNetworkId, WALLET_ADDRESS_ANY_NETWORK] } }
+          : {}),
+      },
+      select: { walletId: true, address: true, networkId: true },
+    }),
+  ])
+
+  const walletIdByAddress = new Map<string, string>()
+  const prioritizedWalletAddressRows = normalizedNetworkId
+    ? walletAddressRows.sort((left, right) => {
+        const leftSpecificity = left.networkId === normalizedNetworkId ? 1 : 0
+        const rightSpecificity = right.networkId === normalizedNetworkId ? 1 : 0
+        return rightSpecificity - leftSpecificity
+      })
+    : walletAddressRows
+
+  for (const row of prioritizedWalletAddressRows) {
+    if (!walletIdByAddress.has(row.address)) {
+      walletIdByAddress.set(row.address, row.walletId)
+    }
+  }
+
+  for (const row of walletRows) {
+    if (!walletIdByAddress.has(row.address)) {
+      walletIdByAddress.set(row.address, row.id)
+    }
+  }
+
+  return walletIdByAddress
+}
+
 export async function getWalletByAccountRef(accountRef: string): Promise<SigningAccountRecord | null> {
   const normalized = accountRef.trim()
   if (!normalized) return null
@@ -455,6 +528,15 @@ export async function recordChainTransaction(params: {
   const nonce = normalizeNullableString(params.nonce)
   const normalizedStatus = normalizeChainTransactionStatus(params.status ?? 'broadcasted')
   const normalizedTxType = normalizeChainTransactionType(params.txType ?? 'transfer')
+  const normalizedToAddress = normalizeAddress(params.toAddress)
+  const resolvedToWalletId =
+    params.toWalletId === undefined
+      ? (await resolveWalletIdsByAddresses({
+          addresses: [normalizedToAddress],
+          chainType: 'EVM',
+          networkId,
+        })).get(normalizedToAddress) ?? null
+      : params.toWalletId
 
   const result = await prismaCrdb.$transaction(async (tx) => {
     let replacedTxHashes: string[] = []
@@ -510,9 +592,9 @@ export async function recordChainTransaction(params: {
         blockHeight: params.blockHeight ?? null,
         blockHash: normalizeNullableString(params.blockHash),
         fromWalletId: params.fromWalletId,
-        toWalletId: params.toWalletId ?? null,
+        toWalletId: resolvedToWalletId,
         fromAddress: normalizeAddress(params.fromAddress),
-        toAddress: normalizeAddress(params.toAddress),
+        toAddress: normalizedToAddress,
         data: normalizeNullableString(params.data),
         confirmedAt: params.confirmedAt ?? null,
         replacesTxHash,

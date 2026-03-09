@@ -6,6 +6,7 @@ import {
   replaceTransferAttemptsByTxHashes,
   updateTransferAttemptByTxHash,
 } from '@/services/transfer-log.service'
+import { resolveWalletIdsByAddresses } from '@/services/wallet.service'
 
 const ERC20_OR_ERC721_TRANSFER_TOPIC = keccak256(toUtf8Bytes('Transfer(address,address,uint256)'))
 const DROP_AFTER_MS = 10 * 60 * 1000
@@ -288,12 +289,11 @@ async function persistTokenTransfers(params: {
 
   if (transfers.length === 0) return
 
-  const addresses = Array.from(new Set(transfers.flatMap((transfer) => [transfer.fromAddress, transfer.toAddress])))
-  const walletRows = await prismaCrdb.wallet.findMany({
-    where: { address: { in: addresses } },
-    select: { id: true, address: true },
+  const walletByAddress = await resolveWalletIdsByAddresses({
+    addresses: transfers.flatMap((transfer) => [transfer.fromAddress, transfer.toAddress]),
+    chainType: 'EVM',
+    networkId: params.networkId,
   })
-  const walletByAddress = new Map(walletRows.map((row) => [row.address, row.id]))
 
   await prismaCrdb.$transaction(
     transfers.map((transfer) =>
