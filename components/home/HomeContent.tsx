@@ -14,6 +14,7 @@ import ClientTrackWallet from '@/infra/utils/ClientTrackWallet'
 import { BRAND } from '@/constants/brand'
 import DynamicInfoCard from '@/components/home/DynamicInfoCard.client'
 import HomeMotionScene from '@/components/home/HomeMotionScene.client'
+import HomeStageShell from '@/components/home/HomeStageShell.client'
 import { useTranslations } from 'next-intl'
 
 const SURFACE = 'surface-panel'
@@ -333,19 +334,22 @@ export default function HomeContent() {
     >
       <HomeMotionScene />
       <ClientTrackWallet />
-      <DynamicInfoCard />
 
-      <HeroOverviewSection
-        title={tHome('hero.title')}
-        subtitle={tHome('hero.subtitle')}
-        statBlocks={statBlocks}
-      />
-      <RegionAndComplianceSection />
-      <WalletAccessSection />
-      <XrplSection />
-      <TradeDeskSection />
-      <ShareSection />
-      <FooterCopyright />
+      <HomeStageShell>
+        <DynamicInfoCard />
+
+        <HeroOverviewSection
+          title={tHome('hero.title')}
+          subtitle={tHome('hero.subtitle')}
+          statBlocks={statBlocks}
+        />
+        <RegionAndComplianceSection />
+        <WalletAccessSection />
+        <XrplSection />
+        <TradeDeskSection />
+        <ShareSection />
+        <FooterCopyright />
+      </HomeStageShell>
     </div>
   )
 }

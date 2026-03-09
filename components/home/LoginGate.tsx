@@ -7,6 +7,7 @@ import { signIn } from "next-auth/react"
 import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion"
+import { useGateSceneMotion } from "@/hooks/useGateSceneMotion"
 import { hasRecognizedDevice } from "@/infra/telemetry/client"
 import { logWarn } from "@/lib/security/logging"
 import { persistProfileImageForUsername } from "@/lib/storage/profileImage"
@@ -85,135 +86,37 @@ export default function LoginGate({
   const passwordFieldId = "secure-gate-password"
   const profileImageFieldId = "secure-gate-profile-image"
 
+  useGateSceneMotion({
+    rootRef,
+    panelRef,
+    reduceMotion,
+    selectors: {
+      stage: "[data-secure-stage]",
+      core: "[data-secure-core]",
+      auras: "[data-secure-aura]",
+      lines: "[data-secure-line]",
+      introGroups: ["[data-secure-door]", "[data-secure-chip]", "[data-secure-lang]"],
+    },
+    intro: {
+      panelY: 34,
+      stageY: 20,
+      stageScale: 0.95,
+      auraScale: 0.72,
+    },
+    parallax: {
+      stageX: 10,
+      stageY: 6,
+      panelRotateX: 2.8,
+      panelRotateY: 3.8,
+      coreX: 10,
+      coreY: 8,
+    },
+  })
+
   React.useEffect(() => {
-    if (!rootRef.current || reduceMotion) return
-
-    let cleanupPointer = () => {}
-    const setupScene = () => {
-      const panel = panelRef.current
-      const stage = rootRef.current?.querySelector<HTMLElement>("[data-secure-stage]")
-      const core = rootRef.current?.querySelector<HTMLElement>("[data-secure-core]")
-      const doors = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-secure-door]") ?? [])
-      const chips = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-secure-chip]") ?? [])
-      const languages = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-secure-lang]") ?? [])
-      const stageLines = Array.from(rootRef.current?.querySelectorAll<SVGPathElement>("[data-secure-line]") ?? [])
-      const auras = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-secure-aura]") ?? [])
-
-      if (panel) {
-        gsap.set(panel, {
-          transformPerspective: 1200,
-          transformOrigin: "50% 50%",
-        })
-      }
-
-      const intro = gsap.timeline({ defaults: { ease: "power3.out" } })
-
-      if (panel) {
-        intro.from(panel, { autoAlpha: 0, y: 34, scale: 0.97, duration: 0.95 })
-      }
-      if (stage) {
-        intro.from(stage, { autoAlpha: 0, y: 20, scale: 0.95, duration: 0.88 }, "<0.12")
-      }
-      if (auras.length > 0) {
-        intro.from(auras, { autoAlpha: 0, scale: 0.72, duration: 0.85, stagger: 0.06 }, "<0.04")
-      }
-      if (stageLines.length > 0) {
-        intro.from(
-          stageLines,
-          { scaleX: 0, transformOrigin: "50% 50%", duration: 0.84, stagger: 0.04 },
-          "<0.06",
-        )
-      }
-      if (doors.length > 0) {
-        intro.from(
-          doors,
-          {
-            autoAlpha: 0,
-            x: (index: number) => (index === 0 ? -24 : 24),
-            scaleY: 0.88,
-            duration: 0.56,
-            stagger: 0.06,
-          },
-          "<0.08",
-        )
-      }
-      if (chips.length > 0) {
-        intro.from(chips, { autoAlpha: 0, y: -10, duration: 0.42, stagger: 0.04 }, "<0.02")
-      }
-      if (languages.length > 0) {
-        intro.from(languages, { autoAlpha: 0, y: -8, duration: 0.35, stagger: 0.04 }, "<0.02")
-      }
-      if (formRef.current) {
-        intro.from(
-          Array.from(formRef.current.children),
-          { autoAlpha: 0, y: 12, duration: 0.4, stagger: 0.03 },
-          "-=0.22",
-        )
-      }
-
-      auras.forEach((node, index) => {
-        gsap.to(node, {
-          rotate: index % 2 === 0 ? 360 : -360,
-          duration: 40 + index * 10,
-          ease: "none",
-          repeat: -1,
-        })
-      })
-
-      if (!panel || !stage || !core) return
-
-      if (typeof gsap.quickTo !== "function") return
-
-      const stageXTo = gsap.quickTo(stage, "x", { duration: 0.45, ease: "power3.out" })
-      const stageYTo = gsap.quickTo(stage, "y", { duration: 0.45, ease: "power3.out" })
-      const panelRotateXTo = gsap.quickTo(panel, "rotationX", { duration: 0.6, ease: "power3.out" })
-      const panelRotateYTo = gsap.quickTo(panel, "rotationY", { duration: 0.6, ease: "power3.out" })
-      const coreXTo = gsap.quickTo(core, "x", { duration: 0.5, ease: "power3.out" })
-      const coreYTo = gsap.quickTo(core, "y", { duration: 0.5, ease: "power3.out" })
-
-      const handlePointerMove = (event: PointerEvent) => {
-        const bounds = panel.getBoundingClientRect()
-        const offsetX = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2
-        const offsetY = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2
-
-        stageXTo(offsetX * 10)
-        stageYTo(offsetY * 6)
-        panelRotateXTo(-offsetY * 2.8)
-        panelRotateYTo(offsetX * 3.8)
-        coreXTo(offsetX * 10)
-        coreYTo(offsetY * 8)
-      }
-
-      const handlePointerLeave = () => {
-        stageXTo(0)
-        stageYTo(0)
-        panelRotateXTo(0)
-        panelRotateYTo(0)
-        coreXTo(0)
-        coreYTo(0)
-      }
-
-      panel.addEventListener("pointermove", handlePointerMove)
-      panel.addEventListener("pointerleave", handlePointerLeave)
-
-      cleanupPointer = () => {
-        panel.removeEventListener("pointermove", handlePointerMove)
-        panel.removeEventListener("pointerleave", handlePointerLeave)
-      }
-    }
-
-    if (typeof gsap.context === "function") {
-      const ctx = gsap.context(setupScene, rootRef)
-      return () => {
-        cleanupPointer()
-        ctx.revert()
-      }
-    }
-
-    setupScene()
-    return () => {
-      cleanupPointer()
-    }
+    if (!rootRef.current || reduceMotion || !formRef.current || typeof gsap.from !== 'function') return
+    const children = Array.from(formRef.current.children)
+    gsap.from(children, { autoAlpha: 0, y: 12, duration: 0.4, stagger: 0.03, delay: 0.28 })
   }, [reduceMotion])
 
   React.useEffect(() => {
