@@ -27,7 +27,12 @@ function buildRoutePath(points: Array<{ x: number; y: number }>): string {
 
 function setDrawState(path: SVGPathElement | null) {
   if (!path) return 0
-  const length = path.getTotalLength()
+  let length = 0
+  try {
+    length = path.getTotalLength()
+  } catch {
+    return 0
+  }
   gsap.set(path, {
     strokeDasharray: length,
     strokeDashoffset: length,
@@ -35,11 +40,22 @@ function setDrawState(path: SVGPathElement | null) {
   return length
 }
 
+function getPathPoint(path: SVGPathElement | null, distance: number) {
+  if (!path) return null
+  try {
+    return path.getPointAtLength(distance)
+  } catch {
+    return null
+  }
+}
+
 export default function HomeMotionScene() {
   const sceneRef = useRef<HTMLDivElement | null>(null)
   const pageRouteSvgRef = useRef<SVGSVGElement | null>(null)
   const pageRouteGlowRef = useRef<SVGPathElement | null>(null)
   const pageRoutePathRef = useRef<SVGPathElement | null>(null)
+  const pageRouteActiveRef = useRef<SVGPathElement | null>(null)
+  const pageRouteSignalRef = useRef<HTMLDivElement | null>(null)
   const pageRouteNodeRefs = useRef<Array<HTMLDivElement | null>>([])
   const reduceMotion = usePrefersReducedMotion()
 
@@ -75,9 +91,62 @@ export default function HomeMotionScene() {
 
       let resizeFrame = 0
       let routeDrawCompleted = false
+      let routeProgress = 0
+      let routeActiveLength = 0
+
+      const updateRouteProgress = (progress: number) => {
+        routeProgress = Math.max(0, Math.min(progress, 1))
+
+        if (pageRouteActiveRef.current && routeActiveLength > 0) {
+          gsap.set(pageRouteActiveRef.current, {
+            autoAlpha: routeProgress > 0.01 ? 1 : 0,
+            strokeDashoffset: routeActiveLength * (1 - routeProgress),
+          })
+        }
+
+        const activePoint = routeActiveLength > 0
+          ? getPathPoint(pageRouteActiveRef.current, routeActiveLength * routeProgress)
+          : null
+
+        if (pageRouteSignalRef.current) {
+          if (!activePoint) {
+            gsap.set(pageRouteSignalRef.current, { autoAlpha: 0 })
+          } else {
+            gsap.set(pageRouteSignalRef.current, {
+              autoAlpha: 1,
+              x: activePoint.x,
+              y: activePoint.y,
+              xPercent: -50,
+              yPercent: -50,
+            })
+          }
+        }
+
+        routeNodes.forEach((node, index) => {
+          const distance = Math.abs(routeProgress * Math.max(routeNodes.length - 1, 1) - index)
+          const intensity = Math.max(0.24, 0.72 - distance * 0.22)
+          gsap.set(node, {
+            autoAlpha: intensity,
+            scale: distance < 0.55 ? 1.02 : 0.84,
+          })
+        })
+
+        pageNodeHalos.forEach((node, index) => {
+          const distance = Math.abs(routeProgress * Math.max(pageNodeHalos.length - 1, 1) - index)
+          gsap.set(node, {
+            opacity: distance < 0.55 ? 0.28 : 0.08,
+            scale: distance < 0.55 ? 1.62 : 1,
+          })
+        })
+      }
 
       const layoutPageRoute = () => {
-        if (!pageRouteSvgRef.current || !pageRoutePathRef.current || !pageRouteGlowRef.current) {
+        if (
+          !pageRouteSvgRef.current ||
+          !pageRoutePathRef.current ||
+          !pageRouteGlowRef.current ||
+          !pageRouteActiveRef.current
+        ) {
           return
         }
 
@@ -113,6 +182,7 @@ export default function HomeMotionScene() {
 
         pageRouteGlowRef.current.setAttribute('d', mainPath)
         pageRoutePathRef.current.setAttribute('d', mainPath)
+        pageRouteActiveRef.current.setAttribute('d', mainPath)
 
         routeNodes.forEach((node, index) => {
           const point = points[index]
@@ -131,9 +201,11 @@ export default function HomeMotionScene() {
 
         setDrawState(pageRouteGlowRef.current)
         setDrawState(pageRoutePathRef.current)
+        routeActiveLength = setDrawState(pageRouteActiveRef.current)
         if (routeDrawCompleted) {
           gsap.set([pageRouteGlowRef.current, pageRoutePathRef.current], { strokeDashoffset: 0 })
         }
+        updateRouteProgress(routeProgress)
       }
 
       const handleResize = () => {
@@ -162,11 +234,15 @@ export default function HomeMotionScene() {
         gsap.set(motionNodes, {
           clearProps: 'opacity,visibility,transform',
         })
-        gsap.set([heroRoutePath, heroRouteGlow, pageRoutePathRef.current, pageRouteGlowRef.current], {
+        gsap.set(
+          [heroRoutePath, heroRouteGlow, pageRoutePathRef.current, pageRouteGlowRef.current, pageRouteActiveRef.current],
+          {
           strokeDasharray: 'none',
           strokeDashoffset: 0,
-        })
+          },
+        )
         layoutPageRoute()
+        updateRouteProgress(1)
         return () => {
           cancelAnimationFrame(resizeFrame)
         }
@@ -325,6 +401,7 @@ export default function HomeMotionScene() {
       }
       introTimeline.call(() => {
         routeDrawCompleted = true
+        updateRouteProgress(routeProgress)
       })
 
       scrollSections.forEach((node, index) => {
@@ -448,6 +525,17 @@ export default function HomeMotionScene() {
         },
       )
 
+      ScrollTrigger.create({
+        id: 'home-page-route-progress',
+        trigger: scope,
+        start: 'top top',
+        end: 'bottom bottom',
+        scrub: true,
+        onUpdate: (self) => {
+          updateRouteProgress(self.progress)
+        },
+      })
+
       ScrollTrigger.refresh()
 
       cleanupRouteLayout = () => {
@@ -497,6 +585,13 @@ export default function HomeMotionScene() {
             strokeWidth="2.2"
             strokeLinecap="round"
           />
+          <path
+            ref={pageRouteActiveRef}
+            className="home-page-route-active"
+            stroke="url(#home-page-route-gradient)"
+            strokeWidth="4.6"
+            strokeLinecap="round"
+          />
         </svg>
 
         {ROUTE_STOP_IDS.map((id, index) => (
@@ -513,6 +608,11 @@ export default function HomeMotionScene() {
             <span className="home-page-route-node-core" />
           </div>
         ))}
+
+        <div ref={pageRouteSignalRef} className="home-page-route-signal absolute left-0 top-0">
+          <span className="home-page-route-signal-halo" />
+          <span className="home-page-route-signal-core" />
+        </div>
       </div>
 
       <div

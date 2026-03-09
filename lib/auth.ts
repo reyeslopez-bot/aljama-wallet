@@ -5,6 +5,7 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prismaPg } from '@/lib/prisma-pg'
 import { findUserByIdentifier, usePgAuth } from '@/lib/auth/store'
 import { logError, logWarn } from '@/lib/security/logging'
+import { rateLimit } from '@/lib/security/rate-limit'
 import { isStrictMode } from '@/lib/security/runtime'
 
 const usePg = usePgAuth()
@@ -21,6 +22,37 @@ if (isStrictMode && !configuredNextAuthSecret) {
 }
 
 const nextAuthSecret = configuredNextAuthSecret || devNextAuthSecret
+const AUTH_LOGIN_RATE_LIMIT = {
+  bucket: 'auth-login',
+  limit: 8,
+  windowMs: 60_000,
+} as const
+
+function normalizeForwardedIp(rawValue: string | string[] | undefined): string | null {
+  if (Array.isArray(rawValue)) {
+    return normalizeForwardedIp(rawValue[0])
+  }
+  if (typeof rawValue !== 'string') return null
+  const first = rawValue.split(',')[0]?.trim()
+  return first || null
+}
+
+function buildCredentialRateLimitKey(
+  identifier: string,
+  req?: { headers?: Headers | Record<string, string | string[] | undefined> } | null,
+) {
+  const headers = req?.headers
+  const forwardedIp =
+    headers instanceof Headers
+      ? normalizeForwardedIp(headers.get('x-forwarded-for') ?? headers.get('x-real-ip') ?? undefined)
+      : normalizeForwardedIp(headers?.['x-forwarded-for'] ?? headers?.['x-real-ip'])
+
+  if (forwardedIp) {
+    return `principal:${identifier}:ip:${forwardedIp}`
+  }
+
+  return `principal:${identifier}`
+}
 
 if (usingImplicitDevSecretFallback && !globalForAuth.nextAuthDevSecretFallbackWarningLogged) {
   globalForAuth.nextAuthDevSecretFallbackWarningLogged = true
@@ -40,11 +72,25 @@ export const authOptions: NextAuthOptions = {
         identifier: { label: 'Username or email', type: 'text', placeholder: 'username or you@company.com' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         const identifier = (credentials?.identifier ?? '').trim().toLowerCase()
         const password = credentials?.password ?? ''
 
         if (!identifier || !password) return null
+
+        const limit = await rateLimit({
+          ...AUTH_LOGIN_RATE_LIMIT,
+          key: buildCredentialRateLimitKey(identifier, req),
+        })
+
+        if (!limit.ok) {
+          logWarn('next-auth:credentials-rate-limit', {
+            message: 'Credentials login attempt blocked by rate limit',
+            identifierKind: identifier.includes('@') ? 'email' : 'username',
+            retryAfter: limit.retryAfter,
+          })
+          return null
+        }
 
         const user = await findUserByIdentifier(identifier)
 

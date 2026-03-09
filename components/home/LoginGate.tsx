@@ -3,11 +3,12 @@
 import * as React from "react"
 import { gsap } from "gsap"
 import Image from "next/image"
-import { signIn, useSession } from "next-auth/react"
+import { signIn } from "next-auth/react"
 import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion"
 import { hasRecognizedDevice } from "@/infra/telemetry/client"
+import { logWarn } from "@/lib/security/logging"
 import { persistProfileImageForUsername } from "@/lib/storage/profileImage"
 
 type Props = {
@@ -40,7 +41,6 @@ export default function LoginGate({
   const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
-  const { status: sessionStatus } = useSession()
   const rootRef = React.useRef<HTMLDivElement | null>(null)
   const panelRef = React.useRef<HTMLDivElement | null>(null)
   const formRef = React.useRef<HTMLFormElement | null>(null)
@@ -289,11 +289,6 @@ export default function LoginGate({
   }, [mode, reduceMotion])
 
   React.useEffect(() => {
-    if (sessionStatus !== "authenticated") return
-    router.replace(`/${locale}`)
-  }, [locale, router, sessionStatus])
-
-  React.useEffect(() => {
     setMode(initialMode)
   }, [initialMode])
 
@@ -303,6 +298,53 @@ export default function LoginGate({
     if (hasExplicitMode) return
     setMode(hasRecognizedDevice() ? "login" : "register")
   }, [])
+
+  const navigateHome = React.useCallback(
+    (method: "push" | "replace", reason: string) => {
+      const fallbackHref = `/${locale}`
+      const navigateWindow = () => {
+        if (typeof window === "undefined") return
+        const targetUrl = new URL(fallbackHref, window.location.origin).toString()
+        const isJsDom = /jsdom/i.test(window.navigator.userAgent)
+        if (isJsDom) return
+        if (method === "replace") {
+          window.location.replace(targetUrl)
+          return
+        }
+        window.location.assign(targetUrl)
+      }
+
+      try {
+        if (method === "replace") {
+          router.replace(fallbackHref)
+        } else {
+          router.push(fallbackHref)
+        }
+      } catch (error) {
+        logWarn("login-gate:navigate", error, {
+          fallbackHref,
+          pathname,
+          mode,
+          method,
+          reason,
+        })
+        navigateWindow()
+        return
+      }
+
+      if (typeof window !== "undefined") {
+        const isJsDom = /jsdom/i.test(window.navigator.userAgent)
+        if (isJsDom) return
+
+        window.setTimeout(() => {
+          if (window.location.pathname.includes("/login")) {
+            navigateWindow()
+          }
+        }, 64)
+      }
+    },
+    [locale, mode, pathname, router],
+  )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -364,6 +406,8 @@ export default function LoginGate({
             message = t("emailExists")
           } else if (body?.code === "username_exists") {
             message = t("usernameExists")
+          } else if (body?.code === "rate_limited") {
+            message = t("rateLimited")
           } else if (body?.code === "invalid_email") {
             message = t("emailInvalid")
           } else if (body?.code === "invalid_profile_image") {
@@ -398,7 +442,19 @@ export default function LoginGate({
         return
       }
 
-      router.push(`/${locale}`)
+      navigateHome("push", "auth_success")
+    } catch (error) {
+      logWarn("login-gate:submit", error, {
+        pathname,
+        mode,
+        identifier: mode === "register" ? normalizedUsername : normalizedIdentifier,
+      })
+
+      if (mode === "register") {
+        setError(t("registerServiceUnavailable"))
+      } else {
+        setError(t("loginServiceUnavailable"))
+      }
     } finally {
       setBusy(false)
     }
@@ -449,20 +505,8 @@ export default function LoginGate({
       return
     }
 
-    const fallbackHref = `/${locale}`
-    router.replace(fallbackHref)
-
-    if (typeof window !== "undefined") {
-      const isJsDom = /jsdom/i.test(window.navigator.userAgent)
-      if (isJsDom) return
-
-      window.setTimeout(() => {
-        if (window.location.pathname.includes("/login")) {
-          window.location.assign(fallbackHref)
-        }
-      }, 64)
-    }
-  }, [locale, onClose, router])
+    navigateHome("replace", "close_gate")
+  }, [navigateHome, onClose])
 
   return (
     <div
