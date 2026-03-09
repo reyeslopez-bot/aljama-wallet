@@ -12,11 +12,13 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
   pathname: '/en',
+  search: '',
 }))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mocks.push, replace: mocks.replace }),
   usePathname: () => mocks.pathname,
+  useSearchParams: () => new URLSearchParams(mocks.search),
 }))
 
 describe('HomeConsentGate', () => {
@@ -74,36 +76,42 @@ describe('HomeConsentGate', () => {
     localStorage.clear()
     sessionStorage.clear()
     vi.clearAllMocks()
+    mocks.pathname = '/en'
+    mocks.search = ''
   })
 
-  it('shows secure gate when session consent is not answered', async () => {
-    const { queryByText, getByTestId } = render(
+  it('redirects to the consent route when session consent is not answered', async () => {
+    const { queryByText, queryByTestId } = render(
       <HomeConsentGate>
         <div>home-content</div>
       </HomeConsentGate>,
     )
 
     await waitFor(() => {
-      expect(getByTestId('consent-gate-root')).toBeTruthy()
+      expect(mocks.replace).toHaveBeenCalledWith('/en/consent?next=%2Fen')
     })
     expect(queryByText('home-content')).toBeNull()
+    expect(queryByTestId('consent-gate-root')).toBeNull()
   })
 
-  it('still gates when consent exists but continue-to-site was not completed', async () => {
+  it('preserves the current query string when redirecting to consent', async () => {
     window.localStorage.setItem('aljama.telemetry.consent', 'denied')
     window.localStorage.setItem('aljama.location.consent', 'denied')
     window.sessionStorage.setItem(CONSENT_PROMPT_SESSION_KEY, 'seen')
+    mocks.pathname = '/en/compliance'
+    mocks.search = 'source=nav'
 
-    const { queryByText, getByTestId } = render(
+    const { queryByText, queryByTestId } = render(
       <HomeConsentGate>
         <div>home-content</div>
       </HomeConsentGate>,
     )
 
     await waitFor(() => {
-      expect(getByTestId('consent-gate-root')).toBeTruthy()
+      expect(mocks.replace).toHaveBeenCalledWith('/en/consent?next=%2Fen%2Fcompliance%3Fsource%3Dnav')
     })
     expect(queryByText('home-content')).toBeNull()
+    expect(queryByTestId('consent-gate-root')).toBeNull()
   })
 
   it('renders children when permissions were answered in this session', async () => {
@@ -122,5 +130,6 @@ describe('HomeConsentGate', () => {
       expect(queryByText('home-content')).not.toBeNull()
     })
     expect(queryByTestId('consent-gate-root')).toBeNull()
+    expect(mocks.replace).not.toHaveBeenCalled()
   })
 })

@@ -9,11 +9,13 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
   pathname: '/en/login',
+  search: '',
 }))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mocks.push, replace: mocks.replace }),
   usePathname: () => mocks.pathname,
+  useSearchParams: () => new URLSearchParams(mocks.search),
 }))
 
 import LoginGate from '@/components/home/LoginGate'
@@ -76,6 +78,7 @@ describe('LoginGate', () => {
 
     vi.clearAllMocks()
     mocks.pathname = '/en/login'
+    mocks.search = ''
     mockedSignIn.mockResolvedValue({ error: null, ok: true } as any)
     vi.stubGlobal(
       'fetch',
@@ -99,6 +102,18 @@ describe('LoginGate', () => {
 
     expect(mocks.push).toHaveBeenNthCalledWith(1, '/he/login')
     expect(mocks.push).toHaveBeenNthCalledWith(2, '/ar/login')
+  })
+
+  it('preserves the auth mode query when switching locale', async () => {
+    const human = createHuman()
+    mocks.search = 'mode=login'
+    window.history.replaceState({}, '', '/en/login?mode=login')
+
+    const { getByRole } = render(<LoginGate showBackLink={false} initialMode="login" />)
+
+    await human.click(getByRole('button', { name: 'HE' }), HUMAN_DELAYS.mediumSettle)
+
+    expect(mocks.push).toHaveBeenCalledWith('/he/login?mode=login')
   })
 
   it('shows sign-up subtitle in register mode', () => {

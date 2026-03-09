@@ -3,8 +3,9 @@
 import * as React from "react"
 import Image from "next/image"
 import { signIn } from "next-auth/react"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
+import { replacePathLocale } from "@/i18n/routing"
 import { hasRecognizedDevice } from "@/infra/telemetry/client"
 import { logWarn } from "@/lib/security/logging"
 import { persistProfileImageForUsername } from "@/lib/storage/profileImage"
@@ -39,6 +40,7 @@ export default function LoginGate({
   const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   const [identifier, setIdentifier] = React.useState("")
   const [username, setUsername] = React.useState("")
@@ -334,13 +336,9 @@ export default function LoginGate({
               key={language.value}
               type="button"
               onClick={() => {
-                const segments = pathname.split('/')
-                if (segments.length > 1) {
-                  segments[1] = language.value
-                } else {
-                  segments.push(language.value)
-                }
-                router.push(segments.join('/') || `/${language.value}`)
+                const targetPath = replacePathLocale(pathname, language.value)
+                const query = searchParams.toString()
+                router.push(query ? `${targetPath}?${query}` : targetPath)
               }}
               className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-[0.16em] transition ${
                 locale === language.value

@@ -2,11 +2,13 @@
 
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import ConsentEntryGate from '@/components/home/ConsentEntryGate.client'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import {
   CONSENT_PROMPT_SESSION_KEY,
   CONSENT_SITE_ENTRY_SESSION_KEY,
 } from '@/infra/consent/constants'
+import { buildConsentHref } from '@/infra/consent/routing'
 import {
   getTelemetryConsent,
   onTelemetryConsentChange,
@@ -18,7 +20,12 @@ type HomeConsentGateProps = {
 }
 
 export default function HomeConsentGate({ children }: HomeConsentGateProps) {
+  const locale = useLocale()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [hasAnsweredPermissions, setHasAnsweredPermissions] = useState(false)
+  const [isCheckingConsent, setIsCheckingConsent] = useState(true)
 
   useEffect(() => {
     const hasSeenPromptThisSession = () => {
@@ -38,7 +45,15 @@ export default function HomeConsentGate({ children }: HomeConsentGateProps) {
         locationConsent !== 'unset' &&
         hasSeenPromptThisSession() &&
         hasEnteredSiteThisSession()
+
       setHasAnsweredPermissions(answered)
+      setIsCheckingConsent(false)
+
+      if (!answered) {
+        const search = searchParams.toString()
+        const nextPath = search ? `${pathname}?${search}` : pathname
+        router.replace(buildConsentHref(locale, nextPath))
+      }
     }
 
     sync()
@@ -53,10 +68,10 @@ export default function HomeConsentGate({ children }: HomeConsentGateProps) {
       window.removeEventListener('focus', sync)
       window.removeEventListener('storage', sync)
     }
-  }, [])
+  }, [locale, pathname, router, searchParams])
 
-  if (!hasAnsweredPermissions) {
-    return <ConsentEntryGate />
+  if (isCheckingConsent || !hasAnsweredPermissions) {
+    return null
   }
 
   return <>{children}</>

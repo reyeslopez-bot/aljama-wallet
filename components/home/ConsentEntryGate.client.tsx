@@ -1,8 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
+import { replacePathLocale } from "@/i18n/routing"
 import { setLocationConsent, getLocationConsent } from "@/infra/location/client"
 import { getTelemetryConsent, setTelemetryConsent } from "@/infra/telemetry/client"
 import {
@@ -10,6 +11,7 @@ import {
   CONSENT_PROMPT_SESSION_KEY,
   CONSENT_SITE_ENTRY_SESSION_KEY,
 } from "@/infra/consent/constants"
+import { resolveConsentReturnPath } from "@/infra/consent/routing"
 
 type ConsentPreset = "rejectAll" | "essentialOnly" | "allowAll"
 
@@ -24,6 +26,7 @@ export default function ConsentEntryGate() {
   const tAuth = useTranslations("auth")
   const locale = useLocale()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
 
   const [consentPreset, setConsentPreset] = React.useState<ConsentPreset>("essentialOnly")
@@ -64,17 +67,20 @@ export default function ConsentEntryGate() {
   }, [])
 
   const optionalServicesEnabled = consentPreset === "allowAll"
-
+  const nextPath = React.useMemo(
+    () => resolveConsentReturnPath(locale, searchParams.get("next")),
+    [locale, searchParams],
+  )
   const handleContinue = React.useCallback(async () => {
     if (busy) return
     setBusy(true)
     try {
       applyConsentPreset(consentPreset)
-      router.push(`/${locale}`)
+      router.push(nextPath)
     } finally {
       setBusy(false)
     }
-  }, [applyConsentPreset, busy, consentPreset, locale, router])
+  }, [applyConsentPreset, busy, consentPreset, nextPath, router])
 
   return (
     <div
@@ -93,13 +99,14 @@ export default function ConsentEntryGate() {
               key={language.value}
               type="button"
               onClick={() => {
-                const segments = pathname.split("/")
-                if (segments.length > 1) {
-                  segments[1] = language.value
-                } else {
-                  segments.push(language.value)
+                const params = new URLSearchParams(searchParams.toString())
+                const next = params.get("next")
+                if (next) {
+                  params.set("next", replacePathLocale(next, language.value))
                 }
-                router.push(segments.join("/") || `/${language.value}`)
+                const targetPath = replacePathLocale(pathname, language.value)
+                const query = params.toString()
+                router.push(query ? `${targetPath}?${query}` : targetPath)
               }}
               className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-[0.16em] transition ${
                 locale === language.value
