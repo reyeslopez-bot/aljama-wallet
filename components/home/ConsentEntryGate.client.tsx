@@ -5,6 +5,7 @@ import { gsap } from "gsap"
 import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion"
+import { useGateSceneMotion } from "@/hooks/useGateSceneMotion"
 import { setLocationConsent, getLocationConsent } from "@/infra/location/client"
 import { getTelemetryConsent, setTelemetryConsent } from "@/infra/telemetry/client"
 import {
@@ -70,124 +71,32 @@ export default function ConsentEntryGate() {
   }, [])
 
   const optionalServicesEnabled = consentPreset === "allowAll"
-
-  React.useEffect(() => {
-    if (!rootRef.current || reduceMotion) return
-
-    let cleanupPointer = () => {}
-    const setupScene = () => {
-      const panel = panelRef.current
-      const stage = rootRef.current?.querySelector<HTMLElement>("[data-consent-stage]")
-      const core = rootRef.current?.querySelector<HTMLElement>("[data-consent-core]")
-      const halos = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-consent-aura]") ?? [])
-      const rails = Array.from(rootRef.current?.querySelectorAll<SVGPathElement>("[data-consent-rail]") ?? [])
-      const nodes = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-consent-node]") ?? [])
-      const pills = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-consent-pill]") ?? [])
-      const choices = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-consent-choice]") ?? [])
-      const languages = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-consent-lang]") ?? [])
-
-      if (panel) {
-        gsap.set(panel, {
-          transformPerspective: 1200,
-          transformOrigin: "50% 50%",
-        })
-      }
-
-      const intro = gsap.timeline({ defaults: { ease: "power3.out" } })
-
-      if (panel) {
-        intro.from(panel, { autoAlpha: 0, y: 30, scale: 0.97, duration: 0.95 })
-      }
-      if (stage) {
-        intro.from(stage, { autoAlpha: 0, y: 18, scale: 0.95, duration: 0.88 }, "<0.12")
-      }
-      if (halos.length > 0) {
-        intro.from(halos, { autoAlpha: 0, scale: 0.76, duration: 0.8, stagger: 0.06 }, "<0.08")
-      }
-      if (rails.length > 0) {
-        intro.from(
-          rails,
-          { scaleX: 0, transformOrigin: "50% 50%", duration: 0.82, stagger: 0.04 },
-          "<0.05",
-        )
-      }
-      if (nodes.length > 0) {
-        intro.from(nodes, { autoAlpha: 0, y: 16, scale: 0.78, duration: 0.55, stagger: 0.06 }, "<0.06")
-      }
-      if (pills.length > 0) {
-        intro.from(pills, { autoAlpha: 0, y: -12, duration: 0.42, stagger: 0.04 }, "<0.04")
-      }
-      if (languages.length > 0) {
-        intro.from(languages, { autoAlpha: 0, y: -8, duration: 0.35, stagger: 0.04 }, "<0.02")
-      }
-      if (choices.length > 0) {
-        intro.from(choices, { autoAlpha: 0, y: 10, duration: 0.45, stagger: 0.05 }, "-=0.24")
-      }
-
-      halos.forEach((node, index) => {
-        gsap.to(node, {
-          rotate: index % 2 === 0 ? 360 : -360,
-          duration: 34 + index * 8,
-          ease: "none",
-          repeat: -1,
-        })
-      })
-
-      if (!panel || !stage || !core) return
-
-      if (typeof gsap.quickTo !== "function") return
-
-      const stageXTo = gsap.quickTo(stage, "x", { duration: 0.45, ease: "power3.out" })
-      const stageYTo = gsap.quickTo(stage, "y", { duration: 0.45, ease: "power3.out" })
-      const panelRotateXTo = gsap.quickTo(panel, "rotationX", { duration: 0.6, ease: "power3.out" })
-      const panelRotateYTo = gsap.quickTo(panel, "rotationY", { duration: 0.6, ease: "power3.out" })
-      const coreXTo = gsap.quickTo(core, "x", { duration: 0.5, ease: "power3.out" })
-      const coreYTo = gsap.quickTo(core, "y", { duration: 0.5, ease: "power3.out" })
-
-      const handlePointerMove = (event: PointerEvent) => {
-        const bounds = panel.getBoundingClientRect()
-        const offsetX = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2
-        const offsetY = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2
-
-        stageXTo(offsetX * 10)
-        stageYTo(offsetY * 6)
-        panelRotateXTo(-offsetY * 2.6)
-        panelRotateYTo(offsetX * 3.4)
-        coreXTo(offsetX * 12)
-        coreYTo(offsetY * 8)
-      }
-
-      const handlePointerLeave = () => {
-        stageXTo(0)
-        stageYTo(0)
-        panelRotateXTo(0)
-        panelRotateYTo(0)
-        coreXTo(0)
-        coreYTo(0)
-      }
-
-      panel.addEventListener("pointermove", handlePointerMove)
-      panel.addEventListener("pointerleave", handlePointerLeave)
-
-      cleanupPointer = () => {
-        panel.removeEventListener("pointermove", handlePointerMove)
-        panel.removeEventListener("pointerleave", handlePointerLeave)
-      }
-    }
-
-    if (typeof gsap.context === "function") {
-      const ctx = gsap.context(setupScene, rootRef)
-      return () => {
-        cleanupPointer()
-        ctx.revert()
-      }
-    }
-
-    setupScene()
-    return () => {
-      cleanupPointer()
-    }
-  }, [reduceMotion])
+  useGateSceneMotion({
+    rootRef,
+    panelRef,
+    reduceMotion,
+    selectors: {
+      stage: "[data-consent-stage]",
+      core: "[data-consent-core]",
+      auras: "[data-consent-aura]",
+      lines: "[data-consent-rail]",
+      introGroups: ["[data-consent-node]", "[data-consent-pill]", "[data-consent-lang]", "[data-consent-choice]"],
+    },
+    intro: {
+      panelY: 30,
+      stageY: 18,
+      stageScale: 0.95,
+      auraScale: 0.76,
+    },
+    parallax: {
+      stageX: 10,
+      stageY: 6,
+      panelRotateX: 2.6,
+      panelRotateY: 3.4,
+      coreX: 12,
+      coreY: 8,
+    },
+  })
 
   React.useEffect(() => {
     if (!rootRef.current) return
