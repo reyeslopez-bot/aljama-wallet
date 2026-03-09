@@ -44,7 +44,7 @@ test.beforeEach(async ({ page }) => {
   )
 })
 
-test('home renders with real backend responses (no route mocks)', async ({ page }) => {
+test('home renders with real backend responses (no route mocks)', async ({ page }, testInfo) => {
   const apiResponses = trackApiResponses(page)
   const startedAt = Date.now()
 
@@ -82,7 +82,18 @@ test('home renders with real backend responses (no route mocks)', async ({ page 
 
   const unexpected5xx = apiResponses.filter((entry) =>
     entry.status >= 500 && entry.path !== '/api/xrpl/dev-account')
-  expect(unexpected5xx.length).toBe(0)
+  await testInfo.attach('api-responses', {
+    body: JSON.stringify(apiResponses, null, 2),
+    contentType: 'application/json',
+  })
+  await testInfo.attach('unexpected-5xx-responses', {
+    body: JSON.stringify(unexpected5xx, null, 2),
+    contentType: 'application/json',
+  })
+  expect(
+    unexpected5xx,
+    `Unexpected 5xx API responses: ${JSON.stringify(unexpected5xx)}`,
+  ).toEqual([])
 })
 
 test('core backend routes return structured responses in prod-like mode', async ({ request }) => {
