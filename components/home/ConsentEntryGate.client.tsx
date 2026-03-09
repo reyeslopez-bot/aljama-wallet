@@ -1,11 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { gsap } from "gsap"
 import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion"
-import { useGateSceneMotion } from "@/hooks/useGateSceneMotion"
 import { setLocationConsent, getLocationConsent } from "@/infra/location/client"
 import { getTelemetryConsent, setTelemetryConsent } from "@/infra/telemetry/client"
 import {
@@ -28,10 +25,6 @@ export default function ConsentEntryGate() {
   const locale = useLocale()
   const pathname = usePathname()
   const router = useRouter()
-  const rootRef = React.useRef<HTMLDivElement | null>(null)
-  const panelRef = React.useRef<HTMLDivElement | null>(null)
-  const switchThumbRef = React.useRef<HTMLSpanElement | null>(null)
-  const reduceMotion = usePrefersReducedMotion()
 
   const [consentPreset, setConsentPreset] = React.useState<ConsentPreset>("essentialOnly")
   const [busy, setBusy] = React.useState(false)
@@ -71,101 +64,6 @@ export default function ConsentEntryGate() {
   }, [])
 
   const optionalServicesEnabled = consentPreset === "allowAll"
-  useGateSceneMotion({
-    rootRef,
-    panelRef,
-    reduceMotion,
-    selectors: {
-      stage: "[data-consent-stage]",
-      core: "[data-consent-core]",
-      auras: "[data-consent-aura]",
-      lines: "[data-consent-rail]",
-      introGroups: ["[data-consent-node]", "[data-consent-pill]", "[data-consent-lang]", "[data-consent-choice]"],
-    },
-    intro: {
-      panelY: 30,
-      stageY: 18,
-      stageScale: 0.95,
-      auraScale: 0.76,
-    },
-    parallax: {
-      stageX: 10,
-      stageY: 6,
-      panelRotateX: 2.6,
-      panelRotateY: 3.4,
-      coreX: 12,
-      coreY: 8,
-    },
-  })
-
-  React.useEffect(() => {
-    if (!rootRef.current) return
-
-    const syncStageState = () => {
-      const essentialNode = rootRef.current?.querySelector<HTMLElement>('[data-consent-node="essential"]')
-      const locationNode = rootRef.current?.querySelector<HTMLElement>('[data-consent-node="location"]')
-      const telemetryNode = rootRef.current?.querySelector<HTMLElement>('[data-consent-node="telemetry"]')
-      const locationRail = rootRef.current?.querySelector<SVGPathElement>('[data-consent-rail="location"]')
-      const telemetryRail = rootRef.current?.querySelector<SVGPathElement>('[data-consent-rail="telemetry"]')
-      const core = rootRef.current?.querySelector<HTMLElement>("[data-consent-core]")
-      const optionalNodes = [locationNode, telemetryNode].filter(Boolean) as HTMLElement[]
-      const optionalRails = [locationRail, telemetryRail].filter(Boolean) as SVGPathElement[]
-
-      if (switchThumbRef.current) {
-        gsap.to(switchThumbRef.current, {
-          x: optionalServicesEnabled ? 22 : 0,
-          duration: reduceMotion ? 0 : 0.34,
-          ease: "power2.out",
-        })
-      }
-
-      if (essentialNode) {
-        gsap.to(essentialNode, {
-          scale: 1,
-          autoAlpha: 1,
-          duration: reduceMotion ? 0 : 0.28,
-          ease: "power2.out",
-        })
-      }
-
-      if (optionalNodes.length > 0) {
-        gsap.to(optionalNodes, {
-          autoAlpha: optionalServicesEnabled ? 1 : 0.48,
-          scale: optionalServicesEnabled ? 1 : 0.84,
-          y: optionalServicesEnabled ? 0 : 6,
-          duration: reduceMotion ? 0 : 0.42,
-          ease: "power2.out",
-          stagger: 0.04,
-        })
-      }
-
-      if (optionalRails.length > 0) {
-        gsap.to(optionalRails, {
-          opacity: optionalServicesEnabled ? 0.96 : 0.32,
-          scaleX: optionalServicesEnabled ? 1 : 0.82,
-          transformOrigin: "50% 50%",
-          duration: reduceMotion ? 0 : 0.42,
-          ease: "power2.out",
-          stagger: 0.04,
-        })
-      }
-
-      if (core) {
-        gsap.to(core, {
-          scale: optionalServicesEnabled ? 1.06 : 1,
-          duration: reduceMotion ? 0 : 0.42,
-          ease: "power2.out",
-        })
-      }
-    }
-
-    if (typeof gsap.context === "function") {
-      const ctx = gsap.context(syncStageState, rootRef)
-      return () => ctx.revert()
-    }
-
-    syncStageState()
-  }, [optionalServicesEnabled, reduceMotion])
 
   const handleContinue = React.useCallback(async () => {
     if (busy) return
@@ -180,7 +78,6 @@ export default function ConsentEntryGate() {
 
   return (
     <div
-      ref={rootRef}
       data-testid="consent-gate-root"
       className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-black/80 px-6 py-12"
     >
@@ -188,14 +85,12 @@ export default function ConsentEntryGate() {
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_60%_40%,rgba(78,120,160,0.16),rgba(0,0,0,0)_60%)] blur-[20px]" />
 
       <div
-        ref={panelRef}
-        className="surface-panel panel-glow-saffron relative w-full max-w-xl rounded-[2rem] p-8 [transform-style:preserve-3d]"
+        className="surface-panel panel-glow-saffron relative w-full max-w-xl rounded-[2rem] p-8"
       >
         <div className="absolute right-6 top-6 z-10 flex items-center gap-2">
           {LANGUAGES.map((language) => (
             <button
               key={language.value}
-              data-consent-lang
               type="button"
               onClick={() => {
                 const segments = pathname.split("/")
@@ -218,62 +113,15 @@ export default function ConsentEntryGate() {
         </div>
         <div className="absolute inset-x-10 top-6 ornament-line" />
         <div className="text-center">
-          <div
-            data-consent-stage
-            className="consent-gate-stage relative mx-auto mb-6 mt-2 h-40 w-full max-w-[22rem]"
-            aria-hidden="true"
-          >
-            <div data-consent-aura className="consent-gate-aura absolute inset-3 rounded-[2rem]" />
-            <div data-consent-aura className="consent-gate-aura absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-[1.5rem]" />
-
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 360 160" fill="none">
+          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
-                data-consent-rail="location"
-                className="consent-gate-rail"
-                d="M178 82C146 72 116 60 88 44"
-              />
-              <path
-                data-consent-rail="telemetry"
-                className="consent-gate-rail"
-                d="M182 82C214 72 244 60 272 44"
-              />
-              <path
-                data-consent-rail="essential"
-                className="consent-gate-rail"
-                d="M180 84V124"
+                d="M12 2l8 4v6c0 5-3.2 9.7-8 10-4.8-.3-8-5-8-10V6l8-4z"
+                stroke="rgba(255,255,255,0.9)"
+                strokeWidth="1.6"
+                strokeLinejoin="round"
               />
             </svg>
-
-            <div data-consent-pill className="consent-gate-pill absolute left-5 top-4">
-              TRUST
-            </div>
-            <div data-consent-pill className="consent-gate-pill absolute right-5 top-8">
-              OPT-IN
-            </div>
-
-            <div data-consent-node="location" className="consent-gate-node absolute left-14 top-5">
-              LOC
-            </div>
-            <div data-consent-node="telemetry" className="consent-gate-node absolute right-14 top-5">
-              TEL
-            </div>
-            <div data-consent-node="essential" className="consent-gate-node absolute bottom-3 left-1/2 -translate-x-1/2">
-              CORE
-            </div>
-
-            <div
-              data-consent-core
-              className="consent-gate-core absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[1.75rem]"
-            >
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M12 2l8 4v6c0 5-3.2 9.7-8 10-4.8-.3-8-5-8-10V6l8-4z"
-                  stroke="rgba(255,245,229,0.92)"
-                  strokeWidth="1.6"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
           </div>
           <h2 className="font-display text-3xl font-semibold tracking-tight text-ivory sm:text-4xl">
             {tConsent("title")}
@@ -306,9 +154,11 @@ export default function ConsentEntryGate() {
                 }`}
               >
                 <span
-                  ref={switchThumbRef}
-                  style={{ transform: `translateX(${optionalServicesEnabled ? 22 : 0}px)` }}
-                  className="absolute left-0.5 top-0.5 h-[22px] w-[22px] rounded-full bg-white shadow-[0_2px_10px_rgba(255,255,255,0.28)]"
+                  className={`absolute top-0.5 h-[22px] w-[22px] rounded-full transition ${
+                    optionalServicesEnabled
+                      ? "left-6 bg-[#1b3654] shadow-[0_2px_10px_rgba(17,24,39,0.4)]"
+                      : "left-0.5 bg-white"
+                  }`}
                 />
               </button>
             </div>
@@ -324,7 +174,6 @@ export default function ConsentEntryGate() {
               {(["rejectAll", "essentialOnly", "allowAll"] as const).map((option) => (
                 <button
                   key={option}
-                  data-consent-choice
                   type="button"
                   onClick={() => setConsentPreset(option)}
                   disabled={busy}

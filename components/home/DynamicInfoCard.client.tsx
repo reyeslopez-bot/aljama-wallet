@@ -13,6 +13,7 @@ import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
 import { loadProfileImageForUsername } from '@/lib/storage/profileImage'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { getHomeNow } from '@/components/home/homeClock'
 
 function formatShortAddress(address: string) {
   const trimmed = address.trim()
@@ -122,7 +123,6 @@ const INFO_CARD_CORNER_KEY = 'aljama.infoCard.corner'
 const CARD_CORNERS: CardCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
 const DUBAI_TIMEZONE = 'Asia/Dubai'
 const DUBAI_UTC_LABEL = 'UTC+04:00'
-const TEST_FIXED_NOW_ISO = '2026-02-20T00:00:00.000Z'
 const DRAG_IGNORE_SELECTOR = 'button, a, input, textarea, select, [role="button"]'
 const HOVER_EXPAND_BLOCK_SELECTOR = '[data-dynamic-info-card-hover-block="true"]'
 
@@ -214,13 +214,8 @@ export default function DynamicInfoCard() {
   }, [availableStatusLabel, session?.user?.email, session?.user?.image, session?.user?.name, sessionStatus, setUser])
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'test') {
-      setNow(new Date(TEST_FIXED_NOW_ISO))
-      return
-    }
-
-    setNow(new Date())
-    const intervalId = setInterval(() => setNow(new Date()), 30_000)
+    setNow(getHomeNow())
+    const intervalId = setInterval(() => setNow(getHomeNow()), 30_000)
     return () => clearInterval(intervalId)
   }, [])
 

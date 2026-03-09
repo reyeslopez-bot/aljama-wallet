@@ -31,13 +31,8 @@ const surface = (bg: string, tone: ButtonTone) =>
 
 function ActionSurface({ button }: { button: Btn }) {
   const interactions = useGsapPressable<HTMLDivElement>({
-    base: { rotate: button.tone === 'primary' ? -0.8 : 0.8 },
-    hover: {
-      y: button.tone === 'primary' ? -6 : -4,
-      rotate: 0,
-      scale: button.tone === 'primary' ? 1.015 : 1.02,
-    },
-    press: { y: 0, scale: button.tone === 'primary' ? 0.97 : 0.98 },
+    hover: { y: button.tone === 'primary' ? -2 : -1 },
+    press: { scale: button.tone === 'primary' ? 0.98 : 0.99 },
   })
 
   return (
@@ -49,7 +44,7 @@ function ActionSurface({ button }: { button: Btn }) {
       onPointerUp={interactions.onPointerUp}
       onPointerCancel={interactions.onPointerCancel}
       onBlur={interactions.onBlur}
-      className={`flex h-[84px] w-full items-center justify-center rounded-full px-7 text-[17px] font-semibold tracking-wide md:h-[88px] ${
+      className={`flex h-[84px] w-full items-center justify-center rounded-full px-7 text-[17px] font-semibold tracking-wide transition-all md:h-[88px] ${
         button.tone === 'primary'
           ? 'text-[#20140e] drop-shadow-[0_1px_0_rgba(255,255,255,0.26)]'
           : 'text-ivory'

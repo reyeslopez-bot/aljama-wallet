@@ -6,6 +6,12 @@ app_port := env_var_or_default("APP_PORT","2998")
 dev port=app_port:
 	APP_PORT={{port}} ./dev.sh --detach --logs
 
+screenshottest port=app_port:
+	PLAYWRIGHT_DISABLE_WEBSERVER=true PLAYWRIGHT_BASE_URL=http://localhost:{{port}} PLAYWRIGHT_VISUAL=true pnpm playwright test tests/e2e/home.frontend.spec.ts --project=chromium
+
+screenshottest-update port=app_port:
+	PLAYWRIGHT_DISABLE_WEBSERVER=true PLAYWRIGHT_BASE_URL=http://localhost:{{port}} PLAYWRIGHT_VISUAL=true pnpm playwright test tests/e2e/home.frontend.spec.ts --project=chromium --update-snapshots
+
 rebuild port=app_port:
 	APP_PORT={{port}} ./dev.sh --rebuild --detach --logs
 

@@ -12,10 +12,6 @@ vi.mock('@/components/home/DynamicInfoCard.client', () => ({
   default: () => <div data-testid="mock-dynamic-info-card" />,
 }))
 
-vi.mock('@/components/home/HomeMotionScene.client', () => ({
-  default: () => <div data-testid="mock-home-motion-scene" />,
-}))
-
 vi.mock('@/components/ui/MapboxMap.client', () => ({
   default: () => <div data-testid="mock-mapbox-map" />,
 }))
@@ -66,7 +62,6 @@ describe('HomeContent', () => {
     expect(heroTitle).toBeTruthy()
     expect(heroTitle.className).toContain('text-ivory')
     expect(brandMark.className).toContain('text-saffron/80')
-    expect(getByTestId('home-hero-stage')).toBeTruthy()
 
     expect(
       getByText(
@@ -92,7 +87,6 @@ describe('HomeContent', () => {
     expect(getByLabelText('Copyright 2026 Aljama Wallet')).toBeTruthy()
 
     expect(getByTestId('mock-client-track-wallet')).toBeTruthy()
-    expect(getByTestId('mock-home-motion-scene')).toBeTruthy()
     expect(getByTestId('mock-dynamic-info-card')).toBeTruthy()
     expect(getByTestId('mock-mapbox-map')).toBeTruthy()
     expect(getByTestId('mock-home-action-buttons')).toBeTruthy()

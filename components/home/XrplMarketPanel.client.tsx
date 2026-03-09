@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { useGsapPressable } from '@/hooks/useGsapPressable'
+import { getHomeNowMs } from '@/components/home/homeClock'
 
 type MarketAsset = {
   id: string
@@ -225,12 +226,12 @@ function formatPercentChange(value: number, locale: string) {
   return `${formatted}%`
 }
 
-function formatUpdatedTimeAgo(updatedAt: string, locale: string): string {
+function formatUpdatedTimeAgo(updatedAt: string, locale: string, nowMs: number): string {
   const updated = new Date(updatedAt).getTime()
   if (!Number.isFinite(updated)) return ''
 
   const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-  const diffMs = Math.max(Date.now() - updated, 0)
+  const diffMs = Math.max(nowMs - updated, 0)
   const totalMinutes = Math.floor(diffMs / (60 * 1_000)) || 0
 
   if (totalMinutes < 60) {
@@ -290,6 +291,7 @@ export default function XrplMarketPanel() {
   const t = useTranslations('market')
   const locale = useLocale()
   const { status: sessionStatus } = useSession()
+  const currentTimeMs = getHomeNowMs()
   const locked = sessionStatus === 'unauthenticated'
   const chartClipId = useId().replace(/:/g, '')
   const titleId = `${chartClipId}-title`
@@ -763,8 +765,8 @@ export default function XrplMarketPanel() {
             </button>
           ))}
           <span data-testid="xrpl-market-updated" className="ml-auto text-[11px] text-ivory/40">
-            {state.snapshot?.updatedAt
-              ? `${t('updated')} ${formatUpdatedTimeAgo(state.snapshot.updatedAt, locale)}`
+              {state.snapshot?.updatedAt
+              ? `${t('updated')} ${formatUpdatedTimeAgo(state.snapshot.updatedAt, locale, currentTimeMs)}`
               : ''}
           </span>
         </div>

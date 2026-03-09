@@ -12,6 +12,8 @@ import {
   prepareMockedHome,
 } from './home.helpers'
 
+test.describe.configure({ mode: 'serial' })
+
 test.beforeEach(async ({ page }) => {
   await prepareMockedHome(page)
 })
@@ -128,9 +130,12 @@ test('dynamic info card stays inside the viewport across zoom-equivalent layouts
     await expect(page.getByTestId('home-overview-section')).toBeVisible()
 
     const infoCard = page.getByTestId('dynamic-info-card')
+    const toggleButton = page.getByTestId('dynamic-info-card-expand-button')
     await expectFullyInViewport(page, infoCard, `${zoomCase.label} collapsed`)
 
-    await infoCard.hover()
+    await toggleButton.focus()
+    await expect(toggleButton).toBeFocused()
+    await toggleButton.press('Enter')
     await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
     await expectFullyInViewport(page, infoCard, `${zoomCase.label} expanded`)
   }
@@ -150,9 +155,12 @@ test('dynamic info card remains in frame when text scales up', async ({ page }) 
   })
 
   const infoCard = page.getByTestId('dynamic-info-card')
+  const toggleButton = page.getByTestId('dynamic-info-card-expand-button')
   await expectFullyInViewport(page, infoCard, 'text-scale-125 collapsed')
 
-  await infoCard.hover()
+  await toggleButton.focus()
+  await expect(toggleButton).toBeFocused()
+  await toggleButton.press('Enter')
   await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
   await expectFullyInViewport(page, infoCard, 'text-scale-125 expanded')
 })
@@ -162,12 +170,18 @@ test('home supports keyboard interaction for the market chart and info card', as
   await expect(page.getByTestId('home-overview-section')).toBeVisible()
 
   const chart = page.getByTestId('xrpl-market-chart')
-  await chart.focus()
-  await expect(chart).toBeFocused()
-  await chart.press('ArrowRight')
+  await page.getByTestId('home-xrpl-section').scrollIntoViewIfNeeded()
+  await expect(page.getByTestId('home-xrpl-section')).toBeVisible()
+  await chart.evaluate((element) => {
+    ;(element as SVGElement).focus()
+  })
+  await expect.poll(() =>
+    chart.evaluate((element) => element === element.ownerDocument.activeElement),
+  ).toBe(true)
+  await page.keyboard.press('ArrowRight')
   await expect(page.getByTestId('xrpl-market-hover-snapshot')).toBeVisible()
   await expect(page.getByTestId('xrpl-market-hover-row-xrp')).toBeVisible()
-  await chart.press('End')
+  await page.keyboard.press('End')
   await expect(page.getByTestId('xrpl-market-hover-row-btc')).toBeVisible()
 
   const collapsedToggle = page.getByTestId('dynamic-info-card-expand-button')
@@ -198,7 +212,9 @@ test('rtl home routes avoid horizontal overflow', async ({ page }, testInfo) => 
     await expectNoHorizontalOverflow(page, `${label} initial`)
     await expectFullyInViewport(page, infoCard, `${label} collapsed`)
 
-    await toggleButton.click()
+    await toggleButton.focus()
+    await expect(toggleButton).toBeFocused()
+    await toggleButton.press('Enter')
     await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
     await expectFullyInViewport(page, infoCard, `${label} expanded`)
     await expectNoHorizontalOverflow(page, `${label} expanded`)

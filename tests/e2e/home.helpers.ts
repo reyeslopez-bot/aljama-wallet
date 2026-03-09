@@ -8,6 +8,7 @@ export const HOME_ROUTE = '/en'
 export const RTL_HOME_ROUTES = ['/ar', '/he'] as const
 export const MAX_HOME_VISIBLE_MS = Number(process.env.MAX_HOME_VISIBLE_MS ?? 12_000)
 export const MAX_DOM_CONTENT_LOADED_MS = Number(process.env.MAX_DOM_CONTENT_LOADED_MS ?? 10_000)
+const FIXED_E2E_NOW_ISO = '2026-02-20T00:00:00.000Z'
 
 const ENABLE_VISUAL_BASELINE = process.env.PLAYWRIGHT_VISUAL === 'true'
 const VISUAL_MAX_DIFF_PIXEL_RATIO = Number(process.env.PLAYWRIGHT_VISUAL_MAX_DIFF_RATIO ?? 0.01)
@@ -221,13 +222,15 @@ export async function prepareMockedHome(page: Page) {
   await mockAuthSession(page, UNAUTHENTICATED_SESSION)
   await mockHomeApi(page)
   await page.addInitScript(
-    ({ promptKey, siteEntryKey }) => {
+    ({ fixedNowIso, promptKey, siteEntryKey }) => {
+      window.__ALJAMA_E2E_FIXED_NOW__ = fixedNowIso
       window.localStorage.setItem('aljama.telemetry.consent', 'denied')
       window.localStorage.setItem('aljama.location.consent', 'denied')
       window.sessionStorage.setItem(promptKey, 'seen')
       window.sessionStorage.setItem(siteEntryKey, 'seen')
     },
     {
+      fixedNowIso: FIXED_E2E_NOW_ISO,
       promptKey: CONSENT_PROMPT_SESSION_KEY,
       siteEntryKey: CONSENT_SITE_ENTRY_SESSION_KEY,
     },

@@ -74,8 +74,8 @@ function ShareActionButton(props: {
 }) {
   const interactions = useGsapPressable<HTMLButtonElement>({
     base: { rotate: props.item.tilt },
-    hover: { y: -6, rotate: 0, scale: 1.05 },
-    press: { y: -1, scale: 0.97 },
+    hover: { y: -3, rotate: 0, scale: 1.03 },
+    press: { scale: 0.98 },
   })
 
   return (
@@ -93,7 +93,7 @@ function ShareActionButton(props: {
       aria-describedby={props.statusId}
       title={props.item.label}
       onClick={props.onClick}
-      className={`relative flex h-14 w-14 items-center justify-center border border-saffron/35 bg-gradient-to-br ${props.item.tone} text-[#f0d7a0] shadow-lg shadow-black/30 backdrop-blur-[10px] transition-colors hover:border-saffron/55`}
+      className={`relative flex h-14 w-14 items-center justify-center border border-saffron/35 bg-gradient-to-br ${props.item.tone} text-[#f0d7a0] shadow-lg shadow-black/30 backdrop-blur-[10px] transition hover:border-saffron/55`}
       style={{ borderRadius: 2 }}
     >
       {props.item.icon}

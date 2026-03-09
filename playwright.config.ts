@@ -1,7 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3000)
+const ENABLE_VISUAL_BASELINE = process.env.PLAYWRIGHT_VISUAL === 'true'
+const DEFAULT_PORT = process.env.CI ? 3000 : ENABLE_VISUAL_BASELINE ? 3100 : 3000
+const PORT = Number(process.env.PLAYWRIGHT_PORT ?? DEFAULT_PORT)
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`
+const READY_URL = process.env.PLAYWRIGHT_READY_URL ?? new URL('/en', BASE_URL).toString()
 const ENABLE_ALL_BROWSERS = process.env.PLAYWRIGHT_ALL_BROWSERS === 'true'
 const ENABLE_EXTENDED_DEVICES = process.env.PLAYWRIGHT_EXTENDED_DEVICES === 'true'
 const INCLUDE_PRODLIKE_SPECS = process.env.PLAYWRIGHT_INCLUDE_PRODLIKE === 'true'
@@ -9,6 +12,9 @@ const DISABLE_WEB_SERVER = process.env.PLAYWRIGHT_DISABLE_WEBSERVER === 'true'
 const WEB_SERVER_NODE_ENV = process.env.PLAYWRIGHT_NODE_ENV ?? 'test'
 const WEB_SERVER_NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET ?? 'playwright-nextauth-secret'
 const WEB_SERVER_NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? BASE_URL
+const REUSE_EXISTING_SERVER = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER
+  ? process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === 'true'
+  : !process.env.CI && !ENABLE_VISUAL_BASELINE
 const SERVER_COMMAND =
   process.env.PLAYWRIGHT_SERVER_COMMAND ??
   `pnpm prisma:generate && pnpm exec next dev --turbopack --port ${PORT}`
@@ -120,8 +126,8 @@ export default defineConfig({
     ? undefined
     : {
       command: SERVER_COMMAND,
-      port: PORT,
-      reuseExistingServer: !process.env.CI,
+      url: READY_URL,
+      reuseExistingServer: REUSE_EXISTING_SERVER,
       timeout: 180_000,
       env: {
         NODE_ENV: WEB_SERVER_NODE_ENV,
