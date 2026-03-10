@@ -44,7 +44,7 @@ function ActionSurface({ button }: { button: Btn }) {
       onPointerUp={interactions.onPointerUp}
       onPointerCancel={interactions.onPointerCancel}
       onBlur={interactions.onBlur}
-      className={`flex h-[84px] w-full items-center justify-center rounded-full px-7 text-[17px] font-semibold tracking-wide transition-all md:h-[88px] ${
+      className={`flex h-[72px] w-full items-center justify-center rounded-full px-6 text-base font-semibold tracking-wide transition-all md:h-[76px] md:text-[17px] ${
         button.tone === 'primary'
           ? 'text-[#20140e] drop-shadow-[0_1px_0_rgba(255,255,255,0.26)]'
           : 'text-ivory'
