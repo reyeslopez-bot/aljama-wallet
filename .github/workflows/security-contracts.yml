@@ -1,0 +1,65 @@
+name: Security - Contracts
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  schedule:
+    - cron: '29 5 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  contracts:
+    name: Slither + Foundry + Echidna
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Verify Foundry
+        run: forge --version
+
+      - name: Build contracts with metadata
+        working-directory: contracts
+        run: forge build --build-info
+
+      - name: Run Foundry tests (unit + fuzz + invariant)
+        working-directory: contracts
+        run: forge test -vvv
+
+      - name: Run Slither
+        id: slither
+        uses: crytic/slither-action@v0.4.1
+        with:
+          target: contracts
+          ignore-compile: true
+          fail-on: medium
+          sarif: contracts/slither-results.sarif
+          slither-args: --filter-paths "contracts/lib|contracts/test"
+
+      - name: Upload Slither SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: contracts/slither-results.sarif
+          category: slither
+
+      - name: Run Echidna
+        uses: crytic/echidna-action@v2
+        with:
+          files: .
+          contract: PqcBindingRegistryEchidna
+          config: echidna.yaml
+          format: text
+          echidna-workdir: contracts
+          crytic-args: --ignore-compile

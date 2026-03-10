@@ -4,12 +4,20 @@ import { logError, logWarn } from '@/lib/security/logging'
 
 const DEFAULT_TIMEOUT_MS = 15_000
 const REQUEST_ID_HEADER = 'x-request-id'
+const CORRELATION_ID_HEADER = 'x-correlation-id'
 const RESPONSE_TIME_HEADER = 'x-response-time-ms'
+const TOTAL_DURATION_HEADER = 'x-total-duration-ms'
+const UPSTREAM_DURATION_HEADER = 'x-upstream-duration-ms'
 
 export type ApiRouteContext = {
   requestId: string
+  correlationId: string
   startedAt: number
   timeoutMs: number
+  metrics: Partial<{
+    upstreamDurationMs: number
+    totalDurationMs: number
+  }>
 }
 
 type ApiRouteHandler<TArgs extends unknown[]> = (
@@ -51,26 +59,27 @@ function buildApiLogDetails(
   context: ApiRouteContext,
   details?: Record<string, unknown>,
 ): Record<string, unknown> {
+  const totalDurationMs = Math.max(0, Date.now() - context.startedAt)
   return {
     requestId: context.requestId,
+    correlationId: context.correlationId,
     timeoutMs: context.timeoutMs,
-    durationMs: Math.max(0, Date.now() - context.startedAt),
+    durationMs: totalDurationMs,
+    totalDurationMs,
     method: req.method,
     path: getRequestPath(req),
+    ...context.metrics,
     ...details,
   }
 }
 
-function resolveRequestId(req: Request): string {
-  const candidates = [req.headers.get('x-request-id'), req.headers.get('x-correlation-id')]
+function resolveProvidedId(value: string | null): string | null {
+  const trimmed = value?.trim()
+  if (!trimmed || trimmed.length > 128) return null
+  return trimmed
+}
 
-  for (const candidate of candidates) {
-    const trimmed = candidate?.trim()
-    if (trimmed && trimmed.length <= 128) {
-      return trimmed
-    }
-  }
-
+function createRequestId(): string {
   if (globalThis.crypto?.randomUUID) {
     return globalThis.crypto.randomUUID()
   }
@@ -78,9 +87,25 @@ function resolveRequestId(req: Request): string {
   return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
 }
 
+function resolveRequestContextIds(req: Request): { requestId: string; correlationId: string } {
+  const providedRequestId = resolveProvidedId(req.headers.get(REQUEST_ID_HEADER))
+  const providedCorrelationId = resolveProvidedId(req.headers.get(CORRELATION_ID_HEADER))
+  const requestId = providedRequestId ?? createRequestId()
+  const correlationId = providedCorrelationId ?? providedRequestId ?? requestId
+
+  return { requestId, correlationId }
+}
+
 function appendApiRouteHeaders(response: Response, context: ApiRouteContext): Response {
+  const totalDurationMs = Math.max(0, Date.now() - context.startedAt)
+  context.metrics.totalDurationMs = totalDurationMs
   response.headers.set(REQUEST_ID_HEADER, context.requestId)
-  response.headers.set(RESPONSE_TIME_HEADER, String(Math.max(0, Date.now() - context.startedAt)))
+  response.headers.set(CORRELATION_ID_HEADER, context.correlationId)
+  response.headers.set(RESPONSE_TIME_HEADER, String(totalDurationMs))
+  response.headers.set(TOTAL_DURATION_HEADER, String(totalDurationMs))
+  if (typeof context.metrics.upstreamDurationMs === 'number') {
+    response.headers.set(UPSTREAM_DURATION_HEADER, String(Math.max(0, context.metrics.upstreamDurationMs)))
+  }
   return response
 }
 
@@ -107,10 +132,13 @@ export function withApiRoute<TArgs extends unknown[]>(
 ) {
   return async (req?: Request, ...args: TArgs): Promise<Response> => {
     const request = req ?? new Request('http://localhost')
+    const identifiers = resolveRequestContextIds(request)
     const context: ApiRouteContext = {
-      requestId: resolveRequestId(request),
+      requestId: identifiers.requestId,
+      correlationId: identifiers.correlationId,
       startedAt: Date.now(),
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      metrics: {},
     }
 
     try {

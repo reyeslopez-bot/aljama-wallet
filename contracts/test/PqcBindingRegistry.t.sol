@@ -173,4 +173,34 @@ contract PqcBindingRegistryTest is Test {
         assertTrue(bobCommitment.bindingHash != bytes32(0));
         assertTrue(aliceCommitment.bindingHash != bobCommitment.bindingHash);
     }
+
+    function testFuzzCommitBindingDerivesBindingHash(
+        bytes32 statementHash,
+        bytes32 signatureHash,
+        bytes32 publicKeyHash,
+        bytes32 uriHash,
+        string memory uri
+    ) public {
+        vm.assume(bytes(uri).length <= 256);
+
+        bytes32 bindingHash = registry.commitBinding(
+            statementHash,
+            signatureHash,
+            publicKeyHash,
+            uriHash,
+            uri
+        );
+
+        PqcBindingRegistry.BindingCommitment memory commitment = registry.bindingOf(address(this));
+        bytes32 expectedBindingHash =
+            keccak256(abi.encode(registry.DOMAIN(), statementHash, signatureHash, publicKeyHash));
+
+        assertEq(bindingHash, expectedBindingHash);
+        assertEq(commitment.bindingHash, expectedBindingHash);
+        assertEq(commitment.statementHash, statementHash);
+        assertEq(commitment.signatureHash, signatureHash);
+        assertEq(commitment.publicKeyHash, publicKeyHash);
+        assertEq(commitment.uriHash, uriHash);
+        assertEq(commitment.version, registry.VERSION());
+    }
 }

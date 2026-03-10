@@ -1,0 +1,5 @@
+testMode: assertion
+seqLen: 50
+testLimit: 5000
+shrinkLimit: 1000
+corpusDir: echidna-corpus

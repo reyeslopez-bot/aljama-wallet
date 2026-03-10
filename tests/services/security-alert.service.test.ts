@@ -181,6 +181,7 @@ describe('security-alert.service', () => {
       title: 'Failure burst detected',
       description: 'Multiple failures detected',
       fingerprint: 'ip-xyz',
+      runbookHint: 'Check auth logs, rate limits, and recent source IP concentration before containment.',
       context: { tenantId: 'tenant-1' },
     })
 
@@ -193,10 +194,12 @@ describe('security-alert.service', () => {
     expect(siemPayload.priority).toBe('p2')
     expect(siemPayload.runbook?.id).toBe('RB-AUTH-001')
     expect(siemPayload.runbook?.url).toContain('auth-failure-burst')
+    expect(siemPayload.runbookHint).toContain('Check auth logs')
 
     expect(soarPayload.type).toBe('security.alert')
     expect(soarPayload.priority).toBe('p2')
     expect(soarPayload.source).toBe('auth.register')
+    expect(soarPayload.runbookHint).toContain('Check auth logs')
   })
 
   it('sends containment requests to SOAR when containment policy matches', async () => {

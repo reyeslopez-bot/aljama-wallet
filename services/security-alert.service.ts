@@ -20,6 +20,7 @@ export type SecurityAlertInput = {
   description: string
   fingerprint: string
   source?: string | null
+  runbookHint?: string | null
   context?: Record<string, unknown>
 }
 
@@ -133,6 +134,11 @@ const defaultRunbooks: Record<string, { id: string; title: string; slug: string 
     id: 'RB-WALLET-002',
     title: 'Investigate stuck pending EVM transactions',
     slug: 'wallet-chain-transaction-stuck-pending',
+  },
+  'market.snapshot.fallback_mode.active': {
+    id: 'RB-OPS-002',
+    title: 'Investigate prolonged market snapshot fallback mode',
+    slug: 'market-snapshot-fallback-mode',
   },
 }
 
@@ -493,6 +499,7 @@ function buildSocPayload(alert: SecurityAlertRecord, containmentActions: string[
     title: alert.title,
     description: alert.description,
     runbook: alert.runbook,
+    runbookHint: alert.runbookHint ?? null,
     containment: {
       enabled: shouldRunContainment(alert),
       actions: containmentActions,
@@ -641,6 +648,10 @@ async function requestContainment(
 async function persistAlertEvent(alert: SecurityAlertRecord, containmentActions: string[]) {
   if (!canUsePg()) return
   try {
+    const persistedContext = {
+      ...(alert.context ?? {}),
+      ...(alert.runbookHint ? { runbookHint: alert.runbookHint } : {}),
+    }
     await prismaPg.securityAlertEvent.create({
       data: {
         id: alert.id,
@@ -661,7 +672,7 @@ async function persistAlertEvent(alert: SecurityAlertRecord, containmentActions:
         description: alert.description,
         runbookId: alert.runbook.id,
         runbookUrl: alert.runbook.url,
-        context: toJson(alert.context ?? {}),
+        context: toJson(persistedContext),
         containmentActions: toJson(containmentActions),
         delivered: toJson(alert.delivered),
         createdAt: new Date(alert.createdAt),
@@ -869,6 +880,7 @@ export async function emitSecurityAlert(input: SecurityAlertInput): Promise<Secu
       runbookUrl: record.runbook.url,
       containmentEnabled: shouldRunContainment(record),
       containmentActions,
+      runbookHint: record.runbookHint ?? null,
       context: record.context ?? null,
     })
     record.delivered.log = true
@@ -913,6 +925,7 @@ export async function getSecurityAlertsForensics(limit = 200): Promise<SecurityA
       const context = fromJsonRecord(row.context)
       const containmentActions = fromJsonStringArray(row.containmentActions)
       const fallbackRunbook = resolveRunbook(row.ruleId)
+      const runbookHint = normalizeString(context.runbookHint)
 
       return {
         id: row.id,
@@ -926,6 +939,7 @@ export async function getSecurityAlertsForensics(limit = 200): Promise<SecurityA
         fingerprint: row.fingerprint,
         title: row.title,
         description: row.description,
+        runbookHint,
         context,
         runbook: {
           id: row.runbookId ?? fallbackRunbook.id,
