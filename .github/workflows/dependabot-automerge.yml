@@ -47,6 +47,7 @@ jobs:
           checks_json="$(gh pr checks "$PR_URL" --json name,state)"
 
           required_checks=(
+            "Dependency Review"
             "Core CI (Node + pnpm)"
             "Frontend CI (ubuntu-latest · shard 1-of-2)"
             "Frontend CI (ubuntu-latest · shard 2-of-2)"
@@ -58,6 +59,11 @@ jobs:
             "Frontend CI (Ubuntu · Prod-like backend)"
             "Frontend CI (macOS · Visual baselines)"
             "Container CI (Podman + Just)"
+            "CodeQL (JavaScript / TypeScript)"
+            "Semgrep"
+            "Gitleaks"
+            "Trivy (Filesystem + Misconfig)"
+            "Slither + Foundry + Echidna"
           )
 
           missing=0

@@ -1,7 +1,5 @@
 version: 2
 
-name: "Dependabot Auto Merge"
-
 updates:
   - package-ecosystem: "npm"
     directory: "/"
@@ -10,63 +8,45 @@ updates:
       day: "sunday"
       time: "03:00"
       timezone: "UTC"
-
     open-pull-requests-limit: 10
-
     rebase-strategy: "auto"
-
     versioning-strategy: "increase-if-necessary"
-
     commit-message:
       prefix: "deps"
       include: "scope"
-
     labels:
       - "dependencies"
       - "npm"
-
     groups:
-
-      npm-safe:
+      npm-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+      npm-nonbreaking:
         patterns:
           - "*"
         update-types:
-          - "patch"
           - "minor"
-
-      npm-patch-minor:
-        patterns:
-          - "*"
-        update-types:
           - "patch"
-          - "minor"
-
       npm-major:
         patterns:
           - "*"
         update-types:
           - "major"
-
-      npm-security:
-        applies-to:
-          - "security-updates"
-        patterns:
-          - "*"
-
-      ignore:
-        - dependency-name: "typescript"
-          update-types: {"version-update: semver-major"}
-
-        - dependency-name: "next"
-          update-types: {"version-update: semver-major"}
-        
-        - dependency-name: "react"
-          update-types: {"version-update: semver-major"}
-
-        - dependency-name: "@xrpl/*"
-        - dependency-name: "ethers"
-        - dependency-name: "tweetnacl"
-        - dependency-name: "libsodium"
+    ignore:
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "next"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "react"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "xrpl"
+      - dependency-name: "ethers"
+      - dependency-name: "tweetnacl"
+      - dependency-name: "libsodium"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -75,7 +55,6 @@ updates:
       day: "sunday"
       time: "03:30"
       timezone: "UTC"
-
     open-pull-requests-limit: 5
     rebase-strategy: "auto"
     commit-message:
@@ -85,7 +64,7 @@ updates:
       - "dependencies"
       - "github-actions"
     groups:
-      gha-updates:
+      github-actions:
         patterns:
           - "*"
 
@@ -96,9 +75,7 @@ updates:
       day: "sunday"
       time: "04:00"
       timezone: "UTC"
-
     open-pull-requests-limit: 5
-
     rebase-strategy: "auto"
     commit-message:
       prefix: "build(deps)"
