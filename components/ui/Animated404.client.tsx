@@ -4,12 +4,12 @@ import Link from "next/link"
 import { useEffect, useRef } from "react"
 import { gsap } from "gsap"
 import { useLocale, useTranslations } from "next-intl"
-import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion"
+import { useAdaptiveExperience } from "@/hooks/useAdaptiveExperience"
 
 export default function Animated404() {
   const t = useTranslations("notFound")
   const locale = useLocale()
-  const reduceMotion = usePrefersReducedMotion()
+  const { shouldReduceMotion } = useAdaptiveExperience()
   const digitRefs = useRef<Array<HTMLDivElement | null>>([])
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function Animated404() {
       gsap.set(node, { y: 0 })
     })
 
-    if (reduceMotion) return
+    if (shouldReduceMotion) return
 
     const tweens = [
       gsap.fromTo(nodes[0], { y: -10 }, { y: 10, duration: 1, ease: "sine.inOut", repeat: -1, yoyo: true }),
@@ -32,7 +32,7 @@ export default function Animated404() {
     return () => {
       tweens.forEach((tween) => tween.kill())
     }
-  }, [reduceMotion])
+  }, [shouldReduceMotion])
 
   return (
     <div

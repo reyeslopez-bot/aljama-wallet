@@ -1,9 +1,9 @@
 'use client'
 
 import { gsap } from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useEffect, useRef } from 'react'
-import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -57,12 +57,16 @@ export default function HomeMotionScene() {
   const pageRouteActiveRef = useRef<SVGPathElement | null>(null)
   const pageRouteSignalRef = useRef<HTMLDivElement | null>(null)
   const pageRouteNodeRefs = useRef<Array<HTMLDivElement | null>>([])
-  const reduceMotion = usePrefersReducedMotion()
+  const routeLayerReadyRef = useRef(false)
+  const { shouldReduceMotion, shouldUseLightweightMode } = useAdaptiveExperience()
 
   useEffect(() => {
     const scene = sceneRef.current
     const scope = scene?.parentElement
     if (!scene || !scope) return
+
+    routeLayerReadyRef.current = false
+    scene.dataset.routeLayerReady = 'false'
 
     const mm = gsap.matchMedia()
     let cleanupRouteLayout = () => {}
@@ -215,7 +219,20 @@ export default function HomeMotionScene() {
         })
       }
 
-      if (reduceMotion) {
+      const setRouteLayerReady = (isReady: boolean) => {
+        routeLayerReadyRef.current = isReady
+        scene.dataset.routeLayerReady = isReady ? 'true' : 'false'
+      }
+
+      if (shouldUseLightweightMode) {
+        setRouteLayerReady(false)
+        gsap.set(pageRouteLayer, { autoAlpha: 0 })
+        return () => {
+          cancelAnimationFrame(resizeFrame)
+        }
+      }
+
+      if (shouldReduceMotion) {
         const motionNodes = [
           ...heroAccentNodes,
           ...revealNodes,
@@ -243,6 +260,7 @@ export default function HomeMotionScene() {
         )
         layoutPageRoute()
         updateRouteProgress(1)
+        setRouteLayerReady(true)
         return () => {
           cancelAnimationFrame(resizeFrame)
         }
@@ -537,6 +555,7 @@ export default function HomeMotionScene() {
       })
 
       ScrollTrigger.refresh()
+      setRouteLayerReady(true)
 
       cleanupRouteLayout = () => {
         cancelAnimationFrame(resizeFrame)
@@ -549,12 +568,13 @@ export default function HomeMotionScene() {
       mm.revert()
       ctx.revert()
     }
-  }, [reduceMotion])
+  }, [shouldReduceMotion, shouldUseLightweightMode])
 
   return (
     <div
       ref={sceneRef}
       aria-hidden="true"
+      data-route-layer-ready="false"
       className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
     >
       <div data-home-page-route-layer className="absolute inset-0">

@@ -52,6 +52,7 @@ describe('MapboxMap', () => {
     })
 
     vi.clearAllMocks()
+    Reflect.deleteProperty(navigator, 'connection')
   })
 
   it('keeps Dubai jurisdiction when network location falls back to default', async () => {
@@ -112,7 +113,46 @@ describe('MapboxMap', () => {
     })
   })
 
-  it('does not render manual location controls', () => {
+  it('switches to lightweight mode when save-data is enabled', async () => {
+    window.localStorage.setItem('aljama.location.consent', 'granted')
+    Object.defineProperty(navigator, 'connection', {
+      configurable: true,
+      value: {
+        saveData: true,
+        effectiveType: '2g',
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      },
+    })
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        location: {
+          source: 'network',
+          latitude: 25.204849,
+          longitude: 55.270783,
+          country: 'AE',
+          region: null,
+          city: 'Dubai',
+          timezone: 'Asia/Dubai',
+        },
+      }),
+    }))
+
+    const { getByTestId, queryByTestId } = render(<MapboxMap />)
+
+    await waitFor(() => {
+      expect(getByTestId('mapbox-map-viewport').getAttribute('data-map-mode')).toBe('lightweight')
+      expect(getByTestId('mapbox-map-status').textContent).toContain('Lightweight mode active')
+    })
+
+    expect(getByTestId('mapbox-map-static-fallback')).toBeTruthy()
+    expect(queryByTestId('mapbox-map-overlay-loading')).toBeNull()
+  })
+
+  it('does not render manual location controls', async () => {
     window.localStorage.setItem('aljama.location.consent', 'granted')
 
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -133,9 +173,11 @@ describe('MapboxMap', () => {
 
     const { queryByTestId } = render(<MapboxMap />)
 
-    expect(queryByTestId('mapbox-map-use-network-location')).toBeNull()
-    expect(queryByTestId('mapbox-map-use-device-location')).toBeNull()
-    expect(queryByTestId('mapbox-map-refresh')).toBeNull()
+    await waitFor(() => {
+      expect(queryByTestId('mapbox-map-use-network-location')).toBeNull()
+      expect(queryByTestId('mapbox-map-use-device-location')).toBeNull()
+      expect(queryByTestId('mapbox-map-refresh')).toBeNull()
+    })
   })
 
   it('shows fallback error when lookup fails', async () => {

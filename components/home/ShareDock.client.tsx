@@ -62,8 +62,53 @@ function CopyIcon() {
   )
 }
 
-function openShare(url: string) {
-  window.open(url, '_blank', 'noopener,noreferrer')
+function getConfiguredOrigin() {
+  const value =
+    process.env.NEXT_PUBLIC_SITE_URL
+    ?? process.env.NEXT_PUBLIC_APP_URL
+    ?? process.env.NEXTAUTH_URL
+    ?? 'https://aljama.app'
+
+  const trimmed = value.trim()
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed
+  return `https://${trimmed}`
+}
+
+function ShareActionLink(props: {
+  item: ShareItem
+  statusId: string
+  ariaLabel: string
+  href: string
+  newTab?: boolean
+}) {
+  const interactions = useGsapPressable<HTMLAnchorElement>({
+    base: { rotate: props.item.tilt },
+    hover: { y: -3, rotate: 0, scale: 1.03 },
+    press: { scale: 0.98 },
+  })
+
+  return (
+    <a
+      ref={interactions.ref}
+      href={props.href}
+      target={props.newTab ? '_blank' : undefined}
+      rel={props.newTab ? 'noopener noreferrer' : undefined}
+      onPointerEnter={interactions.onPointerEnter}
+      onPointerLeave={interactions.onPointerLeave}
+      onPointerDown={interactions.onPointerDown}
+      onPointerUp={interactions.onPointerUp}
+      onPointerCancel={interactions.onPointerCancel}
+      onBlur={interactions.onBlur}
+      aria-label={props.ariaLabel}
+      aria-describedby={props.statusId}
+      title={props.item.label}
+      data-testid={`share-dock-link-${props.item.id}`}
+      className={`relative flex h-14 w-14 items-center justify-center border border-saffron/35 bg-gradient-to-br ${props.item.tone} text-[#f0d7a0] shadow-lg shadow-black/30 backdrop-blur-[10px] transition hover:border-saffron/55`}
+      style={{ borderRadius: 2 }}
+    >
+      {props.item.icon}
+    </a>
+  )
 }
 
 function ShareActionButton(props: {
@@ -92,6 +137,7 @@ function ShareActionButton(props: {
       aria-label={props.ariaLabel}
       aria-describedby={props.statusId}
       title={props.item.label}
+      data-testid={`share-dock-link-${props.item.id}`}
       onClick={props.onClick}
       className={`relative flex h-14 w-14 items-center justify-center border border-saffron/35 bg-gradient-to-br ${props.item.tone} text-[#f0d7a0] shadow-lg shadow-black/30 backdrop-blur-[10px] transition hover:border-saffron/55`}
       style={{ borderRadius: 2 }}
@@ -104,8 +150,9 @@ function ShareActionButton(props: {
 export default function ShareDock() {
   const t = useTranslations('share')
   const pathname = usePathname()
-  const [origin, setOrigin] = useState('')
+  const [origin, setOrigin] = useState(getConfiguredOrigin())
   const [copied, setCopied] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
   const headingId = 'share-dock-title'
   const bodyId = 'share-dock-body'
   const actionsId = 'share-dock-actions'
@@ -113,15 +160,28 @@ export default function ShareDock() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    setHydrated(true)
     setOrigin(window.location.origin)
   }, [])
 
   const shareUrl = useMemo(() => {
     const safePath = pathname || '/en'
-    return `${origin || 'https://aljama.app'}${safePath}`
+    return new URL(safePath, origin || 'https://aljama.app').toString()
   }, [origin, pathname])
 
   const shareTitle = t('title')
+  const canCopy = hydrated && typeof navigator !== 'undefined' && typeof navigator.clipboard?.writeText === 'function'
+
+  const shareLinks = useMemo(
+    () => ({
+      x: `https://x.com/intent/tweet?text=${encodeURIComponent(shareTitle)}&url=${encodeURIComponent(shareUrl)}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(`${shareTitle} ${shareUrl}`)}`,
+      email: `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareUrl)}`,
+    }),
+    [shareTitle, shareUrl],
+  )
 
   const shareItems: ShareItem[] = [
     { id: 'x', label: t('x'), tone: 'from-[#1d232a]/95 to-[#14191f]/95', tilt: -0.35, icon: <XIcon /> },
@@ -161,51 +221,32 @@ export default function ShareDock() {
             aria-label={t('title')}
           >
             {shareItems.map((item) => (
-              <ShareActionButton
-                key={item.id}
-                item={item}
-                statusId={statusId}
-                ariaLabel={
-                  item.id === 'copy'
-                    ? copied
-                      ? `${t('copy')} copied`
-                      : t('copy')
-                    : item.label
-                }
-                onClick={async () => {
-                  const encodedTitle = encodeURIComponent(shareTitle)
-                  const encodedUrl = encodeURIComponent(shareUrl)
-
-                  if (item.id === 'x') {
-                    openShare(`https://x.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`)
-                    return
-                  }
-                  if (item.id === 'linkedin') {
-                    openShare(`https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`)
-                    return
-                  }
-                  if (item.id === 'facebook') {
-                    openShare(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`)
-                    return
-                  }
-                  if (item.id === 'whatsapp') {
-                    openShare(`https://wa.me/?text=${encodeURIComponent(`${shareTitle} ${shareUrl}`)}`)
-                    return
-                  }
-                  if (item.id === 'email') {
-                    window.location.href = `mailto:?subject=${encodedTitle}&body=${encodeURIComponent(shareUrl)}`
-                    return
-                  }
-
-                  try {
-                    await navigator.clipboard.writeText(shareUrl)
-                    setCopied(true)
-                    window.setTimeout(() => setCopied(false), 1800)
-                  } catch {
-                    setCopied(false)
-                  }
-                }}
-              />
+              item.id === 'copy' && canCopy ? (
+                <ShareActionButton
+                  key={item.id}
+                  item={item}
+                  statusId={statusId}
+                  ariaLabel={copied ? `${t('copy')} copied` : t('copy')}
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(shareUrl)
+                      setCopied(true)
+                      window.setTimeout(() => setCopied(false), 1800)
+                    } catch {
+                      setCopied(false)
+                    }
+                  }}
+                />
+              ) : (
+                <ShareActionLink
+                  key={item.id}
+                  item={item}
+                  statusId={statusId}
+                  ariaLabel={item.id === 'copy' ? t('openLink') : item.label}
+                  href={item.id === 'copy' ? shareUrl : shareLinks[item.id]}
+                  newTab={item.id !== 'email'}
+                />
+              )
             ))}
           </div>
           <p id={statusId} className="sr-only" aria-live="polite">

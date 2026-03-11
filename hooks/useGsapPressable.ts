@@ -3,7 +3,7 @@
 import type { FocusEventHandler, PointerEventHandler } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
 import { gsap } from 'gsap'
-import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
 
 type TransformState = {
   x?: number
@@ -41,8 +41,8 @@ export function useGsapPressable<T extends HTMLElement>({
   const elementRef = useRef<T | null>(null)
   const hoveredRef = useRef(false)
   const pressedRef = useRef(false)
-  const prefersReducedMotion = usePrefersReducedMotion()
-  const shouldAnimate = enabled && (!respectReducedMotion || !prefersReducedMotion)
+  const { shouldReduceMotion } = useAdaptiveExperience()
+  const shouldAnimate = enabled && (!respectReducedMotion || !shouldReduceMotion)
 
   const resolveState = useCallback(
     (hovered: boolean, pressed: boolean) => {

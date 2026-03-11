@@ -207,6 +207,12 @@
   }
 }
 
+html[data-runtime-mode='lightweight'] body,
+html[data-runtime-mode='lightweight'] .animated-mist-bg {
+  animation: none !important;
+  background-position: 50% 50%;
+}
+
 /* =========================================================
    SURFACE SYSTEM
    ========================================================= */
@@ -381,6 +387,14 @@
       drop-shadow(0 0 8px rgb(var(--saffron) / 0.28))
       drop-shadow(0 0 18px rgb(var(--lapis) / 0.18));
     opacity: 0;
+  }
+
+  [data-route-layer-ready='false'] [data-home-page-route-layer] {
+    opacity: 0;
+  }
+
+  [data-route-layer-ready='true'] [data-home-page-route-layer] {
+    opacity: 1;
   }
 
   .home-page-rosette {

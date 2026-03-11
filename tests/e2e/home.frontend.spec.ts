@@ -224,3 +224,18 @@ test('rtl home routes avoid horizontal overflow', async ({ page }, testInfo) => 
     await expectNoHorizontalOverflow(page, `${label} xrpl-section`)
   }
 })
+
+test('home remains usable with JavaScript disabled', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false })
+  const page = await context.newPage()
+
+  await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
+
+  await expect(page.getByTestId('home-overview-section')).toBeVisible()
+  await expect(page.getByTestId('home-wallet-section')).toBeVisible()
+  await expect(page.getByTestId('mapbox-map-static-fallback')).toBeVisible()
+  await expect(page.getByTestId('share-dock-link-x')).toHaveAttribute('href', /x\.com\/intent\/tweet/)
+  await expect(page.getByTestId('share-dock-link-copy')).toHaveAttribute('href', /\/en$/)
+
+  await context.close()
+})

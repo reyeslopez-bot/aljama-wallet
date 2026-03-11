@@ -293,6 +293,7 @@
     "label": "Map",
     "idle": "Using VPN/IP location. Dubai is only used if lookup fails.",
     "blocked": "Location access is currently off.",
+    "lightweight": "Lightweight mode active. Showing a static region view.",
     "loading": "Resolving your location...",
     "centered": "Centered at",
     "error": "Map error.",
@@ -476,6 +477,7 @@
     "facebook": "Share on Facebook",
     "whatsapp": "Share on WhatsApp",
     "email": "Share by Email",
+    "openLink": "Open link",
     "copy": "Copy link",
     "copied": "Copied"
   }

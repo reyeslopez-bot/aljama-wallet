@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
 import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
 
 type Coords = {
@@ -99,14 +100,15 @@ export default function MapboxMap() {
   const [mapError, setMapError] = React.useState<string | null>(null)
   const [placeLabel, setPlaceLabel] = React.useState<string | null>(null)
   const [isLightTheme, setIsLightTheme] = React.useState(false)
-  const [showRegulations, setShowRegulations] = React.useState(false)
   const [locationEnabled, setLocationEnabled] = React.useState(false)
+  const { shouldUseLightweightMode } = useAdaptiveExperience()
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
   const mapStyle = isLightTheme ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11'
 
   const resolvePlaceLabel = React.useCallback(
     async (lat: number, lng: number, fallbackLabel: string | null = null) => {
+      if (shouldUseLightweightMode) return fallbackLabel
       if (!token) return fallbackLabel
 
       try {
@@ -131,7 +133,7 @@ export default function MapboxMap() {
         return fallbackLabel
       }
     },
-    [token],
+    [shouldUseLightweightMode, token],
   )
 
   const requestNetworkLocation = React.useCallback(async () => {
@@ -205,6 +207,14 @@ export default function MapboxMap() {
   }, [])
 
   React.useEffect(() => {
+    if (shouldUseLightweightMode) {
+      setMapReady(false)
+      setMapError(null)
+      mapRef.current?.remove()
+      mapRef.current = null
+      markerRef.current = null
+      return
+    }
     if (!token) {
       setStatus('error')
       setError('Missing NEXT_PUBLIC_MAPBOX_TOKEN in .env.local')
@@ -263,7 +273,7 @@ export default function MapboxMap() {
       mapRef.current = null
       markerRef.current = null
     }
-  }, [token])
+  }, [shouldUseLightweightMode, token])
 
   React.useEffect(() => {
     const map = mapRef.current
@@ -309,10 +319,6 @@ export default function MapboxMap() {
     )
   }, [uiRegion])
 
-  React.useEffect(() => {
-    setShowRegulations(false)
-  }, [regulatoryRegion])
-
   return (
     <section
       data-testid="mapbox-map"
@@ -326,6 +332,11 @@ export default function MapboxMap() {
         </p>
 
         <p id={statusId} data-testid="mapbox-map-status" aria-live="polite" className="text-sm text-ivory/70">
+          {shouldUseLightweightMode ? (
+            <>
+              {t('lightweight')}{' '}
+            </>
+          ) : null}
           {!locationEnabled && t('blocked')}
           {locationEnabled && status === 'idle' && t('idle')}
           {locationEnabled && status === 'loading' && t('loading')}
@@ -350,11 +361,43 @@ export default function MapboxMap() {
             ? 'border-[#7fa3c1]/40 bg-white/70 shadow-2xl shadow-[#7fa3c1]/25'
             : 'border-white/10 bg-black/60 shadow-2xl shadow-black/40'
         }`}
+        data-map-mode={shouldUseLightweightMode ? 'lightweight' : 'interactive'}
         role="img"
         aria-labelledby={titleId}
         aria-describedby={statusId}
       >
-        <div ref={containerRef} aria-hidden="true" className="h-[260px] w-full md:h-[320px]" />
+        <div
+          data-testid="mapbox-map-static-fallback"
+          aria-hidden="true"
+          className={`absolute inset-0 ${
+            isLightTheme
+              ? 'bg-[radial-gradient(circle_at_18%_20%,rgba(127,176,217,0.25),transparent_35%),radial-gradient(circle_at_82%_18%,rgba(92,152,124,0.18),transparent_34%),linear-gradient(145deg,rgba(255,255,255,0.88),rgba(234,242,251,0.86),rgba(229,237,247,0.9))]'
+              : 'bg-[radial-gradient(circle_at_18%_20%,rgba(210,167,98,0.22),transparent_34%),radial-gradient(circle_at_82%_18%,rgba(127,176,217,0.18),transparent_34%),linear-gradient(145deg,rgba(8,11,15,0.96),rgba(12,16,22,0.9),rgba(8,10,14,0.96))]'
+          }`}
+        >
+          <div
+            className={`absolute inset-x-0 top-[22%] h-px ${
+              isLightTheme ? 'bg-[#7fa3c1]/28' : 'bg-white/8'
+            }`}
+          />
+          <div
+            className={`absolute left-[28%] top-[48%] h-px w-[44%] ${
+              isLightTheme ? 'bg-[#7fa3c1]/24' : 'bg-white/7'
+            }`}
+          />
+          <div
+            className={`absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border ${
+              isLightTheme ? 'border-[#5c8db4]/45 bg-white/70' : 'border-white/14 bg-black/45'
+            }`}
+          >
+            <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-saffron shadow-[0_0_16px_rgba(210,167,98,0.5)]" />
+          </div>
+        </div>
+        <div
+          ref={containerRef}
+          aria-hidden="true"
+          className={`relative h-[260px] w-full md:h-[320px] ${shouldUseLightweightMode ? 'hidden' : ''}`}
+        />
         <div
           className={`pointer-events-none absolute inset-0 ${
             isLightTheme
@@ -362,7 +405,7 @@ export default function MapboxMap() {
               : 'bg-gradient-to-b from-black/20 via-transparent to-black/40'
           }`}
         />
-        {!mapReady && !mapError ? (
+        {!shouldUseLightweightMode && !mapReady && !mapError ? (
           <div
             data-testid="mapbox-map-overlay-loading"
             role="status"
@@ -388,18 +431,15 @@ export default function MapboxMap() {
           {t('laws.jurisdiction')}{' '}
           <span className="text-ivory">{t(`laws.${regulatoryRegion}.label`)}</span>
         </p>
-        <button
-          data-testid="mapbox-map-laws-toggle"
-          type="button"
-          onClick={() => setShowRegulations((open) => !open)}
-          aria-expanded={showRegulations}
-          aria-controls={regulationPanelId}
-          className="mt-3 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10"
-        >
-          {showRegulations ? t('laws.showLess') : t('laws.showMore')}
-        </button>
-        {showRegulations && (
-          <div id={regulationPanelId} data-testid="mapbox-map-regulations">
+        <details className="group mt-3" id={regulationPanelId}>
+          <summary
+            data-testid="mapbox-map-laws-toggle"
+            className="inline-flex cursor-pointer list-none rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10 [&::-webkit-details-marker]:hidden"
+          >
+            <span className="group-open:hidden">{t('laws.showMore')}</span>
+            <span className="hidden group-open:inline">{t('laws.showLess')}</span>
+          </summary>
+          <div className="mt-3" data-testid="mapbox-map-regulations">
             <ul className="mt-3 space-y-2 text-xs text-ivory/60">
               <li data-testid="mapbox-map-regulation-item">{t(`laws.${regulatoryRegion}.item1`)}</li>
               <li data-testid="mapbox-map-regulation-item">{t(`laws.${regulatoryRegion}.item2`)}</li>
@@ -426,7 +466,7 @@ export default function MapboxMap() {
               </ul>
             </div>
           </div>
-        )}
+        </details>
       </div>
     </section>
   )

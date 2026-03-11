@@ -89,8 +89,8 @@ describe('HomeConsentGate', () => {
 
     await waitFor(() => {
       expect(mocks.replace).toHaveBeenCalledWith('/en/consent?next=%2Fen')
+      expect(queryByText('home-content')).toBeNull()
     })
-    expect(queryByText('home-content')).toBeNull()
     expect(queryByTestId('consent-gate-root')).toBeNull()
   })
 
@@ -109,8 +109,8 @@ describe('HomeConsentGate', () => {
 
     await waitFor(() => {
       expect(mocks.replace).toHaveBeenCalledWith('/en/consent?next=%2Fen%2Fcompliance%3Fsource%3Dnav')
+      expect(queryByText('home-content')).toBeNull()
     })
-    expect(queryByText('home-content')).toBeNull()
     expect(queryByTestId('consent-gate-root')).toBeNull()
   })
 

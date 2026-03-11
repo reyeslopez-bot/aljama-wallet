@@ -1,10 +1,19 @@
 // components/layout/LayoutClient.tsx
 'use client'
 
-import Navbar from './Navbar'
 import type { ReactNode } from 'react'
+import { useEffect } from 'react'
+import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
+import Navbar from './Navbar'
 
 export default function LayoutClient({ children }: { children: ReactNode }) {
+  const { shouldUseLightweightMode } = useAdaptiveExperience()
+
+  useEffect(() => {
+    document.documentElement.dataset.js = 'true'
+    document.documentElement.dataset.runtimeMode = shouldUseLightweightMode ? 'lightweight' : 'enhanced'
+  }, [shouldUseLightweightMode])
+
   return (
     <>
       <div

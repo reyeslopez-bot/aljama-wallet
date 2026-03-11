@@ -2,11 +2,11 @@
 
 import { useEffect, useRef } from "react"
 import { gsap } from "gsap"
-import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion"
+import { useAdaptiveExperience } from "@/hooks/useAdaptiveExperience"
 
 export function LoadingPill({ message = "Loading..." }: { message?: string }) {
   const spinnerRef = useRef<HTMLDivElement | null>(null)
-  const reduceMotion = usePrefersReducedMotion()
+  const { shouldReduceMotion } = useAdaptiveExperience()
 
   useEffect(() => {
     const node = spinnerRef.current
@@ -15,7 +15,7 @@ export function LoadingPill({ message = "Loading..." }: { message?: string }) {
     gsap.killTweensOf(node)
     gsap.set(node, { rotate: 0, transformOrigin: "50% 50%" })
 
-    if (reduceMotion) return
+    if (shouldReduceMotion) return
 
     const tween = gsap.to(node, {
       rotate: 360,
@@ -27,7 +27,7 @@ export function LoadingPill({ message = "Loading..." }: { message?: string }) {
     return () => {
       tween.kill()
     }
-  }, [reduceMotion])
+  }, [shouldReduceMotion])
 
   return (
     <div className="min-h-[40vh] w-full flex items-center justify-center p-8">

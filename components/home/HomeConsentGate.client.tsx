@@ -70,7 +70,11 @@ export default function HomeConsentGate({ children }: HomeConsentGateProps) {
     }
   }, [locale, pathname, router, searchParams])
 
-  if (isCheckingConsent || !hasAnsweredPermissions) {
+  if (isCheckingConsent) {
+    return <>{children}</>
+  }
+
+  if (!hasAnsweredPermissions) {
     return null
   }
 

@@ -4,15 +4,15 @@ import { gsap } from 'gsap'
 import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
+import { useSession } from 'next-auth/react'
+import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useTranslations } from 'next-intl'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
-import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
 import { loadProfileImageForUsername } from '@/lib/storage/profileImage'
-import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { getHomeNow } from '@/components/home/homeClock'
 
 function formatShortAddress(address: string) {
@@ -175,7 +175,7 @@ export default function DynamicInfoCard() {
   const [corner, setCorner] = useState<CardCorner>('top-right')
   const [isDragging, setIsDragging] = useState(false)
   const [hoverExpansionEnabled, setHoverExpansionEnabled] = useState(false)
-  const reduceMotion = usePrefersReducedMotion()
+  const { shouldReduceMotion, shouldUseLightweightMode } = useAdaptiveExperience()
   const cardRef = useRef<HTMLElement | null>(null)
   const dragHandleRef = useRef<HTMLDivElement | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -224,9 +224,9 @@ export default function DynamicInfoCard() {
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
 
-    const mediaQuery = window.matchMedia(HOVER_ENABLED_QUERY)
-    const syncHoverMode = () => {
-      const nextEnabled = mediaQuery.matches
+      const mediaQuery = window.matchMedia(HOVER_ENABLED_QUERY)
+      const syncHoverMode = () => {
+      const nextEnabled = mediaQuery.matches && !shouldUseLightweightMode
       setHoverExpansionEnabled(nextEnabled)
       if (!nextEnabled) setHovered(false)
     }
@@ -240,7 +240,7 @@ export default function DynamicInfoCard() {
 
     mediaQuery.addListener(syncHoverMode)
     return () => mediaQuery.removeListener(syncHoverMode)
-  }, [])
+  }, [shouldUseLightweightMode])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -422,7 +422,7 @@ export default function DynamicInfoCard() {
 
     gsap.killTweensOf(node)
 
-    if (reduceMotion) {
+    if (shouldReduceMotion) {
       gsap.set(node, { autoAlpha: 1, y: 0 })
       return
     }
@@ -432,7 +432,7 @@ export default function DynamicInfoCard() {
       { autoAlpha: 0, y: 6 },
       { autoAlpha: 1, y: 0, duration: 0.18, ease: 'power2.out', overwrite: 'auto' },
     )
-  }, [detailsExpanded, reduceMotion])
+  }, [detailsExpanded, shouldReduceMotion])
 
   const finishDrag = useCallback(
     (pointerId: number) => {
@@ -460,7 +460,7 @@ export default function DynamicInfoCard() {
 
         gsap.killTweensOf(activeNode)
 
-        if (reduceMotion) {
+        if (shouldReduceMotion) {
           dragStateRef.current.x = 0
           dragStateRef.current.y = 0
           gsap.set(activeNode, { x: 0, y: 0, scale: 1 })
@@ -487,11 +487,12 @@ export default function DynamicInfoCard() {
 
       window.requestAnimationFrame(resetTransform)
     },
-    [reduceMotion, snapToNearestCorner],
+    [shouldReduceMotion, snapToNearestCorner],
   )
 
   const handleDragPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (shouldUseLightweightMode) return
       if (event.pointerType === 'mouse' && event.button !== 0) return
       if (!cardRef.current) return
 
@@ -512,7 +513,7 @@ export default function DynamicInfoCard() {
       }
 
       gsap.killTweensOf(node)
-      if (reduceMotion) {
+      if (shouldReduceMotion) {
         gsap.set(node, { scale: 1.01 })
       } else {
         gsap.to(node, { scale: 1.01, duration: 0.12, overwrite: 'auto' })
@@ -520,7 +521,7 @@ export default function DynamicInfoCard() {
       setIsDragging(true)
       event.preventDefault()
     },
-    [reduceMotion],
+    [shouldReduceMotion, shouldUseLightweightMode],
   )
 
   const handleDragPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
