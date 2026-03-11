@@ -175,7 +175,7 @@ export default function DynamicInfoCard() {
   const [corner, setCorner] = useState<CardCorner>('top-right')
   const [isDragging, setIsDragging] = useState(false)
   const [hoverExpansionEnabled, setHoverExpansionEnabled] = useState(false)
-  const { shouldReduceMotion, shouldUseLightweightMode } = useAdaptiveExperience()
+  const { hasHydrated, shouldReduceMotion, shouldUseLightweightMode } = useAdaptiveExperience()
   const cardRef = useRef<HTMLElement | null>(null)
   const dragHandleRef = useRef<HTMLDivElement | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -226,7 +226,7 @@ export default function DynamicInfoCard() {
 
       const mediaQuery = window.matchMedia(HOVER_ENABLED_QUERY)
       const syncHoverMode = () => {
-      const nextEnabled = mediaQuery.matches && !shouldUseLightweightMode
+      const nextEnabled = mediaQuery.matches && !(hasHydrated && shouldUseLightweightMode)
       setHoverExpansionEnabled(nextEnabled)
       if (!nextEnabled) setHovered(false)
     }
@@ -240,7 +240,7 @@ export default function DynamicInfoCard() {
 
     mediaQuery.addListener(syncHoverMode)
     return () => mediaQuery.removeListener(syncHoverMode)
-  }, [shouldUseLightweightMode])
+  }, [hasHydrated, shouldUseLightweightMode])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -492,7 +492,7 @@ export default function DynamicInfoCard() {
 
   const handleDragPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (shouldUseLightweightMode) return
+      if (hasHydrated && shouldUseLightweightMode) return
       if (event.pointerType === 'mouse' && event.button !== 0) return
       if (!cardRef.current) return
 
@@ -521,7 +521,7 @@ export default function DynamicInfoCard() {
       setIsDragging(true)
       event.preventDefault()
     },
-    [shouldReduceMotion, shouldUseLightweightMode],
+    [hasHydrated, shouldReduceMotion, shouldUseLightweightMode],
   )
 
   const handleDragPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
