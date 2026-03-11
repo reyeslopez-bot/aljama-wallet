@@ -1,4 +1,12 @@
 name: Infra - Redis Integration and Load
+run-name: >-
+  ${{
+    github.event_name == 'pull_request' &&
+    format('Infra / PR {0}', github.event.pull_request.number) ||
+    github.event_name == 'workflow_dispatch' &&
+    'Infra / Manual' ||
+    format('Infra / {0}', github.ref_name)
+  }}
 
 on:
   push:
@@ -45,7 +53,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify Redis service
-        run: pnpm exec tsx -e "import { createClient } from 'redis'; const client = createClient({ url: process.env.REDIS_URL! }); client.on('error', console.error); await client.connect(); console.log(await client.ping()); await client.quit();"
+        run: >-
+          pnpm exec tsx -e "import { createClient } from 'redis'; const client =
+          createClient({ url: process.env.REDIS_URL! }); client.on('error',
+          console.error); await client.connect(); console.log(await
+          client.ping()); await client.quit();"
 
       - name: Run Redis infrastructure integration tests
         run: pnpm test:integration:infra

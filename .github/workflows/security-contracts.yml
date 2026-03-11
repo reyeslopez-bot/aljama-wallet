@@ -1,4 +1,12 @@
 name: Security - Contracts
+run-name: >-
+  ${{
+    github.event_name == 'schedule' &&
+    'Contracts Security / Scheduled' ||
+    github.event_name == 'pull_request' &&
+    format('Contracts Security / PR {0}', github.event.pull_request.number) ||
+    format('Contracts Security / {0}', github.ref_name)
+  }}
 
 on:
   push:

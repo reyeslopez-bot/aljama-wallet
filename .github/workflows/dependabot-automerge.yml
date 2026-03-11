@@ -1,4 +1,6 @@
 name: Dependabot Auto Merge
+run-name: >-
+  ${{ format('Dependabot Auto Merge / PR {0}', github.event.pull_request.number) }}
 
 concurrency:
   group: "dependabot-${{ github.ref }}"

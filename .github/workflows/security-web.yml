@@ -1,4 +1,10 @@
 name: Security - Web DAST
+run-name: >-
+  ${{
+    github.event_name == 'schedule' &&
+    'Web DAST / Scheduled' ||
+    format('Web DAST / {0}', github.event.inputs.scan_profile)
+  }}
 
 on:
   workflow_dispatch:
@@ -93,9 +99,9 @@ jobs:
 
       - name: Run Nuclei
         run: |
-          EXIT_CODE_FLAG=""
+          EXIT_CODE_ARGS=()
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.fail_on_alerts }}" = "true" ]; then
-            EXIT_CODE_FLAG="-exit-code 1"
+            EXIT_CODE_ARGS=(-exit-code 1)
           fi
 
           "$(go env GOPATH)/bin/nuclei" \
@@ -103,7 +109,7 @@ jobs:
             -severity medium,high,critical \
             -json-export nuclei-results.json \
             -o nuclei-results.txt \
-            $EXIT_CODE_FLAG
+            "${EXIT_CODE_ARGS[@]}"
 
       - name: Upload Nuclei artifacts
         if: always()

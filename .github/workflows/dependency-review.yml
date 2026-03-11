@@ -1,4 +1,6 @@
 name: Dependency Review
+run-name: >-
+  ${{ format('Dependency Review / PR {0}', github.event.pull_request.number) }}
 
 on:
     pull_request:

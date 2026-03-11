@@ -1,4 +1,10 @@
 name: CI - Aljama Wallet
+run-name: >-
+  ${{
+    github.event_name == 'pull_request' &&
+    format('CI / PR {0}', github.event.pull_request.number) ||
+    format('CI / {0}', github.ref_name)
+  }}
 
 on:
   push:

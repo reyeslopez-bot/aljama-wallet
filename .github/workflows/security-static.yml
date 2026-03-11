@@ -1,4 +1,12 @@
 name: Security - Static and Supply Chain
+run-name: >-
+  ${{
+    github.event_name == 'schedule' &&
+    'Static Security / Scheduled' ||
+    github.event_name == 'pull_request' &&
+    format('Static Security / PR {0}', github.event.pull_request.number) ||
+    format('Static Security / {0}', github.ref_name)
+  }}
 
 on:
   push:
