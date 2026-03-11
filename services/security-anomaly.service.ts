@@ -11,6 +11,7 @@ import {
 import {
   createQueueAdapterFromEnv,
   getSecuritySignalQueueAdapterHealth,
+  maybeCloseQueueAdapterForTests,
   maybeResetQueueAdapterForTests,
   resetSecuritySignalQueueAdapterHealthForTests,
   type SecuritySignalQueueAdapterHealth,
@@ -1581,6 +1582,7 @@ export function clearSecurityAnomalyStateForTests() {
   countryHistoryByIdentity.clear()
 
   maybeResetQueueAdapterForTests(globalForSecurityAnomalies.securitySignalQueueAdapter)
+  maybeCloseQueueAdapterForTests(globalForSecurityAnomalies.securitySignalQueueAdapter)
   globalForSecurityAnomalies.securitySignalQueueAdapter = undefined
   globalForSecurityAnomalies.securitySignalQueueAdapterPromise = undefined
 

@@ -71,6 +71,7 @@ export interface SecuritySignalQueueAdapter {
   ack(message: SecuritySignalQueueMessage): Promise<void>
   getStats(): Promise<SecuritySignalQueueStats>
   resetForTests?(): void | Promise<void>
+  closeForTests?(): void | Promise<void>
 }
 
 type InMemoryQueueEntry = SecuritySignalQueueMessage & {
@@ -269,6 +270,8 @@ export class InMemoryQueueAdapter implements SecuritySignalQueueAdapter {
     this.queue.splice(0, this.queue.length)
     this.inflight.clear()
   }
+
+  closeForTests() {}
 }
 
 type RedisCommandClient = {
@@ -434,10 +437,7 @@ function toStreamMessage(
 }
 
 async function loadRedisModule(): Promise<{ createClient: (options: { url: string }) => RedisCommandClient }> {
-  const dynamicImport = new Function('moduleName', 'return import(moduleName)') as (
-    moduleName: string,
-  ) => Promise<unknown>
-  const importedModule = await dynamicImport('redis')
+  const importedModule = await import('redis')
   const record = asRecord(importedModule)
   const createClient = record?.createClient
   if (typeof createClient !== 'function') {
@@ -455,6 +455,7 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
   private readonly blockMs: number
   private readonly minIdleMs: number
   private readonly maxDepth: number
+  private readonly ownsClient: boolean
   private groupReady = false
   private readonly clientPromise: Promise<RedisCommandClient>
 
@@ -474,6 +475,7 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
     this.blockMs = input.blockMs
     this.minIdleMs = input.minIdleMs
     this.maxDepth = input.maxDepth
+    this.ownsClient = !input.clientFactory
 
     if (input.clientFactory) {
       this.clientPromise = input.clientFactory()
@@ -751,8 +753,19 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
   async resetForTests() {
     try {
       await this.send(['DEL', this.streamKey])
+      this.groupReady = false
     } catch (error) {
       logWarn('security-signal:redis', new Error(getErrorMessage(error, 'Failed to reset stream for tests')))
+    }
+  }
+
+  async closeForTests() {
+    if (!this.ownsClient) return
+    try {
+      const client = await this.clientPromise
+      await client.quit?.()
+    } catch (error) {
+      logWarn('security-signal:redis', new Error(getErrorMessage(error, 'Failed to close redis test client')))
     }
   }
 }
@@ -826,6 +839,16 @@ export function resetSecuritySignalQueueAdapterHealthForTests() {
 export function maybeResetQueueAdapterForTests(adapter: SecuritySignalQueueAdapter | null | undefined) {
   if (!adapter?.resetForTests) return
   const result = adapter.resetForTests()
+  if (hasThen(result)) {
+    void result.catch((error) => {
+      logError('security-signal:adapter', error)
+    })
+  }
+}
+
+export function maybeCloseQueueAdapterForTests(adapter: SecuritySignalQueueAdapter | null | undefined) {
+  if (!adapter?.closeForTests) return
+  const result = adapter.closeForTests()
   if (hasThen(result)) {
     void result.catch((error) => {
       logError('security-signal:adapter', error)

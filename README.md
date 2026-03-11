@@ -158,6 +158,8 @@ PLAYWRIGHT_REAL_BACKEND=true PLAYWRIGHT_NODE_ENV=production PLAYWRIGHT_SERVER_CO
 PLAYWRIGHT_VISUAL=true pnpm test:e2e:visual
 PLAYWRIGHT_VISUAL=true pnpm test:e2e:visual:update
 RUN_XRPL_INTEGRATION_TESTS=true pnpm test:integration:xrpl
+REDIS_URL=redis://127.0.0.1:6379 pnpm test:integration:infra
+REDIS_URL=redis://127.0.0.1:6379 pnpm test:load:infra
 ```
 
 ## CI
@@ -173,9 +175,11 @@ GitHub Actions runs:
 - Frontend production-like lane on Ubuntu (`pnpm build && pnpm start`) with real backend E2E (no route mocks).
 - Frontend visual baseline diff lane on macOS (Chromium + snapshot assertions).
 - Env-gated XRPL live integration lane for testnet behavior checks.
+- Redis-backed infra lane for distributed rate-limit, queue resilience, and load smoke coverage.
 - Container CI path (Podman + `just` fallback commands).
 
 Workflow: `.github/workflows/ci.yml`
+Additional workflow: `.github/workflows/infra-resilience.yml`
 
 ## Environment
 

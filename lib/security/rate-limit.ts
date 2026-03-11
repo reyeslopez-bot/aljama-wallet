@@ -10,6 +10,7 @@ type Bucket = { remaining: number; resetAt: number }
 type RedisCommandClient = {
   sendCommand(args: string[]): Promise<unknown>
   connect?: () => Promise<void>
+  quit?: () => Promise<void>
   on?: (event: string, listener: (error: unknown) => void) => void
 }
 
@@ -89,10 +90,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 async function loadRedisModule(): Promise<{ createClient: (options: { url: string }) => RedisCommandClient }> {
-  const dynamicImport = new Function('moduleName', 'return import(moduleName)') as (
-    moduleName: string,
-  ) => Promise<unknown>
-  const importedModule = await dynamicImport('redis')
+  const importedModule = await import('redis')
   const record = asRecord(importedModule)
   const createClient = record?.createClient
   if (typeof createClient !== 'function') {
@@ -365,6 +363,25 @@ export async function rateLimit(opts: {
 export function setRateLimitRedisClientForTests(client: RedisCommandClient | null) {
   globalForRateLimit.rateLimitRedisClientOverride = client
   globalForRateLimit.rateLimitRedisClientPromise = undefined
+}
+
+export async function closeRateLimitRedisClientForTests() {
+  const override = globalForRateLimit.rateLimitRedisClientOverride
+  const promised = globalForRateLimit.rateLimitRedisClientPromise
+
+  globalForRateLimit.rateLimitRedisClientOverride = undefined
+  globalForRateLimit.rateLimitRedisClientPromise = undefined
+
+  const seen = new Set<RedisCommandClient>()
+  if (override) {
+    seen.add(override)
+    await override.quit?.().catch(() => {})
+  }
+
+  const resolved = await promised?.catch(() => null)
+  if (resolved && !seen.has(resolved)) {
+    await resolved.quit?.().catch(() => {})
+  }
 }
 
 export function clearRateLimitStateForTests() {

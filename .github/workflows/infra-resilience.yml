@@ -1,0 +1,59 @@
+name: Infra - Redis Integration and Load
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REDIS_URL: redis://127.0.0.1:6379
+
+jobs:
+  redis-infra:
+    name: Redis integration + load smoke
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install pnpm
+        run: npm i -g pnpm@10.28.1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Redis service
+        run: pnpm exec tsx -e "import { createClient } from 'redis'; const client = createClient({ url: process.env.REDIS_URL! }); client.on('error', console.error); await client.connect(); console.log(await client.ping()); await client.quit();"
+
+      - name: Run Redis infrastructure integration tests
+        run: pnpm test:integration:infra
+
+      - name: Run Redis load smoke
+        env:
+          INFRA_LOAD_RATE_LIMIT_REQUESTS: '120'
+          INFRA_LOAD_RATE_LIMIT_ALLOW: '60'
+          INFRA_LOAD_QUEUE_MESSAGES: '200'
+          INFRA_LOAD_QUEUE_BATCH: '25'
+        run: pnpm test:load:infra

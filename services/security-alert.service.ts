@@ -234,10 +234,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 async function loadRedisModule(): Promise<{ createClient: (options: { url: string }) => RedisCommandClient }> {
-  const dynamicImport = new Function('moduleName', 'return import(moduleName)') as (
-    moduleName: string,
-  ) => Promise<unknown>
-  const importedModule = await dynamicImport('redis')
+  const importedModule = await import('redis')
   const record = asRecord(importedModule)
   const createClient = record?.createClient
   if (typeof createClient !== 'function') {
