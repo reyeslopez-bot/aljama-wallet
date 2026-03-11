@@ -127,3 +127,15 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
     })),
   })
 }
+
+if (typeof navigator !== 'undefined') {
+  Object.defineProperty(navigator, 'hardwareConcurrency', {
+    configurable: true,
+    value: 8,
+  })
+
+  Object.defineProperty(navigator, 'deviceMemory', {
+    configurable: true,
+    value: 8,
+  })
+}

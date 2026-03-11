@@ -33,7 +33,7 @@ env:
 jobs:
   zap-baseline:
     name: ZAP Baseline
-    if: ${{ env.TARGET_URL != '' && (github.event_name == 'schedule' || github.event.inputs.scan_profile == 'baseline' || github.event.inputs.scan_profile == 'both') }}
+    if: ${{ (github.event.inputs.target_url || vars.SECURITY_SCAN_TARGET_URL) != '' && (github.event_name == 'schedule' || github.event.inputs.scan_profile == 'baseline' || github.event.inputs.scan_profile == 'both') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -53,7 +53,7 @@ jobs:
 
   zap-full:
     name: ZAP Full Scan
-    if: ${{ env.TARGET_URL != '' && github.event_name == 'workflow_dispatch' && (github.event.inputs.scan_profile == 'full' || github.event.inputs.scan_profile == 'both') }}
+    if: ${{ (github.event.inputs.target_url || vars.SECURITY_SCAN_TARGET_URL) != '' && github.event_name == 'workflow_dispatch' && (github.event.inputs.scan_profile == 'full' || github.event.inputs.scan_profile == 'both') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -73,7 +73,7 @@ jobs:
 
   nuclei:
     name: Nuclei
-    if: ${{ env.TARGET_URL != '' }}
+    if: ${{ (github.event.inputs.target_url || vars.SECURITY_SCAN_TARGET_URL) != '' }}
     runs-on: ubuntu-latest
 
     steps:

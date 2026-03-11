@@ -492,7 +492,6 @@ export default function DynamicInfoCard() {
 
   const handleDragPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (hasHydrated && shouldUseLightweightMode) return
       if (event.pointerType === 'mouse' && event.button !== 0) return
       if (!cardRef.current) return
 
@@ -521,7 +520,7 @@ export default function DynamicInfoCard() {
       setIsDragging(true)
       event.preventDefault()
     },
-    [hasHydrated, shouldReduceMotion, shouldUseLightweightMode],
+    [shouldReduceMotion],
   )
 
   const handleDragPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
