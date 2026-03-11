@@ -19,7 +19,7 @@ describe('ShareDock', () => {
   })
 
   it('renders share actions as real links before clipboard enhancement is available', () => {
-    const { getByTestId } = render(<ShareDock />)
+    const { getByTestId } = render(<ShareDock initialOrigin="http://localhost:3000" />)
 
     expect((getByTestId('share-dock-link-x') as HTMLAnchorElement).href).toContain('https://x.com/intent/tweet')
     expect((getByTestId('share-dock-link-linkedin') as HTMLAnchorElement).href).toContain('linkedin.com')
@@ -37,7 +37,7 @@ describe('ShareDock', () => {
       },
     })
 
-    const { getByTestId } = render(<ShareDock />)
+    const { getByTestId } = render(<ShareDock initialOrigin="http://localhost:3000" />)
 
     await waitFor(() => {
       expect(getByTestId('share-dock-link-copy').tagName).toBe('BUTTON')

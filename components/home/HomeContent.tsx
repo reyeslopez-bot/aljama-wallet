@@ -14,6 +14,7 @@ import ShareDock from '@/components/home/ShareDock.client'
 import ClientTrackWallet from '@/infra/utils/ClientTrackWallet'
 import { BRAND } from '@/constants/brand'
 import DynamicInfoCard from '@/components/home/DynamicInfoCard.client'
+import { getSiteUrl } from '@/lib/seo/site-url'
 import { useTranslations } from 'next-intl'
 
 const SURFACE = 'surface-panel'
@@ -175,10 +176,10 @@ function TradeDeskSection() {
   )
 }
 
-function ShareSection() {
+function ShareSection({ initialOrigin }: { initialOrigin: string }) {
   return (
     <section id="share" data-home-reveal="share" data-home-route-stop="share" className="scroll-mt-28">
-      <ShareDock />
+      <ShareDock initialOrigin={initialOrigin} />
     </section>
   )
 }
@@ -200,6 +201,7 @@ function FooterCopyright() {
 export default function HomeContent() {
   const tHome = useTranslations('home')
   const showDevDeviation = process.env.NODE_ENV === 'development'
+  const initialShareOrigin = getSiteUrl().origin
 
   const statBlocks = [
     {
@@ -240,7 +242,7 @@ export default function HomeContent() {
       <WalletAccessSection />
       <XrplSection />
       <TradeDeskSection />
-      <ShareSection />
+      <ShareSection initialOrigin={initialShareOrigin} />
       <FooterCopyright />
     </div>
   )

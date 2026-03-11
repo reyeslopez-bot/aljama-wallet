@@ -62,18 +62,6 @@ function CopyIcon() {
   )
 }
 
-function getConfiguredOrigin() {
-  const value =
-    process.env.NEXT_PUBLIC_SITE_URL
-    ?? process.env.NEXT_PUBLIC_APP_URL
-    ?? process.env.NEXTAUTH_URL
-    ?? 'https://aljama.app'
-
-  const trimmed = value.trim()
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed
-  return `https://${trimmed}`
-}
-
 function ShareActionLink(props: {
   item: ShareItem
   statusId: string
@@ -147,10 +135,14 @@ function ShareActionButton(props: {
   )
 }
 
-export default function ShareDock() {
+type ShareDockProps = {
+  initialOrigin: string
+}
+
+export default function ShareDock({ initialOrigin }: ShareDockProps) {
   const t = useTranslations('share')
   const pathname = usePathname()
-  const [origin, setOrigin] = useState(getConfiguredOrigin())
+  const [origin, setOrigin] = useState(initialOrigin)
   const [copied, setCopied] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const headingId = 'share-dock-title'
@@ -161,8 +153,10 @@ export default function ShareDock() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     setHydrated(true)
-    setOrigin(window.location.origin)
-  }, [])
+    if (window.location.origin !== initialOrigin) {
+      setOrigin(window.location.origin)
+    }
+  }, [initialOrigin])
 
   const shareUrl = useMemo(() => {
     const safePath = pathname || '/en'
