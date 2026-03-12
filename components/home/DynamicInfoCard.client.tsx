@@ -1,7 +1,13 @@
 'use client'
 
 import { gsap } from 'gsap'
-import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type {
+  CSSProperties,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+} from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useSession } from 'next-auth/react'
@@ -751,6 +757,19 @@ export default function DynamicInfoCard() {
     [detailsPinned, hoverExpansionEnabled, shouldExpandFromHoverTarget],
   )
 
+  const handleExpandKeyDown = useCallback((event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    setDetailsPinned(true)
+  }, [])
+
+  const handleCollapseKeyDown = useCallback((event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    setDetailsPinned(false)
+    setHovered(false)
+  }, [])
+
   return (
     <aside
       ref={cardRef}
@@ -1017,6 +1036,7 @@ export default function DynamicInfoCard() {
                     data-dynamic-info-card-toggle-state="expanded"
                     data-testid="dynamic-info-card-collapse-button"
                     aria-expanded={detailsExpanded}
+                    onKeyDown={handleCollapseKeyDown}
                     onClick={() => {
                       setDetailsPinned(false)
                       setHovered(false)
@@ -1068,6 +1088,7 @@ export default function DynamicInfoCard() {
                   data-dynamic-info-card-toggle-state="collapsed"
                   data-testid="dynamic-info-card-expand-button"
                   aria-expanded={detailsExpanded}
+                  onKeyDown={handleExpandKeyDown}
                   onClick={() => setDetailsPinned(true)}
                   className={`rounded-full border px-3 py-1 text-[0.6875rem] font-semibold tracking-wide transition ${
                     isLightTheme
