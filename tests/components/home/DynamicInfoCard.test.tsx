@@ -104,6 +104,24 @@ describe('DynamicInfoCard', () => {
     })
   })
 
+  it('keeps the start flow visible after wallet setup until the flow is finished', async () => {
+    useDynamicInfoStore.setState((state) => ({
+      ...state,
+      wallet: {
+        ...state.wallet,
+        createdAddress: 'rWalletReady123456789',
+      },
+    }))
+
+    const { getByTestId, queryByTestId } = render(<DynamicInfoCard />)
+
+    fireEvent.click(getByTestId('dynamic-info-card-expand-button'))
+
+    await waitFor(() => {
+      expect(queryByTestId('dynamic-info-card-start-flow')).toBeTruthy()
+    })
+  })
+
   it('snaps to a new corner and persists it after dragging', async () => {
     const { getByTestId } = render(<DynamicInfoCard />)
 

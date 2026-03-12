@@ -389,11 +389,21 @@
         },
         "wallet": {
           "title": "Wallet",
-          "body": "Create a vault or connect an existing wallet."
+          "body": "Visit Create Wallet or Connect Wallet to choose your path.",
+          "inCreate": "Create Wallet is open. Finish the vault steps to continue.",
+          "inConnect": "Connect Wallet is open. Link a wallet to continue.",
+          "inBoth": "Both wallet paths have been visited. Finish the one you want to use.",
+          "creating": "Vault creation is in progress.",
+          "connecting": "Wallet connection is in progress.",
+          "ready": "Wallet ready. Continue into XRPL tools.",
+          "retry": "Wallet action needs another try."
         },
         "track": {
-          "title": "Live status",
-          "body": "Keep session state, network time, and wallet signals in view."
+          "title": "XRPL",
+          "body": "XRPL tools unlock after wallet access is ready.",
+          "waiting": "XRPL tools will light up after wallet access is complete.",
+          "active": "Wallet ready. Open XRPL and market tools next.",
+          "done": "XRPL workspace reached."
         }
       }
     }

@@ -121,6 +121,7 @@ function CopyIcon() {
 
 type CardCorner = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
 type StartFlowState = 'done' | 'active' | 'pending'
+type TrackedSection = 'create' | 'connect' | 'xrpl'
 
 const INFO_CARD_CORNER_KEY = 'aljama.infoCard.corner'
 const CARD_CORNERS: CardCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
@@ -211,6 +212,11 @@ export default function DynamicInfoCard() {
   const [hoverExpansionEnabled, setHoverExpansionEnabled] = useState(false)
   const [locationConsentState, setLocationConsentState] = useState<'granted' | 'denied' | 'unset'>('unset')
   const [telemetryConsentState, setTelemetryConsentState] = useState<'granted' | 'denied' | 'unset'>('unset')
+  const [seenSections, setSeenSections] = useState<Record<TrackedSection, boolean>>({
+    create: false,
+    connect: false,
+    xrpl: false,
+  })
   const { hasHydrated, shouldReduceMotion, shouldUseLightweightMode } = useAdaptiveExperience()
   const cardRef = useRef<HTMLElement | null>(null)
   const dragHandleRef = useRef<HTMLDivElement | null>(null)
@@ -234,6 +240,12 @@ export default function DynamicInfoCard() {
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
   const selectedXrplNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
   const availableStatusLabel = t('status.available')
+  const markSectionSeen = useCallback((sectionId: TrackedSection) => {
+    setSeenSections((current) => {
+      if (current[sectionId]) return current
+      return { ...current, [sectionId]: true }
+    })
+  }, [])
 
   useEffect(() => {
     if (sessionStatus === 'loading') return
@@ -309,6 +321,49 @@ export default function DynamicInfoCard() {
       window.removeEventListener('storage', syncConsent)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const syncHash = () => {
+      const hash = window.location.hash.replace('#', '')
+      if (hash === 'create' || hash === 'connect' || hash === 'xrpl') {
+        markSectionSeen(hash)
+      }
+    }
+
+    syncHash()
+    window.addEventListener('hashchange', syncHash)
+    return () => window.removeEventListener('hashchange', syncHash)
+  }, [markSectionSeen])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return
+          const sectionId = entry.target.id
+          if (sectionId === 'create' || sectionId === 'connect' || sectionId === 'xrpl') {
+            markSectionSeen(sectionId)
+          }
+        })
+      },
+      {
+        root: null,
+        rootMargin: '-20% 0px -35% 0px',
+        threshold: 0.35,
+      },
+    )
+
+    const nodes = ['create', 'connect', 'xrpl']
+      .map((sectionId) => document.getElementById(sectionId))
+      .filter((node): node is HTMLElement => Boolean(node))
+
+    nodes.forEach((node) => observer.observe(node))
+    return () => observer.disconnect()
+  }, [markSectionSeen])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -441,14 +496,39 @@ export default function DynamicInfoCard() {
       ? 'bg-amber-300'
       : 'bg-emerald-400'
   const detailsExpanded = detailsPinned || (hoverExpansionEnabled && hovered)
-  const isGettingStarted = !wallet.connectedAddress && !wallet.createdAddress
+  const walletReady = Boolean(wallet.connectedAddress || wallet.createdAddress)
   const permissionsConfigured = locationConsentState !== 'unset' && telemetryConsentState !== 'unset'
   const optionalServicesEnabled = locationConsentState === 'granted' && telemetryConsentState === 'granted'
+  const walletFlowStarted =
+    seenSections.create ||
+    seenSections.connect ||
+    createStatus !== 'idle' ||
+    connectStatus !== 'idle' ||
+    walletReady
+  const walletStepState: StartFlowState = walletReady ? 'done' : permissionsConfigured ? 'active' : 'pending'
+  const trackStepState: StartFlowState = seenSections.xrpl ? 'done' : walletReady ? 'active' : 'pending'
+  const showStartFlow = !(permissionsConfigured && walletReady && seenSections.xrpl)
   const permissionsSummary = permissionsConfigured
     ? optionalServicesEnabled
       ? tConsent('optionalToggleOn')
       : tConsent('optionalToggleOff')
     : t('gettingStarted.permissionsPending')
+  const walletProgressSummary = useMemo(() => {
+    if (walletReady) return t('gettingStarted.steps.wallet.ready')
+    if (createStatus === 'pending') return t('gettingStarted.steps.wallet.creating')
+    if (connectStatus === 'pending') return t('gettingStarted.steps.wallet.connecting')
+    if (createStatus === 'error' || connectStatus === 'error') return t('gettingStarted.steps.wallet.retry')
+    if (seenSections.create && !seenSections.connect) return t('gettingStarted.steps.wallet.inCreate')
+    if (seenSections.connect && !seenSections.create) return t('gettingStarted.steps.wallet.inConnect')
+    if (seenSections.create && seenSections.connect) return t('gettingStarted.steps.wallet.inBoth')
+    return t('gettingStarted.steps.wallet.body')
+  }, [connectStatus, createStatus, seenSections.connect, seenSections.create, t, walletReady])
+  const trackProgressSummary = useMemo(() => {
+    if (seenSections.xrpl) return t('gettingStarted.steps.track.done')
+    if (walletReady) return t('gettingStarted.steps.track.active')
+    if (walletFlowStarted) return t('gettingStarted.steps.track.waiting')
+    return t('gettingStarted.steps.track.body')
+  }, [seenSections.xrpl, t, walletFlowStarted, walletReady])
   const startFlowSteps = useMemo(
     () =>
       [
@@ -459,23 +539,23 @@ export default function DynamicInfoCard() {
           title: t('gettingStarted.steps.permissions.title'),
         },
         {
-          body: t('gettingStarted.steps.wallet.body'),
+          body: walletProgressSummary,
           key: 'wallet',
-          state: (permissionsConfigured ? 'active' : 'pending') as StartFlowState,
+          state: walletStepState,
           title: t('gettingStarted.steps.wallet.title'),
         },
         {
-          body: t('gettingStarted.steps.track.body'),
+          body: trackProgressSummary,
           key: 'track',
-          state: 'pending' as StartFlowState,
+          state: trackStepState,
           title: t('gettingStarted.steps.track.title'),
         },
       ] satisfies Array<{ body: string; key: string; state: StartFlowState; title: string }>,
-    [permissionsConfigured, permissionsSummary, t],
+    [permissionsSummary, permissionsConfigured, t, trackProgressSummary, trackStepState, walletProgressSummary, walletStepState],
   )
 
   useStartFlowMotion(startFlowRef, {
-    enabled: detailsExpanded && isGettingStarted,
+    enabled: detailsExpanded && showStartFlow,
     shouldReduceMotion,
   })
 
@@ -496,10 +576,11 @@ export default function DynamicInfoCard() {
 
   const jumpToSection = useCallback((sectionId: 'create' | 'connect' | 'xrpl') => {
     if (typeof document === 'undefined') return
+    markSectionSeen(sectionId)
     const target = document.getElementById(sectionId)
     if (!target) return
     target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [])
+  }, [markSectionSeen])
 
   const snapToNearestCorner = useCallback(() => {
     if (typeof window === 'undefined' || !cardRef.current) return
@@ -796,7 +877,7 @@ export default function DynamicInfoCard() {
                   </div>
                 </div>
 
-                {isGettingStarted ? (
+                {showStartFlow ? (
                   <div
                     ref={startFlowRef}
                     data-testid="dynamic-info-card-start-flow"
