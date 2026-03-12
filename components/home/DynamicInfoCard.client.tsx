@@ -7,11 +7,13 @@ import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
+import { useStartFlowMotion } from '@/hooks/useStartFlowMotion'
 import { useTranslations } from 'next-intl'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
+import { getTelemetryConsent, onTelemetryConsentChange } from '@/infra/telemetry/client'
 import { loadProfileImageForUsername } from '@/lib/storage/profileImage'
 import { getHomeNow } from '@/components/home/homeClock'
 
@@ -118,6 +120,7 @@ function CopyIcon() {
 }
 
 type CardCorner = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
+type StartFlowState = 'done' | 'active' | 'pending'
 
 const INFO_CARD_CORNER_KEY = 'aljama.infoCard.corner'
 const CARD_CORNERS: CardCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
@@ -161,8 +164,39 @@ function isCardCorner(value: string | null): value is CardCorner {
   return Boolean(value && CARD_CORNERS.includes(value as CardCorner))
 }
 
+function getStartFlowTone(state: StartFlowState) {
+  if (state === 'done') {
+    return {
+      body: 'text-emerald-100/72',
+      line: 'via-emerald-300/45',
+      node: 'border-emerald-300/45 bg-emerald-400/14 text-emerald-50',
+      surface: 'border-emerald-300/14 bg-emerald-400/6',
+      title: 'text-ivory/88',
+    }
+  }
+
+  if (state === 'active') {
+    return {
+      body: 'text-saffron/82',
+      line: 'via-saffron/55',
+      node: 'border-saffron/50 bg-saffron/14 text-saffron shadow-[0_0_14px_rgba(240,215,160,0.18)]',
+      surface: 'border-saffron/18 bg-saffron/6',
+      title: 'text-ivory',
+    }
+  }
+
+  return {
+    body: 'text-ivory/55',
+    line: 'via-white/20',
+    node: 'border-white/12 bg-white/6 text-ivory/70',
+    surface: 'border-white/8 bg-white/[0.03]',
+    title: 'text-ivory/72',
+  }
+}
+
 export default function DynamicInfoCard() {
   const t = useTranslations('infoCard')
+  const tConsent = useTranslations('consent')
   const tActions = useTranslations('actions')
   const tCreate = useTranslations('createWallet')
   const { data: session, status: sessionStatus } = useSession()
@@ -175,10 +209,13 @@ export default function DynamicInfoCard() {
   const [corner, setCorner] = useState<CardCorner>('top-right')
   const [isDragging, setIsDragging] = useState(false)
   const [hoverExpansionEnabled, setHoverExpansionEnabled] = useState(false)
+  const [locationConsentState, setLocationConsentState] = useState<'granted' | 'denied' | 'unset'>('unset')
+  const [telemetryConsentState, setTelemetryConsentState] = useState<'granted' | 'denied' | 'unset'>('unset')
   const { hasHydrated, shouldReduceMotion, shouldUseLightweightMode } = useAdaptiveExperience()
   const cardRef = useRef<HTMLElement | null>(null)
   const dragHandleRef = useRef<HTMLDivElement | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
+  const startFlowRef = useRef<HTMLDivElement | null>(null)
   const dragStateRef = useRef<DragState>({
     pointerId: null,
     startX: 0,
@@ -224,8 +261,8 @@ export default function DynamicInfoCard() {
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
 
-      const mediaQuery = window.matchMedia(HOVER_ENABLED_QUERY)
-      const syncHoverMode = () => {
+    const mediaQuery = window.matchMedia(HOVER_ENABLED_QUERY)
+    const syncHoverMode = () => {
       const nextEnabled = mediaQuery.matches && !(hasHydrated && shouldUseLightweightMode)
       setHoverExpansionEnabled(nextEnabled)
       if (!nextEnabled) setHovered(false)
@@ -249,6 +286,28 @@ export default function DynamicInfoCard() {
     const observer = new MutationObserver(syncTheme)
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
     return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const syncConsent = () => {
+      setLocationConsentState(getLocationConsent())
+      setTelemetryConsentState(getTelemetryConsent())
+    }
+
+    syncConsent()
+    const unsubscribeLocation = onLocationConsentChange(syncConsent)
+    const unsubscribeTelemetry = onTelemetryConsentChange(syncConsent)
+    window.addEventListener('focus', syncConsent)
+    window.addEventListener('storage', syncConsent)
+
+    return () => {
+      unsubscribeLocation()
+      unsubscribeTelemetry()
+      window.removeEventListener('focus', syncConsent)
+      window.removeEventListener('storage', syncConsent)
+    }
   }, [])
 
   useEffect(() => {
@@ -382,6 +441,44 @@ export default function DynamicInfoCard() {
       ? 'bg-amber-300'
       : 'bg-emerald-400'
   const detailsExpanded = detailsPinned || (hoverExpansionEnabled && hovered)
+  const isGettingStarted = !wallet.connectedAddress && !wallet.createdAddress
+  const permissionsConfigured = locationConsentState !== 'unset' && telemetryConsentState !== 'unset'
+  const optionalServicesEnabled = locationConsentState === 'granted' && telemetryConsentState === 'granted'
+  const permissionsSummary = permissionsConfigured
+    ? optionalServicesEnabled
+      ? tConsent('optionalToggleOn')
+      : tConsent('optionalToggleOff')
+    : t('gettingStarted.permissionsPending')
+  const startFlowSteps = useMemo(
+    () =>
+      [
+        {
+          body: permissionsSummary,
+          key: 'permissions',
+          state: (permissionsConfigured ? 'done' : 'active') as StartFlowState,
+          title: t('gettingStarted.steps.permissions.title'),
+        },
+        {
+          body: t('gettingStarted.steps.wallet.body'),
+          key: 'wallet',
+          state: (permissionsConfigured ? 'active' : 'pending') as StartFlowState,
+          title: t('gettingStarted.steps.wallet.title'),
+        },
+        {
+          body: t('gettingStarted.steps.track.body'),
+          key: 'track',
+          state: 'pending' as StartFlowState,
+          title: t('gettingStarted.steps.track.title'),
+        },
+      ] satisfies Array<{ body: string; key: string; state: StartFlowState; title: string }>,
+    [permissionsConfigured, permissionsSummary, t],
+  )
+
+  useStartFlowMotion(startFlowRef, {
+    enabled: detailsExpanded && isGettingStarted,
+    shouldReduceMotion,
+  })
+
   const cardCornerClass = useMemo(() => {
     if (corner === 'top-left') return 'left-4 top-20 sm:left-6 sm:top-24 lg:left-8 lg:top-24'
     if (corner === 'bottom-left') return 'bottom-4 left-4 sm:bottom-6 sm:left-6 lg:bottom-8 lg:left-8'
@@ -397,7 +494,7 @@ export default function DynamicInfoCard() {
     [corner],
   )
 
-  const jumpToSection = useCallback((sectionId: 'create' | 'xrpl') => {
+  const jumpToSection = useCallback((sectionId: 'create' | 'connect' | 'xrpl') => {
     if (typeof document === 'undefined') return
     const target = document.getElementById(sectionId)
     if (!target) return
@@ -698,6 +795,104 @@ export default function DynamicInfoCard() {
                     </div>
                   </div>
                 </div>
+
+                {isGettingStarted ? (
+                  <div
+                    ref={startFlowRef}
+                    data-testid="dynamic-info-card-start-flow"
+                    className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#07111d]/75 p-3"
+                  >
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(240,215,160,0.14),rgba(7,17,29,0)_48%),linear-gradient(180deg,rgba(127,163,193,0.08),rgba(7,17,29,0))]"
+                    />
+                    <div className="relative">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-[0.625rem] uppercase tracking-[0.18em] text-saffron/82">
+                            {t('gettingStarted.eyebrow')}
+                          </div>
+                          <div className="mt-1 text-sm font-semibold tracking-tight text-ivory">
+                            {t('gettingStarted.title')}
+                          </div>
+                          <p className="mt-1 text-[0.6875rem] leading-5 text-ivory/62">
+                            {t('gettingStarted.hint')}
+                          </p>
+                        </div>
+                        <div className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[0.5625rem] font-semibold uppercase tracking-[0.18em] text-ivory/62">
+                          {t('gettingStarted.badge')}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 space-y-2">
+                        {startFlowSteps.map((step, index) => {
+                          const tone = getStartFlowTone(step.state)
+                          const isLastStep = index === startFlowSteps.length - 1
+                          return (
+                            <div
+                              key={step.key}
+                              data-start-flow-step
+                              className={`flex gap-3 rounded-xl border px-3 py-2.5 ${tone.surface}`}
+                            >
+                              <div className="flex w-6 shrink-0 flex-col items-center">
+                                <span
+                                  data-start-flow-node-active={step.state === 'active' ? 'true' : undefined}
+                                  className={`grid h-6 w-6 place-items-center rounded-full border text-[0.625rem] font-semibold ${tone.node}`}
+                                >
+                                  {index + 1}
+                                </span>
+                                {!isLastStep ? (
+                                  <span
+                                    aria-hidden="true"
+                                    data-start-flow-line
+                                    className={`mt-1 h-5 w-px bg-gradient-to-b from-white/10 ${tone.line} to-transparent`}
+                                  />
+                                ) : null}
+                              </div>
+                              <div className="min-w-0">
+                                <div className={`text-[0.625rem] uppercase tracking-[0.16em] ${tone.title}`}>
+                                  {step.title}
+                                </div>
+                                <p className={`mt-1 text-[0.6875rem] leading-5 ${tone.body}`}>{step.body}</p>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            jumpToSection('create')
+                            pushEvent({ kind: 'info', message: tActions('createWallet') })
+                          }}
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
+                            isLightTheme
+                              ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
+                              : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
+                          }`}
+                        >
+                          {tActions('createWallet')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            jumpToSection('connect')
+                            pushEvent({ kind: 'info', message: tActions('connectWallet') })
+                          }}
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
+                            isLightTheme
+                              ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
+                              : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
+                          }`}
+                        >
+                          {tActions('connectWallet')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2">

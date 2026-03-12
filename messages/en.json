@@ -375,7 +375,28 @@
     "detailsOpen": "Details open",
     "connectionMethod": "Connection method",
     "sessionStatus": "Session status",
-    "unknownConnector": "Wallet connector"
+    "unknownConnector": "Wallet connector",
+    "gettingStarted": {
+      "eyebrow": "Quick start",
+      "title": "Start in three steps",
+      "hint": "Permissions come first, then wallet access, then live status stays visible here.",
+      "badge": "3-step flow",
+      "permissionsPending": "Choose essential only or enable optional services.",
+      "steps": {
+        "permissions": {
+          "title": "Permissions",
+          "body": "Choose essential only or enable optional services."
+        },
+        "wallet": {
+          "title": "Wallet",
+          "body": "Create a vault or connect an existing wallet."
+        },
+        "track": {
+          "title": "Live status",
+          "body": "Keep session state, network time, and wallet signals in view."
+        }
+      }
+    }
   },
   "footer": {
     "privacy": "Privacy",

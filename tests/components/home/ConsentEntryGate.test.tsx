@@ -107,4 +107,10 @@ describe('ConsentEntryGate', () => {
 
     expect(mocks.push).toHaveBeenCalledWith('/he/consent?next=%2Fhe%2Fcompliance')
   })
+
+  it('renders the guided start flow above the permissions controls', () => {
+    const { getByTestId } = render(<ConsentEntryGate />)
+
+    expect(getByTestId('consent-gate-start-flow')).toBeTruthy()
+  })
 })

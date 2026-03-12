@@ -94,6 +94,7 @@ describe('DynamicInfoCard', () => {
 
     await waitFor(() => {
       expect(queryByTestId('dynamic-info-card-expanded')).toBeTruthy()
+      expect(queryByTestId('dynamic-info-card-start-flow')).toBeTruthy()
     })
 
     fireEvent.click(getByTestId('dynamic-info-card-collapse-button'))
