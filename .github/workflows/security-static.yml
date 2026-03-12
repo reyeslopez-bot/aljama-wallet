@@ -119,24 +119,23 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v6
 
-      - name: Install Trivy
-        uses: aquasecurity/setup-trivy@v0.2.5
-        with:
-          version: v0.68.2
-          cache: true
-
       - name: Run Trivy
-        uses: aquasecurity/trivy-action@0.33.1
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln,misconfig,secret
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: '0'
-          format: sarif
-          output: trivy-results.sarif
-          skip-setup-trivy: true
+        run: |
+          mkdir -p "${{ runner.temp }}/trivy-cache"
+          docker run --rm \
+            -v "${{ github.workspace }}:/github/workspace" \
+            -v "${{ runner.temp }}/trivy-cache:/root/.cache/trivy" \
+            -w /github/workspace \
+            aquasec/trivy:0.68.2 \
+            fs \
+            --scanners vuln,misconfig,secret \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0 \
+            --format sarif \
+            --output trivy-results.sarif \
+            --no-progress \
+            .
 
       - name: Upload Trivy SARIF
         if: always() && hashFiles('trivy-results.sarif') != ''
