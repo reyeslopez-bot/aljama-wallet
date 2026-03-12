@@ -119,6 +119,12 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v6
 
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.5
+        with:
+          version: v0.68.2
+          cache: true
+
       - name: Run Trivy
         uses: aquasecurity/trivy-action@0.33.1
         with:
@@ -130,6 +136,7 @@ jobs:
           exit-code: '0'
           format: sarif
           output: trivy-results.sarif
+          skip-setup-trivy: true
 
       - name: Upload Trivy SARIF
         if: always() && hashFiles('trivy-results.sarif') != ''

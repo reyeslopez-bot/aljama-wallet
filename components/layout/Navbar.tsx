@@ -11,9 +11,9 @@ import { signOut, useSession } from 'next-auth/react'
 import { hasRecognizedDevice, onTelemetryConsentChange } from '@/infra/telemetry/client'
 
 const LANGUAGES = [
-  { label: 'English', value: 'en' },
-  { label: 'עברית', value: 'he' },
-  { label: 'العربية', value: 'ar' },
+  { label: 'English', mobileLabel: 'EN', value: 'en' },
+  { label: 'עברית', mobileLabel: 'עב', value: 'he' },
+  { label: 'العربية', mobileLabel: 'عر', value: 'ar' },
 ]
 
 type ThemeMode = 'light' | 'dark'
@@ -192,6 +192,7 @@ export default function Navbar() {
   ]
   const authCtaLabel = recognizedDevice ? t('signIn') : t('signUp')
   const authCtaHref = recognizedDevice ? `/${locale}/login?mode=login` : `/${locale}/login?mode=register`
+  const currentLanguage = LANGUAGES.find((lang) => lang.value === locale)
   const accountLabel =
     session?.user?.name?.trim() ||
     session?.user?.email?.split('@')[0] ||
@@ -217,10 +218,10 @@ export default function Navbar() {
           : '0 18px 50px rgba(0,0,0,0.45)',
       }}
     >
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:gap-4 sm:px-4 md:px-6">
         <Link
           href={`/${locale}`}
-          className="font-display text-xl font-black uppercase tracking-[0.14em] transition sm:text-2xl"
+          className="shrink-0 font-display text-lg font-black uppercase tracking-[0.14em] transition sm:text-xl md:text-2xl"
           style={{
             color: isLight ? '#b06f2f' : '#e8bf78',
             textShadow: isLight
@@ -231,7 +232,7 @@ export default function Navbar() {
           {BRAND.name}
         </Link>
 
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <div className="hidden items-center md:flex">
             {menuItems.map((item, itemIndex) => (
               <div
@@ -266,7 +267,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:gap-2 sm:px-4 sm:text-sm ${
                 isLight
                   ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
                   : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
@@ -354,7 +355,7 @@ export default function Navbar() {
           <button
             type="button"
             onClick={() => applyTheme(isLight ? 'dark' : 'light')}
-            className={`relative h-10 w-20 shrink-0 overflow-hidden rounded-full border px-1.5 transition focus:outline-none focus:ring-2 ${
+            className={`relative h-10 w-16 shrink-0 overflow-hidden rounded-full border px-1.5 transition focus:outline-none focus:ring-2 sm:w-20 ${
               isLight
                 ? 'border-[#7fa3c1]/55 bg-white/80 focus:ring-[#5c8db4]/35'
                 : 'border-white/15 bg-white/10 focus:ring-saffron/30'
@@ -370,10 +371,10 @@ export default function Navbar() {
               className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#f0d7a0]/80 via-[#9abed8]/70 to-[#1b2634]/80"
             />
             <span
-              className={`pointer-events-none absolute inset-y-1 left-1 w-8 rounded-full border transition-transform ${
+              className={`pointer-events-none absolute inset-y-1 left-1 w-6 rounded-full border transition-transform sm:w-8 ${
                 isLight
                   ? 'translate-x-0 border-[#f6e0b7]/80 bg-[#fff7e8]/90 shadow-[0_0_20px_rgba(240,215,160,0.45)]'
-                  : 'translate-x-[2.25rem] border-white/30 bg-[#0f1622]/90 shadow-[0_0_20px_rgba(15,22,34,0.45)]'
+                  : 'translate-x-[1.5rem] border-white/30 bg-[#0f1622]/90 shadow-[0_0_20px_rgba(15,22,34,0.45)] sm:translate-x-[2.25rem]'
               }`}
             />
           </button>
@@ -382,7 +383,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setLanguageOpen((open) => !open)}
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:gap-2 sm:px-4 sm:text-sm ${
                 isLight
                   ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
                   : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
@@ -403,7 +404,12 @@ export default function Navbar() {
                 <path d="M2 12h20" />
                 <path d="M12 2c2.5 2.7 4 6.1 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.1-4-10s 1.5-7.3 4-10Z" />
               </svg>
-              <span>{LANGUAGES.find((lang) => lang.value === locale)?.label ?? t('language')}</span>
+              <span className="hidden sm:inline">
+                {currentLanguage?.label ?? t('language')}
+              </span>
+              <span className="sm:hidden">
+                {currentLanguage?.mobileLabel ?? t('language')}
+              </span>
               <span className="text-xs opacity-80">{languageOpen ? '▲' : '▼'}</span>
             </button>
 
