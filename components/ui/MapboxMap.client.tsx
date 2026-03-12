@@ -356,7 +356,7 @@ export default function MapboxMap() {
 
       <div
         data-testid="mapbox-map-viewport"
-        className={`relative w-full overflow-hidden rounded-3xl border backdrop-blur-xl ${
+        className={`relative min-h-[260px] w-full overflow-hidden rounded-3xl border backdrop-blur-xl md:min-h-[320px] ${
           isLightTheme
             ? 'border-[#7fa3c1]/40 bg-white/70 shadow-2xl shadow-[#7fa3c1]/25'
             : 'border-white/10 bg-black/60 shadow-2xl shadow-black/40'

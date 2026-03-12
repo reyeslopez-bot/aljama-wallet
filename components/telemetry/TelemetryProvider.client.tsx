@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   getBasicContext,
   getDeviceId,
@@ -28,7 +28,6 @@ export const TelemetryContext = createContext<TelemetryContextValue>({
 
 export default function TelemetryProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const [consent, setConsent] = useState<TelemetryConsent>('unset')
   const [context, setContext] = useState<TelemetryContextSnapshot>({})
   const contextRef = useRef<TelemetryContextSnapshot>({})
@@ -38,9 +37,10 @@ export default function TelemetryProvider({ children }: { children: ReactNode })
   const lastPathRef = useRef<string>('')
 
   const fullPath = useMemo(() => {
-    const qs = searchParams?.toString()
+    if (typeof window === 'undefined') return pathname
+    const qs = window.location.search.slice(1)
     return qs ? `${pathname}?${qs}` : pathname
-  }, [pathname, searchParams])
+  }, [pathname])
 
   useEffect(() => {
     setConsent(getTelemetryConsent())

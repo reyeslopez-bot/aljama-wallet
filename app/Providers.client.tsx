@@ -1,6 +1,5 @@
 'use client'
 import type { ReactNode } from 'react'
-import { Suspense } from 'react'
 import { SessionProvider } from 'next-auth/react'
 import type { Session } from 'next-auth'
 import Web3Providers from './Web3Providers.client'
@@ -18,11 +17,9 @@ export default function Providers({
     <SessionProvider session={session}>
       <Web3Providers>
         <DevReset />
-        <Suspense fallback={null}>
-          <TelemetryProvider>
-            {children}
-          </TelemetryProvider>
-        </Suspense>
+        <TelemetryProvider>
+          {children}
+        </TelemetryProvider>
       </Web3Providers>
     </SessionProvider>
   )

@@ -44,9 +44,11 @@ export function ConnectWalletPanel() {
   const activeChainLabel = displayConnected
     ? chain?.name ?? (chain?.id ? `Chain ${chain.id}` : '—')
     : '—'
-  const connectorLabel = displayConnected
-    ? accountConnector?.name ?? preferredConnector?.name ?? '—'
-    : preferredConnector?.name ?? t('status.noConnector')
+  const connectorLabel = !hydrated
+    ? t('status.noConnector')
+    : displayConnected
+      ? accountConnector?.name ?? preferredConnector?.name ?? '—'
+      : preferredConnector?.name ?? t('status.noConnector')
   const statusLabel = !hydrated
     ? t('status.ready')
     : !canConnect

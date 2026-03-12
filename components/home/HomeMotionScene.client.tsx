@@ -251,8 +251,15 @@ export default function HomeMotionScene() {
         gsap.set(motionNodes, {
           clearProps: 'opacity,visibility,transform',
         })
+        const routePathNodes = [
+          heroRoutePath,
+          heroRouteGlow,
+          pageRoutePathRef.current,
+          pageRouteGlowRef.current,
+          pageRouteActiveRef.current,
+        ].filter((node): node is SVGPathElement => Boolean(node))
         gsap.set(
-          [heroRoutePath, heroRouteGlow, pageRoutePathRef.current, pageRouteGlowRef.current, pageRouteActiveRef.current],
+          routePathNodes,
           {
           strokeDasharray: 'none',
           strokeDashoffset: 0,
