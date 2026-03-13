@@ -230,12 +230,19 @@ describe('CreateWalletPanel', () => {
     })
   })
 
-  it('keeps hidden vault passphrase empty until generate is clicked and does not expose a copy action', async () => {
+  it('keeps hidden vault passphrase empty until generate is clicked and allows copying it', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
     const { getByTestId, queryByTestId } = render(<CreateWalletPanel />)
 
     fireEvent.click(getByTestId('create-wallet-mnemonic-switch'))
     const mnemonicInput = getByTestId('create-wallet-mnemonic-passphrase-input') as HTMLInputElement
     expect(mnemonicInput.value).toBe('')
+    expect(queryByTestId('create-wallet-mnemonic-passphrase-copy')).toBeNull()
 
     fireEvent.click(getByTestId('create-wallet-mnemonic-passphrase-generate'))
     expect(mnemonicInput.value.length).toBeGreaterThanOrEqual(16)
@@ -245,6 +252,12 @@ describe('CreateWalletPanel', () => {
     expect(mnemonicInput.value.length).toBeGreaterThanOrEqual(16)
     expect(mnemonicInput.value).not.toBe(firstValue)
 
-    expect(queryByTestId('create-wallet-mnemonic-passphrase-copy')).toBeNull()
+    const copyButton = getByTestId('create-wallet-mnemonic-passphrase-copy')
+    fireEvent.click(copyButton)
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(mnemonicInput.value)
+      expect(copyButton.textContent).toContain('Hidden vault passphrase copied')
+    })
   })
 })

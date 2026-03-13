@@ -103,6 +103,8 @@
     "passphraseNoCopy": "Copy is disabled for safety. Write your passphrase down manually.",
     "copyPassphrase": "Copy passphrase",
     "copiedPassphrase": "Passphrase copied",
+    "copyHiddenVaultPassphrase": "Copy hidden vault passphrase",
+    "copiedHiddenVaultPassphrase": "Hidden vault passphrase copied",
     "mnemonicTitle": "Recovery phrase (24 words)",
     "mnemonicHint": "Store this phrase offline. Anyone with it (plus optional hidden vault passphrase) can control the wallet.",
     "copyDisabledNotice": "Copy is disabled for sensitive secrets. Write it down manually.",

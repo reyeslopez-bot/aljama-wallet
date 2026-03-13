@@ -1,7 +1,7 @@
 'use client'
 
 import { Wallet as EvmWallet } from 'ethers'
-import type { ClipboardEvent, FormEvent } from 'react'
+import type { FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { deriveDeterministicWalletPqcMaterial } from '@/lib/pqc/deterministic'
@@ -290,6 +290,7 @@ export function CreateWalletPanel() {
   const [keystoreFile, setKeystoreFile] = useState<KeystoreFile | null>(null)
   const [addressCopied, setAddressCopied] = useState(false)
   const [passphraseCopied, setPassphraseCopied] = useState(false)
+  const [mnemonicPassphraseCopied, setMnemonicPassphraseCopied] = useState(false)
   const [mnemonicCopied, setMnemonicCopied] = useState(false)
   const [keystoreDownloaded, setKeystoreDownloaded] = useState(false)
   const setCreateWalletStatus = useDynamicInfoStore((s) => s.setCreateWalletStatus)
@@ -355,6 +356,8 @@ export function CreateWalletPanel() {
   const passwordInvalid = status === 'error' && (!passphraseValidation.hasValue || !passphraseValidation.isValid)
   const clipboardStatusMessage = addressCopied
     ? t('copiedAddress')
+    : mnemonicPassphraseCopied
+      ? t('copiedHiddenVaultPassphrase')
     : passphraseCopied
       ? t('copiedPassphrase')
       : mnemonicCopied
@@ -362,6 +365,14 @@ export function CreateWalletPanel() {
         : keystoreDownloaded
           ? t('keystoreDownloaded')
           : ''
+
+  const resetClipboardState = () => {
+    setAddressCopied(false)
+    setPassphraseCopied(false)
+    setMnemonicPassphraseCopied(false)
+    setMnemonicCopied(false)
+    setKeystoreDownloaded(false)
+  }
 
   useEffect(() => {
     if (!addressCopied) return
@@ -374,6 +385,12 @@ export function CreateWalletPanel() {
     const timeout = window.setTimeout(() => setPassphraseCopied(false), 1800)
     return () => window.clearTimeout(timeout)
   }, [passphraseCopied])
+
+  useEffect(() => {
+    if (!mnemonicPassphraseCopied) return
+    const timeout = window.setTimeout(() => setMnemonicPassphraseCopied(false), 1800)
+    return () => window.clearTimeout(timeout)
+  }, [mnemonicPassphraseCopied])
 
   useEffect(() => {
     if (!mnemonicCopied) return
@@ -391,6 +408,7 @@ export function CreateWalletPanel() {
     if (!walletPreview) return
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
     try {
+      resetClipboardState()
       await navigator.clipboard.writeText(walletPreview.activeAddress)
       setAddressCopied(true)
     } catch {
@@ -404,8 +422,24 @@ export function CreateWalletPanel() {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
 
     try {
+      resetClipboardState()
       await navigator.clipboard.writeText(passphrase)
       setPassphraseCopied(true)
+    } catch {
+      // ignore clipboard failures
+    }
+  }
+
+  const copyMnemonicPassphrase = async () => {
+    const passphrase = mnemonicPassphrase.trim()
+    if (!passphrase) return
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+
+    try {
+      resetClipboardState()
+      await navigator.clipboard.writeText(passphrase)
+      setMnemonicPassphraseCopied(true)
+      setNotice(null)
     } catch {
       // ignore clipboard failures
     }
@@ -419,17 +453,13 @@ export function CreateWalletPanel() {
     if (!phrase) return
 
     try {
+      resetClipboardState()
       await navigator.clipboard.writeText(phrase)
       setMnemonicCopied(true)
       setNotice(null)
     } catch {
       // ignore clipboard failures
     }
-  }
-
-  const preventSensitiveCopy = (event: ClipboardEvent<HTMLElement>) => {
-    event.preventDefault()
-    setNotice(t('copyDisabledNotice'))
   }
 
   const downloadKeystore = () => {
@@ -446,6 +476,7 @@ export function CreateWalletPanel() {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
+      resetClipboardState()
       setKeystoreDownloaded(true)
     } finally {
       URL.revokeObjectURL(url)
@@ -462,6 +493,7 @@ export function CreateWalletPanel() {
 
   const generateOptionalMnemonicPassphrase = () => {
     if (locked || status === 'pending') return
+    setMnemonicPassphraseCopied(false)
     setMnemonicPassphrase(createStrongMnemonicPassphrase())
     setError(null)
     if (status === 'error') setStatus('idle')
@@ -771,7 +803,10 @@ export function CreateWalletPanel() {
                 if (locked || status === 'pending') return
                 setUseOptionalMnemonicPassphrase((prev) => {
                   const next = !prev
-                  if (!next) setMnemonicPassphrase('')
+                  if (!next) {
+                    setMnemonicPassphrase('')
+                    setMnemonicPassphraseCopied(false)
+                  }
                   return next
                 })
               }}
@@ -803,9 +838,10 @@ export function CreateWalletPanel() {
                   id={mnemonicPassphraseInputId}
                   type="password"
                   value={mnemonicPassphrase}
-                  onChange={(event) => setMnemonicPassphrase(event.target.value)}
-                  onCopy={preventSensitiveCopy}
-                  onCut={preventSensitiveCopy}
+                  onChange={(event) => {
+                    setMnemonicPassphrase(event.target.value)
+                    setMnemonicPassphraseCopied(false)
+                  }}
                   placeholder={t('mnemonicPassphrasePlaceholder')}
                   disabled={locked || status === 'pending'}
                   aria-labelledby={mnemonicPassphraseLabelId}
@@ -827,6 +863,17 @@ export function CreateWalletPanel() {
                 >
                   {t('generateMnemonicPassphrase')}
                 </button>
+                {mnemonicPassphrase.trim() ? (
+                  <button
+                    data-testid="create-wallet-mnemonic-passphrase-copy"
+                    type="button"
+                    onClick={() => void copyMnemonicPassphrase()}
+                    disabled={locked || status === 'pending'}
+                    className="inline-flex items-center justify-center rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-ivory transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {mnemonicPassphraseCopied ? t('copiedHiddenVaultPassphrase') : t('copyHiddenVaultPassphrase')}
+                  </button>
+                ) : null}
               </div>
             </>
           )}

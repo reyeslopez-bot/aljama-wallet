@@ -103,6 +103,8 @@
     "passphraseNoCopy": "העתקה מושבתת מטעמי בטיחות. רשמו את משפט הסיסמה ידנית.",
     "copyPassphrase": "העתקת משפט הסיסמה",
     "copiedPassphrase": "משפט הסיסמה הועתק",
+    "copyHiddenVaultPassphrase": "העתקת משפט כספת נסתרת",
+    "copiedHiddenVaultPassphrase": "משפט הכספת הנסתרת הועתק",
     "mnemonicTitle": "ביטוי שחזור (24 מילים)",
     "mnemonicHint": "שמרו את הביטוי אופליין. מי שיש לו אותו (ועם משפט הכספת הנסתרת האופציונלי) יכול לשלוט בארנק.",
     "copyDisabledNotice": "העתקה מושבתת עבור סודות רגישים. רשמו ידנית.",
