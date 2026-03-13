@@ -96,7 +96,7 @@ describe('XrplTradeDesk', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByTestId, getByText, queryByText } = render(<XrplTradeDesk />)
+    const { getByTestId, getByText, queryByTestId, queryByText } = render(<XrplTradeDesk />)
 
     await waitFor(() => {
       expect(getByText('One swap flow, nothing extra')).toBeTruthy()
@@ -113,6 +113,8 @@ describe('XrplTradeDesk', () => {
     fireEvent.click(getByTestId('xrpl-trade-desk-expert-toggle'))
 
     await waitFor(() => {
+      expect(getByTestId('xrpl-trade-desk-advanced-overlay')).toBeTruthy()
+      expect(getByTestId('xrpl-trade-desk-advanced-close')).toBeTruthy()
       expect(getByText('Demo NFT')).toBeTruthy()
       expect(getByText('offer_create · validated')).toBeTruthy()
       expect(getByTestId('xrpl-trade-desk-refresh')).toBeTruthy()
@@ -139,6 +141,12 @@ describe('XrplTradeDesk', () => {
       expect(getByTestId('xrpl-trade-desk-activity-rail')).toBeTruthy()
       expect(getByTestId('xrpl-trade-desk-retry-last-action')).toBeTruthy()
       expect(getByTestId('xrpl-trade-desk-log-toggle').textContent).toMatch(/hide submission log/i)
+    })
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-advanced-close'))
+
+    await waitFor(() => {
+      expect(queryByTestId('xrpl-trade-desk-advanced-overlay')).toBeNull()
     })
   })
 
@@ -183,5 +191,44 @@ describe('XrplTradeDesk', () => {
     expect((getByTestId('xrpl-trade-desk-quick-swap-refresh-quote') as HTMLButtonElement).disabled).toBe(false)
     expect(queryByTestId('xrpl-trade-desk-log-toggle')).toBeNull()
     expect(queryByTestId('xrpl-trade-desk-activity-rail')).toBeNull()
+  })
+
+  it('hides the missing quote warning until a manual refresh is attempted', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.startsWith('/api/xrpl/orderbook')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            offers: [],
+          }),
+        } as Response
+      }
+
+      return {
+        ok: false,
+        json: async () => ({ ok: false, error: 'not mocked' }),
+      } as Response
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByTestId, queryByText, getByText } = render(<XrplTradeDesk />)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect((getByTestId('xrpl-trade-desk-quick-swap-refresh-quote') as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    expect(queryByText('No live quote available. Refresh order book to estimate receive amount.')).toBeNull()
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-quick-swap-refresh-quote'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(getByText('No live quote available. Refresh order book to estimate receive amount.')).toBeTruthy()
+    })
   })
 })

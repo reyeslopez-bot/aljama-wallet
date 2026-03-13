@@ -378,9 +378,12 @@
     "unknownConnector": "Wallet connector",
     "gettingStarted": {
       "eyebrow": "Quick start",
-      "title": "Start in three steps",
-      "hint": "Permissions come first, then wallet access, then live status stays visible here.",
-      "badge": "3-step flow",
+      "title": "Follow the flow",
+      "hint": "The current task stays highlighted here, and the next move appears as soon as you progress.",
+      "badge": "Guided journey",
+      "progressLabel": "Journey progress",
+      "currentLabel": "Now",
+      "nextLabel": "Next",
       "permissionsPending": "Choose essential only or enable optional services.",
       "steps": {
         "permissions": {

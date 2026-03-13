@@ -187,6 +187,7 @@ export default function XrplTradeDesk() {
   const [offers, setOffers] = useState<OrderbookResponse['offers']>([])
   const [offersLoading, setOffersLoading] = useState(true)
   const [offersError, setOffersError] = useState<string | null>(null)
+  const [hasAttemptedQuoteRefresh, setHasAttemptedQuoteRefresh] = useState(false)
   const [pair, setPair] = useState({
     takerGetsCurrency: 'USD',
     takerGetsIssuer: DEFAULT_QUOTE_ISSUER,
@@ -259,6 +260,30 @@ export default function XrplTradeDesk() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!showExpertTools || typeof document === 'undefined') return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [showExpertTools])
+
+  useEffect(() => {
+    if (!showExpertTools || typeof window === 'undefined') return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowExpertTools(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showExpertTools])
+
   const loadAssets = useCallback(async () => {
     if (signerConfigError) {
       setAssetsLoading(false)
@@ -321,7 +346,10 @@ export default function XrplTradeDesk() {
     }
   }, [selectedNetworkId, signerConfigError])
 
-  const loadOrderbook = useCallback(async () => {
+  const loadOrderbook = useCallback(async ({ revealMissingQuote = false }: { revealMissingQuote?: boolean } = {}) => {
+    if (revealMissingQuote) {
+      setHasAttemptedQuoteRefresh(true)
+    }
     setOffersLoading(true)
     setOffersError(null)
     try {
@@ -393,6 +421,10 @@ export default function XrplTradeDesk() {
   }, [loadOrderbook])
 
   useEffect(() => {
+    setHasAttemptedQuoteRefresh(false)
+  }, [pair.takerGetsCurrency, pair.takerGetsIssuer, pair.takerPaysCurrency, pair.takerPaysIssuer, selectedNetworkId])
+
+  useEffect(() => {
     if (locked || !showLaunchContext || showExpertTools) return
     void Promise.all([loadAssets(), loadHistory()])
   }, [loadAssets, loadHistory, locked, showExpertTools, showLaunchContext])
@@ -428,6 +460,8 @@ export default function XrplTradeDesk() {
     if (!bestOfferQuality) return null
     return 1 / bestOfferQuality
   }, [bestOfferQuality])
+  const shouldShowMissingQuoteIssue =
+    hasAttemptedQuoteRefresh && !offersLoading && !offersError && !bestOfferQuality
   const quickSwapValidationIssues = useMemo(() => {
     const issues: string[] = []
     if (!quickSwapFromAmount) {
@@ -446,12 +480,11 @@ export default function XrplTradeDesk() {
     ) {
       issues.push('Choose a different destination asset for quick swap.')
     }
-    if (!bestOfferQuality) {
+    if (shouldShowMissingQuoteIssue) {
       issues.push('No live quote available. Refresh order book to estimate receive amount.')
     }
     return issues
   }, [
-    bestOfferQuality,
     quickSwapForm.fromIssuer,
     quickSwapForm.toIssuer,
     quickSwapFromCode,
@@ -459,6 +492,7 @@ export default function XrplTradeDesk() {
     quickSwapFromIsXrp,
     quickSwapToCode,
     quickSwapToIsXrp,
+    shouldShowMissingQuoteIssue,
   ])
 
   useEffect(() => {
@@ -578,7 +612,7 @@ export default function XrplTradeDesk() {
   })
 
   const handleRefreshVisibleData = () => {
-    const refreshes: Array<Promise<unknown>> = [loadOrderbook()]
+    const refreshes: Array<Promise<unknown>> = [loadOrderbook({ revealMissingQuote: true })]
     if (!locked && (showLaunchContext || showExpertTools)) {
       refreshes.push(loadAssets(), loadHistory())
     }
@@ -626,6 +660,142 @@ export default function XrplTradeDesk() {
       'simple_swap',
     )
   }
+
+  const renderDeskUtilities = () => (
+    <div className="space-y-3">
+      {shouldShowGlobalRefresh ? (
+        <button
+          ref={refreshButton.ref}
+          data-testid="xrpl-trade-desk-refresh"
+          type="button"
+          onPointerEnter={refreshButton.onPointerEnter}
+          onPointerLeave={refreshButton.onPointerLeave}
+          onPointerDown={refreshButton.onPointerDown}
+          onPointerUp={refreshButton.onPointerUp}
+          onPointerCancel={refreshButton.onPointerCancel}
+          onBlur={refreshButton.onBlur}
+          disabled={submitting || (locked && offersLoading)}
+          onClick={handleRefreshVisibleData}
+          aria-describedby={regionBlocked ? regionPolicyId : undefined}
+          className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b9577]/30 transition disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Refresh trade data
+        </button>
+      ) : null}
+
+      {hasSubmissionHistory ? (
+        <button
+          data-testid="xrpl-trade-desk-log-toggle"
+          type="button"
+          onClick={() => setShowSubmissionLog((open) => !open)}
+          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-ivory/85 transition hover:bg-white/10"
+        >
+          {showSubmissionRail ? 'Hide submission log' : `Show submission log (${activityRail.length})`}
+        </button>
+      ) : null}
+
+      {locked ? (
+        <div data-testid="xrpl-trade-desk-unlock">
+          <UnlockActionsLink
+            className="text-xs uppercase tracking-[0.18em] text-ivory/50"
+          />
+        </div>
+      ) : null}
+      {actionMessage ? (
+        <p
+          id={actionStatusId}
+          data-testid="xrpl-trade-desk-action-status"
+          role="status"
+          aria-live="polite"
+          className="text-sm text-jade"
+        >
+          {actionMessage}
+        </p>
+      ) : null}
+      {actionError ? (
+        <p
+          id={actionErrorId}
+          data-testid="xrpl-trade-desk-action-error"
+          role="alert"
+          className="text-sm text-red-300"
+        >
+          {actionError}
+        </p>
+      ) : null}
+    </div>
+  )
+
+  const renderSubmissionRail = (className = 'surface-inner h-fit space-y-3 p-4 xl:sticky xl:top-24') =>
+    showSubmissionRail ? (
+      <aside
+        data-testid="xrpl-trade-desk-activity-rail"
+        className={className}
+        aria-label="Trade desk submission log"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Submission Log</p>
+          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-ivory/70">
+            {networkConfig.id}
+          </span>
+        </div>
+        <p className="text-xs text-ivory/60">
+          Pending, successful, and failed transactions show up here after you submit.
+        </p>
+        <button
+          data-testid="xrpl-trade-desk-retry-last-action"
+          type="button"
+          onClick={handleRetryLastAction}
+          disabled={!canRetryLastAction}
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-ivory/80 disabled:opacity-50"
+        >
+          Retry last action
+        </button>
+        <div className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
+          {activityRail.map((item) => (
+            <div
+              key={item.id}
+              data-testid="xrpl-trade-desk-activity-item"
+              className="rounded-xl border border-white/10 bg-black/35 p-3 text-xs text-ivory/75"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-ivory">{item.action}</p>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${
+                    item.status === 'pending'
+                      ? 'bg-amber-300/15 text-amber-100'
+                      : item.status === 'success'
+                        ? 'bg-jade/20 text-jade'
+                        : 'bg-red-300/15 text-red-200'
+                  }`}
+                >
+                  {item.status}
+                </span>
+              </div>
+              <p className="mt-1 text-ivory/70">{item.message}</p>
+              {item.txHash ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyTxHash(item.txHash!)}
+                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-ivory/80"
+                  >
+                    Copy tx
+                  </button>
+                  <a
+                    href={explorerTransactionUrl(selectedNetworkId, item.txHash)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-ivory/80"
+                  >
+                    Open explorer
+                  </a>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </aside>
+    ) : null
 
   return (
     <section
@@ -692,29 +862,29 @@ export default function XrplTradeDesk() {
               : 'border-white/12 bg-white/5 text-ivory/70 hover:border-white/20 hover:text-ivory/90'
           }`}
         >
-          {showLaunchContext && !showExpertTools ? 'Hide Wallet Context' : 'Show Balances'}
+          {showLaunchContext && !showExpertTools ? 'Hide balances' : 'Show balances'}
         </button>
         <button
           data-testid="xrpl-trade-desk-expert-toggle"
           type="button"
           aria-expanded={showExpertTools}
-          onClick={() => setShowExpertTools((open) => !open)}
+          onClick={() => setShowExpertTools(true)}
           className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
             showExpertTools
               ? 'border-saffron/45 bg-saffron/20 text-saffron'
               : 'border-white/12 bg-white/5 text-ivory/70 hover:border-white/20 hover:text-ivory/90'
           }`}
         >
-          {showExpertTools ? 'Hide Expert Tools' : 'Reveal Expert Tools'}
+          {showExpertTools ? 'Advanced open' : 'Open advanced desk'}
         </button>
         <p className="text-xs text-ivory/50">
-          Start with one swap flow. Open more only when you actually need it.
+          Keep the main desk focused on swaps. Open the full XRPL workspace only when you need deeper controls.
         </p>
       </div>
 
       <div
         className={`relative mt-6 grid gap-5 ${
-          showSubmissionRail ? 'xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]' : ''
+          showSubmissionRail && !showExpertTools ? 'xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]' : ''
         }`}
       >
         <div className="space-y-5">
@@ -747,7 +917,7 @@ export default function XrplTradeDesk() {
                 <button
                   data-testid="xrpl-trade-desk-quick-swap-refresh-quote"
                   type="button"
-                  onClick={() => void loadOrderbook()}
+                  onClick={() => void loadOrderbook({ revealMissingQuote: true })}
                   disabled={offersLoading}
                   className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
                 >
@@ -917,7 +1087,55 @@ export default function XrplTradeDesk() {
             ) : null}
 
             {showExpertTools ? (
-              <>
+              <div
+                data-testid="xrpl-trade-desk-advanced-overlay"
+                className="fixed inset-0 z-[80] bg-black/78 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-4 lg:px-6 lg:py-6"
+              >
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="xrpl-trade-desk-advanced-title"
+                  className="surface-panel panel-glow-jade relative flex h-full flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#061018]/96"
+                >
+                  <div className="absolute inset-x-10 top-6 ornament-line" />
+                  <div className="relative flex items-start justify-between gap-4 border-b border-white/10 px-5 pb-4 pt-5 sm:px-6">
+                    <div className="max-w-2xl">
+                      <p className="text-xs uppercase tracking-[0.16em] text-saffron/75">Advanced Desk</p>
+                      <h3 id="xrpl-trade-desk-advanced-title" className="mt-2 text-2xl font-semibold text-ivory">
+                        Full XRPL workspace
+                      </h3>
+                      <p className="mt-2 text-sm text-ivory/70">
+                        Raw order book, trustlines, NFT actions, and ledger history live here so the main desk can
+                        stay focused on the simple swap path.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span
+                        className={`rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.12em] ${
+                          networkConfig.isProduction
+                            ? 'border-amber-300/40 bg-amber-200/10 text-amber-100'
+                            : 'border-jade/35 bg-jade/15 text-jade'
+                        }`}
+                      >
+                        {networkConfig.name}
+                      </span>
+                      <button
+                        data-testid="xrpl-trade-desk-advanced-close"
+                        type="button"
+                        onClick={() => setShowExpertTools(false)}
+                        className="rounded-full border border-white/12 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-ivory/80 transition hover:border-white/20 hover:bg-white/10"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`relative flex-1 overflow-y-auto px-5 pb-5 pt-5 sm:px-6 ${
+                      showSubmissionRail ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)] xl:gap-5' : ''
+                    }`}
+                  >
+                    <div className="space-y-5">
                 <div className="surface-inner rounded-[2rem] border border-white/10 bg-black/20 p-5">
                   <p className="text-xs uppercase tracking-[0.16em] text-saffron/75">Expert Mode</p>
                   <h3 className="mt-2 text-xl font-semibold text-ivory">Raw XRPL controls</h3>
@@ -970,7 +1188,7 @@ export default function XrplTradeDesk() {
                         data-testid="xrpl-trade-desk-orderbook-refresh"
                         type="button"
                         disabled={offersLoading}
-                        onClick={() => void loadOrderbook()}
+                        onClick={() => void loadOrderbook({ revealMissingQuote: true })}
                         aria-label="Refresh order book"
                         className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
                       >
@@ -1508,143 +1726,20 @@ export default function XrplTradeDesk() {
                   </div>
                 </form>
                 </div>
-              </>
-            ) : null}
+                      {renderDeskUtilities()}
+                    </div>
 
-            <div className="space-y-3">
-            {shouldShowGlobalRefresh ? (
-              <button
-                ref={refreshButton.ref}
-                data-testid="xrpl-trade-desk-refresh"
-                type="button"
-                onPointerEnter={refreshButton.onPointerEnter}
-                onPointerLeave={refreshButton.onPointerLeave}
-                onPointerDown={refreshButton.onPointerDown}
-                onPointerUp={refreshButton.onPointerUp}
-                onPointerCancel={refreshButton.onPointerCancel}
-                onBlur={refreshButton.onBlur}
-                disabled={submitting || (locked && offersLoading)}
-                onClick={handleRefreshVisibleData}
-                aria-describedby={regionBlocked ? regionPolicyId : undefined}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b9577]/30 transition disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Refresh trade data
-              </button>
-            ) : null}
-
-            {hasSubmissionHistory ? (
-              <button
-                data-testid="xrpl-trade-desk-log-toggle"
-                type="button"
-                onClick={() => setShowSubmissionLog((open) => !open)}
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-ivory/85 transition hover:bg-white/10"
-              >
-                {showSubmissionRail ? 'Hide submission log' : `Show submission log (${activityRail.length})`}
-              </button>
-            ) : null}
-
-            {locked ? (
-              <div data-testid="xrpl-trade-desk-unlock">
-                <UnlockActionsLink
-                  className="text-xs uppercase tracking-[0.18em] text-ivory/50"
-                />
+                    {renderSubmissionRail('surface-inner h-fit space-y-3 p-4 xl:sticky xl:top-6')}
+                  </div>
+                </div>
               </div>
             ) : null}
-            {actionMessage ? (
-              <p
-                id={actionStatusId}
-                data-testid="xrpl-trade-desk-action-status"
-                role="status"
-                aria-live="polite"
-                className="text-sm text-jade"
-              >
-                {actionMessage}
-              </p>
-            ) : null}
-            {actionError ? (
-              <p
-                id={actionErrorId}
-                data-testid="xrpl-trade-desk-action-error"
-                role="alert"
-                className="text-sm text-red-300"
-              >
-                {actionError}
-              </p>
-            ) : null}
-            </div>
+
+            {!showExpertTools ? renderDeskUtilities() : null}
           </>
         </div>
 
-        {showSubmissionRail ? (
-          <aside
-            data-testid="xrpl-trade-desk-activity-rail"
-            className="surface-inner h-fit space-y-3 p-4 xl:sticky xl:top-24"
-            aria-label="Trade desk submission log"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Submission Log</p>
-              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-ivory/70">
-                {networkConfig.id}
-              </span>
-            </div>
-            <p className="text-xs text-ivory/60">
-              Pending, successful, and failed transactions show up here after you submit.
-            </p>
-            <button
-              data-testid="xrpl-trade-desk-retry-last-action"
-              type="button"
-              onClick={handleRetryLastAction}
-              disabled={!canRetryLastAction}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-ivory/80 disabled:opacity-50"
-            >
-              Retry last action
-            </button>
-            <div className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
-              {activityRail.map((item) => (
-                <div
-                  key={item.id}
-                  data-testid="xrpl-trade-desk-activity-item"
-                  className="rounded-xl border border-white/10 bg-black/35 p-3 text-xs text-ivory/75"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold text-ivory">{item.action}</p>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${
-                        item.status === 'pending'
-                          ? 'bg-amber-300/15 text-amber-100'
-                          : item.status === 'success'
-                            ? 'bg-jade/20 text-jade'
-                            : 'bg-red-300/15 text-red-200'
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-ivory/70">{item.message}</p>
-                  {item.txHash ? (
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void handleCopyTxHash(item.txHash!)}
-                        className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-ivory/80"
-                      >
-                        Copy tx
-                      </button>
-                      <a
-                        href={explorerTransactionUrl(selectedNetworkId, item.txHash)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-ivory/80"
-                      >
-                        Open explorer
-                      </a>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </aside>
-        ) : null}
+        {!showExpertTools ? renderSubmissionRail() : null}
       </div>
     </section>
   )

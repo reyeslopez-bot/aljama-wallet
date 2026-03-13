@@ -200,7 +200,6 @@ function FooterCopyright() {
 
 export default function HomeContent() {
   const tHome = useTranslations('home')
-  const showDevDeviation = process.env.NODE_ENV === 'development'
   const initialShareOrigin = getSiteUrl().origin
 
   const statBlocks = [
@@ -225,10 +224,7 @@ export default function HomeContent() {
   ] satisfies HeroStatBlock[]
 
   return (
-    <div
-      data-dev-deviation={showDevDeviation ? 'true' : undefined}
-      className="relative mx-auto max-w-7xl space-y-14 pb-28 pt-4 md:pt-6 lg:space-y-16"
-    >
+    <div className="relative mx-auto max-w-7xl space-y-14 pb-28 pt-4 md:pt-6 lg:space-y-16">
       <ClientTrackWallet />
       <DynamicInfoCard />
       <HomeMotionScene />

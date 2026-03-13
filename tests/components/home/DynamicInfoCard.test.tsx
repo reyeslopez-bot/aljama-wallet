@@ -42,6 +42,7 @@ describe('DynamicInfoCard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetStore()
+    window.location.hash = ''
     const storage = new Map<string, string>()
     Object.defineProperty(window, 'localStorage', {
       value: {
@@ -119,6 +120,23 @@ describe('DynamicInfoCard', () => {
 
     await waitFor(() => {
       expect(queryByTestId('dynamic-info-card-start-flow')).toBeTruthy()
+      expect(getByTestId('dynamic-info-card-start-flow-current').getAttribute('data-start-flow-key')).toBe('track')
+      expect(queryByTestId('dynamic-info-card-start-flow-action-xrpl')).toBeTruthy()
+    })
+  })
+
+  it('switches the current focus to wallet once a wallet section is reached', async () => {
+    window.location.hash = '#create'
+
+    const { getByTestId } = render(<DynamicInfoCard />)
+
+    fireEvent.click(getByTestId('dynamic-info-card-expand-button'))
+
+    await waitFor(() => {
+      expect(getByTestId('dynamic-info-card-start-flow-current').getAttribute('data-start-flow-key')).toBe('wallet')
+      expect(getByTestId('dynamic-info-card-start-flow-next').getAttribute('data-start-flow-key')).toBe('track')
+      expect(getByTestId('dynamic-info-card-start-flow-action-create')).toBeTruthy()
+      expect(getByTestId('dynamic-info-card-start-flow-action-connect')).toBeTruthy()
     })
   })
 

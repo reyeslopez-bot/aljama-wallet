@@ -13,13 +13,12 @@ import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
+import { useHomeJourneyProgress, type StartFlowState } from '@/hooks/useHomeJourneyProgress'
 import { useStartFlowMotion } from '@/hooks/useStartFlowMotion'
 import { useTranslations } from 'next-intl'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
-import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
-import { getTelemetryConsent, onTelemetryConsentChange } from '@/infra/telemetry/client'
 import { loadProfileImageForUsername } from '@/lib/storage/profileImage'
 import { getHomeNow } from '@/components/home/homeClock'
 
@@ -126,9 +125,6 @@ function CopyIcon() {
 }
 
 type CardCorner = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
-type StartFlowState = 'done' | 'active' | 'pending'
-type TrackedSection = 'create' | 'connect' | 'xrpl'
-
 const INFO_CARD_CORNER_KEY = 'aljama.infoCard.corner'
 const CARD_CORNERS: CardCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
 const DUBAI_TIMEZONE = 'Asia/Dubai'
@@ -203,8 +199,6 @@ function getStartFlowTone(state: StartFlowState) {
 
 export default function DynamicInfoCard() {
   const t = useTranslations('infoCard')
-  const tConsent = useTranslations('consent')
-  const tActions = useTranslations('actions')
   const tCreate = useTranslations('createWallet')
   const { data: session, status: sessionStatus } = useSession()
   const showUnlockMessage = sessionStatus === 'unauthenticated'
@@ -216,13 +210,6 @@ export default function DynamicInfoCard() {
   const [corner, setCorner] = useState<CardCorner>('top-right')
   const [isDragging, setIsDragging] = useState(false)
   const [hoverExpansionEnabled, setHoverExpansionEnabled] = useState(false)
-  const [locationConsentState, setLocationConsentState] = useState<'granted' | 'denied' | 'unset'>('unset')
-  const [telemetryConsentState, setTelemetryConsentState] = useState<'granted' | 'denied' | 'unset'>('unset')
-  const [seenSections, setSeenSections] = useState<Record<TrackedSection, boolean>>({
-    create: false,
-    connect: false,
-    xrpl: false,
-  })
   const { hasHydrated, shouldReduceMotion, shouldUseLightweightMode } = useAdaptiveExperience()
   const cardRef = useRef<HTMLElement | null>(null)
   const dragHandleRef = useRef<HTMLDivElement | null>(null)
@@ -245,13 +232,18 @@ export default function DynamicInfoCard() {
   const lastEvent = useDynamicInfoStore((s) => s.lastEvent)
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
   const selectedXrplNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
+  const {
+    actions: journeyActions,
+    completedSteps,
+    currentStep,
+    currentStepIndex,
+    locationConsentState,
+    markSectionSeen,
+    nextStep,
+    showStartFlow,
+    steps: startFlowSteps,
+  } = useHomeJourneyProgress()
   const availableStatusLabel = t('status.available')
-  const markSectionSeen = useCallback((sectionId: TrackedSection) => {
-    setSeenSections((current) => {
-      if (current[sectionId]) return current
-      return { ...current, [sectionId]: true }
-    })
-  }, [])
 
   useEffect(() => {
     if (sessionStatus === 'loading') return
@@ -308,71 +300,6 @@ export default function DynamicInfoCard() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-
-    const syncConsent = () => {
-      setLocationConsentState(getLocationConsent())
-      setTelemetryConsentState(getTelemetryConsent())
-    }
-
-    syncConsent()
-    const unsubscribeLocation = onLocationConsentChange(syncConsent)
-    const unsubscribeTelemetry = onTelemetryConsentChange(syncConsent)
-    window.addEventListener('focus', syncConsent)
-    window.addEventListener('storage', syncConsent)
-
-    return () => {
-      unsubscribeLocation()
-      unsubscribeTelemetry()
-      window.removeEventListener('focus', syncConsent)
-      window.removeEventListener('storage', syncConsent)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const syncHash = () => {
-      const hash = window.location.hash.replace('#', '')
-      if (hash === 'create' || hash === 'connect' || hash === 'xrpl') {
-        markSectionSeen(hash)
-      }
-    }
-
-    syncHash()
-    window.addEventListener('hashchange', syncHash)
-    return () => window.removeEventListener('hashchange', syncHash)
-  }, [markSectionSeen])
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return
-          const sectionId = entry.target.id
-          if (sectionId === 'create' || sectionId === 'connect' || sectionId === 'xrpl') {
-            markSectionSeen(sectionId)
-          }
-        })
-      },
-      {
-        root: null,
-        rootMargin: '-20% 0px -35% 0px',
-        threshold: 0.35,
-      },
-    )
-
-    const nodes = ['create', 'connect', 'xrpl']
-      .map((sectionId) => document.getElementById(sectionId))
-      .filter((node): node is HTMLElement => Boolean(node))
-
-    nodes.forEach((node) => observer.observe(node))
-    return () => observer.disconnect()
-  }, [markSectionSeen])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
     const stored = window.localStorage.getItem(INFO_CARD_CORNER_KEY)
     if (isCardCorner(stored)) {
       setCorner(stored)
@@ -399,7 +326,7 @@ export default function DynamicInfoCard() {
   useEffect(() => {
     let cancelled = false
     const loadNetworkTimezone = async () => {
-      if (getLocationConsent() !== 'granted') {
+      if (locationConsentState !== 'granted') {
         if (!cancelled) {
           setNetworkTimezone(DUBAI_TIMEZONE)
         }
@@ -423,18 +350,14 @@ export default function DynamicInfoCard() {
     }
 
     void loadNetworkTimezone()
-    const unsubscribe = onLocationConsentChange(() => {
-      void loadNetworkTimezone()
-    })
     window.addEventListener('focus', loadNetworkTimezone)
     window.addEventListener('storage', loadNetworkTimezone)
     return () => {
       cancelled = true
-      unsubscribe()
       window.removeEventListener('focus', loadNetworkTimezone)
       window.removeEventListener('storage', loadNetworkTimezone)
     }
-  }, [])
+  }, [locationConsentState])
 
   const timeLabel = useMemo(
     () => {
@@ -502,63 +425,6 @@ export default function DynamicInfoCard() {
       ? 'bg-amber-300'
       : 'bg-emerald-400'
   const detailsExpanded = detailsPinned || (hoverExpansionEnabled && hovered)
-  const walletReady = Boolean(wallet.connectedAddress || wallet.createdAddress)
-  const permissionsConfigured = locationConsentState !== 'unset' && telemetryConsentState !== 'unset'
-  const optionalServicesEnabled = locationConsentState === 'granted' && telemetryConsentState === 'granted'
-  const walletFlowStarted =
-    seenSections.create ||
-    seenSections.connect ||
-    createStatus !== 'idle' ||
-    connectStatus !== 'idle' ||
-    walletReady
-  const walletStepState: StartFlowState = walletReady ? 'done' : permissionsConfigured ? 'active' : 'pending'
-  const trackStepState: StartFlowState = seenSections.xrpl ? 'done' : walletReady ? 'active' : 'pending'
-  const showStartFlow = !(permissionsConfigured && walletReady && seenSections.xrpl)
-  const permissionsSummary = permissionsConfigured
-    ? optionalServicesEnabled
-      ? tConsent('optionalToggleOn')
-      : tConsent('optionalToggleOff')
-    : t('gettingStarted.permissionsPending')
-  const walletProgressSummary = useMemo(() => {
-    if (walletReady) return t('gettingStarted.steps.wallet.ready')
-    if (createStatus === 'pending') return t('gettingStarted.steps.wallet.creating')
-    if (connectStatus === 'pending') return t('gettingStarted.steps.wallet.connecting')
-    if (createStatus === 'error' || connectStatus === 'error') return t('gettingStarted.steps.wallet.retry')
-    if (seenSections.create && !seenSections.connect) return t('gettingStarted.steps.wallet.inCreate')
-    if (seenSections.connect && !seenSections.create) return t('gettingStarted.steps.wallet.inConnect')
-    if (seenSections.create && seenSections.connect) return t('gettingStarted.steps.wallet.inBoth')
-    return t('gettingStarted.steps.wallet.body')
-  }, [connectStatus, createStatus, seenSections.connect, seenSections.create, t, walletReady])
-  const trackProgressSummary = useMemo(() => {
-    if (seenSections.xrpl) return t('gettingStarted.steps.track.done')
-    if (walletReady) return t('gettingStarted.steps.track.active')
-    if (walletFlowStarted) return t('gettingStarted.steps.track.waiting')
-    return t('gettingStarted.steps.track.body')
-  }, [seenSections.xrpl, t, walletFlowStarted, walletReady])
-  const startFlowSteps = useMemo(
-    () =>
-      [
-        {
-          body: permissionsSummary,
-          key: 'permissions',
-          state: (permissionsConfigured ? 'done' : 'active') as StartFlowState,
-          title: t('gettingStarted.steps.permissions.title'),
-        },
-        {
-          body: walletProgressSummary,
-          key: 'wallet',
-          state: walletStepState,
-          title: t('gettingStarted.steps.wallet.title'),
-        },
-        {
-          body: trackProgressSummary,
-          key: 'track',
-          state: trackStepState,
-          title: t('gettingStarted.steps.track.title'),
-        },
-      ] satisfies Array<{ body: string; key: string; state: StartFlowState; title: string }>,
-    [permissionsSummary, permissionsConfigured, t, trackProgressSummary, trackStepState, walletProgressSummary, walletStepState],
-  )
 
   useStartFlowMotion(startFlowRef, {
     enabled: detailsExpanded && showStartFlow,
@@ -587,6 +453,9 @@ export default function DynamicInfoCard() {
     if (!target) return
     target.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [markSectionSeen])
+  const currentStepTone = currentStep ? getStartFlowTone(currentStep.state) : null
+  const nextStepTone = nextStep ? getStartFlowTone(nextStep.state) : null
+  const completedHistory = completedSteps.filter((step) => step.key !== currentStep?.key)
 
   const snapToNearestCorner = useCallback(() => {
     if (typeof window === 'undefined' || !cardRef.current) return
@@ -924,72 +793,139 @@ export default function DynamicInfoCard() {
                         </div>
                       </div>
 
-                      <div className="mt-3 space-y-2">
+                      <div
+                        role="list"
+                        aria-label={t('gettingStarted.progressLabel')}
+                        className="mt-3 flex flex-wrap gap-2"
+                      >
                         {startFlowSteps.map((step, index) => {
                           const tone = getStartFlowTone(step.state)
-                          const isLastStep = index === startFlowSteps.length - 1
+                          const isCurrent = currentStep?.key === step.key
                           return (
                             <div
                               key={step.key}
-                              data-start-flow-step
-                              className={`flex gap-3 rounded-xl border px-3 py-2.5 ${tone.surface}`}
+                              role="listitem"
+                              className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[0.5625rem] font-semibold uppercase tracking-[0.18em] ${
+                                isCurrent ? tone.surface : step.state === 'done' ? tone.surface : 'border-white/8 bg-white/[0.03] text-ivory/52'
+                              }`}
                             >
-                              <div className="flex w-6 shrink-0 flex-col items-center">
-                                <span
-                                  data-start-flow-node-active={step.state === 'active' ? 'true' : undefined}
-                                  className={`grid h-6 w-6 place-items-center rounded-full border text-[0.625rem] font-semibold ${tone.node}`}
-                                >
-                                  {index + 1}
-                                </span>
-                                {!isLastStep ? (
-                                  <span
-                                    aria-hidden="true"
-                                    data-start-flow-line
-                                    className={`mt-1 h-5 w-px bg-gradient-to-b from-white/10 ${tone.line} to-transparent`}
-                                  />
-                                ) : null}
-                              </div>
-                              <div className="min-w-0">
-                                <div className={`text-[0.625rem] uppercase tracking-[0.16em] ${tone.title}`}>
-                                  {step.title}
-                                </div>
-                                <p className={`mt-1 text-[0.6875rem] leading-5 ${tone.body}`}>{step.body}</p>
-                              </div>
+                              <span
+                                className={`grid h-5 w-5 place-items-center rounded-full border text-[0.5625rem] ${tone.node}`}
+                              >
+                                {index + 1}
+                              </span>
+                              <span className={isCurrent ? tone.title : 'text-ivory/62'}>{step.title}</span>
                             </div>
                           )
                         })}
                       </div>
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            jumpToSection('create')
-                            pushEvent({ kind: 'info', message: tActions('createWallet') })
-                          }}
-                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
-                            isLightTheme
-                              ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
-                              : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
-                          }`}
-                        >
-                          {tActions('createWallet')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            jumpToSection('connect')
-                            pushEvent({ kind: 'info', message: tActions('connectWallet') })
-                          }}
-                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
-                            isLightTheme
-                              ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
-                              : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
-                          }`}
-                        >
-                          {tActions('connectWallet')}
-                        </button>
-                      </div>
+                      {completedHistory.length ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {completedHistory.map((step) => (
+                            <div
+                              key={step.key}
+                              className="inline-flex items-center gap-2 rounded-full border border-emerald-300/18 bg-emerald-400/8 px-2.5 py-1 text-[0.5625rem] font-semibold uppercase tracking-[0.18em] text-emerald-100/78"
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                              <span>{step.title}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {currentStep && currentStepTone ? (
+                        <div className="mt-3 space-y-2">
+                          <div
+                            data-start-flow-step
+                            data-start-flow-key={currentStep.key}
+                            data-testid="dynamic-info-card-start-flow-current"
+                            className={`rounded-2xl border px-3 py-3 ${currentStepTone.surface}`}
+                          >
+                            <div className="flex gap-3">
+                              <div className="flex w-7 shrink-0 flex-col items-center">
+                                <span
+                                  data-start-flow-node-active="true"
+                                  className={`grid h-7 w-7 place-items-center rounded-full border text-[0.625rem] font-semibold ${currentStepTone.node}`}
+                                >
+                                  {currentStepIndex + 1}
+                                </span>
+                                {nextStep ? (
+                                  <span
+                                    aria-hidden="true"
+                                    data-start-flow-line
+                                    className={`mt-1 h-6 w-px bg-gradient-to-b from-white/10 ${currentStepTone.line} to-transparent`}
+                                  />
+                                ) : null}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[0.5625rem] uppercase tracking-[0.18em] text-saffron/78">
+                                  {t('gettingStarted.currentLabel')}
+                                </div>
+                                <div className={`mt-1 text-[0.6875rem] uppercase tracking-[0.16em] ${currentStepTone.title}`}>
+                                  {currentStep.title}
+                                </div>
+                                <p className={`mt-1 text-[0.75rem] leading-5 ${currentStepTone.body}`}>
+                                  {currentStep.body}
+                                </p>
+
+                                {journeyActions.length ? (
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {journeyActions.map((action) => (
+                                      <button
+                                        key={action.key}
+                                        type="button"
+                                        data-testid={`dynamic-info-card-start-flow-action-${action.sectionId}`}
+                                        onClick={() => {
+                                          jumpToSection(action.sectionId)
+                                          pushEvent({ kind: 'info', message: action.label })
+                                        }}
+                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
+                                          isLightTheme
+                                            ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
+                                            : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
+                                        }`}
+                                      >
+                                        {action.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+
+                          {nextStep && nextStepTone ? (
+                            <div
+                              data-start-flow-step
+                              data-start-flow-key={nextStep.key}
+                              data-testid="dynamic-info-card-start-flow-next"
+                              className={`rounded-2xl border px-3 py-2.5 ${nextStepTone.surface}`}
+                            >
+                              <div className="flex gap-3">
+                                <div className="flex w-7 shrink-0 items-start justify-center">
+                                  <span
+                                    className={`grid h-7 w-7 place-items-center rounded-full border text-[0.625rem] font-semibold ${nextStepTone.node}`}
+                                  >
+                                    {currentStepIndex + 2}
+                                  </span>
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-[0.5625rem] uppercase tracking-[0.18em] text-ivory/52">
+                                    {t('gettingStarted.nextLabel')}
+                                  </div>
+                                  <div className={`mt-1 text-[0.6875rem] uppercase tracking-[0.16em] ${nextStepTone.title}`}>
+                                    {nextStep.title}
+                                  </div>
+                                  <p className={`mt-1 text-[0.6875rem] leading-5 ${nextStepTone.body}`}>
+                                    {nextStep.body}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}
@@ -1017,20 +953,6 @@ export default function DynamicInfoCard() {
                       <GithubIcon />
                     </IconButton>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      jumpToSection('create')
-                      pushEvent({ kind: 'info', message: tActions('createWallet') })
-                    }}
-                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
-                      isLightTheme
-                        ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
-                        : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
-                    }`}
-                  >
-                    {tActions('createWallet')}
-                  </button>
                   <button
                     type="button"
                     data-dynamic-info-card-toggle-state="expanded"
