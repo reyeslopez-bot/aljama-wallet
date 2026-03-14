@@ -2,7 +2,7 @@
 
 import { Wallet as EvmWallet } from 'ethers'
 import type { FormEvent } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { deriveDeterministicWalletPqcMaterial } from '@/lib/pqc/deterministic'
 import { resolveWalletPqcSubjectScheme } from '@/lib/pqc/provider'
@@ -295,6 +295,7 @@ export function CreateWalletPanel() {
   const [keystoreDownloaded, setKeystoreDownloaded] = useState(false)
   const setCreateWalletStatus = useDynamicInfoStore((s) => s.setCreateWalletStatus)
   const setCreatedWalletAddress = useDynamicInfoStore((s) => s.setCreatedWalletAddress)
+  const readyPanelRef = useRef<HTMLDivElement | null>(null)
   const titleId = 'create-wallet-title'
   const bodyId = 'create-wallet-body'
   const engineStateId = 'create-wallet-engine-state'
@@ -403,6 +404,18 @@ export function CreateWalletPanel() {
     const timeout = window.setTimeout(() => setKeystoreDownloaded(false), 1800)
     return () => window.clearTimeout(timeout)
   }, [keystoreDownloaded])
+
+  useEffect(() => {
+    if (phase !== 'ready' || !walletPreview || !readyPanelRef.current) return
+
+    const node = readyPanelRef.current
+    const frame = window.requestAnimationFrame(() => {
+      node.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      node.focus({ preventScroll: true })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [phase, walletPreview])
 
   const copyAddress = async () => {
     if (!walletPreview) return
@@ -1147,8 +1160,10 @@ export function CreateWalletPanel() {
       </form>
 
       <div
+        ref={readyPanelRef}
         id={readyStatusId}
         data-testid="create-wallet-ready-panel"
+        tabIndex={-1}
         className="surface-inner relative mt-6 p-4"
         aria-live="polite"
       >
@@ -1158,7 +1173,13 @@ export function CreateWalletPanel() {
             <p className="text-sm text-ivory/70">{t('readyBody')}</p>
             <div className="rounded-xl border border-jade/30 bg-jade/10 px-4 py-3 text-sm text-jade">
               <p className="text-xs uppercase tracking-[0.14em] text-jade/80">{t('addressLabel')}</p>
-              <p className="mt-1 break-all font-mono text-base">{walletPreview.activeAddress}</p>
+              <p
+                data-testid="create-wallet-full-address"
+                title={walletPreview.activeAddress}
+                className="mt-1 break-all select-all font-mono text-base"
+              >
+                {walletPreview.activeAddress}
+              </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   data-testid="create-wallet-copy-address"

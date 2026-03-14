@@ -472,7 +472,7 @@ export default function Navbar() {
           )}
           {isAuthed && (
             <div
-              className={`hidden rounded-full border px-3 py-2 text-xs font-semibold tracking-wide md:inline-flex ${
+              className={`hidden max-w-[14rem] items-center rounded-full border px-4 py-2 text-sm font-medium tracking-wide md:inline-flex ${
                 isLight
                   ? 'border-[#7fa3c1]/45 bg-white/70 text-[#1f3348]'
                   : 'border-white/15 bg-white/5 text-ivory/85'
@@ -480,7 +480,7 @@ export default function Navbar() {
               title={`${t('signedIn')}: ${accountLabel}`}
               aria-label={`${t('signedIn')}: ${accountLabel}`}
             >
-              {accountLabel}
+              <span className="truncate">{accountLabel}</span>
             </div>
           )}
           {isAuthed && (

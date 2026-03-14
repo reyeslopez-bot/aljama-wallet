@@ -3,8 +3,6 @@
 import * as React from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { useAdaptiveExperience } from "@/hooks/useAdaptiveExperience"
-import { useStartFlowMotion } from "@/hooks/useStartFlowMotion"
 import { replacePathLocale } from "@/i18n/routing"
 import { setLocationConsent, getLocationConsent } from "@/infra/location/client"
 import { getTelemetryConsent, setTelemetryConsent } from "@/infra/telemetry/client"
@@ -16,33 +14,12 @@ import {
 import { resolveConsentReturnPath } from "@/infra/consent/routing"
 
 type ConsentPreset = "rejectAll" | "essentialOnly" | "allowAll"
-type StartFlowState = "active" | "pending"
 
 const LANGUAGES = [
   { label: "EN", value: "en" },
   { label: "HE", value: "he" },
   { label: "AR", value: "ar" },
 ]
-
-function getStartFlowTone(state: StartFlowState) {
-  if (state === "active") {
-    return {
-      body: "text-saffron/82",
-      line: "via-saffron/55",
-      node: "border-saffron/50 bg-saffron/14 text-saffron shadow-[0_0_14px_rgba(240,215,160,0.18)]",
-      surface: "border-saffron/18 bg-saffron/6",
-      title: "text-ivory",
-    }
-  }
-
-  return {
-    body: "text-ivory/55",
-    line: "via-white/20",
-    node: "border-white/12 bg-white/6 text-ivory/70",
-    surface: "border-white/8 bg-white/[0.03]",
-    title: "text-ivory/72",
-  }
-}
 
 export default function ConsentEntryGate() {
   const tConsent = useTranslations("consent")
@@ -52,11 +29,9 @@ export default function ConsentEntryGate() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { shouldReduceMotion } = useAdaptiveExperience()
 
   const [consentPreset, setConsentPreset] = React.useState<ConsentPreset>("essentialOnly")
   const [busy, setBusy] = React.useState(false)
-  const startFlowRef = React.useRef<HTMLDivElement | null>(null)
 
   React.useEffect(() => {
     const telemetryConsent = getTelemetryConsent()
@@ -93,39 +68,31 @@ export default function ConsentEntryGate() {
   }, [])
 
   const optionalServicesEnabled = consentPreset === "allowAll"
-  const startFlowSteps = React.useMemo(
+  const nextSteps = React.useMemo(
     () =>
       [
         {
           body: optionalServicesEnabled ? tConsent("optionalToggleOn") : tConsent("optionalToggleOff"),
           key: "permissions",
-          state: "active" as StartFlowState,
           title: tInfo("gettingStarted.steps.permissions.title"),
         },
         {
           body: tInfo("gettingStarted.steps.wallet.body"),
           key: "wallet",
-          state: "pending" as StartFlowState,
           title: tInfo("gettingStarted.steps.wallet.title"),
         },
         {
           body: tInfo("gettingStarted.steps.track.body"),
           key: "track",
-          state: "pending" as StartFlowState,
           title: tInfo("gettingStarted.steps.track.title"),
         },
-      ] satisfies Array<{ body: string; key: string; state: StartFlowState; title: string }>,
+      ] satisfies Array<{ body: string; key: string; title: string }>,
     [optionalServicesEnabled, tConsent, tInfo],
   )
   const nextPath = React.useMemo(
     () => resolveConsentReturnPath(locale, searchParams.get("next")),
     [locale, searchParams],
   )
-
-  useStartFlowMotion(startFlowRef, {
-    enabled: true,
-    shouldReduceMotion,
-  })
 
   const handleContinue = React.useCallback(async () => {
     if (busy) return
@@ -194,65 +161,35 @@ export default function ConsentEntryGate() {
 
         <div className="mt-6 space-y-4">
           <div
-            ref={startFlowRef}
-            data-testid="consent-gate-start-flow"
-            className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#07111d]/70 p-4"
+            data-testid="consent-gate-next-steps"
+            className="rounded-2xl border border-white/10 bg-[#07111d]/70 p-4"
           >
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(240,215,160,0.14),rgba(7,17,29,0)_48%),linear-gradient(180deg,rgba(127,163,193,0.08),rgba(7,17,29,0))]"
-            />
-            <div className="relative">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-saffron/82">
-                    {tInfo("gettingStarted.eyebrow")}
-                  </p>
-                  <h3 className="mt-1 text-base font-semibold tracking-tight text-ivory">
-                    {tInfo("gettingStarted.title")}
-                  </h3>
-                  <p className="mt-1 text-xs leading-5 text-ivory/62">{tInfo("gettingStarted.hint")}</p>
-                </div>
-                <div className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-ivory/62">
-                  {tInfo("gettingStarted.badge")}
-                </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-saffron/82">
+                  {tConsent("nextTitle")}
+                </p>
+                <h3 className="mt-1 text-base font-semibold tracking-tight text-ivory">
+                  {tConsent("nextBody")}
+                </h3>
               </div>
+            </div>
 
-              <div className="mt-3 space-y-2">
-                {startFlowSteps.map((step, index) => {
-                  const tone = getStartFlowTone(step.state)
-                  const isLastStep = index === startFlowSteps.length - 1
-                  return (
-                    <div
-                      key={step.key}
-                      data-start-flow-step
-                      className={`flex gap-3 rounded-xl border px-3 py-2.5 ${tone.surface}`}
-                    >
-                      <div className="flex w-6 shrink-0 flex-col items-center">
-                        <span
-                          data-start-flow-node-active={step.state === "active" ? "true" : undefined}
-                          className={`grid h-6 w-6 place-items-center rounded-full border text-[10px] font-semibold ${tone.node}`}
-                        >
-                          {index + 1}
-                        </span>
-                        {!isLastStep ? (
-                          <span
-                            aria-hidden="true"
-                            data-start-flow-line
-                            className={`mt-1 h-5 w-px bg-gradient-to-b from-white/10 ${tone.line} to-transparent`}
-                          />
-                        ) : null}
-                      </div>
-                      <div className="min-w-0">
-                        <div className={`text-[10px] uppercase tracking-[0.16em] ${tone.title}`}>
-                          {step.title}
-                        </div>
-                        <p className={`mt-1 text-[11px] leading-5 ${tone.body}`}>{step.body}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {nextSteps.map((step, index) => (
+                <div
+                  key={step.key}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-3"
+                >
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-saffron/78">
+                    {index + 1}
+                  </div>
+                  <div className="mt-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-ivory">
+                    {step.title}
+                  </div>
+                  <p className="mt-1 text-[11px] leading-5 text-ivory/62">{step.body}</p>
+                </div>
+              ))}
             </div>
           </div>
 

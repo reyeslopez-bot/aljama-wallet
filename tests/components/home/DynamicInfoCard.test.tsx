@@ -95,7 +95,7 @@ describe('DynamicInfoCard', () => {
 
     await waitFor(() => {
       expect(queryByTestId('dynamic-info-card-expanded')).toBeTruthy()
-      expect(queryByTestId('dynamic-info-card-start-flow')).toBeTruthy()
+      expect(queryByTestId('dynamic-info-card-next-step')).toBeTruthy()
     })
 
     fireEvent.click(getByTestId('dynamic-info-card-collapse-button'))
@@ -105,7 +105,7 @@ describe('DynamicInfoCard', () => {
     })
   })
 
-  it('keeps the start flow visible after wallet setup until the flow is finished', async () => {
+  it('shows the compact next step after wallet setup until xrpl is reached', async () => {
     useDynamicInfoStore.setState((state) => ({
       ...state,
       wallet: {
@@ -119,13 +119,46 @@ describe('DynamicInfoCard', () => {
     fireEvent.click(getByTestId('dynamic-info-card-expand-button'))
 
     await waitFor(() => {
-      expect(queryByTestId('dynamic-info-card-start-flow')).toBeTruthy()
-      expect(getByTestId('dynamic-info-card-start-flow-current').getAttribute('data-start-flow-key')).toBe('track')
-      expect(queryByTestId('dynamic-info-card-start-flow-action-xrpl')).toBeTruthy()
+      expect(queryByTestId('dynamic-info-card-next-step')).toBeTruthy()
+      expect(getByTestId('dynamic-info-card-next-step').textContent).toContain('XRPL')
+      expect(queryByTestId('dynamic-info-card-next-step-action-xrpl')).toBeTruthy()
     })
   })
 
-  it('switches the current focus to wallet once a wallet section is reached', async () => {
+  it('shows the full wallet address in expanded view and copies it', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    useDynamicInfoStore.setState((state) => ({
+      ...state,
+      wallet: {
+        ...state.wallet,
+        createdAddress: '0x1234567890abcdef1234567890abcdef12345678',
+      },
+    }))
+
+    const { getByTestId } = render(<DynamicInfoCard />)
+
+    fireEvent.click(getByTestId('dynamic-info-card-expand-button'))
+
+    await waitFor(() => {
+      expect(getByTestId('dynamic-info-card-full-address').textContent).toContain(
+        '0x1234567890abcdef1234567890abcdef12345678',
+      )
+    })
+
+    fireEvent.click(getByTestId('dynamic-info-card-copy-address'))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('0x1234567890abcdef1234567890abcdef12345678')
+    })
+  })
+
+  it('switches the compact next step to wallet once a wallet section is reached', async () => {
     window.location.hash = '#create'
 
     const { getByTestId } = render(<DynamicInfoCard />)
@@ -133,10 +166,9 @@ describe('DynamicInfoCard', () => {
     fireEvent.click(getByTestId('dynamic-info-card-expand-button'))
 
     await waitFor(() => {
-      expect(getByTestId('dynamic-info-card-start-flow-current').getAttribute('data-start-flow-key')).toBe('wallet')
-      expect(getByTestId('dynamic-info-card-start-flow-next').getAttribute('data-start-flow-key')).toBe('track')
-      expect(getByTestId('dynamic-info-card-start-flow-action-create')).toBeTruthy()
-      expect(getByTestId('dynamic-info-card-start-flow-action-connect')).toBeTruthy()
+      expect(getByTestId('dynamic-info-card-next-step').textContent).toContain('Wallet')
+      expect(getByTestId('dynamic-info-card-next-step-action-create')).toBeTruthy()
+      expect(getByTestId('dynamic-info-card-next-step-action-connect')).toBeTruthy()
     })
   })
 

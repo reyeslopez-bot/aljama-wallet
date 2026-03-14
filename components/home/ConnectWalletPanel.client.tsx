@@ -18,6 +18,7 @@ function formatShortAddress(address: string | undefined): string {
 export function ConnectWalletPanel() {
   useComponentTelemetry('ConnectWalletPanel')
   const t = useTranslations('connectWallet')
+  const tCreate = useTranslations('createWallet')
   const tInfo = useTranslations('infoCard')
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus !== 'authenticated'
@@ -27,6 +28,7 @@ export function ConnectWalletPanel() {
   const { mutate: connect, isPending, error: connectError } = useConnect()
   const { mutate: disconnect } = useDisconnect()
   const [hydrated, setHydrated] = useState(false)
+  const [addressCopied, setAddressCopied] = useState(false)
   const setConnectWalletStatus = useDynamicInfoStore((s) => s.setConnectWalletStatus)
   const setConnectedWallet = useDynamicInfoStore((s) => s.setConnectedWallet)
 
@@ -72,6 +74,12 @@ export function ConnectWalletPanel() {
   }, [])
 
   useEffect(() => {
+    if (!addressCopied) return
+    const timeout = window.setTimeout(() => setAddressCopied(false), 1800)
+    return () => window.clearTimeout(timeout)
+  }, [addressCopied])
+
+  useEffect(() => {
     if (!hydrated || locked || !isConnected || !address) {
       setConnectedWallet({ address: null })
       if (!isPending) setConnectWalletStatus('idle')
@@ -95,6 +103,18 @@ export function ConnectWalletPanel() {
     setConnectedWallet,
     setConnectWalletStatus,
   ])
+
+  const copyAddress = async () => {
+    if (!address) return
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+
+    try {
+      await navigator.clipboard.writeText(address)
+      setAddressCopied(true)
+    } catch {
+      // ignore clipboard failures
+    }
+  }
 
   return (
     <section
@@ -155,7 +175,21 @@ export function ConnectWalletPanel() {
                 {t('linkedTitle')}
               </p>
               <p className="text-sm text-ivory/70">{t('linkedSubtitle')}</p>
-              <p className="break-all font-mono text-sm text-jade">{address}</p>
+              <p
+                data-testid="connect-wallet-full-address"
+                title={address}
+                className="break-all select-all font-mono text-sm text-jade"
+              >
+                {address}
+              </p>
+              <button
+                data-testid="connect-wallet-copy-address"
+                type="button"
+                onClick={() => void copyAddress()}
+                className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-ivory/80 transition hover:bg-white/15"
+              >
+                {addressCopied ? tCreate('copiedAddress') : tCreate('copyAddress')}
+              </button>
             </div>
           ) : (
             <div className="space-y-2 text-sm text-ivory/70">

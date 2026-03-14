@@ -13,8 +13,7 @@ import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
-import { useHomeJourneyProgress, type StartFlowState } from '@/hooks/useHomeJourneyProgress'
-import { useStartFlowMotion } from '@/hooks/useStartFlowMotion'
+import { useHomeJourneyProgress } from '@/hooks/useHomeJourneyProgress'
 import { useTranslations } from 'next-intl'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
@@ -167,36 +166,6 @@ function isCardCorner(value: string | null): value is CardCorner {
   return Boolean(value && CARD_CORNERS.includes(value as CardCorner))
 }
 
-function getStartFlowTone(state: StartFlowState) {
-  if (state === 'done') {
-    return {
-      body: 'text-emerald-100/72',
-      line: 'via-emerald-300/45',
-      node: 'border-emerald-300/45 bg-emerald-400/14 text-emerald-50',
-      surface: 'border-emerald-300/14 bg-emerald-400/6',
-      title: 'text-ivory/88',
-    }
-  }
-
-  if (state === 'active') {
-    return {
-      body: 'text-saffron/82',
-      line: 'via-saffron/55',
-      node: 'border-saffron/50 bg-saffron/14 text-saffron shadow-[0_0_14px_rgba(240,215,160,0.18)]',
-      surface: 'border-saffron/18 bg-saffron/6',
-      title: 'text-ivory',
-    }
-  }
-
-  return {
-    body: 'text-ivory/55',
-    line: 'via-white/20',
-    node: 'border-white/12 bg-white/6 text-ivory/70',
-    surface: 'border-white/8 bg-white/[0.03]',
-    title: 'text-ivory/72',
-  }
-}
-
 export default function DynamicInfoCard() {
   const t = useTranslations('infoCard')
   const tCreate = useTranslations('createWallet')
@@ -214,7 +183,6 @@ export default function DynamicInfoCard() {
   const cardRef = useRef<HTMLElement | null>(null)
   const dragHandleRef = useRef<HTMLDivElement | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
-  const startFlowRef = useRef<HTMLDivElement | null>(null)
   const dragStateRef = useRef<DragState>({
     pointerId: null,
     startX: 0,
@@ -234,14 +202,9 @@ export default function DynamicInfoCard() {
   const selectedXrplNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
   const {
     actions: journeyActions,
-    completedSteps,
     currentStep,
-    currentStepIndex,
     locationConsentState,
     markSectionSeen,
-    nextStep,
-    showStartFlow,
-    steps: startFlowSteps,
   } = useHomeJourneyProgress()
   const availableStatusLabel = t('status.available')
 
@@ -426,11 +389,6 @@ export default function DynamicInfoCard() {
       : 'bg-emerald-400'
   const detailsExpanded = detailsPinned || (hoverExpansionEnabled && hovered)
 
-  useStartFlowMotion(startFlowRef, {
-    enabled: detailsExpanded && showStartFlow,
-    shouldReduceMotion,
-  })
-
   const cardCornerClass = useMemo(() => {
     if (corner === 'top-left') return 'left-4 top-20 sm:left-6 sm:top-24 lg:left-8 lg:top-24'
     if (corner === 'bottom-left') return 'bottom-4 left-4 sm:bottom-6 sm:left-6 lg:bottom-8 lg:left-8'
@@ -439,8 +397,8 @@ export default function DynamicInfoCard() {
   }, [corner])
   const cardViewportStyle = useMemo<CSSProperties>(
     () => ({
-      width: 'clamp(260px, 24vw, 300px)',
-      maxWidth: 'calc(100vw - 2rem)',
+      width: 'clamp(280px, 28vw, 340px)',
+      maxWidth: 'calc(100vw - 1rem)',
       maxHeight: corner.startsWith('top') ? 'calc(100vh - 6rem)' : 'calc(100vh - 2rem)',
     }),
     [corner],
@@ -453,9 +411,6 @@ export default function DynamicInfoCard() {
     if (!target) return
     target.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [markSectionSeen])
-  const currentStepTone = currentStep ? getStartFlowTone(currentStep.state) : null
-  const nextStepTone = nextStep ? getStartFlowTone(nextStep.state) : null
-  const completedHistory = completedSteps.filter((step) => step.key !== currentStep?.key)
 
   const snapToNearestCorner = useCallback(() => {
     if (typeof window === 'undefined' || !cardRef.current) return
@@ -651,9 +606,9 @@ export default function DynamicInfoCard() {
         setHovered(false)
       }}
       style={cardViewportStyle}
-      className={`fixed z-50 overflow-hidden rounded-[18px] ${cardCornerClass}`}
+      className={`fixed z-50 overflow-y-auto overscroll-contain rounded-[18px] ${cardCornerClass}`}
     >
-      <div className="surface-panel panel-glow-saffron h-full max-h-full overflow-y-auto overscroll-contain rounded-[18px]">
+      <div className="surface-panel panel-glow-saffron min-h-full rounded-[18px]">
         <div
           ref={dragHandleRef}
           data-testid="dynamic-info-card-handle"
@@ -765,168 +720,88 @@ export default function DynamicInfoCard() {
                   </div>
                 </div>
 
-                {showStartFlow ? (
-                  <div
-                    ref={startFlowRef}
-                    data-testid="dynamic-info-card-start-flow"
-                    className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#07111d]/75 p-3"
-                  >
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(240,215,160,0.14),rgba(7,17,29,0)_48%),linear-gradient(180deg,rgba(127,163,193,0.08),rgba(7,17,29,0))]"
-                    />
-                    <div className="relative">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-[0.625rem] uppercase tracking-[0.18em] text-saffron/82">
-                            {t('gettingStarted.eyebrow')}
-                          </div>
-                          <div className="mt-1 text-sm font-semibold tracking-tight text-ivory">
-                            {t('gettingStarted.title')}
-                          </div>
-                          <p className="mt-1 text-[0.6875rem] leading-5 text-ivory/62">
-                            {t('gettingStarted.hint')}
-                          </p>
-                        </div>
-                        <div className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[0.5625rem] font-semibold uppercase tracking-[0.18em] text-ivory/62">
-                          {t('gettingStarted.badge')}
-                        </div>
+                {copyText ? (
+                  <div className="rounded-2xl border border-jade/20 bg-jade/10 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-[0.6875rem] uppercase tracking-[0.18em] text-jade/80">
+                        {tCreate('addressLabel')}
                       </div>
-
-                      <div
-                        role="list"
-                        aria-label={t('gettingStarted.progressLabel')}
-                        className="mt-3 flex flex-wrap gap-2"
+                      <button
+                        type="button"
+                        data-testid="dynamic-info-card-copy-address"
+                        onClick={() => {
+                          if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+                          void navigator.clipboard.writeText(copyText)
+                            .then(() => {
+                              pushEvent({ kind: 'success', message: tCreate('copiedAddress') })
+                            })
+                            .catch(() => {
+                              // ignore clipboard failures
+                            })
+                        }}
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
+                          isLightTheme
+                            ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
+                            : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
+                        }`}
                       >
-                        {startFlowSteps.map((step, index) => {
-                          const tone = getStartFlowTone(step.state)
-                          const isCurrent = currentStep?.key === step.key
-                          return (
-                            <div
-                              key={step.key}
-                              role="listitem"
-                              className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[0.5625rem] font-semibold uppercase tracking-[0.18em] ${
-                                isCurrent ? tone.surface : step.state === 'done' ? tone.surface : 'border-white/8 bg-white/[0.03] text-ivory/52'
-                              }`}
-                            >
-                              <span
-                                className={`grid h-5 w-5 place-items-center rounded-full border text-[0.5625rem] ${tone.node}`}
-                              >
-                                {index + 1}
-                              </span>
-                              <span className={isCurrent ? tone.title : 'text-ivory/62'}>{step.title}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-
-                      {completedHistory.length ? (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {completedHistory.map((step) => (
-                            <div
-                              key={step.key}
-                              className="inline-flex items-center gap-2 rounded-full border border-emerald-300/18 bg-emerald-400/8 px-2.5 py-1 text-[0.5625rem] font-semibold uppercase tracking-[0.18em] text-emerald-100/78"
-                            >
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                              <span>{step.title}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {currentStep && currentStepTone ? (
-                        <div className="mt-3 space-y-2">
-                          <div
-                            data-start-flow-step
-                            data-start-flow-key={currentStep.key}
-                            data-testid="dynamic-info-card-start-flow-current"
-                            className={`rounded-2xl border px-3 py-3 ${currentStepTone.surface}`}
-                          >
-                            <div className="flex gap-3">
-                              <div className="flex w-7 shrink-0 flex-col items-center">
-                                <span
-                                  data-start-flow-node-active="true"
-                                  className={`grid h-7 w-7 place-items-center rounded-full border text-[0.625rem] font-semibold ${currentStepTone.node}`}
-                                >
-                                  {currentStepIndex + 1}
-                                </span>
-                                {nextStep ? (
-                                  <span
-                                    aria-hidden="true"
-                                    data-start-flow-line
-                                    className={`mt-1 h-6 w-px bg-gradient-to-b from-white/10 ${currentStepTone.line} to-transparent`}
-                                  />
-                                ) : null}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-[0.5625rem] uppercase tracking-[0.18em] text-saffron/78">
-                                  {t('gettingStarted.currentLabel')}
-                                </div>
-                                <div className={`mt-1 text-[0.6875rem] uppercase tracking-[0.16em] ${currentStepTone.title}`}>
-                                  {currentStep.title}
-                                </div>
-                                <p className={`mt-1 text-[0.75rem] leading-5 ${currentStepTone.body}`}>
-                                  {currentStep.body}
-                                </p>
-
-                                {journeyActions.length ? (
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    {journeyActions.map((action) => (
-                                      <button
-                                        key={action.key}
-                                        type="button"
-                                        data-testid={`dynamic-info-card-start-flow-action-${action.sectionId}`}
-                                        onClick={() => {
-                                          jumpToSection(action.sectionId)
-                                          pushEvent({ kind: 'info', message: action.label })
-                                        }}
-                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
-                                          isLightTheme
-                                            ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
-                                            : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
-                                        }`}
-                                      >
-                                        {action.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-
-                          {nextStep && nextStepTone ? (
-                            <div
-                              data-start-flow-step
-                              data-start-flow-key={nextStep.key}
-                              data-testid="dynamic-info-card-start-flow-next"
-                              className={`rounded-2xl border px-3 py-2.5 ${nextStepTone.surface}`}
-                            >
-                              <div className="flex gap-3">
-                                <div className="flex w-7 shrink-0 items-start justify-center">
-                                  <span
-                                    className={`grid h-7 w-7 place-items-center rounded-full border text-[0.625rem] font-semibold ${nextStepTone.node}`}
-                                  >
-                                    {currentStepIndex + 2}
-                                  </span>
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="text-[0.5625rem] uppercase tracking-[0.18em] text-ivory/52">
-                                    {t('gettingStarted.nextLabel')}
-                                  </div>
-                                  <div className={`mt-1 text-[0.6875rem] uppercase tracking-[0.16em] ${nextStepTone.title}`}>
-                                    {nextStep.title}
-                                  </div>
-                                  <p className={`mt-1 text-[0.6875rem] leading-5 ${nextStepTone.body}`}>
-                                    {nextStep.body}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
+                        {tCreate('copyAddress')}
+                      </button>
                     </div>
+                    <p
+                      data-testid="dynamic-info-card-full-address"
+                      title={copyText}
+                      className="mt-2 break-all select-all font-mono text-[0.75rem] leading-5 text-jade"
+                    >
+                      {copyText}
+                    </p>
+                  </div>
+                ) : null}
+
+                {currentStep ? (
+                  <div
+                    data-testid="dynamic-info-card-next-step"
+                    className="rounded-2xl border border-white/10 bg-[#07111d]/75 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[0.625rem] uppercase tracking-[0.18em] text-saffron/82">
+                          {t('gettingStarted.currentLabel')}
+                        </div>
+                        <div className="mt-1 text-sm font-semibold tracking-tight text-ivory">
+                          {currentStep.title}
+                        </div>
+                        <p className="mt-1 text-[0.75rem] leading-5 text-ivory/68">
+                          {currentStep.body}
+                        </p>
+                      </div>
+                      <div className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[0.5625rem] font-semibold uppercase tracking-[0.18em] text-ivory/62">
+                        {currentStep.title}
+                      </div>
+                    </div>
+
+                    {journeyActions.length ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {journeyActions.map((action) => (
+                          <button
+                            key={action.key}
+                            type="button"
+                            data-testid={`dynamic-info-card-next-step-action-${action.sectionId}`}
+                            onClick={() => {
+                              jumpToSection(action.sectionId)
+                              pushEvent({ kind: 'info', message: action.label })
+                            }}
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
+                              isLightTheme
+                                ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
+                                : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
+                            }`}
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 

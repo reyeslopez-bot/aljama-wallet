@@ -107,6 +107,39 @@ describe('ConnectWalletPanel', () => {
     expect(disconnect).toHaveBeenCalled()
   })
 
+  it('shows the full address and copies it when connected', async () => {
+    const connector = { id: 'injected', name: 'Injected' } as Connector
+    const writeText = vi.fn().mockResolvedValue(undefined)
+
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    mockedUseConnection.mockReturnValue({
+      address: '0x1234567890abcdef1234567890abcdef12345678',
+      isConnected: true,
+      chain: { id: 1, name: 'Ethereum' },
+      connector: { name: 'MetaMask' },
+    } as any)
+    mockedUseConnectors.mockReturnValue([connector])
+    mockedUseConnect.mockReturnValue({ mutate: vi.fn(), isPending: false } as any)
+    mockedUseDisconnect.mockReturnValue({ mutate: vi.fn() } as any)
+
+    const { getByTestId } = render(<ConnectWalletPanel />)
+
+    expect(getByTestId('connect-wallet-full-address').textContent).toContain(
+      '0x1234567890abcdef1234567890abcdef12345678',
+    )
+
+    fireEvent.click(getByTestId('connect-wallet-copy-address'))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('0x1234567890abcdef1234567890abcdef12345678')
+      expect(getByTestId('connect-wallet-copy-address').textContent).toContain('Copied')
+    })
+  })
+
   it('connects when disconnected', () => {
     const connector = { id: 'injected', name: 'Injected' } as Connector
     const connect = vi.fn()
