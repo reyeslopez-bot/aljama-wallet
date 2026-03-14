@@ -21,23 +21,29 @@ export function useStartFlowMotion<T extends HTMLElement>(
       const lines = Array.from(root.querySelectorAll<HTMLElement>('[data-start-flow-line]'))
       const activeNode = root.querySelector<HTMLElement>('[data-start-flow-node-active="true"]')
 
-      gsap.killTweensOf(steps)
-      gsap.killTweensOf(lines)
+      if (!steps.length && !lines.length && !activeNode) return
+
+      if (steps.length) gsap.killTweensOf(steps)
+      if (lines.length) gsap.killTweensOf(lines)
       if (activeNode) gsap.killTweensOf(activeNode)
 
       if (shouldReduceMotion) {
-        gsap.set(steps, { autoAlpha: 1, y: 0 })
-        gsap.set(lines, { scaleY: 1, transformOrigin: 'top center' })
+        if (steps.length) gsap.set(steps, { autoAlpha: 1, y: 0 })
+        if (lines.length) gsap.set(lines, { scaleY: 1, transformOrigin: 'top center' })
         if (activeNode) gsap.set(activeNode, { scale: 1 })
         return
       }
 
-      gsap.set(lines, { scaleY: 0, transformOrigin: 'top center' })
-      gsap.set(steps, { autoAlpha: 0, y: 8 })
+      if (lines.length) gsap.set(lines, { scaleY: 0, transformOrigin: 'top center' })
+      if (steps.length) gsap.set(steps, { autoAlpha: 0, y: 8 })
 
       const timeline = gsap.timeline({ defaults: { ease: 'power2.out' } })
-      timeline.to(lines, { scaleY: 1, duration: 0.28, stagger: 0.08 })
-      timeline.to(steps, { autoAlpha: 1, y: 0, duration: 0.28, stagger: 0.08 }, '<0.04')
+      if (lines.length) {
+        timeline.to(lines, { scaleY: 1, duration: 0.28, stagger: 0.08 })
+      }
+      if (steps.length) {
+        timeline.to(steps, { autoAlpha: 1, y: 0, duration: 0.28, stagger: 0.08 }, '<0.04')
+      }
 
       if (activeNode) {
         gsap.to(activeNode, {

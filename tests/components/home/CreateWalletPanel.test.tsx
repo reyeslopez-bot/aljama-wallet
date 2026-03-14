@@ -6,10 +6,16 @@ import { CreateWalletPanel } from '@/components/home/CreateWalletPanel'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useSession } from 'next-auth/react'
 
-const { mockGenerateMnemonicWallet, mockEncodeWalletToEncrypted, mockDeriveDeterministicWalletPqcMaterial } = vi.hoisted(() => ({
+const {
+  mockGenerateMnemonicWallet,
+  mockEncodeWalletToEncrypted,
+  mockDeriveDeterministicWalletPqcMaterial,
+  mockDeriveWalletFromMnemonic,
+} = vi.hoisted(() => ({
   mockGenerateMnemonicWallet: vi.fn(),
   mockEncodeWalletToEncrypted: vi.fn(),
   mockDeriveDeterministicWalletPqcMaterial: vi.fn(),
+  mockDeriveWalletFromMnemonic: vi.fn(),
 }))
 
 vi.mock('@/lib/wallet', async () => {
@@ -44,6 +50,7 @@ vi.mock('@/lib/wallet', async () => {
   }
   return {
     ...actual,
+    deriveWalletFromMnemonic: mockDeriveWalletFromMnemonic,
     generateMnemonicWallet: mockGenerateMnemonicWallet,
     encodeWalletToEncrypted: mockEncodeWalletToEncrypted,
     UserDeterministicWallet: MockUserDeterministicWallet,
@@ -99,6 +106,10 @@ describe('CreateWalletPanel', () => {
       mnemonic: testMnemonicWords.join(' '),
       derivationPath: "m/44'/60'/0'/0/0",
       wordCount: 24,
+    })
+    mockDeriveWalletFromMnemonic.mockReturnValue({
+      address: '0x2222222222222222222222222222222222222222',
+      privateKey: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
     })
     mockEncodeWalletToEncrypted.mockResolvedValue('encrypted-payload')
     mockDeriveDeterministicWalletPqcMaterial.mockResolvedValue({
@@ -227,6 +238,38 @@ describe('CreateWalletPanel', () => {
         'https://buy.example/checkout?dest=0x1111111111111111111111111111111111111111&network=base',
       )
       expect(queryByText(/Using a default card provider/i)).toBeNull()
+    })
+  })
+
+  it('keeps hidden vault addresses sealed on the ready screen', async () => {
+    const {
+      getByTestId,
+      getAllByTestId,
+      getByText,
+      queryByText,
+    } = render(<CreateWalletPanel />)
+
+    fireEvent.click(getByTestId('create-wallet-mnemonic-switch'))
+    fireEvent.click(getByTestId('create-wallet-mnemonic-passphrase-generate'))
+    fireEvent.change(getByTestId('create-wallet-password-input'), {
+      target: { value: 'VeryStrongPassphrase1!' },
+    })
+
+    fireEvent.click(getByTestId('create-wallet-submit'))
+
+    await waitFor(() => {
+      expect(getByTestId('create-wallet-recovery-section')).toBeTruthy()
+    })
+
+    completeRecoveryCheck(getByTestId, getAllByTestId)
+
+    await waitFor(() => {
+      expect(getByTestId('create-wallet-ready-panel')).toBeTruthy()
+      expect(getByText('Do this now')).toBeTruthy()
+      expect(getByTestId('create-wallet-advanced-layout')).toBeTruthy()
+      expect(queryByText('eth-hidden-0-0')).toBeNull()
+      expect(queryByText('btc-hidden-0-0')).toBeNull()
+      expect(queryByText('xrpl_ed-hidden-0-0')).toBeNull()
     })
   })
 

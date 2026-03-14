@@ -115,7 +115,6 @@ export default function MapboxMap() {
         const params = new URLSearchParams({
           access_token: token,
           language: 'en',
-          limit: '5',
           types: 'place,locality,neighborhood,district,region',
         })
         const res = await fetch(
