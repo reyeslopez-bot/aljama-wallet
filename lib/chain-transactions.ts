@@ -1,13 +1,19 @@
 export const CHAIN_TRANSACTION_STATUSES = [
-  'broadcasted',
-  'pending',
-  'confirmed',
+  'submitted',
+  'included',
+  'confirmed_soft',
+  'confirmed_final',
+  'reorged',
   'failed',
   'replaced',
   'dropped',
 ] as const
 
 export type ChainTransactionStatus = (typeof CHAIN_TRANSACTION_STATUSES)[number]
+export type EvmFinalityStatus = Extract<
+  ChainTransactionStatus,
+  'included' | 'confirmed_soft' | 'confirmed_final'
+>
 
 export const CHAIN_TRANSACTION_TYPES = [
   'transfer',
@@ -26,23 +32,28 @@ export const CHAIN_TRANSACTION_TYPES = [
 export type ChainTransactionType = (typeof CHAIN_TRANSACTION_TYPES)[number]
 
 export const ACTIVE_SPEND_CHAIN_TRANSACTION_STATUSES: readonly ChainTransactionStatus[] = [
-  'broadcasted',
-  'pending',
-  'confirmed',
+  'submitted',
+  'included',
+  'confirmed_soft',
+  'confirmed_final',
 ]
 
 export const SYNCABLE_CHAIN_TRANSACTION_STATUSES: readonly ChainTransactionStatus[] = [
-  'broadcasted',
-  'pending',
-  'confirmed',
+  'submitted',
+  'included',
+  'confirmed_soft',
+  'confirmed_final',
+  'reorged',
 ]
 
 export const TRANSFER_WORKFLOW_STATUSES = [
   'created',
   'pending_broadcast',
-  'broadcasted',
-  'pending',
-  'confirmed',
+  'submitted',
+  'included',
+  'confirmed_soft',
+  'confirmed_final',
+  'reorged',
   'failed',
   'replaced',
   'dropped',
@@ -52,22 +63,73 @@ export const TRANSFER_WORKFLOW_STATUSES = [
 
 export type TransferWorkflowStatus = (typeof TRANSFER_WORKFLOW_STATUSES)[number]
 
+export const EVM_FINALITY_FINAL_CONFIRMATIONS = 12
+
+export function getEvmTransactionFinality(input: {
+  currentBlockNumber: number
+  includedBlockNumber: number | null | undefined
+}): {
+  status: EvmFinalityStatus
+  confirmationCount: number
+} {
+  const includedBlockNumber = input.includedBlockNumber
+  if (
+    typeof includedBlockNumber !== 'number' ||
+    !Number.isInteger(includedBlockNumber) ||
+    includedBlockNumber < 0
+  ) {
+    return {
+      status: 'included',
+      confirmationCount: 1,
+    }
+  }
+
+  const rawConfirmations = input.currentBlockNumber - includedBlockNumber + 1
+  const confirmationCount = Math.max(1, rawConfirmations)
+
+  if (confirmationCount >= EVM_FINALITY_FINAL_CONFIRMATIONS) {
+    return {
+      status: 'confirmed_final',
+      confirmationCount,
+    }
+  }
+
+  if (confirmationCount >= 2) {
+    return {
+      status: 'confirmed_soft',
+      confirmationCount,
+    }
+  }
+
+  return {
+    status: 'included',
+    confirmationCount,
+  }
+}
+
 export function normalizeChainTransactionStatus(status: string): ChainTransactionStatus {
   switch (status) {
     case 'broadcast':
-      return 'broadcasted'
+    case 'broadcasted':
+    case 'submitted':
+    case 'pending':
+      return 'submitted'
+    case 'included':
+      return 'included'
+    case 'confirmed':
+      return 'confirmed_soft'
     case 'settled':
     case 'validated':
-      return 'confirmed'
-    case 'broadcasted':
-    case 'pending':
-    case 'confirmed':
+      return 'confirmed_final'
+    case 'confirmed_soft':
+    case 'confirmed_final':
+    case 'reorged':
     case 'failed':
     case 'replaced':
     case 'dropped':
       return status
     default:
-      return 'pending'
+      return 'submitted'
   }
 }
 
@@ -78,19 +140,24 @@ export function normalizeTransferWorkflowStatus(status: string): TransferWorkflo
     case 'approved':
       return 'pending_broadcast'
     case 'broadcast':
-      return 'broadcasted'
+    case 'broadcasted':
+    case 'submitted':
+    case 'pending':
+      return 'submitted'
+    case 'included':
+      return 'included'
+    case 'confirmed':
+      return 'confirmed_soft'
     case 'settled':
     case 'validated':
-      return 'confirmed'
-    case 'submitted':
-      return 'pending'
+      return 'confirmed_final'
     case 'queued':
       return 'created'
     case 'created':
     case 'pending_broadcast':
-    case 'broadcasted':
-    case 'pending':
-    case 'confirmed':
+    case 'confirmed_soft':
+    case 'confirmed_final':
+    case 'reorged':
     case 'failed':
     case 'replaced':
     case 'dropped':

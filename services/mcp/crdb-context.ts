@@ -187,7 +187,7 @@ async function getWalletState(input: z.infer<typeof walletStateSchema>) {
             id: lastLegacyTx.id,
             source: 'legacy',
             txHash: null,
-            status: 'confirmed',
+            status: 'confirmed_final',
             txType: 'transfer',
             fromWalletId: lastLegacyTx.fromWalletId,
             toWalletId: lastLegacyTx.toWalletId,

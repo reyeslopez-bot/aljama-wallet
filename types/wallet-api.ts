@@ -60,6 +60,7 @@ export type WalletTransactionItem = {
   gasUsed: string | null
   blockHeight: string | null
   blockHash: string | null
+  confirmationCount: number | null
   contractAddress: string | null
   tokenId: string | null
   data: string | null
@@ -87,11 +88,12 @@ export type WalletSendInput = {
 export type WalletSendResponse = {
   ok: true
   intentId: string
-  status: 'queued' | 'signing' | 'signed' | 'broadcasted' | 'failed'
+  status: 'queued' | 'approved' | 'signed' | 'submitted' | 'confirmed' | 'failed'
   walletId: string
   to: string
   amountWei: string
   chainId: number
+  traceId: string
   correlationId: string
   idempotencyKey: string
   transferLogId: string | null
@@ -100,9 +102,12 @@ export type WalletSendResponse = {
 export type WalletSigningIntentResponse = {
   ok: true
   intentId: string
-  status: 'queued' | 'signing' | 'signed' | 'broadcasted' | 'failed'
+  status: 'queued' | 'approved' | 'signed' | 'submitted' | 'confirmed' | 'failed'
   walletId: string
+  chain: 'EVM' | 'XRPL'
   chainId: number
+  actionType: string
+  traceId: string
   correlationId: string
   idempotencyKey: string
   transferLogId: string | null

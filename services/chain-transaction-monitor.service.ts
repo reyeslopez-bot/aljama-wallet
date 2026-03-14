@@ -2,7 +2,14 @@ import { prismaCrdb } from '@/lib/prisma-crdb'
 import { emitSecurityAlert } from '@/services/security-alert.service'
 import { recordTelemetryEvent } from '@/services/telemetry.service'
 
-type ChainTransactionStatus = 'broadcasted' | 'pending' | 'confirmed'
+type ChainTransactionStatus =
+  | 'submitted'
+  | 'included'
+  | 'confirmed_soft'
+  | 'confirmed_final'
+  | 'reorged'
+
+type StuckStatus = 'submitted' | 'included'
 type WorkerTrigger = 'startup' | 'interval'
 
 type StuckTransactionSummary = {
@@ -20,17 +27,19 @@ export type ChainTransactionSyncMetrics = {
   succeededCount: number
   failedCount: number
   syncableCount: number
-  broadcastedCount: number
-  pendingCount: number
-  confirmedCount: number
-  stuckBroadcasted: StuckTransactionSummary
-  stuckPending: StuckTransactionSummary
+  submittedCount: number
+  includedCount: number
+  confirmedSoftCount: number
+  confirmedFinalCount: number
+  reorgedCount: number
+  stuckSubmitted: StuckTransactionSummary
+  stuckIncluded: StuckTransactionSummary
 }
 
 const WORKER_SESSION_ID = 'server:chain-tx-sync-worker'
 const WORKER_PATH = '/internal/workers/chain-tx-sync'
-const DEFAULT_BROADCASTED_STUCK_MS = 2 * 60 * 1000
-const DEFAULT_PENDING_STUCK_MS = 15 * 60 * 1000
+const DEFAULT_SUBMITTED_STUCK_MS = 2 * 60 * 1000
+const DEFAULT_INCLUDED_STUCK_MS = 15 * 60 * 1000
 const DEFAULT_STUCK_ALERT_MIN_COUNT = 1
 
 function envInt(name: string, fallback: number): number {
@@ -43,10 +52,18 @@ function envInt(name: string, fallback: number): number {
   return Math.floor(parsed)
 }
 
-function stuckThresholdMs(status: 'broadcasted' | 'pending'): number {
-  return status === 'broadcasted'
-    ? envInt('CHAIN_TRANSACTION_STUCK_BROADCASTED_MS', DEFAULT_BROADCASTED_STUCK_MS)
-    : envInt('CHAIN_TRANSACTION_STUCK_PENDING_MS', DEFAULT_PENDING_STUCK_MS)
+function stuckThresholdMs(status: StuckStatus): number {
+  if (status === 'submitted') {
+    return envInt(
+      'CHAIN_TRANSACTION_STUCK_SUBMITTED_MS',
+      envInt('CHAIN_TRANSACTION_STUCK_BROADCASTED_MS', DEFAULT_SUBMITTED_STUCK_MS),
+    )
+  }
+
+  return envInt(
+    'CHAIN_TRANSACTION_STUCK_INCLUDED_MS',
+    envInt('CHAIN_TRANSACTION_STUCK_PENDING_MS', DEFAULT_INCLUDED_STUCK_MS),
+  )
 }
 
 function alertMinCount(): number {
@@ -63,10 +80,7 @@ async function readStatusCount(status: ChainTransactionStatus, networkId: string
   })
 }
 
-async function readStuckSummary(
-  status: 'broadcasted' | 'pending',
-  networkId: string | null,
-): Promise<StuckTransactionSummary> {
+async function readStuckSummary(status: StuckStatus, networkId: string | null): Promise<StuckTransactionSummary> {
   const thresholdMs = stuckThresholdMs(status)
   const thresholdDate = new Date(Date.now() - thresholdMs)
   const rows = await prismaCrdb.chainTransaction.findMany({
@@ -106,12 +120,22 @@ export async function collectChainTransactionSyncMetrics(input: {
   succeededCount: number
   failedCount: number
 }): Promise<ChainTransactionSyncMetrics> {
-  const [broadcastedCount, pendingCount, confirmedCount, stuckBroadcasted, stuckPending] = await Promise.all([
-    readStatusCount('broadcasted', input.networkId),
-    readStatusCount('pending', input.networkId),
-    readStatusCount('confirmed', input.networkId),
-    readStuckSummary('broadcasted', input.networkId),
-    readStuckSummary('pending', input.networkId),
+  const [
+    submittedCount,
+    includedCount,
+    confirmedSoftCount,
+    confirmedFinalCount,
+    reorgedCount,
+    stuckSubmitted,
+    stuckIncluded,
+  ] = await Promise.all([
+    readStatusCount('submitted', input.networkId),
+    readStatusCount('included', input.networkId),
+    readStatusCount('confirmed_soft', input.networkId),
+    readStatusCount('confirmed_final', input.networkId),
+    readStatusCount('reorged', input.networkId),
+    readStuckSummary('submitted', input.networkId),
+    readStuckSummary('included', input.networkId),
   ])
 
   return {
@@ -121,23 +145,25 @@ export async function collectChainTransactionSyncMetrics(input: {
     processedCount: input.processedCount,
     succeededCount: input.succeededCount,
     failedCount: input.failedCount,
-    syncableCount: broadcastedCount + pendingCount + confirmedCount,
-    broadcastedCount,
-    pendingCount,
-    confirmedCount,
-    stuckBroadcasted,
-    stuckPending,
+    syncableCount: submittedCount + includedCount + confirmedSoftCount + confirmedFinalCount + reorgedCount,
+    submittedCount,
+    includedCount,
+    confirmedSoftCount,
+    confirmedFinalCount,
+    reorgedCount,
+    stuckSubmitted,
+    stuckIncluded,
   }
 }
 
 async function maybeEmitStuckAlert(input: {
   networkId: string | null
-  status: 'broadcasted' | 'pending'
+  status: StuckStatus
   summary: StuckTransactionSummary
 }) {
   if (input.summary.count < alertMinCount()) return
 
-  const severity = input.status === 'pending' ? 'high' : 'medium'
+  const severity = input.status === 'included' ? 'high' : 'medium'
   await emitSecurityAlert({
     ruleId: `wallet.chain_transaction.stuck_${input.status}`,
     source: 'worker.chain-tx-sync',
@@ -174,24 +200,26 @@ export async function observeChainTransactionSyncPass(metrics: ChainTransactionS
       succeededCount: metrics.succeededCount,
       failedCount: metrics.failedCount,
       syncableCount: metrics.syncableCount,
-      broadcastedCount: metrics.broadcastedCount,
-      pendingCount: metrics.pendingCount,
-      confirmedCount: metrics.confirmedCount,
-      stuckBroadcasted: metrics.stuckBroadcasted,
-      stuckPending: metrics.stuckPending,
+      submittedCount: metrics.submittedCount,
+      includedCount: metrics.includedCount,
+      confirmedSoftCount: metrics.confirmedSoftCount,
+      confirmedFinalCount: metrics.confirmedFinalCount,
+      reorgedCount: metrics.reorgedCount,
+      stuckSubmitted: metrics.stuckSubmitted,
+      stuckIncluded: metrics.stuckIncluded,
     },
   })
 
   await Promise.all([
     maybeEmitStuckAlert({
       networkId: metrics.networkId,
-      status: 'broadcasted',
-      summary: metrics.stuckBroadcasted,
+      status: 'submitted',
+      summary: metrics.stuckSubmitted,
     }),
     maybeEmitStuckAlert({
       networkId: metrics.networkId,
-      status: 'pending',
-      summary: metrics.stuckPending,
+      status: 'included',
+      summary: metrics.stuckIncluded,
     }),
   ])
 }

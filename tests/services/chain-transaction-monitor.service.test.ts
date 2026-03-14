@@ -42,29 +42,31 @@ describe('chain-transaction-monitor.service', () => {
     mockCount.mockImplementation(async (args?: { where?: { status?: string; updatedAt?: { lte: Date } } }) => {
       const status = args?.where?.status
       const stuck = Boolean(args?.where?.updatedAt?.lte)
-      if (status === 'broadcasted') return stuck ? 2 : 3
-      if (status === 'pending') return stuck ? 1 : 4
-      if (status === 'confirmed') return 5
+      if (status === 'submitted') return stuck ? 2 : 3
+      if (status === 'included') return stuck ? 1 : 4
+      if (status === 'confirmed_soft') return 5
+      if (status === 'confirmed_final') return 6
+      if (status === 'reorged') return 1
       return 0
     })
     mockFindMany.mockImplementation(async (args?: { where?: { status?: string } }) => {
       const status = args?.where?.status
-      if (status === 'broadcasted') {
+      if (status === 'submitted') {
         return [
-          { txHash: '0xbroadcast-1', updatedAt: new Date('2026-03-09T11:55:00.000Z') },
-          { txHash: '0xbroadcast-2', updatedAt: new Date('2026-03-09T11:56:00.000Z') },
+          { txHash: '0xsubmitted-1', updatedAt: new Date('2026-03-09T11:55:00.000Z') },
+          { txHash: '0xsubmitted-2', updatedAt: new Date('2026-03-09T11:56:00.000Z') },
         ]
       }
-      if (status === 'pending') {
-        return [{ txHash: '0xpending-1', updatedAt: new Date('2026-03-09T11:40:00.000Z') }]
+      if (status === 'included') {
+        return [{ txHash: '0xincluded-1', updatedAt: new Date('2026-03-09T11:40:00.000Z') }]
       }
       return []
     })
   })
 
   it('collects stuck-transaction summaries and aggregate sync counts', async () => {
-    vi.stubEnv('CHAIN_TRANSACTION_STUCK_BROADCASTED_MS', '120000')
-    vi.stubEnv('CHAIN_TRANSACTION_STUCK_PENDING_MS', '900000')
+    vi.stubEnv('CHAIN_TRANSACTION_STUCK_SUBMITTED_MS', '120000')
+    vi.stubEnv('CHAIN_TRANSACTION_STUCK_INCLUDED_MS', '900000')
 
     const { collectChainTransactionSyncMetrics } = await import('@/services/chain-transaction-monitor.service')
     const metrics = await collectChainTransactionSyncMetrics({
@@ -75,19 +77,21 @@ describe('chain-transaction-monitor.service', () => {
       failedCount: 1,
     })
 
-    expect(metrics.syncableCount).toBe(12)
-    expect(metrics.broadcastedCount).toBe(3)
-    expect(metrics.pendingCount).toBe(4)
-    expect(metrics.confirmedCount).toBe(5)
-    expect(metrics.stuckBroadcasted).toMatchObject({
+    expect(metrics.syncableCount).toBe(19)
+    expect(metrics.submittedCount).toBe(3)
+    expect(metrics.includedCount).toBe(4)
+    expect(metrics.confirmedSoftCount).toBe(5)
+    expect(metrics.confirmedFinalCount).toBe(6)
+    expect(metrics.reorgedCount).toBe(1)
+    expect(metrics.stuckSubmitted).toMatchObject({
       count: 2,
       oldestUpdatedAt: '2026-03-09T11:55:00.000Z',
-      sampleTxHashes: ['0xbroadcast-1', '0xbroadcast-2'],
+      sampleTxHashes: ['0xsubmitted-1', '0xsubmitted-2'],
     })
-    expect(metrics.stuckPending).toMatchObject({
+    expect(metrics.stuckIncluded).toMatchObject({
       count: 1,
       oldestUpdatedAt: '2026-03-09T11:40:00.000Z',
-      sampleTxHashes: ['0xpending-1'],
+      sampleTxHashes: ['0xincluded-1'],
     })
   })
 
@@ -102,20 +106,22 @@ describe('chain-transaction-monitor.service', () => {
       succeededCount: 5,
       failedCount: 0,
       syncableCount: 7,
-      broadcastedCount: 2,
-      pendingCount: 3,
-      confirmedCount: 2,
-      stuckBroadcasted: {
+      submittedCount: 2,
+      includedCount: 3,
+      confirmedSoftCount: 1,
+      confirmedFinalCount: 1,
+      reorgedCount: 0,
+      stuckSubmitted: {
         count: 2,
         oldestUpdatedAt: '2026-03-09T11:55:00.000Z',
         oldestAgeMs: 300000,
-        sampleTxHashes: ['0xbroadcast-1'],
+        sampleTxHashes: ['0xsubmitted-1'],
       },
-      stuckPending: {
+      stuckIncluded: {
         count: 1,
         oldestUpdatedAt: '2026-03-09T11:40:00.000Z',
         oldestAgeMs: 1200000,
-        sampleTxHashes: ['0xpending-1'],
+        sampleTxHashes: ['0xincluded-1'],
       },
     })
 
@@ -130,23 +136,23 @@ describe('chain-transaction-monitor.service', () => {
       },
       payload: expect.objectContaining({
         processedCount: 5,
-        stuckBroadcasted: expect.objectContaining({ count: 2 }),
-        stuckPending: expect.objectContaining({ count: 1 }),
+        stuckSubmitted: expect.objectContaining({ count: 2 }),
+        stuckIncluded: expect.objectContaining({ count: 1 }),
       }),
     })
     expect(mockEmitSecurityAlert).toHaveBeenCalledTimes(2)
     expect(mockEmitSecurityAlert).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        ruleId: 'wallet.chain_transaction.stuck_broadcasted',
-        fingerprint: 'chain-tx:11155111:broadcasted',
+        ruleId: 'wallet.chain_transaction.stuck_submitted',
+        fingerprint: 'chain-tx:11155111:submitted',
       }),
     )
     expect(mockEmitSecurityAlert).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
-        ruleId: 'wallet.chain_transaction.stuck_pending',
-        fingerprint: 'chain-tx:11155111:pending',
+        ruleId: 'wallet.chain_transaction.stuck_included',
+        fingerprint: 'chain-tx:11155111:included',
       }),
     )
   })

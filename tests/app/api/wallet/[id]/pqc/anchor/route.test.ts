@@ -375,7 +375,7 @@ describe('app/api/wallet/[id]/pqc/anchor route', () => {
         fromAddress: '0x000000000000000000000000000000000000beef',
         toAddress: '0x000000000000000000000000000000000000beef',
         valueBaseUnits: 0n,
-        status: 'broadcasted',
+        status: 'submitted',
         txType: 'contract_call',
         nonce: 7,
       }),

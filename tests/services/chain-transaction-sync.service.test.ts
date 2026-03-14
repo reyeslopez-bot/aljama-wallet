@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
+  mockProviderGetBlockNumber,
   mockProviderGetBlock,
   mockProviderGetTransaction,
   mockProviderGetTransactionReceipt,
@@ -15,7 +16,12 @@ const {
   mockMarkNonceReservationFailedByTxHash,
   mockMarkNonceReservationsFailedByTxHashes,
   mockMarkNonceReservationSubmittedByTxHash,
+  mockMarkWalletSigningIntentConfirmedByTxHash,
+  mockMarkWalletSigningIntentFailedByTxHash,
+  mockReopenWalletSigningIntentByTxHash,
+  mockResolveWalletIdsByAddresses,
 } = vi.hoisted(() => ({
+  mockProviderGetBlockNumber: vi.fn(),
   mockProviderGetBlock: vi.fn(),
   mockProviderGetTransaction: vi.fn(),
   mockProviderGetTransactionReceipt: vi.fn(),
@@ -30,10 +36,15 @@ const {
   mockMarkNonceReservationFailedByTxHash: vi.fn(),
   mockMarkNonceReservationsFailedByTxHashes: vi.fn(),
   mockMarkNonceReservationSubmittedByTxHash: vi.fn(),
+  mockMarkWalletSigningIntentConfirmedByTxHash: vi.fn(),
+  mockMarkWalletSigningIntentFailedByTxHash: vi.fn(),
+  mockReopenWalletSigningIntentByTxHash: vi.fn(),
+  mockResolveWalletIdsByAddresses: vi.fn(),
 }))
 
 vi.mock('ethers', () => ({
   JsonRpcProvider: class MockJsonRpcProvider {
+    getBlockNumber = mockProviderGetBlockNumber
     getBlock = mockProviderGetBlock
     getTransaction = mockProviderGetTransaction
     getTransactionReceipt = mockProviderGetTransactionReceipt
@@ -74,7 +85,7 @@ vi.mock('@/services/transfer-log.service', () => ({
 }))
 
 vi.mock('@/services/wallet.service', () => ({
-  resolveWalletIdsByAddresses: vi.fn(),
+  resolveWalletIdsByAddresses: mockResolveWalletIdsByAddresses,
 }))
 
 vi.mock('@/services/nonce-reservation.service', () => ({
@@ -84,6 +95,12 @@ vi.mock('@/services/nonce-reservation.service', () => ({
   markNonceReservationSubmittedByTxHash: mockMarkNonceReservationSubmittedByTxHash,
 }))
 
+vi.mock('@/services/signing-intent.service', () => ({
+  markWalletSigningIntentConfirmedByTxHash: mockMarkWalletSigningIntentConfirmedByTxHash,
+  markWalletSigningIntentFailedByTxHash: mockMarkWalletSigningIntentFailedByTxHash,
+  reopenWalletSigningIntentByTxHash: mockReopenWalletSigningIntentByTxHash,
+}))
+
 describe('chain-transaction-sync.service', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -91,6 +108,7 @@ describe('chain-transaction-sync.service', () => {
     vi.unstubAllEnvs()
 
     vi.stubEnv('EVM_RPC_URL', 'https://rpc.example.test')
+    mockProviderGetBlockNumber.mockResolvedValue(100)
 
     mockPrismaTransaction.mockImplementation(async (operations: unknown) => {
       if (typeof operations === 'function') {
@@ -128,12 +146,16 @@ describe('chain-transaction-sync.service', () => {
     mockMarkNonceReservationFailedByTxHash.mockResolvedValue(undefined)
     mockMarkNonceReservationsFailedByTxHashes.mockResolvedValue(undefined)
     mockMarkNonceReservationSubmittedByTxHash.mockResolvedValue(undefined)
+    mockMarkWalletSigningIntentConfirmedByTxHash.mockResolvedValue(undefined)
+    mockMarkWalletSigningIntentFailedByTxHash.mockResolvedValue(undefined)
+    mockReopenWalletSigningIntentByTxHash.mockResolvedValue(undefined)
+    mockResolveWalletIdsByAddresses.mockResolvedValue(new Map())
     mockProviderGetTransactionReceipt.mockResolvedValue(null)
     mockProviderGetBlock.mockResolvedValue({ hash: '0xnew-block' })
     mockProviderGetTransaction.mockResolvedValue({ hash: '0xtx' })
   })
 
-  it('clears indexed receipt data and reverts confirmed transactions to pending after a canonical block mismatch', async () => {
+  it('clears indexed receipt data and marks transactions reorged after a canonical block mismatch', async () => {
     const { syncRecentEvmChainTransactions } = await import('@/services/chain-transaction-sync.service')
     const result = await syncRecentEvmChainTransactions({ networkId: '11155111', limit: 10 })
 
@@ -161,9 +183,10 @@ describe('chain-transaction-sync.service', () => {
         blockHeight: null,
         blockHash: null,
         transactionIndex: null,
-        status: 'pending',
+        status: 'reorged',
         effectiveGasPrice: null,
         gasUsed: null,
+        confirmationCount: 0,
       },
     })
     expect(mockChainTransactionUpdate).toHaveBeenCalledWith({
@@ -175,21 +198,98 @@ describe('chain-transaction-sync.service', () => {
         },
       },
       data: {
-        status: 'pending',
+        status: 'reorged',
         blockHeight: null,
         blockHash: null,
         gasUsed: null,
         confirmedAt: null,
+        confirmationCount: 0,
       },
     })
     expect(mockUpdateTransferAttemptByTxHash).toHaveBeenCalledWith('0xtx', {
-      status: 'pending',
+      status: 'reorged',
       blockHeight: null,
       blockHash: null,
       gasUsed: null,
       confirmedAt: null,
+      confirmationCount: 0,
     })
     expect(mockMarkNonceReservationSubmittedByTxHash).toHaveBeenCalledWith('0xtx')
+    expect(mockReopenWalletSigningIntentByTxHash).toHaveBeenCalledWith('0xtx')
+    expect(result).toEqual({
+      processedCount: 1,
+      succeededCount: 1,
+      failedCount: 0,
+    })
+  })
+
+  it('tracks confirmation depth and marks transactions final after twelve confirmations', async () => {
+    mockChainTransactionFindMany.mockResolvedValue([
+      {
+        chainType: 'EVM',
+        networkId: '11155111',
+        txHash: '0xtx',
+        status: 'submitted',
+        blockHash: null,
+        blockHeight: null,
+        createdAt: new Date('2026-03-09T11:00:00.000Z'),
+      },
+    ])
+    mockProviderGetBlockNumber.mockResolvedValue(111)
+    mockProviderGetBlock.mockResolvedValue({
+      number: 100,
+      hash: '0xblock',
+      parentHash: '0xparent',
+      timestamp: 1_710_000_000,
+    })
+    mockProviderGetTransaction.mockResolvedValue({
+      from: '0xfrom',
+      to: '0xto',
+      nonce: 7,
+      value: 1n,
+      gasLimit: 21_000n,
+      gasPrice: 2n,
+      data: '0x',
+      index: 0,
+    })
+    mockProviderGetTransactionReceipt.mockResolvedValue({
+      blockHash: '0xblock',
+      blockNumber: 100,
+      status: 1,
+      gasUsed: 21_000n,
+      effectiveGasPrice: 2n,
+      logs: [],
+      index: 0,
+      from: '0xfrom',
+      to: '0xto',
+    })
+
+    const { syncRecentEvmChainTransactions } = await import('@/services/chain-transaction-sync.service')
+    const result = await syncRecentEvmChainTransactions({ networkId: '11155111', limit: 10 })
+
+    expect(mockChainTransactionUpdate).toHaveBeenCalledWith({
+      where: {
+        chainType_networkId_txHash: {
+          chainType: 'EVM',
+          networkId: '11155111',
+          txHash: '0xtx',
+        },
+      },
+      data: expect.objectContaining({
+        status: 'confirmed_final',
+        blockHeight: 100n,
+        blockHash: '0xblock',
+        confirmationCount: 12,
+      }),
+    })
+    expect(mockUpdateTransferAttemptByTxHash).toHaveBeenCalledWith('0xtx', expect.objectContaining({
+      status: 'confirmed_final',
+      blockHeight: 100n,
+      blockHash: '0xblock',
+      confirmationCount: 12,
+    }))
+    expect(mockMarkNonceReservationConfirmedByTxHash).toHaveBeenCalledWith('0xtx')
+    expect(mockMarkWalletSigningIntentConfirmedByTxHash).toHaveBeenCalledWith('0xtx')
     expect(result).toEqual({
       processedCount: 1,
       succeededCount: 1,

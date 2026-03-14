@@ -90,7 +90,20 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 - Reconciliation worker keyed by `txHash`/`actionId` with bounded retry and terminal reason codes.
 - Require idempotency keys on every XRPL mutation endpoint.
 
-#### F) Observability gaps
+#### F) EVM soft finality and reorg rollback
+
+**Issue**
+
+- EVM receipts can appear confirmed and later be reorged out of canonical history, creating false-final transaction state.
+
+**Mitigations**
+
+- Track confirmation depth on chain transactions and transfer logs.
+- Use explicit EVM states (`submitted`, `included`, `confirmed_soft`, `confirmed_final`, `reorged`, `failed`).
+- Roll confirmed records back to `reorged` when canonical block history no longer contains the tx.
+- Reopen reconciliation from the last submitted intent/nonce state until finality depth is restored.
+
+#### G) Observability gaps
 
 **Issue**
 
@@ -111,7 +124,7 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 - `Wallet`: canonical custody wallet record with address, policy json, encrypted key fields, PQC binding metadata.
 - `WalletAddress`: multi-chain/network address mapping.
 - `Policy` + `PolicyEvent`: policy config and policy decision/event audit.
-- `ChainTransaction` + `TokenTransfer`: EVM movement records with replacement and confirmation metadata.
+- `ChainTransaction` + `TokenTransfer`: EVM movement records with replacement, confirmation-depth, and reorg metadata.
 - `ChainBlock`, `ChainIndexTransaction`, `ChainLog`: indexer-side chain data for reconciliation.
 - `XrplTransaction`, `XrplLedgerEvent`, `XrplTrustLine`, `XrplNftToken`: XRPL transaction and object state.
 - `WalletPqcAnchor`: on-chain PQC binding anchor records.
@@ -137,7 +150,7 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 
 - Auth/session: `User`, `Account`, `Session`, `VerificationToken`, `UserWallet`.
 - Product analytics: `TelemetryEvent`, `TrackWalletEvent`, `Signup`, `DailyTransactionSummary`.
-- Control/risk: `IdempotencyKey`, `WalletTransferLog`, `RiskDecision`.
+- Control/risk: `IdempotencyKey`, `WalletTransferLog`, `WalletSigningIntent`, `RiskDecision`.
 - Security forensics: `SecuritySignalEvent`, `SecurityAnomalyEvent`, `SecurityAlertEvent`.
 - XRPL action plane: `XrplAction`, `XrplActionEvent`.
 
@@ -153,7 +166,7 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 - Retention policy + archival pipeline per table class (telemetry vs forensic vs control logs).
 - Materialized rollups for dashboard queries; keep raw events append-only.
 - Add deterministic replay-protection window aligned with blockchain finality and product SLA.
-- Scheduled cross-database reconciliation jobs for wallet transfers, risk outcomes, and XRPL action status.
+- Scheduled cross-database reconciliation jobs for wallet transfers, signing intents, risk outcomes, and XRPL action status.
 
 ## 4. UI/UX Flows (Frontend + Backend + Improvement Plan)
 
@@ -231,7 +244,7 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 
 ### Improvements
 
-- Expose explicit state transitions (`pending`, `submitted`, `replaced`, `confirmed`, `failed`).
+- Expose explicit state transitions (`pending_broadcast`, `submitted`, `included`, `confirmed_soft`, `confirmed_final`, `reorged`, `replaced`, `failed`).
 - Return machine-readable denial codes + suggested next action for UI.
 - Add per-wallet tx timeline endpoint with replacement chain collapse.
 

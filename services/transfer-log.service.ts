@@ -26,6 +26,7 @@ export type TransferLogInput = {
   gasUsed?: string | null
   blockHeight?: bigint | null
   blockHash?: string | null
+  confirmationCount?: number
   replacesTxHash?: string | null
   replacedByTxHash?: string | null
   confirmedAt?: Date | null
@@ -44,6 +45,7 @@ export type TransferLogUpdateInput = {
   gasUsed?: string | null
   blockHeight?: bigint | null
   blockHash?: string | null
+  confirmationCount?: number
   replacesTxHash?: string | null
   replacedByTxHash?: string | null
   confirmedAt?: Date | null
@@ -95,6 +97,10 @@ function toRecord(input: TransferLogInput & { id: string; createdAt: number; upd
     maxPriorityFeePerGas: normalizeNullableString(input.maxPriorityFeePerGas),
     gasUsed: normalizeNullableString(input.gasUsed),
     blockHash: normalizeNullableString(input.blockHash),
+    confirmationCount:
+      typeof input.confirmationCount === 'number' && Number.isFinite(input.confirmationCount)
+        ? Math.max(0, Math.floor(input.confirmationCount))
+        : 0,
     replacesTxHash: normalizeNullableString(input.replacesTxHash),
     replacedByTxHash: normalizeNullableString(input.replacedByTxHash),
     confirmedAt: input.confirmedAt ? input.confirmedAt.getTime() : null,
@@ -121,6 +127,7 @@ function mapDbRecord(record: {
   gasUsed: string | null
   blockHeight: bigint | null
   blockHash: string | null
+  confirmationCount: number
   replacesTxHash: string | null
   replacedByTxHash: string | null
   confirmedAt: Date | null
@@ -147,6 +154,7 @@ function mapDbRecord(record: {
     gasUsed: record.gasUsed,
     blockHeight: record.blockHeight,
     blockHash: record.blockHash,
+    confirmationCount: record.confirmationCount,
     replacesTxHash: record.replacesTxHash,
     replacedByTxHash: record.replacedByTxHash,
     confirmedAt: record.confirmedAt?.getTime() ?? null,
@@ -174,6 +182,10 @@ function applyTransferLogUpdates(record: TransferLogRecord, updates: TransferLog
     gasUsed: updates.gasUsed !== undefined ? normalizeNullableString(updates.gasUsed) : record.gasUsed,
     blockHeight: updates.blockHeight !== undefined ? updates.blockHeight : record.blockHeight,
     blockHash: updates.blockHash !== undefined ? normalizeNullableString(updates.blockHash) : record.blockHash,
+    confirmationCount:
+      updates.confirmationCount !== undefined
+        ? Math.max(0, Math.floor(updates.confirmationCount))
+        : record.confirmationCount,
     replacesTxHash:
       updates.replacesTxHash !== undefined
         ? normalizeNullableString(updates.replacesTxHash)
@@ -208,6 +220,9 @@ function buildPgUpdateData(updates: TransferLogUpdateInput) {
     ...(updates.gasUsed !== undefined ? { gasUsed: normalizeNullableString(updates.gasUsed) } : {}),
     ...(updates.blockHeight !== undefined ? { blockHeight: updates.blockHeight } : {}),
     ...(updates.blockHash !== undefined ? { blockHash: normalizeNullableString(updates.blockHash) } : {}),
+    ...(updates.confirmationCount !== undefined
+      ? { confirmationCount: Math.max(0, Math.floor(updates.confirmationCount)) }
+      : {}),
     ...(updates.replacesTxHash !== undefined
       ? { replacesTxHash: normalizeNullableString(updates.replacesTxHash) }
       : {}),
@@ -241,6 +256,10 @@ export async function recordTransferAttempt(input: TransferLogInput): Promise<{ 
           gasUsed: normalizeNullableString(input.gasUsed),
           blockHeight: input.blockHeight ?? null,
           blockHash: normalizeNullableString(input.blockHash),
+          confirmationCount:
+            typeof input.confirmationCount === 'number' && Number.isFinite(input.confirmationCount)
+              ? Math.max(0, Math.floor(input.confirmationCount))
+              : 0,
           replacesTxHash: normalizeNullableString(input.replacesTxHash),
           replacedByTxHash: normalizeNullableString(input.replacedByTxHash),
           confirmedAt: input.confirmedAt ?? null,

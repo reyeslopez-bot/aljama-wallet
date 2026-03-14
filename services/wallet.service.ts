@@ -520,13 +520,14 @@ export async function recordChainTransaction(params: {
   gasUsed?: string | number | bigint | null
   blockHeight?: bigint | null
   blockHash?: string | null
+  confirmationCount?: number
   data?: string | null
   confirmedAt?: Date | null
 }) {
   const networkId = String(params.chainId)
   const txHash = params.txHash.trim()
   const nonce = normalizeNullableString(params.nonce)
-  const normalizedStatus = normalizeChainTransactionStatus(params.status ?? 'broadcasted')
+  const normalizedStatus = normalizeChainTransactionStatus(params.status ?? 'submitted')
   const normalizedTxType = normalizeChainTransactionType(params.txType ?? 'transfer')
   const normalizedToAddress = normalizeAddress(params.toAddress)
   const resolvedToWalletId =
@@ -549,7 +550,7 @@ export async function recordChainTransaction(params: {
           networkId,
           nonce,
           txHash: { not: txHash },
-          status: { in: ['broadcasted', 'pending', 'confirmed'] },
+          status: { in: [...ACTIVE_SPEND_CHAIN_TRANSACTION_STATUSES] },
         },
         select: { txHash: true },
       })
@@ -591,6 +592,10 @@ export async function recordChainTransaction(params: {
         gasUsed: normalizeNullableString(params.gasUsed),
         blockHeight: params.blockHeight ?? null,
         blockHash: normalizeNullableString(params.blockHash),
+        confirmationCount:
+          typeof params.confirmationCount === 'number' && Number.isFinite(params.confirmationCount)
+            ? Math.max(0, Math.floor(params.confirmationCount))
+            : 0,
         fromWalletId: params.fromWalletId,
         toWalletId: resolvedToWalletId,
         fromAddress: normalizeAddress(params.fromAddress),

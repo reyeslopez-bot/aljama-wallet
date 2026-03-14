@@ -43,10 +43,13 @@ describe('app/api/wallet/signing-intents/[intentId] route', () => {
     mockUserOwnsWallet.mockResolvedValue(true)
     mockGetWalletSigningIntent.mockResolvedValue({
       id: 'intent-1',
-      status: 'broadcasted',
+      chain: 'EVM',
+      actionType: 'transfer',
+      status: 'submitted',
       walletId: 'wallet-1',
       chainId: 8453,
       idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      traceId: '22222222-2222-4222-8222-222222222222',
       correlationId: '22222222-2222-4222-8222-222222222222',
       transferLogId: 'log-1',
       txHash: '0xtxhash',
@@ -88,7 +91,9 @@ describe('app/api/wallet/signing-intents/[intentId] route', () => {
     expect(body).toMatchObject({
       ok: true,
       intentId: 'intent-1',
-      status: 'broadcasted',
+      chain: 'EVM',
+      actionType: 'transfer',
+      status: 'submitted',
       walletId: 'wallet-1',
       chainId: 8453,
       transferLogId: 'log-1',

@@ -8,7 +8,7 @@ import {
 } from '@/services/evm-tx.service'
 import {
   claimNextQueuedWalletSigningIntent,
-  markWalletSigningIntentBroadcasted,
+  markWalletSigningIntentSubmitted,
   markWalletSigningIntentFailed,
   markWalletSigningIntentSigned,
   type EvmTransactionSigningIntentPayload,
@@ -78,14 +78,14 @@ function stringifyTxValue(value: string | number | null | undefined): string | n
   return normalized ? normalized : null
 }
 
-async function markTransferBroadcasted(
+async function markTransferSubmitted(
   payload: EvmTransactionSigningIntentPayload,
   txHash: string,
   replacesTxHash?: string | null,
 ) {
   if (!payload.transferLogId) return
 
-  await updateTransferStatus(payload.transferLogId, 'broadcasted', {
+  await updateTransferStatus(payload.transferLogId, 'submitted', {
     txHash,
     nonce: stringifyTxValue(payload.transaction.nonce ?? null),
     txType: payload.txType,
@@ -147,11 +147,11 @@ async function processClaimedSigningIntent(
       await markNonceReservationSubmitted(payload.nonceReservationId, txHash)
     }
 
-    await markWalletSigningIntentBroadcasted(intentId, {
+    await markWalletSigningIntentSubmitted(intentId, {
       signedPayload,
       txHash,
     })
-    await markTransferBroadcasted(payload, txHash)
+    await markTransferSubmitted(payload, txHash)
 
     const recipient = await getWalletByChainAddress({
       address: payload.toAddress,
@@ -169,7 +169,7 @@ async function processClaimedSigningIntent(
         toAddress: payload.toAddress,
         valueBaseUnits: BigInt(payload.amountWei),
         asset: 'native',
-        status: 'broadcasted',
+        status: 'submitted',
         txType: payload.txType,
         nonce: payload.transaction.nonce ?? null,
         gasLimit: payload.transaction.gasLimit ?? null,
@@ -180,7 +180,7 @@ async function processClaimedSigningIntent(
       })
 
       if (chainRecord.replacedTxHashes[0]) {
-        await markTransferBroadcasted(payload, txHash, chainRecord.replacedTxHashes[0])
+        await markTransferSubmitted(payload, txHash, chainRecord.replacedTxHashes[0])
       }
       await markReplacedTransferAttempts(chainRecord.replacedTxHashes, txHash)
     } catch (error) {

@@ -47,8 +47,8 @@ describe('chain-transaction-sync.worker', () => {
       processedCount: 1,
       succeededCount: 1,
       failedCount: 0,
-      stuckBroadcasted: { count: 0 },
-      stuckPending: { count: 0 },
+      stuckSubmitted: { count: 0 },
+      stuckIncluded: { count: 0 },
     })
     mockObserveChainTransactionSyncPass.mockResolvedValue(undefined)
   })

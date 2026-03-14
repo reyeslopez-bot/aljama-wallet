@@ -99,6 +99,7 @@ model ChainTransaction {
   gasUsed        String?
   blockHeight    BigInt?
   blockHash      String?
+  confirmationCount Int   @default(0)
   fromAddress    String
   toAddress      String
   data           String?
@@ -190,6 +191,7 @@ model ChainIndexTransaction {
   gasPrice          String?
   effectiveGasPrice String?
   gasUsed           String?
+  confirmationCount Int      @default(0)
   data              String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

@@ -294,7 +294,7 @@ export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverri
         toAddress: registryAddress,
         valueBaseUnits: 0n,
         asset: 'native',
-        status: 'broadcasted',
+        status: 'submitted',
         txType: 'contract_call',
         nonce: unsignedTx.nonce ?? null,
         gasLimit: stringifyTxValue(unsignedTx.gasLimit ?? null),

@@ -141,7 +141,7 @@ describe('signing-intent.worker', () => {
     })
     expect(intent).toMatchObject({
       id: created.id,
-      status: 'broadcasted',
+      status: 'submitted',
       txHash: '0xtxhash',
       signedPayload: '0xsigned',
     })
@@ -153,7 +153,7 @@ describe('signing-intent.worker', () => {
         nonce: 7,
       }),
     )
-    expect(mockUpdateTransferStatus).toHaveBeenCalledWith('log-1', 'broadcasted', {
+    expect(mockUpdateTransferStatus).toHaveBeenCalledWith('log-1', 'submitted', {
       txHash: '0xtxhash',
       nonce: '7',
       txType: 'transfer',
@@ -172,7 +172,7 @@ describe('signing-intent.worker', () => {
         fromAddress: '0x000000000000000000000000000000000000beef',
         toAddress: '0x000000000000000000000000000000000000dead',
         valueBaseUnits: 1000000000000000n,
-        status: 'broadcasted',
+        status: 'submitted',
         txType: 'transfer',
         nonce: 7,
       }),

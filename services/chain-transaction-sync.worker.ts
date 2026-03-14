@@ -80,8 +80,8 @@ export function startChainTransactionSyncWorker(input?: Partial<ChainTransaction
         processedCount: metrics.processedCount,
         succeededCount: metrics.succeededCount,
         failedCount: metrics.failedCount,
-        stuckBroadcasted: metrics.stuckBroadcasted.count,
-        stuckPending: metrics.stuckPending.count,
+        stuckSubmitted: metrics.stuckSubmitted.count,
+        stuckIncluded: metrics.stuckIncluded.count,
       })
     } catch (error) {
       logError('chain-tx-sync-worker:pass', error, {

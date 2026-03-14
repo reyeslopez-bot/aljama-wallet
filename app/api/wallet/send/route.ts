@@ -232,7 +232,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       throw new Error('WALLET_NOT_FOUND')
     }
 
-    const correlationId = safeUuid()
+    const traceId = safeUuid()
     const idempotencyKey = input.idempotencyKey
 
     const spentTodayWei = await getSpentTodayWei(input.walletId, input.chainId)
@@ -309,7 +309,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       walletId: input.walletId,
       walletAddress: wallet.address,
       chainId: input.chainId,
-      actionId: correlationId,
+      actionId: traceId,
       provider,
       requestedNonce: input.nonce,
     })
@@ -336,7 +336,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
           maxFeePerGasWei: input.maxFeePerGasWei,
           nonce: nonceReservation.nonce,
           idempotencyKey,
-          correlationId,
+          correlationId: traceId,
         },
         {
           userId: process.env.WALLET_ACTOR_USER_ID ?? 'system',
@@ -470,7 +470,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       userId: session.user.id,
       chainId: intent.chainId,
       idempotencyKey: intent.idempotencyKey,
-      correlationId,
+      traceId,
       transferLogId: log.id,
       payload: buildEvmTransactionSigningIntentPayload({
         walletId: intent.fromWalletId,
@@ -507,7 +507,8 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       to: intent.to,
       amountWei: intent.amountWei,
       chainId: intent.chainId,
-      correlationId,
+      traceId,
+      correlationId: traceId,
       idempotencyKey,
       transferLogId: log.id,
     }, { status: 202 })

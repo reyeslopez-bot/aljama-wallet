@@ -133,15 +133,15 @@ const defaultRunbooks: Record<string, { id: string; title: string; slug: string 
     title: 'Handle security queue backpressure',
     slug: 'security-queue-backpressure',
   },
-  'wallet.chain_transaction.stuck_broadcasted': {
+  'wallet.chain_transaction.stuck_submitted': {
     id: 'RB-WALLET-001',
-    title: 'Investigate stuck broadcasted EVM transactions',
-    slug: 'wallet-chain-transaction-stuck-broadcasted',
+    title: 'Investigate stuck submitted EVM transactions',
+    slug: 'wallet-chain-transaction-stuck-submitted',
   },
-  'wallet.chain_transaction.stuck_pending': {
+  'wallet.chain_transaction.stuck_included': {
     id: 'RB-WALLET-002',
-    title: 'Investigate stuck pending EVM transactions',
-    slug: 'wallet-chain-transaction-stuck-pending',
+    title: 'Investigate stuck included EVM transactions',
+    slug: 'wallet-chain-transaction-stuck-included',
   },
   'market.snapshot.fallback_mode.active': {
     id: 'RB-OPS-002',

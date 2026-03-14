@@ -1,5 +1,10 @@
 import { JsonRpcProvider, getAddress, keccak256, toUtf8Bytes } from 'ethers'
-import { normalizeChainTransactionStatus } from '@/lib/chain-transactions'
+import {
+  getEvmTransactionFinality,
+  normalizeChainTransactionStatus,
+  SYNCABLE_CHAIN_TRANSACTION_STATUSES,
+  type ChainTransactionStatus,
+} from '@/lib/chain-transactions'
 import { prismaCrdb } from '@/lib/prisma-crdb'
 import { logWarn } from '@/lib/security/logging'
 import {
@@ -9,6 +14,11 @@ import {
   markNonceReservationSubmittedByTxHash,
 } from '@/services/nonce-reservation.service'
 import {
+  markWalletSigningIntentConfirmedByTxHash,
+  markWalletSigningIntentFailedByTxHash,
+  reopenWalletSigningIntentByTxHash,
+} from '@/services/signing-intent.service'
+import {
   replaceTransferAttemptsByTxHashes,
   updateTransferAttemptByTxHash,
 } from '@/services/transfer-log.service'
@@ -16,6 +26,10 @@ import { resolveWalletIdsByAddresses } from '@/services/wallet.service'
 
 const ERC20_OR_ERC721_TRANSFER_TOPIC = keccak256(toUtf8Bytes('Transfer(address,address,uint256)'))
 const DROP_AFTER_MS = 10 * 60 * 1000
+
+function hasCanonicalInclusionStatus(status: ChainTransactionStatus): boolean {
+  return status === 'included' || status === 'confirmed_soft' || status === 'confirmed_final'
+}
 
 const globalForProviders = globalThis as unknown as {
   evmSyncProvider?: JsonRpcProvider
@@ -82,7 +96,7 @@ async function clearIndexedReceiptData(input: {
   chainType: string
   networkId: string
   txHash: string
-  status: 'pending' | 'dropped'
+  status: 'reorged' | 'dropped'
 }) {
   await prismaCrdb.$transaction([
     prismaCrdb.tokenTransfer.deleteMany({
@@ -112,6 +126,7 @@ async function clearIndexedReceiptData(input: {
         status: input.status,
         effectiveGasPrice: null,
         gasUsed: null,
+        confirmationCount: 0,
       },
     }),
   ])
@@ -183,6 +198,8 @@ async function persistChainIndexData(params: {
   chainType: string
   networkId: string
   txHash: string
+  status: 'included' | 'confirmed_soft' | 'confirmed_final' | 'failed'
+  confirmationCount: number
   receipt: {
     blockHash: string | null
     blockNumber: number | null
@@ -235,12 +252,7 @@ async function persistChainIndexData(params: {
           : typeof transaction?.index === 'number'
             ? transaction.index
             : null,
-      status:
-        params.receipt.status === null || params.receipt.status === undefined
-          ? null
-          : params.receipt.status === 1
-            ? 'confirmed'
-            : 'failed',
+      status: params.status,
       fromAddress: transaction?.from ?? params.receipt.from ?? null,
       toAddress: transaction?.to ?? params.receipt.to ?? null,
       nonce: typeof transaction?.nonce === 'number' ? String(transaction.nonce) : null,
@@ -249,6 +261,7 @@ async function persistChainIndexData(params: {
       gasPrice: bigintToString(transaction?.gasPrice ?? null),
       effectiveGasPrice: bigintToString(params.receipt.effectiveGasPrice ?? null),
       gasUsed: bigintToString(params.receipt.gasUsed ?? null),
+      confirmationCount: params.confirmationCount,
       data: transaction?.data ?? null,
     },
     create: {
@@ -263,12 +276,7 @@ async function persistChainIndexData(params: {
           : typeof transaction?.index === 'number'
             ? transaction.index
             : null,
-      status:
-        params.receipt.status === null || params.receipt.status === undefined
-          ? null
-          : params.receipt.status === 1
-            ? 'confirmed'
-            : 'failed',
+      status: params.status,
       fromAddress: transaction?.from ?? params.receipt.from ?? null,
       toAddress: transaction?.to ?? params.receipt.to ?? null,
       nonce: typeof transaction?.nonce === 'number' ? String(transaction.nonce) : null,
@@ -277,6 +285,7 @@ async function persistChainIndexData(params: {
       gasPrice: bigintToString(transaction?.gasPrice ?? null),
       effectiveGasPrice: bigintToString(params.receipt.effectiveGasPrice ?? null),
       gasUsed: bigintToString(params.receipt.gasUsed ?? null),
+      confirmationCount: params.confirmationCount,
       data: transaction?.data ?? null,
     },
   })
@@ -443,6 +452,7 @@ async function syncRow(
     blockHeight: bigint | null
     createdAt: Date
   },
+  currentBlockNumber: number,
 ) {
   let normalizedStatus = normalizeChainTransactionStatus(row.status)
   const receipt = await provider.getTransactionReceipt(row.txHash).catch((error) => {
@@ -451,11 +461,22 @@ async function syncRow(
   })
 
   if (receipt) {
-    const nextStatus = receipt.status === 1 ? 'confirmed' : 'failed'
     const blockHash = receipt.blockHash ?? null
     const blockHeight =
       receipt.blockNumber === null || receipt.blockNumber === undefined ? null : BigInt(receipt.blockNumber)
-    if (normalizedStatus === 'confirmed' && row.blockHash && blockHash && row.blockHash !== blockHash) {
+    const successfulReceipt = receipt.status === 1
+    const successfulFinality = successfulReceipt
+      ? getEvmTransactionFinality({
+          currentBlockNumber,
+          includedBlockNumber: receipt.blockNumber ?? null,
+        })
+      : null
+    const nextStatus: ChainTransactionStatus | 'failed' = successfulFinality
+      ? successfulFinality.status
+      : 'failed'
+    const confirmationCount = successfulFinality ? successfulFinality.confirmationCount : 0
+
+    if (hasCanonicalInclusionStatus(normalizedStatus) && row.blockHash && blockHash && row.blockHash !== blockHash) {
       logWarn(
         'chain-tx-sync:reorg',
         new Error('Confirmed transaction moved to a different canonical block'),
@@ -479,6 +500,8 @@ async function syncRow(
       chainType: row.chainType,
       networkId: row.networkId,
       txHash: row.txHash,
+      status: nextStatus,
+      confirmationCount,
       receipt: {
         blockHash,
         blockNumber: receipt.blockNumber ?? null,
@@ -516,6 +539,7 @@ async function syncRow(
         blockHash,
         gasUsed,
         confirmedAt,
+        confirmationCount,
       },
     })
 
@@ -525,14 +549,27 @@ async function syncRow(
       blockHeight,
       blockHash,
       confirmedAt,
+      confirmationCount,
     })
-    if (nextStatus === 'confirmed') {
+    if (nextStatus === 'confirmed_final') {
       await markNonceReservationConfirmedByTxHash(row.txHash)
-    } else {
+      await markWalletSigningIntentConfirmedByTxHash(row.txHash)
+    } else if (nextStatus === 'failed') {
       await markNonceReservationFailedByTxHash(row.txHash)
+      await markWalletSigningIntentFailedByTxHash(row.txHash, {
+        errorCode: 'CHAIN_EXECUTION_FAILED',
+        errorDetails: {
+          chainType: row.chainType,
+          networkId: row.networkId,
+          receiptStatus: receipt.status ?? null,
+        },
+      })
+    } else {
+      await markNonceReservationSubmittedByTxHash(row.txHash)
+      await reopenWalletSigningIntentByTxHash(row.txHash)
     }
 
-    if (nextStatus === 'confirmed') {
+    if (nextStatus === 'confirmed_final') {
       await persistTokenTransfers({
         networkId: row.networkId,
         txHash: row.txHash,
@@ -552,7 +589,7 @@ async function syncRow(
     return
   }
 
-  if (normalizedStatus === 'confirmed' && (row.blockHash || row.blockHeight !== null)) {
+  if (hasCanonicalInclusionStatus(normalizedStatus) && (row.blockHash || row.blockHeight !== null)) {
     const canonicalBlock = await readCanonicalBlock(provider, row)
     if (canonicalBlock && (!row.blockHash || canonicalBlock.hash === row.blockHash)) {
       return
@@ -573,7 +610,7 @@ async function syncRow(
       chainType: row.chainType,
       networkId: row.networkId,
       txHash: row.txHash,
-      status: 'pending',
+      status: 'reorged',
     })
 
     await prismaCrdb.chainTransaction.update({
@@ -585,23 +622,26 @@ async function syncRow(
         },
       },
       data: {
-        status: 'pending',
+        status: 'reorged',
         blockHeight: null,
         blockHash: null,
         gasUsed: null,
         confirmedAt: null,
+        confirmationCount: 0,
       },
     })
 
     await updateTransferAttemptByTxHash(row.txHash, {
-      status: 'pending',
+      status: 'reorged',
       blockHeight: null,
       blockHash: null,
       gasUsed: null,
       confirmedAt: null,
+      confirmationCount: 0,
     })
     await markNonceReservationSubmittedByTxHash(row.txHash)
-    normalizedStatus = 'pending'
+    await reopenWalletSigningIntentByTxHash(row.txHash)
+    normalizedStatus = 'reorged'
   }
 
   const transaction = await provider.getTransaction(row.txHash).catch((error) => {
@@ -610,7 +650,7 @@ async function syncRow(
   })
 
   if (transaction) {
-    if (normalizedStatus !== 'pending') {
+    if (normalizedStatus !== 'submitted' && normalizedStatus !== 'reorged') {
       await prismaCrdb.chainTransaction.update({
         where: {
           chainType_networkId_txHash: {
@@ -620,14 +660,17 @@ async function syncRow(
           },
         },
         data: {
-          status: 'pending',
+          status: 'submitted',
+          confirmationCount: 0,
         },
       })
 
       await updateTransferAttemptByTxHash(row.txHash, {
-        status: 'pending',
+        status: 'submitted',
+        confirmationCount: 0,
       })
       await markNonceReservationSubmittedByTxHash(row.txHash)
+      await reopenWalletSigningIntentByTxHash(row.txHash)
     }
     return
   }
@@ -650,13 +693,30 @@ async function syncRow(
       },
       data: {
         status: 'dropped',
+        blockHeight: null,
+        blockHash: null,
+        gasUsed: null,
+        confirmedAt: null,
+        confirmationCount: 0,
       },
     })
 
     await updateTransferAttemptByTxHash(row.txHash, {
       status: 'dropped',
+      blockHeight: null,
+      blockHash: null,
+      gasUsed: null,
+      confirmedAt: null,
+      confirmationCount: 0,
     })
     await markNonceReservationFailedByTxHash(row.txHash)
+    await markWalletSigningIntentFailedByTxHash(row.txHash, {
+      errorCode: 'TX_DROPPED',
+      errorDetails: {
+        chainType: row.chainType,
+        networkId: row.networkId,
+      },
+    })
   }
 }
 
@@ -675,10 +735,22 @@ export async function syncRecentEvmChainTransactions(params?: {
     }
   }
 
+  const currentBlockNumber = await provider.getBlockNumber().catch((error) => {
+    logWarn('chain-tx-sync:block-number', error)
+    return null
+  })
+  if (currentBlockNumber === null) {
+    return {
+      processedCount: 0,
+      succeededCount: 0,
+      failedCount: 0,
+    }
+  }
+
   const rows = await prismaCrdb.chainTransaction.findMany({
     where: {
       chainType: 'EVM',
-      status: { in: ['broadcasted', 'pending', 'confirmed'] },
+      status: { in: [...SYNCABLE_CHAIN_TRANSACTION_STATUSES] },
       ...(params?.walletId
         ? {
             OR: [{ fromWalletId: params.walletId }, { toWalletId: params.walletId }],
@@ -700,7 +772,7 @@ export async function syncRecentEvmChainTransactions(params?: {
     take: Math.min(Math.max(params?.limit ?? 20, 1), 50),
   })
 
-  const results = await Promise.allSettled(rows.map((row) => syncRow(provider, row)))
+  const results = await Promise.allSettled(rows.map((row) => syncRow(provider, row, currentBlockNumber)))
 
   return {
     processedCount: rows.length,

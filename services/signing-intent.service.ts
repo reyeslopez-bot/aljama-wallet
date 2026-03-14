@@ -9,17 +9,20 @@ import { Prisma } from '@/prisma/generated/pg'
 
 export const WALLET_SIGNING_INTENT_STATUSES = [
   'queued',
-  'signing',
+  'approved',
   'signed',
-  'broadcasted',
+  'submitted',
+  'confirmed',
   'failed',
 ] as const
 
-export type WalletSigningIntentStatus = (typeof WALLET_SIGNING_INTENT_STATUSES)[number]
+export const WALLET_SIGNING_INTENT_CHAINS = ['EVM', 'XRPL'] as const
 
-export const WALLET_SIGNING_INTENT_TYPE_EVM_TRANSACTION = 'evm_transaction' as const
+export type WalletSigningIntentStatus = (typeof WALLET_SIGNING_INTENT_STATUSES)[number]
+export type WalletSigningIntentChain = (typeof WALLET_SIGNING_INTENT_CHAINS)[number]
 
 const walletSigningIntentStatusSchema = z.enum(WALLET_SIGNING_INTENT_STATUSES)
+const walletSigningIntentChainSchema = z.enum(WALLET_SIGNING_INTENT_CHAINS)
 
 const serializedEvmTransactionSchema = z.object({
   to: z.string().min(1),
@@ -53,12 +56,14 @@ export type WalletSigningIntentPayload = EvmTransactionSigningIntentPayload
 
 export type WalletSigningIntentRecord = {
   id: string
-  intentType: typeof WALLET_SIGNING_INTENT_TYPE_EVM_TRANSACTION
+  chain: WalletSigningIntentChain
+  actionType: string
   status: WalletSigningIntentStatus
   walletId: string
   userId: string | null
   chainId: number
   idempotencyKey: string
+  traceId: string
   correlationId: string
   transferLogId: string | null
   payload: WalletSigningIntentPayload
@@ -74,10 +79,14 @@ export type CreateWalletSigningIntentInput = {
   walletId: string
   userId?: string | null
   chainId: number
+  chain?: WalletSigningIntentChain
+  actionType?: string
   idempotencyKey: string
-  correlationId: string
+  traceId?: string
+  correlationId?: string
   transferLogId?: string | null
-  payload: WalletSigningIntentPayload
+  payload?: WalletSigningIntentPayload
+  txPayload?: WalletSigningIntentPayload
 }
 
 export type UpdateWalletSigningIntentInput = {
@@ -91,15 +100,16 @@ export type UpdateWalletSigningIntentInput = {
 
 type PersistedIntentRow = {
   id: string
-  intentType: string
+  chain: string
+  actionType: string
   status: string
   walletId: string
   userId: string | null
   chainId: number
   idempotencyKey: string
-  correlationId: string
+  traceId: string
   transferLogId: string | null
-  payload: unknown
+  txPayload: unknown
   signedPayload: string | null
   txHash: string | null
   errorCode: string | null
@@ -126,6 +136,10 @@ function normalizeNullableString(value?: string | null): string | null {
   return normalized ? normalized : null
 }
 
+function normalizeWalletSigningIntentChain(value?: string | null): WalletSigningIntentChain {
+  return walletSigningIntentChainSchema.parse(value ?? 'EVM')
+}
+
 function toJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
 }
@@ -139,18 +153,41 @@ function parseWalletSigningIntentPayload(value: unknown): WalletSigningIntentPay
   return evmTransactionSigningIntentPayloadSchema.parse(value)
 }
 
+function resolveCreatePayload(input: CreateWalletSigningIntentInput): WalletSigningIntentPayload {
+  const rawPayload = input.txPayload ?? input.payload
+  if (!rawPayload) {
+    throw new Error('SIGNING_INTENT_PAYLOAD_REQUIRED')
+  }
+  return parseWalletSigningIntentPayload(rawPayload)
+}
+
+function resolveTraceId(input: CreateWalletSigningIntentInput): string {
+  const traceId = normalizeNullableString(input.traceId ?? input.correlationId)
+  if (!traceId) {
+    throw new Error('SIGNING_INTENT_TRACE_ID_REQUIRED')
+  }
+  return traceId
+}
+
+function resolveActionType(input: CreateWalletSigningIntentInput, payload: WalletSigningIntentPayload): string {
+  return normalizeNullableString(input.actionType ?? payload.txType) ?? payload.txType
+}
+
 function mapWalletSigningIntentRow(row: PersistedIntentRow): WalletSigningIntentRecord {
+  const traceId = row.traceId
   return {
     id: row.id,
-    intentType: WALLET_SIGNING_INTENT_TYPE_EVM_TRANSACTION,
+    chain: normalizeWalletSigningIntentChain(row.chain),
+    actionType: normalizeNullableString(row.actionType) ?? 'transfer',
     status: walletSigningIntentStatusSchema.parse(row.status),
     walletId: row.walletId,
     userId: row.userId,
     chainId: row.chainId,
     idempotencyKey: row.idempotencyKey,
-    correlationId: row.correlationId,
+    traceId,
+    correlationId: traceId,
     transferLogId: normalizeNullableString(row.transferLogId),
-    payload: parseWalletSigningIntentPayload(row.payload),
+    payload: parseWalletSigningIntentPayload(row.txPayload),
     signedPayload: normalizeNullableString(row.signedPayload),
     txHash: normalizeNullableString(row.txHash),
     errorCode: normalizeNullableString(row.errorCode),
@@ -251,22 +288,26 @@ export function buildEvmTransactionSigningIntentPayload(input: {
 export async function createWalletSigningIntent(
   input: CreateWalletSigningIntentInput,
 ): Promise<WalletSigningIntentRecord> {
-  const payload = parseWalletSigningIntentPayload(input.payload)
+  const payload = resolveCreatePayload(input)
   const transferLogId = normalizeNullableString(input.transferLogId ?? payload.transferLogId ?? null)
+  const traceId = resolveTraceId(input)
+  const actionType = resolveActionType(input, payload)
+  const chain = normalizeWalletSigningIntentChain(input.chain)
 
   if (canUsePg()) {
     try {
       const row = await prismaPg.walletSigningIntent.create({
         data: {
-          intentType: WALLET_SIGNING_INTENT_TYPE_EVM_TRANSACTION,
+          chain,
+          actionType,
           status: 'queued',
           walletId: input.walletId,
           userId: input.userId ?? null,
           chainId: input.chainId,
           idempotencyKey: input.idempotencyKey,
-          correlationId: input.correlationId,
+          traceId,
           transferLogId,
-          payload: toJson(payload),
+          txPayload: toJson(payload),
         },
       })
       return mapWalletSigningIntentRow(row)
@@ -283,13 +324,15 @@ export async function createWalletSigningIntent(
   const now = Date.now()
   const record: WalletSigningIntentRecord = {
     id,
-    intentType: WALLET_SIGNING_INTENT_TYPE_EVM_TRANSACTION,
+    chain,
+    actionType,
     status: 'queued',
     walletId: input.walletId,
     userId: input.userId ?? null,
     chainId: input.chainId,
     idempotencyKey: input.idempotencyKey,
-    correlationId: input.correlationId,
+    traceId,
+    correlationId: traceId,
     transferLogId,
     payload,
     signedPayload: null,
@@ -350,6 +393,37 @@ export async function updateWalletSigningIntent(
   return updated
 }
 
+export async function updateWalletSigningIntentByTxHash(
+  txHash: string,
+  updates: UpdateWalletSigningIntentInput,
+): Promise<number> {
+  const normalizedTxHash = normalizeNullableString(txHash)
+  if (!normalizedTxHash) return 0
+
+  if (canUsePg()) {
+    try {
+      const result = await prismaPg.walletSigningIntent.updateMany({
+        where: { txHash: normalizedTxHash },
+        data: buildPgUpdateData(updates),
+      })
+      return result.count
+    } catch (error) {
+      if (isStrictMode) throw error
+      logWarn('wallet-signing-intent:update-by-txhash', error, { txHash: normalizedTxHash })
+      return 0
+    }
+  }
+
+  let updatedCount = 0
+  for (const [intentId, record] of memoryIntents.entries()) {
+    if (record.txHash !== normalizedTxHash) continue
+    memoryIntents.set(intentId, applyWalletSigningIntentUpdates(record, updates))
+    updatedCount += 1
+  }
+
+  return updatedCount
+}
+
 export async function claimNextQueuedWalletSigningIntent(): Promise<WalletSigningIntentRecord | null> {
   if (canUsePg()) {
     for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -365,7 +439,7 @@ export async function claimNextQueuedWalletSigningIntent(): Promise<WalletSignin
           status: 'queued',
         },
         data: {
-          status: 'signing',
+          status: 'approved',
         },
       })
 
@@ -385,7 +459,7 @@ export async function claimNextQueuedWalletSigningIntent(): Promise<WalletSignin
     .sort((left, right) => left.createdAt - right.createdAt)[0]
   if (!record) return null
 
-  const claimed = applyWalletSigningIntentUpdates(record, { status: 'signing' })
+  const claimed = applyWalletSigningIntentUpdates(record, { status: 'approved' })
   memoryIntents.set(record.id, claimed)
   return claimed
 }
@@ -403,14 +477,37 @@ export async function markWalletSigningIntentSigned(
   })
 }
 
-export async function markWalletSigningIntentBroadcasted(
+export async function markWalletSigningIntentSubmitted(
   intentId: string,
   input: { signedPayload?: string | null; txHash: string },
 ) {
   return updateWalletSigningIntent(intentId, {
-    status: 'broadcasted',
+    status: 'submitted',
     signedPayload: input.signedPayload,
     txHash: input.txHash,
+    errorCode: null,
+    errorDetails: null,
+  })
+}
+
+export async function markWalletSigningIntentBroadcasted(
+  intentId: string,
+  input: { signedPayload?: string | null; txHash: string },
+) {
+  return markWalletSigningIntentSubmitted(intentId, input)
+}
+
+export async function markWalletSigningIntentConfirmedByTxHash(txHash: string) {
+  return updateWalletSigningIntentByTxHash(txHash, {
+    status: 'confirmed',
+    errorCode: null,
+    errorDetails: null,
+  })
+}
+
+export async function reopenWalletSigningIntentByTxHash(txHash: string) {
+  return updateWalletSigningIntentByTxHash(txHash, {
+    status: 'submitted',
     errorCode: null,
     errorDetails: null,
   })
@@ -425,6 +522,17 @@ export async function markWalletSigningIntentFailed(
     errorCode: input.errorCode,
     errorDetails: input.errorDetails ?? null,
     txHash: input.txHash,
+  })
+}
+
+export async function markWalletSigningIntentFailedByTxHash(
+  txHash: string,
+  input: { errorCode: string; errorDetails?: Record<string, unknown> | null },
+) {
+  return updateWalletSigningIntentByTxHash(txHash, {
+    status: 'failed',
+    errorCode: input.errorCode,
+    errorDetails: input.errorDetails ?? null,
   })
 }
 
