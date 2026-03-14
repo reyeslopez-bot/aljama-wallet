@@ -3,7 +3,7 @@ import { requireSession } from '@/lib/security/session'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
-import { withApiRoute } from '@/lib/security/api-route'
+import { withApiRoute, type ApiRouteContext } from '@/lib/security/api-route'
 import { readJsonBody } from '@/lib/security/request-body'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
@@ -24,8 +24,12 @@ const schema = z.object({
   path: ['sellOffer'],
 })
 
-async function postXrplNftOfferAccept(req: Request) {
+async function postXrplNftOfferAccept(
+  req: Request,
+  routeContext: Pick<ApiRouteContext, 'requestId' | 'traceId' | 'correlationId'>,
+) {
   let actionId: string | null = null
+  const routePath = '/api/xrpl/nft/offer/accept'
 
   try {
     const session = await requireSession()
@@ -90,6 +94,7 @@ async function postXrplNftOfferAccept(req: Request) {
       networkId,
       account: account.address,
       idempotencyKey: parsed.data.idempotencyKey,
+      traceId: routeContext.traceId,
       details: {
         sellOffer: parsed.data.sellOffer ?? null,
         buyOffer: parsed.data.buyOffer ?? null,
@@ -147,12 +152,20 @@ async function postXrplNftOfferAccept(req: Request) {
     try {
       await recordXrplTransactionSubmission({ actionId: action.id, result })
     } catch (recordError) {
-      logError('xrpl-nft-offer-accept:transaction-store', recordError)
+      logError('xrpl-nft-offer-accept:transaction-store', recordError, {
+        requestId: routeContext.requestId,
+        traceId: routeContext.traceId,
+        route: routePath,
+        actionId: action.id,
+        txHash: result.txHash,
+      })
     }
 
     return okJson({
       network: networkId,
       actionId: action.id,
+      traceId: routeContext.traceId,
+      correlationId: routeContext.traceId,
       tx: {
         hash: result.txHash,
         engineResult: result.engineResult,
@@ -167,7 +180,12 @@ async function postXrplNftOfferAccept(req: Request) {
         status: 'failed',
       }).catch(() => {})
     }
-    logError('xrpl-nft-offer-accept', error)
+    logError('xrpl-nft-offer-accept', error, {
+      requestId: routeContext.requestId,
+      traceId: routeContext.traceId,
+      route: routePath,
+      actionId,
+    })
     const message = getErrorMessage(error, 'Failed to accept NFT offer')
     const status = message === 'IDEMPOTENCY_REPLAY' ? 409 : 400
     return errorJson(

@@ -7,7 +7,7 @@ import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { isStrictMode } from '@/lib/security/runtime'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson } from '@/lib/security/api-response'
-import { withApiRoute } from '@/lib/security/api-route'
+import { withApiRoute, type ApiRouteContext } from '@/lib/security/api-route'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
@@ -15,8 +15,9 @@ import { extractRequestSignalContext } from '@/lib/security/request-signal'
 
 export const dynamic = 'force-dynamic'
 
-async function getTestDb(req?: Request) {
+async function getTestDb(req: Request | undefined, routeContext: Pick<ApiRouteContext, 'requestId' | 'traceId'>) {
   const request = req ?? new Request('http://localhost')
+  const routePath = '/api/test-db'
   const signalContext = extractRequestSignalContext(request)
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
@@ -26,7 +27,7 @@ async function getTestDb(req?: Request) {
     try {
       await recordSecuritySignal({
         source: 'internal.test-db',
-        route: '/api/test-db',
+        route: routePath,
         outcome: input.outcome,
         statusCode: input.statusCode,
         ipHash: signalContext.ipHash,
@@ -34,10 +35,15 @@ async function getTestDb(req?: Request) {
         latitude: signalContext.latitude,
         longitude: signalContext.longitude,
         userAgent: signalContext.userAgent,
+        traceId: routeContext.traceId,
         details: input.details,
       })
     } catch (error) {
-      logError('test-db:signal', error)
+      logError('test-db:signal', error, {
+        requestId: routeContext.requestId,
+        traceId: routeContext.traceId,
+        route: routePath,
+      })
     }
   }
 

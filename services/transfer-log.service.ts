@@ -15,6 +15,7 @@ export type TransferLogInput = {
   amountWei: bigint
   status: TransferStatus
   idempotencyKey: string
+  traceId: string
   txHash?: string | null
   nonce?: string | null
   txType?: ChainTransactionType | null
@@ -116,6 +117,7 @@ function mapDbRecord(record: {
   amountWei: bigint
   status: string
   idempotencyKey: string
+  traceId: string
   txHash: string | null
   nonce: string | null
   txType: string | null
@@ -143,6 +145,7 @@ function mapDbRecord(record: {
     amountWei: record.amountWei,
     status: normalizeTransferWorkflowStatus(record.status),
     idempotencyKey: record.idempotencyKey,
+    traceId: record.traceId,
     txHash: record.txHash,
     nonce: record.nonce,
     txType: record.txType as ChainTransactionType | null,
@@ -245,6 +248,7 @@ export async function recordTransferAttempt(input: TransferLogInput): Promise<{ 
           amountWei: input.amountWei,
           status: normalizeTransferWorkflowStatus(input.status),
           idempotencyKey: input.idempotencyKey,
+          traceId: input.traceId,
           txHash: normalizeNullableString(input.txHash),
           nonce: normalizeNullableString(input.nonce),
           txType: input.txType ?? null,

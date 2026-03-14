@@ -125,16 +125,24 @@ describe('app/api/xrpl/trustline/set route', () => {
   })
 
   it('submits trustline transaction on success', async () => {
+    const traceId = 'trace-xrpl-trustset-1'
     const { POST } = await import('@/app/api/xrpl/trustline/set/route')
     const res = await POST(new Request('http://localhost/api/xrpl/trustline/set', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-trace-id': traceId },
       body: JSON.stringify({ issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', currency: 'USD', limit: '25', idempotencyKey: '11111111-1111-4111-8111-111111111111' }),
     }))
     const body = await res.json()
 
     expect(res.status).toBe(200)
     expect(body.ok).toBe(true)
+    expect(body.traceId).toBe(traceId)
+    expect(res.headers.get('x-trace-id')).toBe(traceId)
+    expect(mockCreateXrplAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        traceId,
+      }),
+    )
     expect(mockSubmitXrplTx).toHaveBeenCalled()
   })
 })

@@ -19,6 +19,11 @@ export type QueueSignalPayload = {
   latitude?: number | null
   longitude?: number | null
   userAgent?: string | null
+  producerId?: string | null
+  producerType?: string | null
+  signatureVerified?: boolean
+  ingestVersion?: string | null
+  traceId?: string | null
   details?: Record<string, unknown>
   detectedAt?: number | null
 }
@@ -190,6 +195,7 @@ export class InMemoryQueueAdapter implements SecuritySignalQueueAdapter {
         logWarn('security-signal:queue', new Error('Dropped oldest signal due to queue pressure'), {
           droppedQueueId: droppedEntry.id,
           source: droppedEntry.signal.source,
+          traceId: droppedEntry.signal.traceId ?? null,
         })
       }
     }
@@ -420,6 +426,11 @@ function toStreamMessage(
       latitude: parseNumber(record.latitude),
       longitude: parseNumber(record.longitude),
       userAgent: parseString(record.userAgent),
+      producerId: parseString(record.producerId),
+      producerType: parseString(record.producerType),
+      signatureVerified: record.signatureVerified === true,
+      ingestVersion: parseString(record.ingestVersion),
+      traceId: parseString(record.traceId),
       details: asRecord(record.details) ?? {},
       detectedAt: parseNumber(record.detectedAt),
     }

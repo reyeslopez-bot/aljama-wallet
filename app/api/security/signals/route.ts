@@ -1,5 +1,5 @@
 import { errorJson, okJson } from '@/lib/security/api-response'
-import { withApiRoute } from '@/lib/security/api-route'
+import { withApiRoute, type ApiRouteContext } from '@/lib/security/api-route'
 import { logError } from '@/lib/security/logging'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { readJsonTextBody } from '@/lib/security/request-body'
@@ -56,8 +56,22 @@ function attachProducerMetadata(signal: unknown, producer: VerifiedSecuritySigna
   }
 }
 
-async function postSecuritySignals(req: Request) {
+function attachTraceId(signal: unknown, traceId: string): unknown {
+  const body = asRecord(signal)
+  if (!body) return signal
+
+  return {
+    ...body,
+    traceId: typeof body.traceId === 'string' && body.traceId.trim() ? body.traceId : traceId,
+  }
+}
+
+async function postSecuritySignals(
+  req: Request,
+  routeContext: Pick<ApiRouteContext, 'requestId' | 'traceId' | 'correlationId'>,
+) {
   const signalContext = extractRequestSignalContext(req)
+  const routePath = '/api/security/signals'
   let producerAudit: SecuritySignalProducerAudit | null = null
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
@@ -70,7 +84,7 @@ async function postSecuritySignals(req: Request) {
     try {
       await recordSecuritySignal({
         source: 'internal.security-signals',
-        route: '/api/security/signals',
+        route: routePath,
         outcome: input.outcome,
         statusCode: input.statusCode,
         ipHash: signalContext.ipHash,
@@ -82,10 +96,15 @@ async function postSecuritySignals(req: Request) {
         producerType: audit?.producerType ?? null,
         signatureVerified: audit?.signatureVerified ?? false,
         ingestVersion: audit?.ingestVersion ?? null,
+        traceId: routeContext.traceId,
         details: input.details,
       })
     } catch (error) {
-      logError('security-signals:track', error)
+      logError('security-signals:track', error, {
+        requestId: routeContext.requestId,
+        traceId: routeContext.traceId,
+        route: routePath,
+      })
     }
   }
 
@@ -207,7 +226,9 @@ async function postSecuritySignals(req: Request) {
   const body = asRecord(payload) ?? {}
   const enqueue = typeof body.enqueue === 'boolean' ? body.enqueue : true
   const transport = normalizeTransport(body.transport)
-  const preparedSignals = signals.map((signal) => attachProducerMetadata(signal, auth.producer))
+  const preparedSignals = signals.map((signal) =>
+    attachTraceId(attachProducerMetadata(signal, auth.producer), routeContext.traceId),
+  )
 
   const results = await ingestSecuritySignalsBatch(preparedSignals as Array<Record<string, unknown>>, {
     enqueue,

@@ -4,7 +4,7 @@ import { createUser, findUserByEmail, findUserByUsername } from '@/lib/auth/stor
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { errorJson, okJson } from '@/lib/security/api-response'
-import { withApiRoute } from '@/lib/security/api-route'
+import { withApiRoute, type ApiRouteContext } from '@/lib/security/api-route'
 import { readJsonBody } from '@/lib/security/request-body'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
@@ -38,8 +38,12 @@ const registerSchema = z.object({
   image: z.string().max(MAX_PROFILE_IMAGE_LENGTH).optional().nullable(),
 })
 
-async function postAuthRegister(req: Request) {
+async function postAuthRegister(
+  req: Request,
+  routeContext: Pick<ApiRouteContext, 'requestId' | 'traceId' | 'correlationId'>,
+) {
   const signalContext = extractRequestSignalContext(req)
+  const routePath = '/api/auth/register'
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
     statusCode: number
@@ -49,7 +53,7 @@ async function postAuthRegister(req: Request) {
     try {
       await recordSecuritySignal({
         source: 'auth.register',
-        route: '/api/auth/register',
+        route: routePath,
         outcome: input.outcome,
         statusCode: input.statusCode,
         ipHash: signalContext.ipHash,
@@ -58,10 +62,15 @@ async function postAuthRegister(req: Request) {
         latitude: signalContext.latitude,
         longitude: signalContext.longitude,
         userAgent: signalContext.userAgent,
+        traceId: routeContext.traceId,
         details: input.details,
       })
     } catch (error) {
-      logError('auth-register:signal', error)
+      logError('auth-register:signal', error, {
+        requestId: routeContext.requestId,
+        traceId: routeContext.traceId,
+        route: routePath,
+      })
     }
   }
 

@@ -1,12 +1,12 @@
 import { errorJson } from '@/lib/security/api-response'
 import { sendWalletRequest } from '@/app/api/wallet/send/route'
-import { withApiRoute } from '@/lib/security/api-route'
+import { withApiRoute, type ApiRouteContext } from '@/lib/security/api-route'
 
 export const dynamic = 'force-dynamic'
 
 async function postWalletSendById(
   req: Request,
-  _routeContext: { requestId: string; startedAt: number; timeoutMs: number },
+  routeContext: Pick<ApiRouteContext, 'requestId' | 'traceId' | 'correlationId'>,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params
@@ -15,7 +15,10 @@ async function postWalletSendById(
     return errorJson(400, 'invalid_wallet_id', 'INVALID_WALLET_ID')
   }
 
-  return sendWalletRequest(req, walletId)
+  return sendWalletRequest(req, walletId, {
+    ...routeContext,
+    routePath: '/api/wallet/[id]/send',
+  })
 }
 
 export const POST = withApiRoute<[{ params: Promise<{ id: string }> }]>(

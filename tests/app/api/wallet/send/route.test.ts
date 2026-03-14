@@ -20,6 +20,7 @@ const {
   mockRecordTransferAttempt,
   mockUpdateTransferStatus,
   mockLogError,
+  mockLogInfo,
   mockProviderCtor,
   mockProviderGetNetwork,
   mockProviderGetTransactionCount,
@@ -50,6 +51,7 @@ const {
   mockRecordTransferAttempt: vi.fn(),
   mockUpdateTransferStatus: vi.fn(),
   mockLogError: vi.fn(),
+  mockLogInfo: vi.fn(),
   mockProviderCtor: vi.fn(),
   mockProviderGetNetwork: vi.fn(),
   mockProviderGetTransactionCount: vi.fn(),
@@ -129,6 +131,7 @@ vi.mock('@/services/signing-intent.service', () => ({
 
 vi.mock('@/lib/security/logging', () => ({
   logError: mockLogError,
+  logInfo: mockLogInfo,
 }))
 
 vi.mock('ethers', () => {
@@ -149,7 +152,10 @@ vi.mock('ethers', () => {
   }
 })
 
-function buildRequest(overrides: Partial<Record<string, unknown>> = {}) {
+function buildRequest(
+  overrides: Partial<Record<string, unknown>> = {},
+  headers: Record<string, string> = {},
+) {
   const body = {
     walletId: 'wallet-1',
     to: '0x000000000000000000000000000000000000dEaD',
@@ -161,7 +167,7 @@ function buildRequest(overrides: Partial<Record<string, unknown>> = {}) {
 
   return new Request('http://localhost/api/wallet/send', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body),
   })
 }
@@ -268,6 +274,7 @@ describe('app/api/wallet/send route', () => {
     expect(res.status).toBe(401)
     expect(body.code).toBe('unauthorized')
     expect(res.headers.get('x-request-id')).toBeTruthy()
+    expect(res.headers.get('x-trace-id')).toBeTruthy()
     expect(mockIsAllowedOrigin).not.toHaveBeenCalled()
   })
 
@@ -358,9 +365,10 @@ describe('app/api/wallet/send route', () => {
   })
 
   it('queues a signing intent instead of signing in-request', async () => {
+    const traceId = 'trace-wallet-send-1'
     const { POST } = await import('@/app/api/wallet/send/route')
 
-    const res = await POST(buildRequest())
+    const res = await POST(buildRequest({}, { 'x-trace-id': traceId }))
     const body = await res.json()
 
     expect(res.status).toBe(202)
@@ -372,9 +380,12 @@ describe('app/api/wallet/send route', () => {
       to: '0x000000000000000000000000000000000000dead',
       amountWei: '1000000000000000',
       chainId: 8453,
+      traceId,
+      correlationId: traceId,
       idempotencyKey: '11111111-1111-4111-8111-111111111111',
       transferLogId: 'log-1',
     })
+    expect(res.headers.get('x-trace-id')).toBe(traceId)
     expect(mockBuildEvmTransactionSigningIntentPayload).toHaveBeenCalledWith(
       expect.objectContaining({
         walletId: 'wallet-1',
@@ -392,6 +403,12 @@ describe('app/api/wallet/send route', () => {
         walletId: 'wallet-1',
         chainId: 8453,
         walletAddress: '0x000000000000000000000000000000000000beef',
+        actionId: traceId,
+      }),
+    )
+    expect(mockRecordTransferAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        traceId,
       }),
     )
     expect(mockCreateWalletSigningIntent).toHaveBeenCalledWith(
@@ -400,6 +417,7 @@ describe('app/api/wallet/send route', () => {
         userId: 'user-1',
         chainId: 8453,
         idempotencyKey: '11111111-1111-4111-8111-111111111111',
+        traceId,
         transferLogId: 'log-1',
       }),
     )

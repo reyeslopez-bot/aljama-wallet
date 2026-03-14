@@ -178,6 +178,14 @@ describe('signing-intent.worker', () => {
       }),
     )
     expect(mockMarkNonceReservationSubmitted).toHaveBeenCalledWith('nonce-1', '0xtxhash')
+    expect(mockLogInfo).toHaveBeenCalledWith(
+      'wallet-signing-intent-worker:pass',
+      'Processed signing intent',
+      expect.objectContaining({
+        intentId: created.id,
+        traceId: '22222222-2222-4222-8222-222222222222',
+      }),
+    )
   })
 
   it('marks the intent failed when signing fails', async () => {
@@ -237,5 +245,13 @@ describe('signing-intent.worker', () => {
       maxPriorityFeePerGas: null,
     })
     expect(mockReleaseNonceReservation).toHaveBeenCalledWith('nonce-1')
+    expect(mockLogError).toHaveBeenCalledWith(
+      'wallet-signing-intent-worker:pass',
+      expect.any(Error),
+      expect.objectContaining({
+        intentId: created.id,
+        traceId: '22222222-2222-4222-8222-222222222222',
+      }),
+    )
   })
 })

@@ -1,5 +1,5 @@
 import { errorJson, okJson } from '@/lib/security/api-response'
-import { withApiRoute } from '@/lib/security/api-route'
+import { withApiRoute, type ApiRouteContext } from '@/lib/security/api-route'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { buildRateLimitKey, getRateLimitBackendHealth, rateLimit } from '@/lib/security/rate-limit'
 import { getSecurityAlertsForensics } from '@/services/security-alert.service'
@@ -23,8 +23,12 @@ function parseLimit(value: string | null): number {
   return Math.min(parsed, MAX_LIMIT)
 }
 
-async function getSecurityAnomalies(req: Request) {
+async function getSecurityAnomalies(
+  req: Request,
+  routeContext: Pick<ApiRouteContext, 'requestId' | 'traceId' | 'correlationId'>,
+) {
   const signalContext = extractRequestSignalContext(req)
+  const routePath = '/api/security/anomalies'
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
     statusCode: number
@@ -33,7 +37,7 @@ async function getSecurityAnomalies(req: Request) {
     try {
       await recordSecuritySignal({
         source: 'internal.security-anomalies',
-        route: '/api/security/anomalies',
+        route: routePath,
         outcome: input.outcome,
         statusCode: input.statusCode,
         ipHash: signalContext.ipHash,
@@ -41,10 +45,15 @@ async function getSecurityAnomalies(req: Request) {
         latitude: signalContext.latitude,
         longitude: signalContext.longitude,
         userAgent: signalContext.userAgent,
+        traceId: routeContext.traceId,
         details: input.details,
       })
     } catch (error) {
-      logError('security-anomalies:signal', error)
+      logError('security-anomalies:signal', error, {
+        requestId: routeContext.requestId,
+        traceId: routeContext.traceId,
+        route: routePath,
+      })
     }
   }
 

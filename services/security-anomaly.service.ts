@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import { getErrorMessage } from '@/lib/security/errors'
 import { prismaPg } from '@/lib/prisma-pg'
 import { logError, logWarn } from '@/lib/security/logging'
+import { createTraceId } from '@/lib/security/trace'
 import type { Prisma } from '@/prisma/generated/pg'
 import { emitSecurityAlert, type SecurityAlertSeverity } from '@/services/security-alert.service'
 import {
@@ -39,12 +40,14 @@ export type SecuritySignalInput = {
   producerType?: string | null
   signatureVerified?: boolean
   ingestVersion?: string | null
+  traceId?: string | null
   details?: Record<string, unknown>
   detectedAt?: number | null
 }
 
-export type SecuritySignalRecord = SecuritySignalInput & {
+export type SecuritySignalRecord = Omit<SecuritySignalInput, 'detectedAt' | 'traceId'> & {
   id: string
+  traceId: string
   detectedAt: number
   transport: SecuritySignalTransport
 }
@@ -519,6 +522,7 @@ async function emitAnomaly(signal: SecuritySignalRecord, anomaly: SecurityAnomal
       repetitive: anomaly.repetitive,
       source: signal.source,
       route: signal.route ?? null,
+      traceId: signal.traceId ?? null,
       outcome: signal.outcome,
       statusCode: signal.statusCode ?? null,
       details: anomaly.details,
@@ -545,6 +549,7 @@ async function emitAnomaly(signal: SecuritySignalRecord, anomaly: SecurityAnomal
       userId: signal.userId ?? null,
       sessionId: signal.sessionId ?? null,
       deviceId: signal.deviceId ?? null,
+      traceId: signal.traceId ?? null,
       country: signal.country ?? null,
       transport: signal.transport,
       details: anomaly.details,
@@ -971,6 +976,7 @@ function buildSignalRecord(input: SecuritySignalInput, transport: SecuritySignal
     producerType: input.producerType ?? null,
     signatureVerified: input.signatureVerified ?? false,
     ingestVersion: input.ingestVersion ?? null,
+    traceId: input.traceId ?? createTraceId(),
     details: input.details ?? {},
     detectedAt: normalizeDetectedAt(input.detectedAt ?? null),
     transport,
@@ -1022,6 +1028,7 @@ async function persistSignalToForensicStore(signal: SecuritySignalRecord) {
         producerType: signal.producerType ?? null,
         signatureVerified: signal.signatureVerified ?? false,
         ingestVersion: signal.ingestVersion ?? null,
+        traceId: signal.traceId,
         transport: signal.transport,
         details: toJson(signal.details ?? {}),
         detectedAt: new Date(signal.detectedAt),
@@ -1032,6 +1039,7 @@ async function persistSignalToForensicStore(signal: SecuritySignalRecord) {
     logError('security-anomaly:forensic-signal-write', error, {
       signalId: signal.id,
       source: signal.source,
+      traceId: signal.traceId ?? null,
     })
   }
 }
@@ -1142,6 +1150,7 @@ export function normalizeSecuritySignalInput(
     producerType: readFirstString(raw, ['producerType']),
     signatureVerified: normalizeBoolean(readFirstValue(raw, ['signatureVerified'])) ?? false,
     ingestVersion: readFirstString(raw, ['ingestVersion']),
+    traceId: readFirstString(raw, ['traceId', 'correlationId']) ?? createTraceId(),
     details,
     detectedAt: normalizeTimestamp(readFirstValue(raw, ['detectedAt', 'timestamp', 'ts'])),
   }
@@ -1200,6 +1209,7 @@ export async function drainSecuritySignalQueue(options?: {
                 attempts,
                 nextAttemptInMs: queueRetryDelayMs(attempts),
                 source: message.signal.source,
+                traceId: message.signal.traceId ?? null,
               })
             } catch (requeueError) {
               queueStats.failed += 1
@@ -1208,6 +1218,7 @@ export async function drainSecuritySignalQueue(options?: {
                 queueId: message.id,
                 attempts,
                 source: message.signal.source,
+                traceId: message.signal.traceId ?? null,
               })
             }
           } else {
@@ -1219,12 +1230,14 @@ export async function drainSecuritySignalQueue(options?: {
               logError('security-signal:ack', ackError, {
                 queueId: message.id,
                 source: message.signal.source,
+                traceId: message.signal.traceId ?? null,
               })
             }
             logError('security-signal:failed', error, {
               queueId: message.id,
               attempts,
               source: message.signal.source,
+              traceId: message.signal.traceId ?? null,
             })
           }
         }
@@ -1464,6 +1477,7 @@ export async function getRecentSecuritySignalsForensics(limit = 300): Promise<Se
       producerType: row.producerType,
       signatureVerified: row.signatureVerified,
       ingestVersion: row.ingestVersion,
+      traceId: row.traceId,
       details: fromJsonRecord(row.details),
       detectedAt: row.detectedAt.getTime(),
       transport: toSignalTransport(row.transport),

@@ -25,11 +25,12 @@ import { assessTransferRisk } from '@/services/transfer-risk.service'
 import { recordTransferAttempt, updateTransferStatus } from '@/services/transfer-log.service'
 import { errorJson, okJson } from '@/lib/security/api-response'
 import { readJsonBody } from '@/lib/security/request-body'
-import { logError } from '@/lib/security/logging'
+import { logError, logInfo } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
 import { extractRequestSignalContext } from '@/lib/security/request-signal'
-import { withApiRoute } from '@/lib/security/api-route'
+import { withApiRoute, type ApiRouteContext } from '@/lib/security/api-route'
+import { createTraceId } from '@/lib/security/trace'
 import {
   buildEvmTransactionSigningIntentPayload,
   createWalletSigningIntent,
@@ -76,17 +77,16 @@ function parseAllowedChains(): Set<number> {
   return new Set(entries)
 }
 
-function safeUuid() {
-  if (!globalThis.crypto?.randomUUID) {
-    throw new Error('crypto.randomUUID unavailable')
-  }
-  return globalThis.crypto.randomUUID()
+type SendWalletRouteContext = Pick<ApiRouteContext, 'requestId' | 'traceId' | 'correlationId'> & {
+  routePath?: string
 }
 
-export async function sendWalletRequest(req: Request, walletIdOverride?: string) {
+export async function sendWalletRequest(req: Request, walletIdOverride?: string, routeContext?: SendWalletRouteContext) {
   let transferLogId: string | null = null
   let nonceReservationId: string | null = null
   let keepNonceReservation = false
+  const routePath = routeContext?.routePath ?? '/api/wallet/send'
+  const traceId = routeContext?.traceId ?? routeContext?.correlationId ?? createTraceId()
   const signalContext = extractRequestSignalContext(req)
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
@@ -97,7 +97,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
     try {
       await recordSecuritySignal({
         source: 'wallet.send',
-        route: '/api/wallet/send',
+        route: routePath,
         outcome: input.outcome,
         statusCode: input.statusCode,
         ipHash: signalContext.ipHash,
@@ -106,10 +106,14 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
         latitude: signalContext.latitude,
         longitude: signalContext.longitude,
         userAgent: signalContext.userAgent,
+        traceId,
         details: input.details,
       })
     } catch (error) {
-      logError('wallet-send:signal', error)
+      logError('wallet-send:signal', error, {
+        route: routePath,
+        traceId,
+      })
     }
   }
 
@@ -245,9 +249,16 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
     if (!wallet) {
       throw new Error('WALLET_NOT_FOUND')
     }
-
-    const traceId = safeUuid()
     const idempotencyKey = input.idempotencyKey
+    logInfo('wallet-send', 'Wallet send requested', {
+      route: routePath,
+      requestId: routeContext?.requestId ?? null,
+      traceId,
+      walletId: input.walletId,
+      userId: session.user.id,
+      chainId: input.chainId,
+      idempotencyKey,
+    })
 
     const spentTodayWei = await getSpentTodayWei(input.walletId, input.chainId)
     const dailyLimitWei = await getWalletDailyLimitWei({
@@ -274,6 +285,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
         amountWei: BigInt(input.amountWei),
         status: storedPolicyEvaluation.decision === 'deny' ? 'denied' : 'review',
         idempotencyKey,
+        traceId,
         txType: 'transfer',
       })
 
@@ -370,6 +382,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
           amountWei: BigInt(input.amountWei),
           status: 'denied',
           idempotencyKey,
+          traceId,
           txType: 'transfer',
         })
         await recordPolicyEvents({
@@ -430,6 +443,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
         amountWei: BigInt(intent.amountWei),
         status: risk.decision === 'deny' ? 'denied' : 'review',
         idempotencyKey: intent.idempotencyKey,
+        traceId,
         txType: 'transfer',
       })
 
@@ -465,6 +479,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       amountWei: BigInt(intent.amountWei),
       status: 'created',
       idempotencyKey: intent.idempotencyKey,
+      traceId,
       txType: 'transfer',
     })
     transferLogId = log.id
@@ -500,6 +515,18 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       }),
     })
     keepNonceReservation = true
+    logInfo('wallet-send', 'Queued wallet signing intent', {
+      route: routePath,
+      requestId: routeContext?.requestId ?? null,
+      traceId,
+      walletId: intent.fromWalletId,
+      userId: session.user.id,
+      chainId: intent.chainId,
+      idempotencyKey,
+      intentId: signingIntent.id,
+      transferLogId: log.id,
+      nonceReservationId,
+    })
 
     await trackSignal({
       outcome: 'success',
@@ -537,7 +564,14 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
     const isReplay = message === 'IDEMPOTENCY_REPLAY' || message === 'SIGNING_INTENT_REPLAY'
     const isNonceConflict = message === 'NONCE_TOO_LOW' || message === 'NONCE_ALREADY_RESERVED'
     const status = isReplay || isNonceConflict ? 409 : 400
-    logError('wallet-send', error)
+    logError('wallet-send', error, {
+      route: routePath,
+      requestId: routeContext?.requestId ?? null,
+      traceId,
+      walletId: walletIdOverride ?? null,
+      transferLogId,
+      nonceReservationId,
+    })
     await trackSignal({
       outcome: 'failure',
       statusCode: status,
@@ -554,6 +588,9 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
   }
 }
 
-export const POST = withApiRoute({ scope: 'api:wallet-send', timeoutMs: 20_000 }, async (req) =>
-  sendWalletRequest(req),
+export const POST = withApiRoute({ scope: 'api:wallet-send', timeoutMs: 20_000 }, async (req, context) =>
+  sendWalletRequest(req, undefined, {
+    ...context,
+    routePath: '/api/wallet/send',
+  }),
 )

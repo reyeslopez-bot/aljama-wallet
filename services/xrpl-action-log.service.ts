@@ -29,6 +29,7 @@ export type XrplActionRecord = {
   networkId: string
   account: string
   idempotencyKey: string
+  traceId: string
   txHash: string | null
   engineResult: string | null
   details: Record<string, unknown> | null
@@ -43,6 +44,7 @@ type CreateActionInput = {
   networkId: string
   account: string
   idempotencyKey: string
+  traceId: string
   txHash?: string | null
   engineResult?: string | null
   details?: Record<string, unknown> | null
@@ -126,6 +128,7 @@ async function persistActionCreatedToDb(record: XrplActionRecord) {
           networkId: record.networkId,
           account: record.account,
           idempotencyKey: record.idempotencyKey,
+          traceId: record.traceId,
           txHash: record.txHash,
           engineResult: record.engineResult,
           details: record.details ? toJson(record.details) : undefined,
@@ -146,7 +149,7 @@ async function persistActionCreatedToDb(record: XrplActionRecord) {
     ])
     void runForensicRetentionMaintenance()
   } catch (error) {
-    logWarn('xrpl-action-log:db-create', error, { actionId: record.id })
+    logWarn('xrpl-action-log:db-create', error, { actionId: record.id, traceId: record.traceId })
   }
 }
 
@@ -179,7 +182,7 @@ async function persistActionUpdatedToDb(record: XrplActionRecord) {
     ])
     void runForensicRetentionMaintenance()
   } catch (error) {
-    logWarn('xrpl-action-log:db-update', error, { actionId: record.id })
+    logWarn('xrpl-action-log:db-update', error, { actionId: record.id, traceId: record.traceId })
   }
 }
 
@@ -191,6 +194,7 @@ function rowToActionRecord(row: {
   networkId: string
   account: string
   idempotencyKey: string
+  traceId: string
   txHash: string | null
   engineResult: string | null
   details: unknown
@@ -205,6 +209,7 @@ function rowToActionRecord(row: {
     networkId: row.networkId,
     account: row.account,
     idempotencyKey: row.idempotencyKey,
+    traceId: row.traceId,
     txHash: row.txHash,
     engineResult: row.engineResult,
     details: fromJsonRecord(row.details),
@@ -242,6 +247,7 @@ export async function createXrplAction(input: CreateActionInput): Promise<XrplAc
     networkId: input.networkId,
     account: input.account,
     idempotencyKey: input.idempotencyKey,
+    traceId: input.traceId,
     txHash: input.txHash ?? null,
     engineResult: input.engineResult ?? null,
     details: input.details ?? null,

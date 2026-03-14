@@ -9,7 +9,7 @@ export const transferIntentSchema = z.object({
   maxFeePerGasWei: z.string().regex(/^\d+$/).optional(),
   nonce: z.number().int().nonnegative(),
   idempotencyKey: z.string().uuid(),
-  correlationId: z.string().uuid(),
+  correlationId: z.string().min(1).max(128),
 });
 
 export type TransferIntent = z.infer<typeof transferIntentSchema>;

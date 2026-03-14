@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { recordTrackWalletEvent } from '@/services/track-wallet.service'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
-import { withApiRoute } from '@/lib/security/api-route'
+import { withApiRoute, type ApiRouteContext } from '@/lib/security/api-route'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { logError } from '@/lib/security/logging'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
@@ -35,8 +35,12 @@ const trackWalletSchema = z.object({
   timestamp: z.string().datetime(),
 })
 
-async function postTrackWallet(req: Request) {
+async function postTrackWallet(
+  req: Request,
+  routeContext: Pick<ApiRouteContext, 'requestId' | 'traceId' | 'correlationId'>,
+) {
   const signalContext = extractRequestSignalContext(req)
+  const routePath = '/api/track-wallet'
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
     statusCode: number
@@ -46,7 +50,7 @@ async function postTrackWallet(req: Request) {
     try {
       await recordSecuritySignal({
         source: 'wallet.track',
-        route: '/api/track-wallet',
+        route: routePath,
         outcome: input.outcome,
         statusCode: input.statusCode,
         ipHash: signalContext.ipHash,
@@ -55,10 +59,15 @@ async function postTrackWallet(req: Request) {
         latitude: signalContext.latitude,
         longitude: signalContext.longitude,
         userAgent: signalContext.userAgent,
+        traceId: routeContext.traceId,
         details: input.details,
       })
     } catch (error) {
-      logError('track-wallet:signal', error)
+      logError('track-wallet:signal', error, {
+        requestId: routeContext.requestId,
+        traceId: routeContext.traceId,
+        route: routePath,
+      })
     }
   }
 

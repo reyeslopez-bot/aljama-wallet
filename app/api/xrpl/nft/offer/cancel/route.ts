@@ -3,7 +3,7 @@ import { requireSession } from '@/lib/security/session'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson, okJson } from '@/lib/security/api-response'
-import { withApiRoute } from '@/lib/security/api-route'
+import { withApiRoute, type ApiRouteContext } from '@/lib/security/api-route'
 import { readJsonBody } from '@/lib/security/request-body'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
@@ -20,8 +20,12 @@ const schema = z.object({
   offerIds: z.array(z.string().min(10).max(128)).min(1).max(20),
 })
 
-async function postXrplNftOfferCancel(req: Request) {
+async function postXrplNftOfferCancel(
+  req: Request,
+  routeContext: Pick<ApiRouteContext, 'requestId' | 'traceId' | 'correlationId'>,
+) {
   let actionId: string | null = null
+  const routePath = '/api/xrpl/nft/offer/cancel'
   try {
     const session = await requireSession()
     if (!session) {
@@ -85,6 +89,7 @@ async function postXrplNftOfferCancel(req: Request) {
       networkId,
       account: account.address,
       idempotencyKey: parsed.data.idempotencyKey,
+      traceId: routeContext.traceId,
       details: {
         offerIds: parsed.data.offerIds,
       },
@@ -140,12 +145,20 @@ async function postXrplNftOfferCancel(req: Request) {
     try {
       await recordXrplTransactionSubmission({ actionId: action.id, result })
     } catch (recordError) {
-      logError('xrpl-nft-offer-cancel:transaction-store', recordError)
+      logError('xrpl-nft-offer-cancel:transaction-store', recordError, {
+        requestId: routeContext.requestId,
+        traceId: routeContext.traceId,
+        route: routePath,
+        actionId: action.id,
+        txHash: result.txHash,
+      })
     }
 
     return okJson({
       network: networkId,
       actionId: action.id,
+      traceId: routeContext.traceId,
+      correlationId: routeContext.traceId,
       tx: {
         hash: result.txHash,
         engineResult: result.engineResult,
@@ -160,7 +173,12 @@ async function postXrplNftOfferCancel(req: Request) {
         status: 'failed',
       }).catch(() => {})
     }
-    logError('xrpl-nft-offer-cancel', error)
+    logError('xrpl-nft-offer-cancel', error, {
+      requestId: routeContext.requestId,
+      traceId: routeContext.traceId,
+      route: routePath,
+      actionId,
+    })
     const message = getErrorMessage(error, 'Failed to cancel NFT offers')
     const status = message === 'IDEMPOTENCY_REPLAY' ? 409 : 400
     return errorJson(

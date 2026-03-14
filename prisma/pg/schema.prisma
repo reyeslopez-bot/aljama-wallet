@@ -157,6 +157,7 @@ model WalletTransferLog {
   amountWei            BigInt
   status               String
   idempotencyKey       String
+  traceId              String
   txHash               String?
   nonce                String?
   txType               String?
@@ -180,6 +181,7 @@ model WalletTransferLog {
   @@index([userId, createdAt])
   @@index([toAddress])
   @@index([idempotencyKey])
+  @@index([traceId])
   @@index([txHash])
   @@index([status, createdAt])
   @@index([replacesTxHash])
@@ -276,6 +278,7 @@ model SecuritySignalEvent {
   producerType      String?
   signatureVerified Boolean  @default(false)
   ingestVersion     String?
+  traceId           String
   transport         String
   details           Json?
   detectedAt        DateTime
@@ -288,6 +291,7 @@ model SecuritySignalEvent {
   @@index([outcome, detectedAt])
   @@index([ipHash, detectedAt])
   @@index([producerId, detectedAt])
+  @@index([traceId])
 }
 
 model SecurityAnomalyEvent {
@@ -350,6 +354,7 @@ model XrplAction {
   networkId      String
   account        String
   idempotencyKey String
+  traceId        String
   txHash         String?
   engineResult   String?
   details        Json?
@@ -361,6 +366,7 @@ model XrplAction {
   @@index([updatedAt])
   @@index([networkId, updatedAt])
   @@index([idempotencyKey])
+  @@index([traceId])
   @@index([userId, updatedAt])
 }
 

@@ -119,6 +119,7 @@ async function markTransferFailed(
 async function processClaimedSigningIntent(
   payload: EvmTransactionSigningIntentPayload,
   intentId: string,
+  traceId: string,
   provider: JsonRpcProvider,
 ) {
   let broadcastAttempted = false
@@ -186,6 +187,7 @@ async function processClaimedSigningIntent(
     } catch (error) {
       logError('wallet-signing-intent-worker:chain-transaction', error, {
         intentId,
+        traceId,
         walletId: payload.walletId,
         chainId: payload.chainId,
         txHash,
@@ -228,11 +230,12 @@ export async function processWalletSigningIntentQueuePass(
 
     try {
       payload = intent.payload
-      const result = await processClaimedSigningIntent(payload, intent.id, provider)
+      const result = await processClaimedSigningIntent(payload, intent.id, intent.traceId, provider)
       txHash = result.txHash
       succeededCount += 1
       logInfo('wallet-signing-intent-worker:pass', 'Processed signing intent', {
         intentId: intent.id,
+        traceId: intent.traceId,
         walletId: payload.walletId,
         chainId: payload.chainId,
         txHash,
@@ -251,6 +254,7 @@ export async function processWalletSigningIntentQueuePass(
       await markTransferFailed(payload, txHash).catch(() => {})
       logError('wallet-signing-intent-worker:pass', error, {
         intentId: intent.id,
+        traceId: intent.traceId,
         walletId: payload?.walletId ?? intent.walletId,
         chainId: payload?.chainId ?? intent.chainId,
       })

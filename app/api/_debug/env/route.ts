@@ -4,13 +4,14 @@ import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { canBypassDebugRouteTokenCheck, debugRouteDisabledResponse } from '@/lib/security/debug-route'
 import { isStrictMode } from '@/lib/security/runtime'
 import { errorJson } from '@/lib/security/api-response'
-import { withApiRoute } from '@/lib/security/api-route'
+import { withApiRoute, type ApiRouteContext } from '@/lib/security/api-route'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
 import { extractRequestSignalContext } from '@/lib/security/request-signal'
 import { logError } from '@/lib/security/logging'
 
-async function getDebugEnv(req: Request) {
+async function getDebugEnv(req: Request, routeContext: Pick<ApiRouteContext, 'requestId' | 'traceId'>) {
   const signalContext = extractRequestSignalContext(req)
+  const routePath = '/api/_debug/env'
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
     statusCode: number
@@ -19,7 +20,7 @@ async function getDebugEnv(req: Request) {
     try {
       await recordSecuritySignal({
         source: 'internal.debug-env',
-        route: '/api/_debug/env',
+        route: routePath,
         outcome: input.outcome,
         statusCode: input.statusCode,
         ipHash: signalContext.ipHash,
@@ -27,10 +28,15 @@ async function getDebugEnv(req: Request) {
         latitude: signalContext.latitude,
         longitude: signalContext.longitude,
         userAgent: signalContext.userAgent,
+        traceId: routeContext.traceId,
         details: input.details,
       })
     } catch (error) {
-      logError('debug-env:signal', error)
+      logError('debug-env:signal', error, {
+        requestId: routeContext.requestId,
+        traceId: routeContext.traceId,
+        route: routePath,
+      })
     }
   }
 

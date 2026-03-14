@@ -28,6 +28,7 @@ vi.mock('@/services/security-anomaly.service', () => ({
 
 const PRODUCER_ID = 'event-bus'
 const PRODUCER_SECRET = 'ingest-secret'
+const REQUEST_TRACE_ID = 'trace-security-signals-1'
 
 function createSignedRequest(body: unknown, init?: { signature?: string; producerId?: string }) {
   const rawBody = JSON.stringify(body)
@@ -37,6 +38,7 @@ function createSignedRequest(body: unknown, init?: { signature?: string; produce
     method: 'POST',
     headers: {
       'content-type': 'application/json',
+      'x-trace-id': REQUEST_TRACE_ID,
       'x-security-producer-id': init?.producerId ?? PRODUCER_ID,
       'x-security-signature': signature,
     },
@@ -176,6 +178,7 @@ describe('app/api/security/signals route', () => {
           producerType: 'event_bus',
           signatureVerified: true,
           ingestVersion: 'hmac-sha256-v1',
+          traceId: REQUEST_TRACE_ID,
         }),
         expect.objectContaining({
           source: 'wallet.send',
@@ -185,6 +188,7 @@ describe('app/api/security/signals route', () => {
           producerType: 'event_bus',
           signatureVerified: true,
           ingestVersion: 'hmac-sha256-v1',
+          traceId: REQUEST_TRACE_ID,
         }),
       ],
       expect.objectContaining({
@@ -192,6 +196,11 @@ describe('app/api/security/signals route', () => {
         transport: 'event_bus',
         drain: true,
         fallbackSource: 'external.ingest',
+      }),
+    )
+    expect(mockRecordSecuritySignal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        traceId: REQUEST_TRACE_ID,
       }),
     )
   })

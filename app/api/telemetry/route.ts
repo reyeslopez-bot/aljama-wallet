@@ -28,6 +28,7 @@ function buildTelemetryLogDetails(
 ): Record<string, unknown> {
   return {
     requestId: context.requestId,
+    traceId: context.traceId,
     method: req.method,
     path: '/api/telemetry',
     contentType: req.headers.get('content-type') ?? null,
@@ -83,6 +84,7 @@ async function postTelemetry(req: Request, context: ApiRouteContext) {
         latitude: signalContext.latitude,
         longitude: signalContext.longitude,
         userAgent: signalContext.userAgent,
+        traceId: context.traceId,
         details: input.details,
       })
     } catch (error) {

@@ -7,6 +7,7 @@ import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { TelemetryContext } from '@/components/telemetry/TelemetryProvider.client'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
+import { buildTraceHeaders, createTraceId } from '@/lib/security/trace'
 import { resolveXrplNetwork } from '@/lib/xrpl-networks'
 import { useGsapPressable } from '@/hooks/useGsapPressable'
 
@@ -533,9 +534,13 @@ export default function XrplTradeDesk() {
     track('xrpl_trade_action_start', { action: actionName, network: selectedNetworkId })
 
     try {
+      const traceId = createTraceId()
       const res = await fetch(path, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...buildTraceHeaders(traceId),
+        },
         body: JSON.stringify({
           ...payload,
           network: selectedNetworkId,

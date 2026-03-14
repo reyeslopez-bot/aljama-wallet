@@ -18,6 +18,7 @@ describe('withApiRoute', () => {
     )
 
     expect(res.headers.get('x-request-id')).toBe('req-123')
+    expect(res.headers.get('x-trace-id')).toBe('corr-456')
     expect(res.headers.get('x-correlation-id')).toBe('corr-456')
     expect(Number(res.headers.get('x-response-time-ms'))).toBeGreaterThanOrEqual(0)
     expect(Number(res.headers.get('x-total-duration-ms'))).toBeGreaterThanOrEqual(0)
@@ -39,7 +40,29 @@ describe('withApiRoute', () => {
 
     expect(res.headers.get('x-request-id')).toBeTruthy()
     expect(res.headers.get('x-request-id')).not.toBe('corr-only-789')
+    expect(res.headers.get('x-trace-id')).toBe('corr-only-789')
     expect(res.headers.get('x-correlation-id')).toBe('corr-only-789')
+  })
+
+  it('prefers x-trace-id when both trace headers are present', async () => {
+    const handler = withApiRoute({ scope: 'test:trace-header', timeoutMs: 50 }, async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+
+    const res = await handler(
+      new Request('http://localhost/test', {
+        headers: {
+          'x-trace-id': 'trace-123',
+          'x-correlation-id': 'corr-456',
+        },
+      }),
+    )
+
+    expect(res.headers.get('x-trace-id')).toBe('trace-123')
+    expect(res.headers.get('x-correlation-id')).toBe('trace-123')
   })
 
   it('returns a standardized timeout response when the handler exceeds the budget', async () => {
@@ -59,6 +82,7 @@ describe('withApiRoute', () => {
 
     expect(res.status).toBe(504)
     expect(res.headers.get('x-request-id')).toBeTruthy()
+    expect(res.headers.get('x-trace-id')).toBeTruthy()
     await expect(res.json()).resolves.toMatchObject({
       ok: false,
       code: 'request_timeout',
