@@ -375,7 +375,7 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 
 ## 5.6 Security APIs
 
-- `POST /api/security/signals` — security signal ingestion.
+- `POST /api/security/signals` — HMAC-authenticated security signal ingestion.
 - `GET /api/security/anomalies` — anomaly retrieval.
 
 **Primary risks**: forged signal spam, queue outages, false-positive floods.

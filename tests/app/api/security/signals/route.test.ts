@@ -1,23 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createSecuritySignalIngestSignature } from '@/lib/security/signal-ingest-auth'
 
 const {
-  mockHasValidInternalToken,
   mockBuildRateLimitKey,
   mockRateLimit,
   mockGetClientIp,
   mockIngestSecuritySignalsBatch,
   mockRecordSecuritySignal,
 } = vi.hoisted(() => ({
-  mockHasValidInternalToken: vi.fn(),
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
   mockGetClientIp: vi.fn(),
   mockIngestSecuritySignalsBatch: vi.fn(),
   mockRecordSecuritySignal: vi.fn(),
-}))
-
-vi.mock('@/lib/security/internal-token', () => ({
-  hasValidInternalToken: mockHasValidInternalToken,
 }))
 
 vi.mock('@/lib/security/rate-limit', () => ({
@@ -31,14 +26,40 @@ vi.mock('@/services/security-anomaly.service', () => ({
   recordSecuritySignal: mockRecordSecuritySignal,
 }))
 
+const PRODUCER_ID = 'event-bus'
+const PRODUCER_SECRET = 'ingest-secret'
+
+function createSignedRequest(body: unknown, init?: { signature?: string; producerId?: string }) {
+  const rawBody = JSON.stringify(body)
+  const signature = init?.signature ?? createSecuritySignalIngestSignature(rawBody, PRODUCER_SECRET)
+
+  return new Request('http://localhost/api/security/signals', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-security-producer-id': init?.producerId ?? PRODUCER_ID,
+      'x-security-signature': signature,
+    },
+    body: rawBody,
+  })
+}
+
 describe('app/api/security/signals route', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
     vi.unstubAllEnvs()
 
-    vi.stubEnv('SECURITY_SIGNAL_INGEST_TOKEN', 'ingest-token')
-    mockHasValidInternalToken.mockReturnValue(true)
+    vi.stubEnv(
+      'SECURITY_SIGNAL_INGEST_HMAC_PRODUCERS',
+      JSON.stringify({
+        [PRODUCER_ID]: {
+          secret: PRODUCER_SECRET,
+          type: 'event_bus',
+        },
+      }),
+    )
+
     mockGetClientIp.mockReturnValue('127.0.0.1')
     mockBuildRateLimitKey.mockReturnValue('ip:127.0.0.1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 59, resetAt: Date.now() + 60_000 })
@@ -56,10 +77,9 @@ describe('app/api/security/signals route', () => {
     ])
   })
 
-  it('returns 404 when signal ingest token is not configured', async () => {
-    vi.stubEnv('SECURITY_SIGNAL_INGEST_TOKEN', '')
-    vi.stubEnv('SECURITY_ALERTS_API_TOKEN', '')
-    vi.stubEnv('INTERNAL_API_TOKEN', '')
+  it('returns 404 when HMAC producers are not configured', async () => {
+    vi.stubEnv('SECURITY_SIGNAL_INGEST_HMAC_PRODUCERS', '')
+    vi.stubEnv('SECURITY_SIGNAL_INGEST_PRODUCERS', '')
 
     const { POST } = await import('@/app/api/security/signals/route')
     const res = await POST(
@@ -76,8 +96,23 @@ describe('app/api/security/signals route', () => {
     expect(body.code).toBe('disabled')
   })
 
-  it('returns 401 when token validation fails', async () => {
-    mockHasValidInternalToken.mockReturnValue(false)
+  it('returns 401 when signature validation fails', async () => {
+    const { POST } = await import('@/app/api/security/signals/route')
+    const res = await POST(
+      createSignedRequest(
+        { source: 'auth.register', outcome: 'success' },
+        { signature: '0'.repeat(64) },
+      ),
+    )
+
+    const body = await res.json()
+
+    expect(res.status).toBe(401)
+    expect(body.code).toBe('unauthorized')
+  })
+
+  it('returns 503 when the producer config is malformed', async () => {
+    vi.stubEnv('SECURITY_SIGNAL_INGEST_HMAC_PRODUCERS', '{bad-json')
 
     const { POST } = await import('@/app/api/security/signals/route')
     const res = await POST(
@@ -90,28 +125,27 @@ describe('app/api/security/signals route', () => {
 
     const body = await res.json()
 
-    expect(res.status).toBe(401)
-    expect(body.code).toBe('unauthorized')
+    expect(res.status).toBe(503)
+    expect(body.code).toBe('ingest_auth_unavailable')
   })
 
-  it('accepts and processes batched security signals', async () => {
+  it('accepts and processes batched security signals with verified producer metadata', async () => {
     const { POST } = await import('@/app/api/security/signals/route')
 
     const res = await POST(
-      new Request('http://localhost/api/security/signals', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: 'Bearer ingest-token',
-        },
-        body: JSON.stringify({
-          transport: 'event_bus',
-          enqueue: true,
-          signals: [
-            { source: 'auth.register', status: 401, ip: '203.0.113.1' },
-            { source: 'wallet.send', statusCode: 200, outcome: 'success' },
-          ],
-        }),
+      createSignedRequest({
+        transport: 'event_bus',
+        enqueue: true,
+        signals: [
+          {
+            source: 'auth.register',
+            status: 401,
+            ip: '203.0.113.1',
+            producerId: 'attacker',
+            signatureVerified: false,
+          },
+          { source: 'wallet.send', statusCode: 200, outcome: 'success' },
+        ],
       }),
     )
     const body = await res.json()
@@ -121,11 +155,37 @@ describe('app/api/security/signals route', () => {
     expect(body.transport).toBe('event_bus')
     expect(body.queued).toBe(true)
     expect(body.accepted).toBe(1)
+    expect(body.producerId).toBe(PRODUCER_ID)
+    expect(body.producerType).toBe('event_bus')
+    expect(body.ingestVersion).toBe('hmac-sha256-v1')
+
+    expect(mockRateLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bucket: 'security-signals',
+        key: `producer:${PRODUCER_ID}`,
+      }),
+    )
 
     expect(mockIngestSecuritySignalsBatch).toHaveBeenCalledWith(
       [
-        { source: 'auth.register', status: 401, ip: '203.0.113.1' },
-        { source: 'wallet.send', statusCode: 200, outcome: 'success' },
+        expect.objectContaining({
+          source: 'auth.register',
+          status: 401,
+          ip: '203.0.113.1',
+          producerId: PRODUCER_ID,
+          producerType: 'event_bus',
+          signatureVerified: true,
+          ingestVersion: 'hmac-sha256-v1',
+        }),
+        expect.objectContaining({
+          source: 'wallet.send',
+          statusCode: 200,
+          outcome: 'success',
+          producerId: PRODUCER_ID,
+          producerType: 'event_bus',
+          signatureVerified: true,
+          ingestVersion: 'hmac-sha256-v1',
+        }),
       ],
       expect.objectContaining({
         enqueue: true,
@@ -145,16 +205,7 @@ describe('app/api/security/signals route', () => {
     })
 
     const { POST } = await import('@/app/api/security/signals/route')
-    const res = await POST(
-      new Request('http://localhost/api/security/signals', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: 'Bearer ingest-token',
-        },
-        body: JSON.stringify({ source: 'auth.register', outcome: 'success' }),
-      }),
-    )
+    const res = await POST(createSignedRequest({ source: 'auth.register', outcome: 'success' }))
     const body = await res.json()
 
     expect(res.status).toBe(503)
@@ -188,18 +239,11 @@ describe('app/api/security/signals route', () => {
 
     const { POST } = await import('@/app/api/security/signals/route')
     const res = await POST(
-      new Request('http://localhost/api/security/signals', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: 'Bearer ingest-token',
-        },
-        body: JSON.stringify({
-          signals: [
-            { source: 'auth.register', status: 401 },
-            { source: 'wallet.send', statusCode: 500 },
-          ],
-        }),
+      createSignedRequest({
+        signals: [
+          { source: 'auth.register', status: 401 },
+          { source: 'wallet.send', statusCode: 500 },
+        ],
       }),
     )
     const body = await res.json()

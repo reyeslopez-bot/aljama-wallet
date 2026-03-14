@@ -27,17 +27,17 @@ model Wallet {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String?      @unique
   emailVerified DateTime?
   image         String?
   passwordHash  String
   accounts      Account[]
   sessions      Session[]
   wallets       UserWallet[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model Account {
@@ -149,31 +149,31 @@ model IdempotencyKey {
 }
 
 model WalletTransferLog {
-  id             String   @id @default(cuid())
-  walletId       String
-  userId         String?
-  chainId        Int
-  toAddress      String
-  amountWei      BigInt
-  status         String
-  idempotencyKey String
-  txHash         String?
-  nonce          String?
-  txType         String?
-  data           String?
-  gasLimit       String?
-  gasPrice       String?
-  maxFeePerGas   String?
+  id                   String    @id @default(cuid())
+  walletId             String
+  userId               String?
+  chainId              Int
+  toAddress            String
+  amountWei            BigInt
+  status               String
+  idempotencyKey       String
+  txHash               String?
+  nonce                String?
+  txType               String?
+  data                 String?
+  gasLimit             String?
+  gasPrice             String?
+  maxFeePerGas         String?
   maxPriorityFeePerGas String?
-  gasUsed        String?
-  blockHeight    BigInt?
-  blockHash      String?
-  confirmationCount Int   @default(0)
-  replacesTxHash String?
-  replacedByTxHash String?
-  confirmedAt    DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  gasUsed              String?
+  blockHeight          BigInt?
+  blockHash            String?
+  confirmationCount    Int       @default(0)
+  replacesTxHash       String?
+  replacedByTxHash     String?
+  confirmedAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   @@index([walletId, createdAt])
   @@index([walletId, chainId, nonce])
@@ -186,23 +186,23 @@ model WalletTransferLog {
 }
 
 model WalletSigningIntent {
-  id                String   @id @default(cuid())
-  chain             String   @default("EVM")
-  actionType        String
-  status            String
-  walletId          String
-  userId            String?
-  chainId           Int
-  idempotencyKey    String
-  traceId           String
-  transferLogId     String?
-  txPayload         Json
-  signedPayload     String?
-  txHash            String?
-  errorCode         String?
-  errorDetails      Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id             String   @id @default(cuid())
+  chain          String   @default("EVM")
+  actionType     String
+  status         String
+  walletId       String
+  userId         String?
+  chainId        Int
+  idempotencyKey String
+  traceId        String
+  transferLogId  String?
+  txPayload      Json
+  signedPayload  String?
+  txHash         String?
+  errorCode      String?
+  errorDetails   Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([walletId, idempotencyKey, actionType])
   @@index([walletId, createdAt])
@@ -213,26 +213,26 @@ model WalletSigningIntent {
 }
 
 model WalletNonceState {
-  walletId   String
-  chainId    Int
-  nextNonce  Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  walletId  String
+  chainId   Int
+  nextNonce Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@id([walletId, chainId])
   @@index([updatedAt])
 }
 
 model NonceReservation {
-  id         String   @id @default(cuid())
-  walletId   String
-  chainId    Int
-  nonce      Int
-  actionId   String
-  status     String
-  txHash     String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  walletId  String
+  chainId   Int
+  nonce     Int
+  actionId  String
+  status    String
+  txHash    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([walletId, chainId, nonce])
   @@unique([walletId, chainId, actionId])
@@ -258,24 +258,28 @@ model RiskDecision {
 }
 
 model SecuritySignalEvent {
-  id         String   @id
-  source     String
-  route      String?
-  outcome    String
-  statusCode Int?
-  ipHash     String?
-  userId     String?
-  sessionId  String?
-  deviceId   String?
-  principal  String?
-  country    String?
-  latitude   Float?
-  longitude  Float?
-  userAgent  String?
-  transport  String
-  details    Json?
-  detectedAt DateTime
-  ingestedAt DateTime @default(now())
+  id                String   @id
+  source            String
+  route             String?
+  outcome           String
+  statusCode        Int?
+  ipHash            String?
+  userId            String?
+  sessionId         String?
+  deviceId          String?
+  principal         String?
+  country           String?
+  latitude          Float?
+  longitude         Float?
+  userAgent         String?
+  producerId        String?
+  producerType      String?
+  signatureVerified Boolean  @default(false)
+  ingestVersion     String?
+  transport         String
+  details           Json?
+  detectedAt        DateTime
+  ingestedAt        DateTime @default(now())
 
   anomalies SecurityAnomalyEvent[]
 
@@ -283,6 +287,7 @@ model SecuritySignalEvent {
   @@index([source, detectedAt])
   @@index([outcome, detectedAt])
   @@index([ipHash, detectedAt])
+  @@index([producerId, detectedAt])
 }
 
 model SecurityAnomalyEvent {
@@ -307,28 +312,28 @@ model SecurityAnomalyEvent {
 }
 
 model SecurityAlertEvent {
-  id               String   @id
-  ruleId           String
-  source           String
-  severity         String
-  baseSeverity     String
-  priority         String
-  repetitive       Boolean
-  deduped          Boolean
-  duplicateCount   Int
-  dedupKey         String
-  dedupWindowMs    Int
-  dedupTtlMs       Int
-  dedupEscalated   Boolean
-  fingerprint      String
-  title            String
-  description      String
-  runbookId        String?
-  runbookUrl       String?
-  context          Json?
+  id                 String   @id
+  ruleId             String
+  source             String
+  severity           String
+  baseSeverity       String
+  priority           String
+  repetitive         Boolean
+  deduped            Boolean
+  duplicateCount     Int
+  dedupKey           String
+  dedupWindowMs      Int
+  dedupTtlMs         Int
+  dedupEscalated     Boolean
+  fingerprint        String
+  title              String
+  description        String
+  runbookId          String?
+  runbookUrl         String?
+  context            Json?
   containmentActions Json?
-  delivered        Json?
-  createdAt        DateTime @default(now())
+  delivered          Json?
+  createdAt          DateTime @default(now())
 
   @@index([createdAt])
   @@index([severity, createdAt])

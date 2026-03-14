@@ -1,10 +1,15 @@
 import { errorJson, okJson } from '@/lib/security/api-response'
 import { withApiRoute } from '@/lib/security/api-route'
-import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { logError } from '@/lib/security/logging'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
-import { readJsonBody } from '@/lib/security/request-body'
+import { readJsonTextBody } from '@/lib/security/request-body'
 import { extractRequestSignalContext } from '@/lib/security/request-signal'
+import {
+  authenticateSecuritySignalProducer,
+  getSecuritySignalProducerRegistry,
+  type SecuritySignalProducerAudit,
+  type VerifiedSecuritySignalProducer,
+} from '@/lib/security/signal-ingest-auth'
 import {
   ingestSecuritySignalsBatch,
   recordSecuritySignal,
@@ -22,24 +27,46 @@ function normalizeTransport(value: unknown): SecuritySignalTransport {
   return 'api'
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
 function collectSignals(payload: unknown): unknown[] {
   if (Array.isArray(payload)) return payload
 
-  if (typeof payload !== 'object' || payload === null) return []
-  const body = payload as Record<string, unknown>
+  const body = asRecord(payload)
+  if (!body) return []
 
   if (Array.isArray(body.signals)) return body.signals
   if (body.signal !== undefined) return [body.signal]
   return [body]
 }
 
+function attachProducerMetadata(signal: unknown, producer: VerifiedSecuritySignalProducer): unknown {
+  const body = asRecord(signal)
+  if (!body) return signal
+
+  return {
+    ...body,
+    producerId: producer.producerId,
+    producerType: producer.producerType,
+    signatureVerified: producer.signatureVerified,
+    ingestVersion: producer.ingestVersion,
+  }
+}
+
 async function postSecuritySignals(req: Request) {
   const signalContext = extractRequestSignalContext(req)
+  let producerAudit: SecuritySignalProducerAudit | null = null
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
     statusCode: number
     details?: Record<string, unknown>
+    producerAudit?: SecuritySignalProducerAudit | null
   }) => {
+    const audit = input.producerAudit ?? producerAudit
+
     try {
       await recordSecuritySignal({
         source: 'internal.security-signals',
@@ -51,6 +78,10 @@ async function postSecuritySignals(req: Request) {
         latitude: signalContext.latitude,
         longitude: signalContext.longitude,
         userAgent: signalContext.userAgent,
+        producerId: audit?.producerId ?? null,
+        producerType: audit?.producerType ?? null,
+        signatureVerified: audit?.signatureVerified ?? false,
+        ingestVersion: audit?.ingestVersion ?? null,
         details: input.details,
       })
     } catch (error) {
@@ -58,31 +89,54 @@ async function postSecuritySignals(req: Request) {
     }
   }
 
-  const expected =
-    process.env.SECURITY_SIGNAL_INGEST_TOKEN?.trim() ??
-    process.env.SECURITY_ALERTS_API_TOKEN?.trim() ??
-    process.env.INTERNAL_API_TOKEN?.trim() ??
-    ''
-
-  if (!expected) {
+  const registry = getSecuritySignalProducerRegistry()
+  if (!registry.ok && registry.reason === 'disabled') {
     await trackSignal({
       outcome: 'blocked',
       statusCode: 404,
-      details: { reason: 'disabled', missingToken: true },
+      details: { reason: 'disabled', missingProducerConfig: true },
     })
     return errorJson(404, 'disabled', 'DISABLED')
   }
 
-  if (!hasValidInternalToken(req, expected)) {
+  if (!registry.ok) {
     await trackSignal({
-      outcome: 'failure',
-      statusCode: 401,
-      details: { reason: 'unauthorized' },
+      outcome: 'blocked',
+      statusCode: 503,
+      details: { reason: 'invalid_producer_config' },
     })
-    return errorJson(401, 'unauthorized', 'UNAUTHORIZED')
+    return errorJson(503, 'ingest_auth_unavailable', 'INGEST_AUTH_UNAVAILABLE')
   }
 
-  const rateKey = buildRateLimitKey(req, null)
+  const rawBodyResult = await readJsonTextBody(req, {
+    maxBytes: 128 * 1024,
+    allowEmpty: false,
+  })
+  if (!rawBodyResult.ok) {
+    await trackSignal({
+      outcome: 'failure',
+      statusCode: rawBodyResult.response.status,
+      details: { reason: 'invalid_body' },
+    })
+    return rawBodyResult.response
+  }
+
+  const auth = authenticateSecuritySignalProducer(req, rawBodyResult.data, registry.producers)
+  if (!auth.ok) {
+    await trackSignal({
+      outcome: 'failure',
+      statusCode: auth.status,
+      producerAudit: auth.audit,
+      details: { reason: auth.reason },
+    })
+    return errorJson(auth.status, auth.code, auth.message)
+  }
+
+  producerAudit = auth.producer
+
+  const rateKey = producerAudit.producerId
+    ? `producer:${producerAudit.producerId}`
+    : buildRateLimitKey(req, null)
   const limitState = await rateLimit({
     bucket: 'security-signals',
     key: rateKey,
@@ -119,22 +173,19 @@ async function postSecuritySignals(req: Request) {
     )
   }
 
-  const parsed = await readJsonBody<Record<string, unknown>>(req, {
-    maxBytes: 128 * 1024,
-    allowEmpty: false,
-  })
-  if (!parsed.ok) {
+  let payload: unknown
+  try {
+    payload = JSON.parse(rawBodyResult.data) as unknown
+  } catch {
     await trackSignal({
       outcome: 'failure',
-      statusCode: parsed.response.status,
-      details: { reason: 'invalid_body' },
+      statusCode: 400,
+      details: { reason: 'invalid_json' },
     })
-    return parsed.response
+    return errorJson(400, 'invalid_json', 'Body must be valid JSON')
   }
 
-  const payload = parsed.data
   const signals = collectSignals(payload)
-
   if (signals.length === 0) {
     await trackSignal({
       outcome: 'failure',
@@ -153,10 +204,12 @@ async function postSecuritySignals(req: Request) {
     return errorJson(413, 'payload_too_large', `Maximum ${MAX_BATCH_SIGNALS} signals per request`)
   }
 
-  const enqueue = typeof payload.enqueue === 'boolean' ? payload.enqueue : true
-  const transport = normalizeTransport(payload.transport)
+  const body = asRecord(payload) ?? {}
+  const enqueue = typeof body.enqueue === 'boolean' ? body.enqueue : true
+  const transport = normalizeTransport(body.transport)
+  const preparedSignals = signals.map((signal) => attachProducerMetadata(signal, auth.producer))
 
-  const results = await ingestSecuritySignalsBatch(signals as Array<Record<string, unknown>>, {
+  const results = await ingestSecuritySignalsBatch(preparedSignals as Array<Record<string, unknown>>, {
     enqueue,
     transport,
     drain: true,
@@ -208,6 +261,9 @@ async function postSecuritySignals(req: Request) {
   return okJson({
     queued: enqueue,
     transport,
+    producerId: auth.producer.producerId,
+    producerType: auth.producer.producerType,
+    ingestVersion: auth.producer.ingestVersion,
     accepted,
     rejected,
     dropped,

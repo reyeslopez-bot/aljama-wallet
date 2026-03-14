@@ -35,6 +35,10 @@ export type SecuritySignalInput = {
   latitude?: number | null
   longitude?: number | null
   userAgent?: string | null
+  producerId?: string | null
+  producerType?: string | null
+  signatureVerified?: boolean
+  ingestVersion?: string | null
   details?: Record<string, unknown>
   detectedAt?: number | null
 }
@@ -285,6 +289,17 @@ function normalizeNumber(value: unknown): number | null {
     const parsed = Number(trimmed)
     if (Number.isFinite(parsed)) return parsed
   }
+  return null
+}
+
+function normalizeBoolean(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value
+  if (typeof value !== 'string') return null
+
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return null
+  if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on') return true
+  if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') return false
   return null
 }
 
@@ -952,6 +967,10 @@ function buildSignalRecord(input: SecuritySignalInput, transport: SecuritySignal
     latitude: input.latitude ?? null,
     longitude: input.longitude ?? null,
     userAgent: input.userAgent ?? null,
+    producerId: input.producerId ?? null,
+    producerType: input.producerType ?? null,
+    signatureVerified: input.signatureVerified ?? false,
+    ingestVersion: input.ingestVersion ?? null,
     details: input.details ?? {},
     detectedAt: normalizeDetectedAt(input.detectedAt ?? null),
     transport,
@@ -999,6 +1018,10 @@ async function persistSignalToForensicStore(signal: SecuritySignalRecord) {
         latitude: signal.latitude ?? null,
         longitude: signal.longitude ?? null,
         userAgent: signal.userAgent ?? null,
+        producerId: signal.producerId ?? null,
+        producerType: signal.producerType ?? null,
+        signatureVerified: signal.signatureVerified ?? false,
+        ingestVersion: signal.ingestVersion ?? null,
         transport: signal.transport,
         details: toJson(signal.details ?? {}),
         detectedAt: new Date(signal.detectedAt),
@@ -1115,6 +1138,10 @@ export function normalizeSecuritySignalInput(
     latitude,
     longitude,
     userAgent: readFirstString(raw, ['userAgent', 'ua']),
+    producerId: readFirstString(raw, ['producerId']),
+    producerType: readFirstString(raw, ['producerType']),
+    signatureVerified: normalizeBoolean(readFirstValue(raw, ['signatureVerified'])) ?? false,
+    ingestVersion: readFirstString(raw, ['ingestVersion']),
     details,
     detectedAt: normalizeTimestamp(readFirstValue(raw, ['detectedAt', 'timestamp', 'ts'])),
   }
@@ -1433,6 +1460,10 @@ export async function getRecentSecuritySignalsForensics(limit = 300): Promise<Se
       latitude: row.latitude,
       longitude: row.longitude,
       userAgent: row.userAgent,
+      producerId: row.producerId,
+      producerType: row.producerType,
+      signatureVerified: row.signatureVerified,
+      ingestVersion: row.ingestVersion,
       details: fromJsonRecord(row.details),
       detectedAt: row.detectedAt.getTime(),
       transport: toSignalTransport(row.transport),

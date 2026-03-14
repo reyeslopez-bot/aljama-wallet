@@ -7,6 +7,10 @@ type ReadJsonOptions = {
   allowEmpty?: boolean
 }
 
+type ReadTextResult =
+  | { ok: true; data: string }
+  | { ok: false; response: Response }
+
 type ReadJsonResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; response: Response }
@@ -21,10 +25,10 @@ function toUtf8ByteLength(input: string): number {
   return new TextEncoder().encode(input).length
 }
 
-export async function readJsonBody<T = unknown>(
+export async function readJsonTextBody(
   req: Request,
   options?: ReadJsonOptions,
-): Promise<ReadJsonResult<T>> {
+): Promise<ReadTextResult> {
   const maxBytes = options?.maxBytes ?? DEFAULT_MAX_BYTES
   const allowEmpty = options?.allowEmpty ?? true
 
@@ -59,6 +63,23 @@ export async function readJsonBody<T = unknown>(
         response: errorJson(400, 'empty_body', 'Request body is required'),
       }
     }
+    return { ok: true, data: '' }
+  }
+
+  return { ok: true, data: raw }
+}
+
+export async function readJsonBody<T = unknown>(
+  req: Request,
+  options?: ReadJsonOptions,
+): Promise<ReadJsonResult<T>> {
+  const rawResult = await readJsonTextBody(req, options)
+  if (!rawResult.ok) {
+    return rawResult
+  }
+
+  const raw = rawResult.data
+  if (!raw.trim()) {
     return { ok: true, data: {} as T }
   }
 

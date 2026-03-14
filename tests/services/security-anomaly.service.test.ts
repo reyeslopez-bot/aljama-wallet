@@ -122,6 +122,10 @@ describe('security-anomaly.service', () => {
         status: 401,
         ip: '203.0.113.9',
         principal: 'foo@example.com',
+        producerId: 'event-bus',
+        producerType: 'event_bus',
+        signatureVerified: true,
+        ingestVersion: 'hmac-sha256-v1',
       },
       {
         transport: 'api',
@@ -139,6 +143,10 @@ describe('security-anomaly.service', () => {
     expect(signals[0]?.outcome).toBe('blocked')
     expect(signals[0]?.ipHash).toMatch(/^[a-f0-9]{64}$/)
     expect(signals[0]?.transport).toBe('api')
+    expect(signals[0]?.producerId).toBe('event-bus')
+    expect(signals[0]?.producerType).toBe('event_bus')
+    expect(signals[0]?.signatureVerified).toBe(true)
+    expect(signals[0]?.ingestVersion).toBe('hmac-sha256-v1')
   })
 
   it('applies queue backpressure strategy by dropping the oldest signal', async () => {

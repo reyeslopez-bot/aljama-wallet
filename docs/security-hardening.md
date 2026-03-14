@@ -89,7 +89,7 @@ Behavior:
 Signal input interfaces:
 - Direct function path: `recordSecuritySignal(...)` for in-process route instrumentation.
 - Queue-backed service path: `ingestSecuritySignal(...)` / `ingestSecuritySignalsBatch(...)`.
-- Internal API path: `POST /api/security/signals` (token required) for external producers/event-bus forwarders.
+- Internal API path: `POST /api/security/signals` (HMAC-signed producer required) for external producers/event-bus forwarders.
 
 Queue adapter architecture:
 - Adapter contract:
@@ -199,7 +199,7 @@ Security anomaly configuration:
 
 Alert delivery configuration:
 - `SECURITY_ALERTS_API_TOKEN` (internal API read access)
-- `SECURITY_SIGNAL_INGEST_TOKEN` (internal API write access for signal ingestion)
+- `SECURITY_SIGNAL_INGEST_HMAC_PRODUCERS` (JSON map of producer ids to `{ secret, type }` for `/api/security/signals`)
 - `SECURITY_INTERNAL_ALLOWED_IPS` (optional comma-separated IP allowlist for internal-token APIs)
 - `SECURITY_ALERT_WEBHOOK_URL`
 - `SECURITY_ALERT_WEBHOOK_MIN_SEVERITY`
@@ -232,12 +232,15 @@ Alert delivery configuration:
 Operational read endpoint:
 - `GET /api/security/anomalies` (internal token required)
 Operational write endpoint:
-- `POST /api/security/signals` (internal token required)
+- `POST /api/security/signals` (HMAC-signed producer required)
+  Required headers:
+  `x-security-producer-id`
+  `x-security-signature: sha256=<hex>`
 
 ## Persistent Forensic State
 
 Security forensics now writes durable records to Postgres when configured (`PG_DATABASE_URL` or `POSTGRES_URL`):
-- `SecuritySignalEvent` for ingested/processed security signals.
+- `SecuritySignalEvent` for ingested/processed security signals, including producer audit fields (`producerId`, `producerType`, `signatureVerified`, `ingestVersion`) for signed ingress.
 - `SecurityAnomalyEvent` for detected anomalies linked to source signal IDs.
 - `SecurityAlertEvent` for emitted alerts and delivery metadata.
 - `XrplAction` for canonical XRPL action state.
