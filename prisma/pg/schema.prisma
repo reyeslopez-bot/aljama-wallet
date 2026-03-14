@@ -210,6 +210,35 @@ model WalletSigningIntent {
   @@index([transferLogId])
 }
 
+model WalletNonceState {
+  walletId   String
+  chainId    Int
+  nextNonce  Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@id([walletId, chainId])
+  @@index([updatedAt])
+}
+
+model NonceReservation {
+  id         String   @id @default(cuid())
+  walletId   String
+  chainId    Int
+  nonce      Int
+  actionId   String
+  status     String
+  txHash     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([walletId, chainId, nonce])
+  @@unique([walletId, chainId, actionId])
+  @@index([walletId, createdAt])
+  @@index([status, createdAt])
+  @@index([txHash])
+}
+
 model RiskDecision {
   id        String   @id @default(cuid())
   action    String

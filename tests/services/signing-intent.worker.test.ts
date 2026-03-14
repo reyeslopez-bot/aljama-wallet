@@ -8,6 +8,9 @@ const {
   mockGetWalletByChainAddress,
   mockRecordChainTransaction,
   mockMarkReplacedTransferAttempts,
+  mockMarkNonceReservationSubmitted,
+  mockMarkNonceReservationFailed,
+  mockReleaseNonceReservation,
   mockLogError,
   mockLogInfo,
   mockLogWarn,
@@ -20,6 +23,9 @@ const {
   mockGetWalletByChainAddress: vi.fn(),
   mockRecordChainTransaction: vi.fn(),
   mockMarkReplacedTransferAttempts: vi.fn(),
+  mockMarkNonceReservationSubmitted: vi.fn(),
+  mockMarkNonceReservationFailed: vi.fn(),
+  mockReleaseNonceReservation: vi.fn(),
   mockLogError: vi.fn(),
   mockLogInfo: vi.fn(),
   mockLogWarn: vi.fn(),
@@ -43,6 +49,12 @@ vi.mock('@/services/wallet.service', () => ({
 
 vi.mock('@/services/chain-transaction-sync.service', () => ({
   markReplacedTransferAttempts: mockMarkReplacedTransferAttempts,
+}))
+
+vi.mock('@/services/nonce-reservation.service', () => ({
+  markNonceReservationSubmitted: mockMarkNonceReservationSubmitted,
+  markNonceReservationFailed: mockMarkNonceReservationFailed,
+  releaseNonceReservation: mockReleaseNonceReservation,
 }))
 
 vi.mock('@/lib/security/logging', () => ({
@@ -77,6 +89,9 @@ describe('signing-intent.worker', () => {
       replacedTxHashes: [],
     })
     mockMarkReplacedTransferAttempts.mockResolvedValue(undefined)
+    mockMarkNonceReservationSubmitted.mockResolvedValue(undefined)
+    mockMarkNonceReservationFailed.mockResolvedValue(undefined)
+    mockReleaseNonceReservation.mockResolvedValue(undefined)
     mockUpdateTransferStatus.mockResolvedValue(undefined)
   })
 
@@ -100,6 +115,7 @@ describe('signing-intent.worker', () => {
       payload: buildEvmTransactionSigningIntentPayload({
         walletId: 'wallet-1',
         chainId: 8453,
+        nonceReservationId: 'nonce-1',
         fromAddress: '0x000000000000000000000000000000000000beef',
         toAddress: '0x000000000000000000000000000000000000dead',
         amountWei: '1000000000000000',
@@ -161,6 +177,7 @@ describe('signing-intent.worker', () => {
         nonce: 7,
       }),
     )
+    expect(mockMarkNonceReservationSubmitted).toHaveBeenCalledWith('nonce-1', '0xtxhash')
   })
 
   it('marks the intent failed when signing fails', async () => {
@@ -183,6 +200,7 @@ describe('signing-intent.worker', () => {
       payload: buildEvmTransactionSigningIntentPayload({
         walletId: 'wallet-1',
         chainId: 8453,
+        nonceReservationId: 'nonce-1',
         fromAddress: '0x000000000000000000000000000000000000beef',
         toAddress: '0x000000000000000000000000000000000000dead',
         amountWei: '1000000000000000',
@@ -218,5 +236,6 @@ describe('signing-intent.worker', () => {
       maxFeePerGas: null,
       maxPriorityFeePerGas: null,
     })
+    expect(mockReleaseNonceReservation).toHaveBeenCalledWith('nonce-1')
   })
 })

@@ -28,6 +28,8 @@ const {
   mockGetAddress,
   mockCreateWalletSigningIntent,
   mockBuildEvmTransactionSigningIntentPayload,
+  mockReserveWalletNonce,
+  mockReleaseNonceReservation,
 } = vi.hoisted(() => ({
   mockApproveTransfer: vi.fn(),
   mockBuildUnsignedEvmTx: vi.fn(),
@@ -56,6 +58,8 @@ const {
   mockGetAddress: vi.fn(),
   mockCreateWalletSigningIntent: vi.fn(),
   mockBuildEvmTransactionSigningIntentPayload: vi.fn(),
+  mockReserveWalletNonce: vi.fn(),
+  mockReleaseNonceReservation: vi.fn(),
 }))
 
 vi.mock('@/infra/agentic/wallet-policy', () => ({
@@ -75,6 +79,11 @@ vi.mock('@/services/policy.service', () => ({
 
 vi.mock('@/services/evm-tx.service', () => ({
   buildUnsignedEvmTx: mockBuildUnsignedEvmTx,
+}))
+
+vi.mock('@/services/nonce-reservation.service', () => ({
+  reserveWalletNonce: mockReserveWalletNonce,
+  releaseNonceReservation: mockReleaseNonceReservation,
 }))
 
 vi.mock('@/lib/security/session', () => ({
@@ -238,6 +247,11 @@ describe('app/api/wallet/send route', () => {
       id: 'intent-1',
       status: 'queued',
     })
+    mockReserveWalletNonce.mockResolvedValue({
+      id: 'nonce-1',
+      nonce: 7,
+    })
+    mockReleaseNonceReservation.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -348,11 +362,19 @@ describe('app/api/wallet/send route', () => {
       expect.objectContaining({
         walletId: 'wallet-1',
         chainId: 8453,
+        nonceReservationId: 'nonce-1',
         fromAddress: '0x000000000000000000000000000000000000beef',
         toAddress: '0x000000000000000000000000000000000000dead',
         amountWei: '1000000000000000',
         txType: 'transfer',
         transferLogId: 'log-1',
+      }),
+    )
+    expect(mockReserveWalletNonce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        walletId: 'wallet-1',
+        chainId: 8453,
+        walletAddress: '0x000000000000000000000000000000000000beef',
       }),
     )
     expect(mockCreateWalletSigningIntent).toHaveBeenCalledWith(

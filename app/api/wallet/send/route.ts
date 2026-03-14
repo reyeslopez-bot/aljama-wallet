@@ -7,6 +7,10 @@ import {
   getWalletSigningAccount,
 } from '@/services/wallet.service'
 import {
+  releaseNonceReservation,
+  reserveWalletNonce,
+} from '@/services/nonce-reservation.service'
+import {
   evaluateStoredWalletPolicies,
   getWalletDailyLimitWei,
   recordPolicyEvents,
@@ -81,6 +85,8 @@ function safeUuid() {
 
 export async function sendWalletRequest(req: Request, walletIdOverride?: string) {
   let transferLogId: string | null = null
+  let nonceReservationId: string | null = null
+  let keepNonceReservation = false
   const signalContext = extractRequestSignalContext(req)
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
@@ -229,8 +235,6 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
     const correlationId = safeUuid()
     const idempotencyKey = input.idempotencyKey
 
-    const unsignedTx = await buildUnsignedEvmTx(input, wallet.address, provider)
-
     const spentTodayWei = await getSpentTodayWei(input.walletId, input.chainId)
     const dailyLimitWei = await getWalletDailyLimitWei({
       walletId: input.walletId,
@@ -295,6 +299,31 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       )
     }
 
+    await reserveIdempotencyKey({
+      scope: `wallet.send:${input.walletId}`,
+      key: input.idempotencyKey,
+      ttlMs: 10 * 60 * 1000,
+    })
+
+    const nonceReservation = await reserveWalletNonce({
+      walletId: input.walletId,
+      walletAddress: wallet.address,
+      chainId: input.chainId,
+      actionId: correlationId,
+      provider,
+      requestedNonce: input.nonce,
+    })
+    nonceReservationId = nonceReservation.id
+
+    const unsignedTx = await buildUnsignedEvmTx(
+      {
+        ...input,
+        nonce: nonceReservation.nonce,
+      },
+      wallet.address,
+      provider,
+    )
+
     let intent
     try {
       intent = approveTransfer(
@@ -305,7 +334,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
           to: normalizedDestination,
           amountWei: input.amountWei,
           maxFeePerGasWei: input.maxFeePerGasWei,
-          nonce: unsignedTx.nonce,
+          nonce: nonceReservation.nonce,
           idempotencyKey,
           correlationId,
         },
@@ -356,6 +385,10 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
         }).catch((policyError) => {
           logError('wallet-send:policy-limit', policyError)
         })
+        if (nonceReservationId) {
+          await releaseNonceReservation(nonceReservationId).catch(() => {})
+          nonceReservationId = null
+        }
 
         return errorJson(403, 'limit_exceeded', 'LIMIT_EXCEEDED')
       }
@@ -397,6 +430,10 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
           walletId: intent.fromWalletId,
         },
       })
+      if (nonceReservationId) {
+        await releaseNonceReservation(nonceReservationId).catch(() => {})
+        nonceReservationId = null
+      }
 
       return errorJson(
         403,
@@ -405,12 +442,6 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
         { score: risk.score, reasons: risk.reasons },
       )
     }
-
-    await reserveIdempotencyKey({
-      scope: `wallet.send:${input.walletId}`,
-      key: input.idempotencyKey,
-      ttlMs: 10 * 60 * 1000,
-    })
 
     const log = await recordTransferAttempt({
       walletId: intent.fromWalletId,
@@ -444,6 +475,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       payload: buildEvmTransactionSigningIntentPayload({
         walletId: intent.fromWalletId,
         chainId: intent.chainId,
+        nonceReservationId,
         fromAddress: wallet.address,
         toAddress: intent.to,
         amountWei: intent.amountWei,
@@ -453,6 +485,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
         transaction: unsignedTx,
       }),
     })
+    keepNonceReservation = true
 
     await trackSignal({
       outcome: 'success',
@@ -479,24 +512,28 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       transferLogId: log.id,
     }, { status: 202 })
   } catch (error) {
+    if (nonceReservationId && !keepNonceReservation) {
+      await releaseNonceReservation(nonceReservationId).catch(() => {})
+    }
     if (transferLogId) {
       await updateTransferStatus(transferLogId, 'failed').catch(() => {})
     }
     const message = getErrorMessage(error, 'Failed to send transaction')
     const isReplay = message === 'IDEMPOTENCY_REPLAY' || message === 'SIGNING_INTENT_REPLAY'
-    const status = isReplay ? 409 : 400
+    const isNonceConflict = message === 'NONCE_TOO_LOW' || message === 'NONCE_ALREADY_RESERVED'
+    const status = isReplay || isNonceConflict ? 409 : 400
     logError('wallet-send', error)
     await trackSignal({
       outcome: 'failure',
       statusCode: status,
       details: {
-        reason: isReplay ? 'idempotency_replay' : 'send_failed',
+        reason: isReplay ? 'idempotency_replay' : isNonceConflict ? 'nonce_conflict' : 'send_failed',
         message,
       },
     })
     return errorJson(
       status,
-      isReplay ? 'idempotency_replay' : 'send_failed',
+      isReplay ? 'idempotency_replay' : isNonceConflict ? 'nonce_conflict' : 'send_failed',
       message,
     )
   }

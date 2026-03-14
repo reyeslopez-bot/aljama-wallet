@@ -38,6 +38,7 @@ export const evmTransactionSigningIntentPayloadSchema = z.object({
   kind: z.literal('evm-transaction'),
   walletId: z.string().min(3),
   chainId: z.number().int().positive(),
+  nonceReservationId: z.string().min(1).optional().nullable(),
   fromAddress: z.string().min(1),
   toAddress: z.string().min(1),
   amountWei: z.string().regex(/^\d+$/),
@@ -223,6 +224,7 @@ export function serializeEvmTransactionRequest(transaction: TransactionRequest):
 export function buildEvmTransactionSigningIntentPayload(input: {
   walletId: string
   chainId: number
+  nonceReservationId?: string | null
   fromAddress: string
   toAddress: string
   amountWei: string
@@ -235,6 +237,7 @@ export function buildEvmTransactionSigningIntentPayload(input: {
     kind: 'evm-transaction',
     walletId: input.walletId,
     chainId: input.chainId,
+    nonceReservationId: input.nonceReservationId ?? null,
     fromAddress: input.fromAddress,
     toAddress: input.toAddress,
     amountWei: input.amountWei,

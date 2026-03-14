@@ -13,6 +13,11 @@ import {
   markWalletSigningIntentSigned,
   type EvmTransactionSigningIntentPayload,
 } from '@/services/signing-intent.service'
+import {
+  markNonceReservationFailed,
+  markNonceReservationSubmitted,
+  releaseNonceReservation,
+} from '@/services/nonce-reservation.service'
 import { updateTransferStatus } from '@/services/transfer-log.service'
 import { getWalletByChainAddress, recordChainTransaction } from '@/services/wallet.service'
 import { getErrorMessage } from '@/lib/security/errors'
@@ -116,70 +121,88 @@ async function processClaimedSigningIntent(
   intentId: string,
   provider: JsonRpcProvider,
 ) {
-  const signedPayload = await signUnsignedEvmTx(
-    payload.walletId,
-    payload.chainId,
-    payload.transaction as unknown as TransactionRequest,
-  )
-  const derivedHash = deriveSignedEvmTxHash(signedPayload) ?? null
-
-  await markWalletSigningIntentSigned(intentId, {
-    signedPayload,
-    txHash: derivedHash,
-  })
-
-  const broadcastTxHash = await submitSignedEvmTx(provider, signedPayload)
-  const txHash = broadcastTxHash || derivedHash
-  if (!txHash) {
-    throw new Error('Unable to determine submitted transaction hash')
-  }
-
-  await markWalletSigningIntentBroadcasted(intentId, {
-    signedPayload,
-    txHash,
-  })
-  await markTransferBroadcasted(payload, txHash)
-
-  const recipient = await getWalletByChainAddress({
-    address: payload.toAddress,
-    chainType: 'EVM',
-    networkId: String(payload.chainId),
-  }).catch(() => null)
+  let broadcastAttempted = false
 
   try {
-    const chainRecord = await recordChainTransaction({
-      chainId: payload.chainId,
-      txHash,
-      fromWalletId: payload.walletId,
-      fromAddress: payload.fromAddress,
-      toWalletId: recipient?.id ?? null,
-      toAddress: payload.toAddress,
-      valueBaseUnits: BigInt(payload.amountWei),
-      asset: 'native',
-      status: 'broadcasted',
-      txType: payload.txType,
-      nonce: payload.transaction.nonce ?? null,
-      gasLimit: payload.transaction.gasLimit ?? null,
-      gasPrice: payload.transaction.gasPrice ?? null,
-      maxFeePerGas: payload.transaction.maxFeePerGas ?? null,
-      maxPriorityFeePerGas: payload.transaction.maxPriorityFeePerGas ?? null,
-      data: payload.data ?? payload.transaction.data ?? null,
+    const signedPayload = await signUnsignedEvmTx(
+      payload.walletId,
+      payload.chainId,
+      payload.transaction as unknown as TransactionRequest,
+    )
+    const derivedHash = deriveSignedEvmTxHash(signedPayload) ?? null
+
+    await markWalletSigningIntentSigned(intentId, {
+      signedPayload,
+      txHash: derivedHash,
     })
 
-    if (chainRecord.replacedTxHashes[0]) {
-      await markTransferBroadcasted(payload, txHash, chainRecord.replacedTxHashes[0])
+    broadcastAttempted = true
+    const broadcastTxHash = await submitSignedEvmTx(provider, signedPayload)
+    const txHash = broadcastTxHash || derivedHash
+    if (!txHash) {
+      throw new Error('Unable to determine submitted transaction hash')
     }
-    await markReplacedTransferAttempts(chainRecord.replacedTxHashes, txHash)
-  } catch (error) {
-    logError('wallet-signing-intent-worker:chain-transaction', error, {
-      intentId,
-      walletId: payload.walletId,
-      chainId: payload.chainId,
+
+    if (payload.nonceReservationId) {
+      await markNonceReservationSubmitted(payload.nonceReservationId, txHash)
+    }
+
+    await markWalletSigningIntentBroadcasted(intentId, {
+      signedPayload,
       txHash,
     })
-  }
+    await markTransferBroadcasted(payload, txHash)
 
-  return { txHash }
+    const recipient = await getWalletByChainAddress({
+      address: payload.toAddress,
+      chainType: 'EVM',
+      networkId: String(payload.chainId),
+    }).catch(() => null)
+
+    try {
+      const chainRecord = await recordChainTransaction({
+        chainId: payload.chainId,
+        txHash,
+        fromWalletId: payload.walletId,
+        fromAddress: payload.fromAddress,
+        toWalletId: recipient?.id ?? null,
+        toAddress: payload.toAddress,
+        valueBaseUnits: BigInt(payload.amountWei),
+        asset: 'native',
+        status: 'broadcasted',
+        txType: payload.txType,
+        nonce: payload.transaction.nonce ?? null,
+        gasLimit: payload.transaction.gasLimit ?? null,
+        gasPrice: payload.transaction.gasPrice ?? null,
+        maxFeePerGas: payload.transaction.maxFeePerGas ?? null,
+        maxPriorityFeePerGas: payload.transaction.maxPriorityFeePerGas ?? null,
+        data: payload.data ?? payload.transaction.data ?? null,
+      })
+
+      if (chainRecord.replacedTxHashes[0]) {
+        await markTransferBroadcasted(payload, txHash, chainRecord.replacedTxHashes[0])
+      }
+      await markReplacedTransferAttempts(chainRecord.replacedTxHashes, txHash)
+    } catch (error) {
+      logError('wallet-signing-intent-worker:chain-transaction', error, {
+        intentId,
+        walletId: payload.walletId,
+        chainId: payload.chainId,
+        txHash,
+      })
+    }
+
+    return { txHash }
+  } catch (error) {
+    if (payload.nonceReservationId) {
+      if (broadcastAttempted) {
+        await markNonceReservationFailed(payload.nonceReservationId).catch(() => {})
+      } else {
+        await releaseNonceReservation(payload.nonceReservationId).catch(() => {})
+      }
+    }
+    throw error
+  }
 }
 
 export async function processWalletSigningIntentQueuePass(

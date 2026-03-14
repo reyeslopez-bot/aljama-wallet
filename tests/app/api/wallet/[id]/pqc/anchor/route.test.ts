@@ -15,6 +15,10 @@ const {
   mockSignUnsignedEvmTx,
   mockDeriveSignedEvmTxHash,
   mockSubmitSignedEvmTx,
+  mockReserveWalletNonce,
+  mockReleaseNonceReservation,
+  mockMarkNonceReservationSubmitted,
+  mockMarkNonceReservationFailed,
   mockCreateWalletPqcAnchorRecord,
   mockProviderCtor,
   mockProviderGetNetwork,
@@ -34,6 +38,10 @@ const {
   mockSignUnsignedEvmTx: vi.fn(),
   mockDeriveSignedEvmTxHash: vi.fn(),
   mockSubmitSignedEvmTx: vi.fn(),
+  mockReserveWalletNonce: vi.fn(),
+  mockReleaseNonceReservation: vi.fn(),
+  mockMarkNonceReservationSubmitted: vi.fn(),
+  mockMarkNonceReservationFailed: vi.fn(),
   mockCreateWalletPqcAnchorRecord: vi.fn(),
   mockProviderCtor: vi.fn(),
   mockProviderGetNetwork: vi.fn(),
@@ -73,6 +81,13 @@ vi.mock('@/services/evm-tx.service', () => ({
   signUnsignedEvmTx: mockSignUnsignedEvmTx,
   deriveSignedEvmTxHash: mockDeriveSignedEvmTxHash,
   submitSignedEvmTx: mockSubmitSignedEvmTx,
+}))
+
+vi.mock('@/services/nonce-reservation.service', () => ({
+  reserveWalletNonce: mockReserveWalletNonce,
+  releaseNonceReservation: mockReleaseNonceReservation,
+  markNonceReservationSubmitted: mockMarkNonceReservationSubmitted,
+  markNonceReservationFailed: mockMarkNonceReservationFailed,
 }))
 
 vi.mock('@/services/wallet-pqc-anchor.service', () => ({
@@ -142,6 +157,10 @@ describe('app/api/wallet/[id]/pqc/anchor route', () => {
     mockSignUnsignedEvmTx.mockResolvedValue('0xsigned')
     mockDeriveSignedEvmTxHash.mockReturnValue('0xderived')
     mockSubmitSignedEvmTx.mockResolvedValue('0xtxhash')
+    mockReserveWalletNonce.mockResolvedValue({ id: 'nonce-1', nonce: 7 })
+    mockReleaseNonceReservation.mockResolvedValue(undefined)
+    mockMarkNonceReservationSubmitted.mockResolvedValue(undefined)
+    mockMarkNonceReservationFailed.mockResolvedValue(undefined)
     mockCreateWalletPqcAnchorRecord.mockResolvedValue({ id: 'anchor-1' })
     mockRecordChainTransaction.mockResolvedValue({ record: { id: 'chain-1' }, replacedTxHashes: [] })
     mockSetWalletPqcBindingHash.mockResolvedValue({ id: 'wallet-1', pqcBindingHash: '0xhash' })
@@ -313,6 +332,7 @@ describe('app/api/wallet/[id]/pqc/anchor route', () => {
       expect.objectContaining({
         to: '0x000000000000000000000000000000000000beef',
         chainId: 8453,
+        nonce: 7,
         data: encodeCommitPqcBindingCalldata({
           statementHash: hashes.statementHash,
           signatureHash: hashes.signatureHash,
@@ -324,6 +344,14 @@ describe('app/api/wallet/[id]/pqc/anchor route', () => {
       '0x000000000000000000000000000000000000beef',
       expect.any(Object),
     )
+    expect(mockReserveWalletNonce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        walletId: 'wallet-1',
+        chainId: 8453,
+        walletAddress: '0x000000000000000000000000000000000000beef',
+      }),
+    )
+    expect(mockMarkNonceReservationSubmitted).toHaveBeenCalledWith('nonce-1', '0xtxhash')
     expect(mockCreateWalletPqcAnchorRecord).toHaveBeenCalledWith(
       expect.objectContaining({
         walletId: 'wallet-1',

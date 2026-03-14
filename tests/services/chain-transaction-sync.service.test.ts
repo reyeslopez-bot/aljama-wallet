@@ -11,6 +11,10 @@ const {
   mockChainTransactionUpdate,
   mockTokenTransferDeleteMany,
   mockUpdateTransferAttemptByTxHash,
+  mockMarkNonceReservationConfirmedByTxHash,
+  mockMarkNonceReservationFailedByTxHash,
+  mockMarkNonceReservationsFailedByTxHashes,
+  mockMarkNonceReservationSubmittedByTxHash,
 } = vi.hoisted(() => ({
   mockProviderGetBlock: vi.fn(),
   mockProviderGetTransaction: vi.fn(),
@@ -22,6 +26,10 @@ const {
   mockChainTransactionUpdate: vi.fn(),
   mockTokenTransferDeleteMany: vi.fn(),
   mockUpdateTransferAttemptByTxHash: vi.fn(),
+  mockMarkNonceReservationConfirmedByTxHash: vi.fn(),
+  mockMarkNonceReservationFailedByTxHash: vi.fn(),
+  mockMarkNonceReservationsFailedByTxHashes: vi.fn(),
+  mockMarkNonceReservationSubmittedByTxHash: vi.fn(),
 }))
 
 vi.mock('ethers', () => ({
@@ -69,6 +77,13 @@ vi.mock('@/services/wallet.service', () => ({
   resolveWalletIdsByAddresses: vi.fn(),
 }))
 
+vi.mock('@/services/nonce-reservation.service', () => ({
+  markNonceReservationConfirmedByTxHash: mockMarkNonceReservationConfirmedByTxHash,
+  markNonceReservationFailedByTxHash: mockMarkNonceReservationFailedByTxHash,
+  markNonceReservationsFailedByTxHashes: mockMarkNonceReservationsFailedByTxHashes,
+  markNonceReservationSubmittedByTxHash: mockMarkNonceReservationSubmittedByTxHash,
+}))
+
 describe('chain-transaction-sync.service', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -109,6 +124,10 @@ describe('chain-transaction-sync.service', () => {
     mockChainLogDeleteMany.mockResolvedValue({ count: 2 })
     mockTokenTransferDeleteMany.mockResolvedValue({ count: 1 })
     mockUpdateTransferAttemptByTxHash.mockResolvedValue(undefined)
+    mockMarkNonceReservationConfirmedByTxHash.mockResolvedValue(undefined)
+    mockMarkNonceReservationFailedByTxHash.mockResolvedValue(undefined)
+    mockMarkNonceReservationsFailedByTxHashes.mockResolvedValue(undefined)
+    mockMarkNonceReservationSubmittedByTxHash.mockResolvedValue(undefined)
     mockProviderGetTransactionReceipt.mockResolvedValue(null)
     mockProviderGetBlock.mockResolvedValue({ hash: '0xnew-block' })
     mockProviderGetTransaction.mockResolvedValue({ hash: '0xtx' })
@@ -170,6 +189,7 @@ describe('chain-transaction-sync.service', () => {
       gasUsed: null,
       confirmedAt: null,
     })
+    expect(mockMarkNonceReservationSubmittedByTxHash).toHaveBeenCalledWith('0xtx')
     expect(result).toEqual({
       processedCount: 1,
       succeededCount: 1,

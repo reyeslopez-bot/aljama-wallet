@@ -17,6 +17,12 @@ import {
   submitSignedEvmTx,
 } from '@/services/evm-tx.service'
 import { reserveIdempotencyKey } from '@/services/idempotency.service'
+import {
+  markNonceReservationFailed,
+  markNonceReservationSubmitted,
+  releaseNonceReservation,
+  reserveWalletNonce,
+} from '@/services/nonce-reservation.service'
 import { createWalletPqcAnchorRecord } from '@/services/wallet-pqc-anchor.service'
 import { getWalletSigningAccount, recordChainTransaction, setWalletPqcBindingHash } from '@/services/wallet.service'
 import { userOwnsWallet } from '@/services/wallet-ownership.service'
@@ -93,6 +99,8 @@ function stringifyTxValue(value: string | bigint | number | null | undefined): s
 }
 
 export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverride?: string) {
+  let nonceReservationId: string | null = null
+  let broadcastAttempted = false
   try {
     const session = await requireSession()
     if (!session) {
@@ -224,23 +232,35 @@ export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverri
       uri: canonicalUri,
     })
 
+    const nonceReservation = await reserveWalletNonce({
+      walletId: wallet.id,
+      walletAddress: wallet.address,
+      chainId: input.chainId,
+      actionId: `wallet-pqc-anchor:${input.idempotencyKey}`,
+      provider,
+    })
+    nonceReservationId = nonceReservation.id
+
     const unsignedTx = await buildUnsignedEvmContractTx(
       {
         to: registryAddress,
         data,
         chainId: input.chainId,
         valueWei: '0',
+        nonce: nonceReservation.nonce,
       },
       wallet.address,
       provider,
     )
     const signedPayload = await signUnsignedEvmTx(wallet.id, input.chainId, unsignedTx)
     const derivedTxHash = deriveSignedEvmTxHash(signedPayload)
+    broadcastAttempted = true
     const submittedTxHash = await submitSignedEvmTx(provider, signedPayload)
     const txHash = submittedTxHash || derivedTxHash
     if (!txHash) {
       throw new Error('Unable to determine submitted transaction hash')
     }
+    await markNonceReservationSubmitted(nonceReservation.id, txHash)
 
     let anchorRecorded = false
     let chainTransactionRecorded = false
@@ -298,6 +318,13 @@ export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverri
       chainTransactionRecorded,
     })
   } catch (error) {
+    if (nonceReservationId) {
+      if (broadcastAttempted) {
+        await markNonceReservationFailed(nonceReservationId).catch(() => {})
+      } else {
+        await releaseNonceReservation(nonceReservationId).catch(() => {})
+      }
+    }
     if (error instanceof z.ZodError) {
       return errorJson(400, 'invalid_request', 'INVALID_REQUEST', error.flatten())
     }

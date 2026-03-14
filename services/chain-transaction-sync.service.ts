@@ -3,6 +3,12 @@ import { normalizeChainTransactionStatus } from '@/lib/chain-transactions'
 import { prismaCrdb } from '@/lib/prisma-crdb'
 import { logWarn } from '@/lib/security/logging'
 import {
+  markNonceReservationConfirmedByTxHash,
+  markNonceReservationFailedByTxHash,
+  markNonceReservationsFailedByTxHashes,
+  markNonceReservationSubmittedByTxHash,
+} from '@/services/nonce-reservation.service'
+import {
   replaceTransferAttemptsByTxHashes,
   updateTransferAttemptByTxHash,
 } from '@/services/transfer-log.service'
@@ -520,6 +526,11 @@ async function syncRow(
       blockHash,
       confirmedAt,
     })
+    if (nextStatus === 'confirmed') {
+      await markNonceReservationConfirmedByTxHash(row.txHash)
+    } else {
+      await markNonceReservationFailedByTxHash(row.txHash)
+    }
 
     if (nextStatus === 'confirmed') {
       await persistTokenTransfers({
@@ -589,6 +600,7 @@ async function syncRow(
       gasUsed: null,
       confirmedAt: null,
     })
+    await markNonceReservationSubmittedByTxHash(row.txHash)
     normalizedStatus = 'pending'
   }
 
@@ -615,6 +627,7 @@ async function syncRow(
       await updateTransferAttemptByTxHash(row.txHash, {
         status: 'pending',
       })
+      await markNonceReservationSubmittedByTxHash(row.txHash)
     }
     return
   }
@@ -643,6 +656,7 @@ async function syncRow(
     await updateTransferAttemptByTxHash(row.txHash, {
       status: 'dropped',
     })
+    await markNonceReservationFailedByTxHash(row.txHash)
   }
 }
 
@@ -697,4 +711,5 @@ export async function syncRecentEvmChainTransactions(params?: {
 
 export async function markReplacedTransferAttempts(replacedTxHashes: string[], replacedByTxHash: string) {
   await replaceTransferAttemptsByTxHashes(replacedTxHashes, replacedByTxHash)
+  await markNonceReservationsFailedByTxHashes(replacedTxHashes)
 }
