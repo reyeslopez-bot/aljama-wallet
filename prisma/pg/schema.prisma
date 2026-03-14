@@ -184,6 +184,32 @@ model WalletTransferLog {
   @@index([replacesTxHash])
 }
 
+model WalletSigningIntent {
+  id                String   @id @default(cuid())
+  intentType        String
+  status            String
+  walletId          String
+  userId            String?
+  chainId           Int
+  idempotencyKey    String
+  correlationId     String
+  transferLogId     String?
+  payload           Json
+  signedPayload     String?
+  txHash            String?
+  errorCode         String?
+  errorDetails      Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([walletId, idempotencyKey, intentType])
+  @@index([walletId, createdAt])
+  @@index([status, createdAt])
+  @@index([correlationId])
+  @@index([txHash])
+  @@index([transferLogId])
+}
+
 model RiskDecision {
   id        String   @id @default(cuid())
   action    String

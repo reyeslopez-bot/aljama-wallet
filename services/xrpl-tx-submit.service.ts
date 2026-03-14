@@ -13,7 +13,8 @@ import {
 import { type XrplNetworkId } from '@/lib/xrpl-networks'
 import { getErrorMessage } from '@/lib/security/errors'
 import { reserveIdempotencyKey } from '@/services/idempotency.service'
-import { getSigner, resolveSigningAccount } from '@/services/signer.service'
+import { signXrplTransactionViaSignerService } from '@/services/signer-client.service'
+import { resolveSigningAccount } from '@/services/signer.service'
 
 export type XrplSubmitResult<T extends BaseTransaction = SubmittableTransaction> = {
   account: string
@@ -127,20 +128,10 @@ export async function signUnsignedXrplTx<T extends XrplPreparedTransaction>(inpu
   prepared: T
   accountRef?: SignerAccountRef
 }) {
-  const accountRef = getResolvedAccountRef(input.accountRef)
-  const result = await getSigner().sign(
-    {
-      kind: 'xrpl-transaction',
-      preparedTransaction: input.prepared,
-    },
-    accountRef,
-  )
-
-  if (result.kind !== 'xrpl-transaction') {
-    throw new Error('SIGNER_CHAIN_MISMATCH')
-  }
-
-  return result
+  return signXrplTransactionViaSignerService({
+    prepared: input.prepared,
+    accountRef: getResolvedAccountRef(input.accountRef),
+  })
 }
 
 export async function submitSignedXrplTx<T extends SubmittableTransaction>(

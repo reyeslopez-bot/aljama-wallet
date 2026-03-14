@@ -1,0 +1,296 @@
+import { pathToFileURL } from 'node:url'
+import { JsonRpcProvider, type TransactionRequest } from 'ethers'
+import { markReplacedTransferAttempts } from '@/services/chain-transaction-sync.service'
+import {
+  deriveSignedEvmTxHash,
+  signUnsignedEvmTx,
+  submitSignedEvmTx,
+} from '@/services/evm-tx.service'
+import {
+  claimNextQueuedWalletSigningIntent,
+  markWalletSigningIntentBroadcasted,
+  markWalletSigningIntentFailed,
+  markWalletSigningIntentSigned,
+  type EvmTransactionSigningIntentPayload,
+} from '@/services/signing-intent.service'
+import { updateTransferStatus } from '@/services/transfer-log.service'
+import { getWalletByChainAddress, recordChainTransaction } from '@/services/wallet.service'
+import { getErrorMessage } from '@/lib/security/errors'
+import { logError, logInfo, logWarn } from '@/lib/security/logging'
+
+type WalletSigningIntentWorkerConfig = {
+  intervalMs: number
+  batchSize: number
+}
+
+type WalletSigningIntentWorkerPassResult = {
+  processedCount: number
+  succeededCount: number
+  failedCount: number
+}
+
+const DEFAULT_INTERVAL_MS = 1_000
+const DEFAULT_BATCH_SIZE = 10
+
+function parsePositiveInteger(rawValue: string | undefined, fallback: number, fieldName: string): number {
+  if (!rawValue?.trim()) return fallback
+
+  const parsed = Number(rawValue)
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${fieldName} must be a positive integer`)
+  }
+
+  return parsed
+}
+
+function readWorkerConfig(): WalletSigningIntentWorkerConfig {
+  return {
+    intervalMs: parsePositiveInteger(
+      process.env.SIGNING_INTENT_WORKER_INTERVAL_MS,
+      DEFAULT_INTERVAL_MS,
+      'SIGNING_INTENT_WORKER_INTERVAL_MS',
+    ),
+    batchSize: parsePositiveInteger(
+      process.env.SIGNING_INTENT_WORKER_BATCH_SIZE,
+      DEFAULT_BATCH_SIZE,
+      'SIGNING_INTENT_WORKER_BATCH_SIZE',
+    ),
+  }
+}
+
+function requireRpcUrl() {
+  const rpcUrl = process.env.EVM_RPC_URL
+  if (!rpcUrl) throw new Error('Missing EVM_RPC_URL')
+  if (process.env.NODE_ENV === 'production' && !rpcUrl.startsWith('https://')) {
+    throw new Error('EVM_RPC_URL must use https in production')
+  }
+  return rpcUrl
+}
+
+function stringifyTxValue(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined) return null
+  const normalized = String(value).trim()
+  return normalized ? normalized : null
+}
+
+async function markTransferBroadcasted(
+  payload: EvmTransactionSigningIntentPayload,
+  txHash: string,
+  replacesTxHash?: string | null,
+) {
+  if (!payload.transferLogId) return
+
+  await updateTransferStatus(payload.transferLogId, 'broadcasted', {
+    txHash,
+    nonce: stringifyTxValue(payload.transaction.nonce ?? null),
+    txType: payload.txType,
+    data: payload.data ?? null,
+    gasLimit: payload.transaction.gasLimit ?? null,
+    gasPrice: payload.transaction.gasPrice ?? null,
+    maxFeePerGas: payload.transaction.maxFeePerGas ?? null,
+    maxPriorityFeePerGas: payload.transaction.maxPriorityFeePerGas ?? null,
+    replacesTxHash: replacesTxHash ?? undefined,
+  })
+}
+
+async function markTransferFailed(
+  payload: EvmTransactionSigningIntentPayload | null,
+  txHash?: string | null,
+) {
+  if (!payload?.transferLogId) return
+
+  await updateTransferStatus(payload.transferLogId, 'failed', {
+    txHash: txHash ?? undefined,
+    nonce: stringifyTxValue(payload.transaction.nonce ?? null),
+    txType: payload.txType,
+    data: payload.data ?? null,
+    gasLimit: payload.transaction.gasLimit ?? null,
+    gasPrice: payload.transaction.gasPrice ?? null,
+    maxFeePerGas: payload.transaction.maxFeePerGas ?? null,
+    maxPriorityFeePerGas: payload.transaction.maxPriorityFeePerGas ?? null,
+  })
+}
+
+async function processClaimedSigningIntent(
+  payload: EvmTransactionSigningIntentPayload,
+  intentId: string,
+  provider: JsonRpcProvider,
+) {
+  const signedPayload = await signUnsignedEvmTx(
+    payload.walletId,
+    payload.chainId,
+    payload.transaction as unknown as TransactionRequest,
+  )
+  const derivedHash = deriveSignedEvmTxHash(signedPayload) ?? null
+
+  await markWalletSigningIntentSigned(intentId, {
+    signedPayload,
+    txHash: derivedHash,
+  })
+
+  const broadcastTxHash = await submitSignedEvmTx(provider, signedPayload)
+  const txHash = broadcastTxHash || derivedHash
+  if (!txHash) {
+    throw new Error('Unable to determine submitted transaction hash')
+  }
+
+  await markWalletSigningIntentBroadcasted(intentId, {
+    signedPayload,
+    txHash,
+  })
+  await markTransferBroadcasted(payload, txHash)
+
+  const recipient = await getWalletByChainAddress({
+    address: payload.toAddress,
+    chainType: 'EVM',
+    networkId: String(payload.chainId),
+  }).catch(() => null)
+
+  try {
+    const chainRecord = await recordChainTransaction({
+      chainId: payload.chainId,
+      txHash,
+      fromWalletId: payload.walletId,
+      fromAddress: payload.fromAddress,
+      toWalletId: recipient?.id ?? null,
+      toAddress: payload.toAddress,
+      valueBaseUnits: BigInt(payload.amountWei),
+      asset: 'native',
+      status: 'broadcasted',
+      txType: payload.txType,
+      nonce: payload.transaction.nonce ?? null,
+      gasLimit: payload.transaction.gasLimit ?? null,
+      gasPrice: payload.transaction.gasPrice ?? null,
+      maxFeePerGas: payload.transaction.maxFeePerGas ?? null,
+      maxPriorityFeePerGas: payload.transaction.maxPriorityFeePerGas ?? null,
+      data: payload.data ?? payload.transaction.data ?? null,
+    })
+
+    if (chainRecord.replacedTxHashes[0]) {
+      await markTransferBroadcasted(payload, txHash, chainRecord.replacedTxHashes[0])
+    }
+    await markReplacedTransferAttempts(chainRecord.replacedTxHashes, txHash)
+  } catch (error) {
+    logError('wallet-signing-intent-worker:chain-transaction', error, {
+      intentId,
+      walletId: payload.walletId,
+      chainId: payload.chainId,
+      txHash,
+    })
+  }
+
+  return { txHash }
+}
+
+export async function processWalletSigningIntentQueuePass(
+  input?: Partial<WalletSigningIntentWorkerConfig>,
+): Promise<WalletSigningIntentWorkerPassResult> {
+  const config = {
+    ...readWorkerConfig(),
+    ...(input ?? {}),
+  }
+  const provider = new JsonRpcProvider(requireRpcUrl())
+
+  let processedCount = 0
+  let succeededCount = 0
+  let failedCount = 0
+
+  for (let index = 0; index < config.batchSize; index += 1) {
+    const intent = await claimNextQueuedWalletSigningIntent()
+    if (!intent) break
+
+    processedCount += 1
+    let payload: EvmTransactionSigningIntentPayload | null = null
+    let txHash: string | null = intent.txHash
+
+    try {
+      payload = intent.payload
+      const result = await processClaimedSigningIntent(payload, intent.id, provider)
+      txHash = result.txHash
+      succeededCount += 1
+      logInfo('wallet-signing-intent-worker:pass', 'Processed signing intent', {
+        intentId: intent.id,
+        walletId: payload.walletId,
+        chainId: payload.chainId,
+        txHash,
+      })
+    } catch (error) {
+      failedCount += 1
+      const errorCode = getErrorMessage(error, 'SIGNING_INTENT_FAILED')
+      await markWalletSigningIntentFailed(intent.id, {
+        errorCode,
+        errorDetails: {
+          walletId: payload?.walletId ?? intent.walletId,
+          chainId: payload?.chainId ?? intent.chainId,
+        },
+        txHash,
+      }).catch(() => {})
+      await markTransferFailed(payload, txHash).catch(() => {})
+      logError('wallet-signing-intent-worker:pass', error, {
+        intentId: intent.id,
+        walletId: payload?.walletId ?? intent.walletId,
+        chainId: payload?.chainId ?? intent.chainId,
+      })
+    }
+  }
+
+  return {
+    processedCount,
+    succeededCount,
+    failedCount,
+  }
+}
+
+export function startWalletSigningIntentWorker(input?: Partial<WalletSigningIntentWorkerConfig>) {
+  const config = {
+    ...readWorkerConfig(),
+    ...(input ?? {}),
+  }
+  let inFlight = false
+
+  const runPass = async (trigger: 'startup' | 'interval') => {
+    if (inFlight) {
+      logWarn('wallet-signing-intent-worker', new Error('Skipped overlapping signing pass'), { trigger })
+      return
+    }
+
+    inFlight = true
+    try {
+      const result = await processWalletSigningIntentQueuePass(config)
+      logInfo('wallet-signing-intent-worker', 'Completed wallet signing intent pass', {
+        trigger,
+        intervalMs: config.intervalMs,
+        batchSize: config.batchSize,
+        processedCount: result.processedCount,
+        succeededCount: result.succeededCount,
+        failedCount: result.failedCount,
+      })
+    } catch (error) {
+      logError('wallet-signing-intent-worker', error, {
+        trigger,
+        intervalMs: config.intervalMs,
+        batchSize: config.batchSize,
+      })
+    } finally {
+      inFlight = false
+    }
+  }
+
+  logInfo('wallet-signing-intent-worker', 'Starting wallet signing intent worker', config)
+  void runPass('startup')
+
+  const timer = setInterval(() => {
+    void runPass('interval')
+  }, config.intervalMs)
+
+  return {
+    stop() {
+      clearInterval(timer)
+      logInfo('wallet-signing-intent-worker', 'Stopped wallet signing intent worker', config)
+    },
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  startWalletSigningIntentWorker()
+}

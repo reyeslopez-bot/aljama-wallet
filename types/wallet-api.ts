@@ -86,14 +86,28 @@ export type WalletSendInput = {
 
 export type WalletSendResponse = {
   ok: true
+  intentId: string
+  status: 'queued' | 'signing' | 'signed' | 'broadcasted' | 'failed'
   walletId: string
   to: string
   amountWei: string
   chainId: number
   correlationId: string
   idempotencyKey: string
-  signedTx: string
-  txHash: string
-  derivedHash?: string
-  recorded: boolean
+  transferLogId: string | null
+}
+
+export type WalletSigningIntentResponse = {
+  ok: true
+  intentId: string
+  status: 'queued' | 'signing' | 'signed' | 'broadcasted' | 'failed'
+  walletId: string
+  chainId: number
+  correlationId: string
+  idempotencyKey: string
+  transferLogId: string | null
+  txHash: string | null
+  errorCode: string | null
+  createdAt: string
+  updatedAt: string
 }

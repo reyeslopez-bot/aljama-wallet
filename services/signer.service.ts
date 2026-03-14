@@ -22,7 +22,7 @@ import {
   type LiveTransactionScheme,
   type VaultScope,
 } from '@/lib/signing/types'
-import { createWalletRecord, getWalletById } from '@/services/wallet.service'
+import { createWalletRecord, getWalletById, getWalletSigningAccount } from '@/services/wallet.service'
 
 type SigningEvidence = {
   secondFactorVerified?: boolean
@@ -116,8 +116,11 @@ export async function resolveSigningAccount(accountRef: SignerAccountRef): Promi
     return getXrplSignerAccount()
   }
 
-  const material = await loadManagedSigningMaterial(accountRef)
-  return material.account
+  const account = await getWalletSigningAccount(accountRef.walletId)
+  if (!account) {
+    throw new Error('WALLET_NOT_FOUND')
+  }
+  return account
 }
 
 export async function prepareManagedWalletProvisioning(

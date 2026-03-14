@@ -3,14 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockApproveTransfer,
   mockBuildUnsignedEvmTx,
-  mockSignUnsignedEvmTx,
-  mockDeriveSignedEvmTxHash,
-  mockSubmitSignedEvmTx,
   mockGetWalletSigningAccount,
   mockGetSpentTodayWei,
-  mockGetWalletByChainAddress,
-  mockRecordChainTransaction,
-  mockMarkReplacedTransferAttempts,
   mockGetWalletDailyLimitWei,
   mockEvaluateStoredWalletPolicies,
   mockRecordPolicyEvents,
@@ -32,17 +26,13 @@ const {
   mockProviderGetFeeData,
   mockProviderEstimateGas,
   mockGetAddress,
+  mockCreateWalletSigningIntent,
+  mockBuildEvmTransactionSigningIntentPayload,
 } = vi.hoisted(() => ({
   mockApproveTransfer: vi.fn(),
   mockBuildUnsignedEvmTx: vi.fn(),
-  mockSignUnsignedEvmTx: vi.fn(),
-  mockDeriveSignedEvmTxHash: vi.fn(),
-  mockSubmitSignedEvmTx: vi.fn(),
   mockGetWalletSigningAccount: vi.fn(),
   mockGetSpentTodayWei: vi.fn(),
-  mockGetWalletByChainAddress: vi.fn(),
-  mockRecordChainTransaction: vi.fn(),
-  mockMarkReplacedTransferAttempts: vi.fn(),
   mockGetWalletDailyLimitWei: vi.fn(),
   mockEvaluateStoredWalletPolicies: vi.fn(),
   mockRecordPolicyEvents: vi.fn(),
@@ -64,6 +54,8 @@ const {
   mockProviderGetFeeData: vi.fn(),
   mockProviderEstimateGas: vi.fn(),
   mockGetAddress: vi.fn(),
+  mockCreateWalletSigningIntent: vi.fn(),
+  mockBuildEvmTransactionSigningIntentPayload: vi.fn(),
 }))
 
 vi.mock('@/infra/agentic/wallet-policy', () => ({
@@ -73,8 +65,6 @@ vi.mock('@/infra/agentic/wallet-policy', () => ({
 vi.mock('@/services/wallet.service', () => ({
   getWalletSigningAccount: mockGetWalletSigningAccount,
   getSpentTodayWei: mockGetSpentTodayWei,
-  getWalletByChainAddress: mockGetWalletByChainAddress,
-  recordChainTransaction: mockRecordChainTransaction,
 }))
 
 vi.mock('@/services/policy.service', () => ({
@@ -83,15 +73,8 @@ vi.mock('@/services/policy.service', () => ({
   recordPolicyEvents: mockRecordPolicyEvents,
 }))
 
-vi.mock('@/services/chain-transaction-sync.service', () => ({
-  markReplacedTransferAttempts: mockMarkReplacedTransferAttempts,
-}))
-
 vi.mock('@/services/evm-tx.service', () => ({
   buildUnsignedEvmTx: mockBuildUnsignedEvmTx,
-  signUnsignedEvmTx: mockSignUnsignedEvmTx,
-  deriveSignedEvmTxHash: mockDeriveSignedEvmTxHash,
-  submitSignedEvmTx: mockSubmitSignedEvmTx,
 }))
 
 vi.mock('@/lib/security/session', () => ({
@@ -128,6 +111,11 @@ vi.mock('@/services/transfer-risk.service', () => ({
 vi.mock('@/services/transfer-log.service', () => ({
   recordTransferAttempt: mockRecordTransferAttempt,
   updateTransferStatus: mockUpdateTransferStatus,
+}))
+
+vi.mock('@/services/signing-intent.service', () => ({
+  createWalletSigningIntent: mockCreateWalletSigningIntent,
+  buildEvmTransactionSigningIntentPayload: mockBuildEvmTransactionSigningIntentPayload,
 }))
 
 vi.mock('@/lib/security/logging', () => ({
@@ -181,9 +169,9 @@ describe('app/api/wallet/send route', () => {
     })
     mockIsAdminEmail.mockReturnValue(false)
     mockIsAllowedOrigin.mockReturnValue(true)
-    mockGetClientIp.mockReturnValue('127.0.0.1')
     mockBuildRateLimitKey.mockReturnValue('user:user-1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 9, resetAt: Date.now() + 60_000 })
+    mockGetClientIp.mockReturnValue('127.0.0.1')
     mockUserOwnsWallet.mockResolvedValue(true)
 
     mockProviderGetNetwork.mockResolvedValue({ chainId: 8453n })
@@ -210,7 +198,13 @@ describe('app/api/wallet/send route', () => {
       id: 'wallet-1',
       createdAt: new Date('2026-01-01T00:00:00Z'),
     })
-    mockBuildUnsignedEvmTx.mockResolvedValue({ nonce: 7 })
+    mockBuildUnsignedEvmTx.mockResolvedValue({
+      to: '0x000000000000000000000000000000000000dead',
+      nonce: 7,
+      gasLimit: 21_000n,
+      maxFeePerGas: 2n,
+      maxPriorityFeePerGas: 1n,
+    })
     mockGetSpentTodayWei.mockResolvedValue(0n)
     mockAssessTransferRisk.mockResolvedValue({
       score: 0,
@@ -232,10 +226,6 @@ describe('app/api/wallet/send route', () => {
     mockReserveIdempotencyKey.mockResolvedValue(undefined)
     mockRecordTransferAttempt.mockResolvedValue({ id: 'log-1' })
     mockUpdateTransferStatus.mockResolvedValue(undefined)
-    mockSignUnsignedEvmTx.mockResolvedValue('0xsigned')
-    mockDeriveSignedEvmTxHash.mockReturnValue('0xderived')
-    mockSubmitSignedEvmTx.mockResolvedValue('0xtxhash')
-    mockGetWalletByChainAddress.mockResolvedValue(null)
     mockGetWalletDailyLimitWei.mockResolvedValue(1000000000000000000n)
     mockEvaluateStoredWalletPolicies.mockResolvedValue({
       decision: 'allow',
@@ -243,8 +233,11 @@ describe('app/api/wallet/send route', () => {
       triggeredPolicies: [],
     })
     mockRecordPolicyEvents.mockResolvedValue(undefined)
-    mockRecordChainTransaction.mockResolvedValue({ record: { id: 'chain-1' }, replacedTxHashes: [] })
-    mockMarkReplacedTransferAttempts.mockResolvedValue(undefined)
+    mockBuildEvmTransactionSigningIntentPayload.mockImplementation((input: Record<string, unknown>) => input)
+    mockCreateWalletSigningIntent.mockResolvedValue({
+      id: 'intent-1',
+      status: 'queued',
+    })
   })
 
   afterEach(() => {
@@ -333,31 +326,52 @@ describe('app/api/wallet/send route', () => {
     expect(body.code).toBe('idempotency_replay')
   })
 
-  it('records a chain transaction even when the recipient is external', async () => {
+  it('queues a signing intent instead of signing in-request', async () => {
     const { POST } = await import('@/app/api/wallet/send/route')
 
     const res = await POST(buildRequest())
     const body = await res.json()
 
-    expect(res.status).toBe(200)
-    expect(body.recorded).toBe(true)
-    expect(mockRecordChainTransaction).toHaveBeenCalledWith({
+    expect(res.status).toBe(202)
+    expect(body).toMatchObject({
+      ok: true,
+      intentId: 'intent-1',
+      status: 'queued',
+      walletId: 'wallet-1',
+      to: '0x000000000000000000000000000000000000dead',
+      amountWei: '1000000000000000',
       chainId: 8453,
-      txHash: '0xtxhash',
-      fromWalletId: 'wallet-1',
-      fromAddress: '0x000000000000000000000000000000000000beef',
-      toWalletId: null,
-      toAddress: '0x000000000000000000000000000000000000dead',
-      valueBaseUnits: 1000000000000000n,
-      asset: 'native',
-      status: 'broadcasted',
+      idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      transferLogId: 'log-1',
+    })
+    expect(mockBuildEvmTransactionSigningIntentPayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        walletId: 'wallet-1',
+        chainId: 8453,
+        fromAddress: '0x000000000000000000000000000000000000beef',
+        toAddress: '0x000000000000000000000000000000000000dead',
+        amountWei: '1000000000000000',
+        txType: 'transfer',
+        transferLogId: 'log-1',
+      }),
+    )
+    expect(mockCreateWalletSigningIntent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        walletId: 'wallet-1',
+        userId: 'user-1',
+        chainId: 8453,
+        idempotencyKey: '11111111-1111-4111-8111-111111111111',
+        transferLogId: 'log-1',
+      }),
+    )
+    expect(mockUpdateTransferStatus).toHaveBeenCalledWith('log-1', 'pending_broadcast', {
+      nonce: '7',
       txType: 'transfer',
-      nonce: 7,
-      gasLimit: null,
-      gasPrice: null,
-      maxFeePerGas: null,
-      maxPriorityFeePerGas: null,
       data: null,
+      gasLimit: '21000',
+      gasPrice: null,
+      maxFeePerGas: '2',
+      maxPriorityFeePerGas: '1',
     })
   })
 })

@@ -1,5 +1,5 @@
 import { getAddress, JsonRpcProvider, Transaction, type TransactionRequest } from 'ethers'
-import { getSigner } from '@/services/signer.service'
+import { signEvmTransactionViaSignerService } from '@/services/signer-client.service'
 
 const MAX_UINT256 = (1n << 256n) - 1n
 
@@ -141,22 +141,13 @@ export async function buildUnsignedEvmContractTx(
 }
 
 export async function signUnsignedEvmTx(walletId: string, chainId: number, transaction: TransactionRequest) {
-  // Guardrail: this path signs live EVM transactions only. PQ material is not a
-  // transaction signer here; it belongs in pqcBinding / commitment flows.
-  const result = await getSigner().sign(
-    {
-      kind: 'evm-transaction',
-      chainId,
-      transaction: transaction as Record<string, unknown>,
-    },
-    { kind: 'managed', walletId },
-  )
+  const result = await signEvmTransactionViaSignerService({
+    walletId,
+    chainId,
+    tx: transaction as Record<string, unknown>,
+  })
 
-  if (result.kind !== 'evm-transaction') {
-    throw new Error('SIGNER_CHAIN_MISMATCH')
-  }
-
-  return result.signedPayload
+  return result.signedTx
 }
 
 export function deriveSignedEvmTxHash(signedPayload: string): string | undefined {

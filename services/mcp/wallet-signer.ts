@@ -5,18 +5,34 @@ import { z } from 'zod'
 import { Transaction, verifyMessage } from 'ethers'
 import crypto from 'node:crypto'
 import { getErrorMessage } from '@/lib/security/errors'
+import type { XrplPreparedTransaction } from '@/lib/signing/types'
 import { getSigner, resolveSigningAccount } from '@/services/signer.service'
 
 const requestSchema = z.object({
-  tool: z.enum(['wallet.signTx', 'wallet.deriveAddress', 'wallet.verifySignature']),
+  tool: z.enum(['wallet.signTx', 'wallet.signXrplTx', 'wallet.deriveAddress', 'wallet.verifySignature']),
   input: z.record(z.string(), z.unknown()),
 })
 type RequestTool = z.infer<typeof requestSchema>['tool']
+
+const signerAccountRefSchema = z.union([
+  z.object({
+    kind: z.literal('managed'),
+    walletId: z.string().min(3),
+  }),
+  z.object({
+    kind: z.literal('xrpl-env'),
+  }),
+])
 
 const signTxSchema = z.object({
   walletId: z.string().min(3),
   chainId: z.number().int().positive(),
   tx: z.record(z.string(), z.unknown()),
+})
+
+const signXrplTxSchema = z.object({
+  prepared: z.record(z.string(), z.unknown()),
+  accountRef: signerAccountRefSchema.optional(),
 })
 
 const deriveAddressSchema = z.object({
@@ -81,6 +97,26 @@ async function signTx(input: z.infer<typeof signTxSchema>) {
   return { signedTx, txHash }
 }
 
+async function signXrplTx(input: z.infer<typeof signXrplTxSchema>) {
+  const result = await getSigner().sign(
+    {
+      kind: 'xrpl-transaction',
+      preparedTransaction: input.prepared as XrplPreparedTransaction,
+    },
+    input.accountRef ?? { kind: 'xrpl-env' },
+  )
+
+  if (result.kind !== 'xrpl-transaction') {
+    throw new Error('SIGNER_CHAIN_MISMATCH')
+  }
+
+  return {
+    txBlob: result.txBlob,
+    txHash: result.txHash,
+    publicKey: result.publicKey,
+  }
+}
+
 async function deriveAddress(input: z.infer<typeof deriveAddressSchema>) {
   // path currently unused (non-HD). Keep it for future API stability.
   void input.path
@@ -112,6 +148,10 @@ const toolHandlers: Record<RequestTool, AnyTool> = {
   'wallet.signTx': defineTool({
     schema: signTxSchema,
     handler: signTx,
+  }),
+  'wallet.signXrplTx': defineTool({
+    schema: signXrplTxSchema,
+    handler: signXrplTx,
   }),
   'wallet.deriveAddress': defineTool({
     schema: deriveAddressSchema,

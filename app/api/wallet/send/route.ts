@@ -1,20 +1,10 @@
-// app/api/wallet/send/route.ts
-import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAddress, JsonRpcProvider } from 'ethers'
 import { approveTransfer } from '@/infra/agentic/wallet-policy'
-import {
-  buildUnsignedEvmTx,
-  deriveSignedEvmTxHash,
-  signUnsignedEvmTx,
-  submitSignedEvmTx,
-} from '@/services/evm-tx.service'
-import { markReplacedTransferAttempts } from '@/services/chain-transaction-sync.service'
+import { buildUnsignedEvmTx } from '@/services/evm-tx.service'
 import {
   getSpentTodayWei,
-  getWalletByChainAddress,
   getWalletSigningAccount,
-  recordChainTransaction,
 } from '@/services/wallet.service'
 import {
   evaluateStoredWalletPolicies,
@@ -29,13 +19,17 @@ import { userOwnsWallet } from '@/services/wallet-ownership.service'
 import { isStrictMode } from '@/lib/security/runtime'
 import { assessTransferRisk } from '@/services/transfer-risk.service'
 import { recordTransferAttempt, updateTransferStatus } from '@/services/transfer-log.service'
-import { errorJson } from '@/lib/security/api-response'
+import { errorJson, okJson } from '@/lib/security/api-response'
 import { readJsonBody } from '@/lib/security/request-body'
 import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
 import { extractRequestSignalContext } from '@/lib/security/request-signal'
 import { withApiRoute } from '@/lib/security/api-route'
+import {
+  buildEvmTransactionSigningIntentPayload,
+  createWalletSigningIntent,
+} from '@/services/signing-intent.service'
 
 export const dynamic = 'force-dynamic'
 
@@ -440,103 +434,69 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       maxPriorityFeePerGas: stringifyTxValue(unsignedTx.maxPriorityFeePerGas ?? null),
     })
 
-    const signedTx = await signUnsignedEvmTx(input.walletId, input.chainId, unsignedTx)
-    const derivedHash = deriveSignedEvmTxHash(signedTx)
-
-    const txHash = await submitSignedEvmTx(provider, signedTx)
-    if (transferLogId) {
-      await updateTransferStatus(transferLogId, 'broadcasted', {
-        txHash,
-        nonce: stringifyTxValue(unsignedTx.nonce ?? null),
-        txType: 'transfer',
-        data: null,
-        gasLimit: stringifyTxValue(unsignedTx.gasLimit ?? null),
-        gasPrice: stringifyTxValue(unsignedTx.gasPrice ?? null),
-        maxFeePerGas: stringifyTxValue(unsignedTx.maxFeePerGas ?? null),
-        maxPriorityFeePerGas: stringifyTxValue(unsignedTx.maxPriorityFeePerGas ?? null),
-      })
-    }
-
-    const recipient = await getWalletByChainAddress({
-      address: intent.to,
-      chainType: 'EVM',
-      networkId: String(intent.chainId),
-    }).catch(() => null)
-    let recorded = false
-    try {
-      const chainRecord = await recordChainTransaction({
+    const signingIntent = await createWalletSigningIntent({
+      walletId: intent.fromWalletId,
+      userId: session.user.id,
+      chainId: intent.chainId,
+      idempotencyKey: intent.idempotencyKey,
+      correlationId,
+      transferLogId: log.id,
+      payload: buildEvmTransactionSigningIntentPayload({
+        walletId: intent.fromWalletId,
         chainId: intent.chainId,
-        txHash,
-        fromWalletId: intent.fromWalletId,
         fromAddress: wallet.address,
-        toWalletId: recipient?.id ?? null,
         toAddress: intent.to,
-        valueBaseUnits: BigInt(intent.amountWei),
-        asset: 'native',
-        status: 'broadcasted',
+        amountWei: intent.amountWei,
         txType: 'transfer',
-        nonce: unsignedTx.nonce ?? null,
-        gasLimit: stringifyTxValue(unsignedTx.gasLimit ?? null),
-        gasPrice: stringifyTxValue(unsignedTx.gasPrice ?? null),
-        maxFeePerGas: stringifyTxValue(unsignedTx.maxFeePerGas ?? null),
-        maxPriorityFeePerGas: stringifyTxValue(unsignedTx.maxPriorityFeePerGas ?? null),
         data: null,
-      })
-      if (transferLogId) {
-        await updateTransferStatus(transferLogId, 'broadcasted', {
-          replacesTxHash: chainRecord.replacedTxHashes[0] ?? null,
-        })
-      }
-      await markReplacedTransferAttempts(chainRecord.replacedTxHashes, txHash)
-      recorded = true
-    } catch (recordError) {
-      logError('wallet-send:chain-transaction', recordError)
-    }
+        transferLogId: log.id,
+        transaction: unsignedTx,
+      }),
+    })
 
     await trackSignal({
       outcome: 'success',
-      statusCode: 200,
+      statusCode: 202,
       userId: session.user.id,
       details: {
         walletId: intent.fromWalletId,
         chainId: intent.chainId,
         amountWei: intent.amountWei,
         toAddress: intent.to,
-        txHash,
+        intentId: signingIntent.id,
       },
     })
 
-    return NextResponse.json({
-      ok: true,
+    return okJson({
+      intentId: signingIntent.id,
+      status: signingIntent.status,
       walletId: intent.fromWalletId,
       to: intent.to,
       amountWei: intent.amountWei,
       chainId: intent.chainId,
       correlationId,
       idempotencyKey,
-      signedTx,
-      txHash,
-      derivedHash,
-      recorded,
-    })
+      transferLogId: log.id,
+    }, { status: 202 })
   } catch (error) {
     if (transferLogId) {
       await updateTransferStatus(transferLogId, 'failed').catch(() => {})
     }
     const message = getErrorMessage(error, 'Failed to send transaction')
-    const status = message === 'IDEMPOTENCY_REPLAY' ? 409 : 400
+    const isReplay = message === 'IDEMPOTENCY_REPLAY' || message === 'SIGNING_INTENT_REPLAY'
+    const status = isReplay ? 409 : 400
     logError('wallet-send', error)
     await trackSignal({
       outcome: 'failure',
       statusCode: status,
       details: {
-        reason: message === 'IDEMPOTENCY_REPLAY' ? 'idempotency_replay' : 'send_failed',
+        reason: isReplay ? 'idempotency_replay' : 'send_failed',
         message,
       },
     })
     return errorJson(
       status,
-      message === 'IDEMPOTENCY_REPLAY' ? 'idempotency_replay' : 'send_failed',
+      isReplay ? 'idempotency_replay' : 'send_failed',
       message,
     )
   }
