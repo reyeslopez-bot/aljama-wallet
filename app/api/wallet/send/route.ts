@@ -140,14 +140,28 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string)
       key: rateKey,
       limit: 10,
       windowMs: 60_000,
+      ...(process.env.NODE_ENV === 'production' ? { requireDistributed: true as const } : {}),
     })
     if (!limit.ok) {
+      const reason =
+        limit.failureKind === 'backend_unavailable'
+          ? 'rate_limit_backend_unavailable'
+          : 'rate_limited'
       await trackSignal({
         outcome: 'blocked',
-        statusCode: 429,
+        statusCode: limit.failureKind === 'backend_unavailable' ? 503 : 429,
         userId: session.user.id,
-        details: { reason: 'rate_limited', retryAfter: limit.retryAfter },
+        details: { reason, retryAfter: limit.retryAfter },
       })
+      if (limit.failureKind === 'backend_unavailable') {
+        return errorJson(
+          503,
+          'rate_limit_backend_unavailable',
+          'RATE_LIMIT_BACKEND_UNAVAILABLE',
+          { retryAfter: limit.retryAfter },
+          { headers: { 'retry-after': String(limit.retryAfter) } },
+        )
+      }
       return errorJson(
         429,
         'rate_limited',

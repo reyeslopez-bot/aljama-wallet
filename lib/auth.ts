@@ -81,6 +81,7 @@ export const authOptions: NextAuthOptions = {
         const limit = await rateLimit({
           ...AUTH_LOGIN_RATE_LIMIT,
           key: buildCredentialRateLimitKey(identifier, req),
+          ...(process.env.NODE_ENV === 'production' ? { requireDistributed: true as const } : {}),
         })
 
         if (!limit.ok) {
@@ -88,6 +89,7 @@ export const authOptions: NextAuthOptions = {
             message: 'Credentials login attempt blocked by rate limit',
             identifierKind: identifier.includes('@') ? 'email' : 'username',
             retryAfter: limit.retryAfter,
+            failureKind: limit.failureKind,
           })
           return null
         }

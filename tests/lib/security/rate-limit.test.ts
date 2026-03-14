@@ -106,6 +106,7 @@ describe('rate-limit', () => {
     expect(first.ok).toBe(true)
     expect(second.ok).toBe(true)
     expect(third.ok).toBe(false)
+    expect(third).toMatchObject({ failureKind: 'limit_exceeded' })
 
     const health = getRateLimitBackendHealth()
     expect(health.activeBackend).toBe('memory')
@@ -131,6 +132,7 @@ describe('rate-limit', () => {
 
     expect(first).toMatchObject({ ok: true, remaining: 0 })
     expect(second.ok).toBe(false)
+    expect(second).toMatchObject({ failureKind: 'limit_exceeded' })
 
     const health = getRateLimitBackendHealth()
     expect(health.activeBackend).toBe('redis')
@@ -156,6 +158,7 @@ describe('rate-limit', () => {
 
     expect(first).toMatchObject({ ok: true, remaining: 0 })
     expect(second.ok).toBe(false)
+    expect(second).toMatchObject({ failureKind: 'limit_exceeded' })
 
     const health = getRateLimitBackendHealth()
     expect(health.activeBackend).toBe('memory')
@@ -175,7 +178,28 @@ describe('rate-limit', () => {
       windowMs: 20_000,
     })
 
-    expect(result.ok).toBe(false)
+    expect(result).toMatchObject({ ok: false, failureKind: 'backend_unavailable' })
+
+    const health = getRateLimitBackendHealth()
+    expect(health.activeBackend).toBe('redis')
+    expect(health.degraded).toBe(true)
+    expect(health.reason).toBe('redis_unavailable_fail_closed')
+    expect(health.requireDistributed).toBe(true)
+  })
+
+  it('fails closed when a route explicitly requires distributed rate limiting', async () => {
+    vi.stubEnv('SECURITY_RATE_LIMIT_BACKEND', 'memory')
+    setRateLimitRedisClientForTests(null)
+
+    const result = await rateLimit({
+      bucket: 'auth-register',
+      key: 'ip:198.51.100.13',
+      limit: 5,
+      windowMs: 20_000,
+      requireDistributed: true,
+    })
+
+    expect(result).toMatchObject({ ok: false, failureKind: 'backend_unavailable' })
 
     const health = getRateLimitBackendHealth()
     expect(health.activeBackend).toBe('redis')

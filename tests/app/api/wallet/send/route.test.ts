@@ -294,6 +294,23 @@ describe('app/api/wallet/send route', () => {
     expect(res.headers.get('retry-after')).toBe('42')
   })
 
+  it('returns 503 when the distributed rate limit backend is unavailable', async () => {
+    mockRateLimit.mockReturnValue({
+      ok: false,
+      retryAfter: 42,
+      resetAt: Date.now() + 42_000,
+      failureKind: 'backend_unavailable',
+    })
+    const { POST } = await import('@/app/api/wallet/send/route')
+
+    const res = await POST(buildRequest())
+    const body = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(body.code).toBe('rate_limit_backend_unavailable')
+    expect(res.headers.get('retry-after')).toBe('42')
+  })
+
   it('returns 403 when a non-admin does not own the wallet', async () => {
     mockUserOwnsWallet.mockResolvedValue(false)
     const { POST } = await import('@/app/api/wallet/send/route')

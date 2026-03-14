@@ -1,9 +1,26 @@
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
 
-export type RateLimitResult =
-  | { ok: true; remaining: number; resetAt: number }
-  | { ok: false; retryAfter: number; resetAt: number }
+export type RateLimitSuccessResult = { ok: true; remaining: number; resetAt: number }
+
+export type RateLimitFailureKind = 'limit_exceeded' | 'backend_unavailable'
+
+export type RateLimitFailureResult = {
+  ok: false
+  retryAfter: number
+  resetAt: number
+  failureKind: RateLimitFailureKind
+}
+
+export type RateLimitResult = RateLimitSuccessResult | RateLimitFailureResult
+
+export type RateLimitOptions = {
+  key: string
+  bucket: string
+  limit: number
+  windowMs: number
+  requireDistributed?: boolean
+}
 
 type Bucket = { remaining: number; resetAt: number }
 
@@ -133,12 +150,22 @@ function setRateLimitHealth(input: RateLimitBackendHealth) {
   rateLimitHealth.requireDistributed = input.requireDistributed
 }
 
-function defaultBlockedResult(windowMs: number): RateLimitResult {
+function limitExceededResult(retryAfter: number, resetAt: number): RateLimitFailureResult {
+  return {
+    ok: false,
+    retryAfter,
+    resetAt,
+    failureKind: 'limit_exceeded',
+  }
+}
+
+function defaultBlockedResult(windowMs: number): RateLimitFailureResult {
   const now = Date.now()
   return {
     ok: false,
     retryAfter: Math.max(1, Math.ceil(windowMs / 1_000)),
     resetAt: now + windowMs,
+    failureKind: 'backend_unavailable',
   }
 }
 
@@ -216,11 +243,7 @@ async function redisRateLimit(
 
   const resetAt = now + ttl
   if (count > opts.limit) {
-    return {
-      ok: false,
-      retryAfter: Math.max(1, Math.ceil(ttl / 1_000)),
-      resetAt,
-    }
+    return limitExceededResult(Math.max(1, Math.ceil(ttl / 1_000)), resetAt)
   }
 
   return {
@@ -241,11 +264,7 @@ function memoryRateLimit(opts: { key: string; bucket: string; limit: number; win
 
   if (bucket.remaining <= 0) {
     buckets.set(bucketKey, bucket)
-    return {
-      ok: false,
-      retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1_000)),
-      resetAt: bucket.resetAt,
-    }
+    return limitExceededResult(Math.max(1, Math.ceil((bucket.resetAt - now) / 1_000)), bucket.resetAt)
   }
 
   bucket.remaining -= 1
@@ -258,12 +277,7 @@ function memoryRateLimit(opts: { key: string; bucket: string; limit: number; win
   return { ok: true, remaining: bucket.remaining, resetAt: bucket.resetAt }
 }
 
-export async function rateLimit(opts: {
-  key: string
-  bucket: string
-  limit: number
-  windowMs: number
-}): Promise<RateLimitResult> {
+export async function rateLimit(opts: RateLimitOptions): Promise<RateLimitResult> {
   const windowMs = normalizeWindowMs(opts.windowMs)
   const limit = normalizeLimit(opts.limit)
 
@@ -276,7 +290,7 @@ export async function rateLimit(opts: {
   }
 
   const requested = configuredBackend()
-  const requireDistributed = requireDistributedBackend()
+  const requireDistributed = opts.requireDistributed === true || requireDistributedBackend()
   const shouldUseRedis = requested === 'redis' || requireDistributed
 
   if (!shouldUseRedis) {

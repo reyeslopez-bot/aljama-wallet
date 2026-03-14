@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { getWallets } from '@/services/wallet.service'
 import { getDailySummaries } from '@/infra/utils/summary.service'
+import { canBypassDebugRouteTokenCheck, debugRouteDisabledResponse } from '@/lib/security/debug-route'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { isStrictMode } from '@/lib/security/runtime'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
@@ -40,15 +41,17 @@ async function getTestDb(req?: Request) {
     }
   }
 
-  const canBypassTokenCheck = (() => {
-    if (process.env.ALLOW_UNAUTH_DEBUG_ROUTES === 'true') return true
-    if (process.env.CI === 'true') return false
-    const url = new URL(request.url)
-    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
-      return process.env.NODE_ENV !== 'production'
-    }
-    return false
-  })()
+  const disabledResponse = debugRouteDisabledResponse({ allowInCiEnvVar: 'ENABLE_TEST_DB_ROUTE' })
+  if (disabledResponse) {
+    await trackSignal({
+      outcome: 'blocked',
+      statusCode: 404,
+      details: { reason: 'hard_disabled' },
+    })
+    return disabledResponse
+  }
+
+  const canBypassTokenCheck = canBypassDebugRouteTokenCheck(request)
 
   const expected = process.env.INTERNAL_API_TOKEN?.trim()
   if ((isStrictMode || !canBypassTokenCheck) && !expected) {
@@ -88,18 +91,6 @@ async function getTestDb(req?: Request) {
       { retryAfter: limitState.retryAfter },
       { headers: { 'retry-after': String(limitState.retryAfter) } },
     )
-  }
-
-  if (
-    process.env.NODE_ENV === 'production' ||
-    (process.env.CI === 'true' && process.env.ENABLE_TEST_DB_ROUTE !== 'true')
-  ) {
-    await trackSignal({
-      outcome: 'blocked',
-      statusCode: 404,
-      details: { reason: 'disabled_in_env' },
-    })
-    return NextResponse.json({ ok: false, reason: 'disabled' }, { status: 404 })
   }
 
   try {

@@ -136,6 +136,32 @@ describe('app/api/security/signals route', () => {
     )
   })
 
+  it('returns 503 when the distributed rate limit backend is unavailable', async () => {
+    mockRateLimit.mockReturnValue({
+      ok: false,
+      retryAfter: 15,
+      resetAt: Date.now() + 15_000,
+      failureKind: 'backend_unavailable',
+    })
+
+    const { POST } = await import('@/app/api/security/signals/route')
+    const res = await POST(
+      new Request('http://localhost/api/security/signals', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer ingest-token',
+        },
+        body: JSON.stringify({ source: 'auth.register', outcome: 'success' }),
+      }),
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(body.code).toBe('rate_limit_backend_unavailable')
+    expect(res.headers.get('retry-after')).toBe('15')
+  })
+
   it('returns 429 when queue backpressure throttles all ingested signals', async () => {
     mockIngestSecuritySignalsBatch.mockResolvedValue([
       {

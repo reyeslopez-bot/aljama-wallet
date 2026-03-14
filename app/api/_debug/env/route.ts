@@ -1,6 +1,7 @@
 // app/api/_debug/env/route.ts
 import { NextResponse } from 'next/server'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
+import { canBypassDebugRouteTokenCheck, debugRouteDisabledResponse } from '@/lib/security/debug-route'
 import { isStrictMode } from '@/lib/security/runtime'
 import { errorJson } from '@/lib/security/api-response'
 import { withApiRoute } from '@/lib/security/api-route'
@@ -33,15 +34,17 @@ async function getDebugEnv(req: Request) {
     }
   }
 
-  const canBypassTokenCheck = (() => {
-    if (process.env.ALLOW_UNAUTH_DEBUG_ROUTES === 'true') return true
-    if (process.env.CI === 'true') return false
-    const url = new URL(req.url)
-    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
-      return process.env.NODE_ENV !== 'production'
-    }
-    return false
-  })()
+  const disabledResponse = debugRouteDisabledResponse()
+  if (disabledResponse) {
+    await trackSignal({
+      outcome: 'blocked',
+      statusCode: 404,
+      details: { reason: 'hard_disabled' },
+    })
+    return disabledResponse
+  }
+
+  const canBypassTokenCheck = canBypassDebugRouteTokenCheck(req)
 
   const expected = process.env.INTERNAL_API_TOKEN?.trim()
   if ((isStrictMode || !canBypassTokenCheck) && !expected) {

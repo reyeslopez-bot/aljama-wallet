@@ -37,8 +37,18 @@ async function postXrplTradeOfferCancel(req: Request) {
       key: rateKey,
       limit: 20,
       windowMs: 60_000,
+      ...(process.env.NODE_ENV === 'production' ? { requireDistributed: true as const } : {}),
     })
     if (!limitState.ok) {
+      if (limitState.failureKind === 'backend_unavailable') {
+        return errorJson(
+          503,
+          'rate_limit_backend_unavailable',
+          'RATE_LIMIT_BACKEND_UNAVAILABLE',
+          { retryAfter: limitState.retryAfter },
+          { headers: { 'retry-after': String(limitState.retryAfter) } },
+        )
+      }
       return errorJson(
         429,
         'rate_limited',

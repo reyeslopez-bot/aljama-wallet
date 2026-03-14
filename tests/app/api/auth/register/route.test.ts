@@ -105,6 +105,29 @@ describe('app/api/auth/register route', () => {
     expect(res.headers.get('retry-after')).toBe('12')
   })
 
+  it('returns 503 when the distributed rate limit backend is unavailable', async () => {
+    mockRateLimit.mockReturnValue({
+      ok: false,
+      retryAfter: 12,
+      resetAt: Date.now() + 12_000,
+      failureKind: 'backend_unavailable',
+    })
+    const { POST } = await import('@/app/api/auth/register/route')
+
+    const res = await POST(
+      buildRequest({
+        username: 'new_user',
+        email: 'new@example.com',
+        password: 'StrongPassphrase1!',
+      }),
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(body.code).toBe('rate_limit_backend_unavailable')
+    expect(res.headers.get('retry-after')).toBe('12')
+  })
+
   it('rejects invalid payload when username is missing', async () => {
     const { POST } = await import('@/app/api/auth/register/route')
 

@@ -119,7 +119,7 @@ describeInfra('Redis infrastructure integration', () => {
       windowMs: 20_000,
     })
 
-    expect(result.ok).toBe(false)
+    expect(result).toMatchObject({ ok: false, failureKind: 'backend_unavailable' })
 
     const health = getRateLimitBackendHealth()
     expect(health.activeBackend).toBe('redis')
