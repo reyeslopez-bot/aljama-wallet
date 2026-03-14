@@ -308,4 +308,18 @@ describe('security-signal-queue adapters', () => {
     expect(health.degraded).toBe(true)
     expect(health.requireDurable).toBe(true)
   })
+
+  it('fails closed in production when redis is not configured as the signal queue backend', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('SECURITY_SIGNAL_QUEUE_BACKEND', 'in_memory')
+    vi.stubEnv('SECURITY_SIGNAL_QUEUE_REQUIRE_DURABLE', '')
+
+    await expect(createQueueAdapterFromEnv()).rejects.toThrow('durable_queue_required')
+
+    const health = getSecuritySignalQueueAdapterHealth()
+    expect(health.requestedBackend).toBe('in_memory')
+    expect(health.activeBackend).toBe('in_memory')
+    expect(health.degraded).toBe(true)
+    expect(health.requireDurable).toBe(true)
+  })
 })

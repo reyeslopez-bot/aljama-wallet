@@ -2,6 +2,14 @@ import { prismaPg } from '@/lib/prisma-pg'
 import { logError, logInfo } from '@/lib/security/logging'
 import type { Prisma } from '@/prisma/generated/pg'
 import { runForensicRetentionMaintenance } from '@/services/forensic-retention.service'
+import {
+  createSecurityAlertDeliveryQueueFromEnv,
+  maybeCloseSecurityAlertDeliveryQueueForTests,
+  maybeResetSecurityAlertDeliveryQueueForTests,
+  type SecurityAlertDeliveryJob,
+  type SecurityAlertDeliveryQueueAdapter,
+  type SecurityAlertSocPayload,
+} from '@/services/security-alert-delivery-queue'
 
 export type SecurityAlertSeverity = 'low' | 'medium' | 'high' | 'critical'
 export type SecurityAlertPriority = 'p1' | 'p2' | 'p3' | 'p4'
@@ -159,6 +167,7 @@ const globalForSecurityAlerts = globalThis as unknown as {
     connect?: () => Promise<void>
     on?: (event: string, listener: (error: unknown) => void) => void
   }>
+  securityAlertDeliveryQueueAdapterPromise?: Promise<SecurityAlertDeliveryQueueAdapter>
 }
 
 const alertBuffer = globalForSecurityAlerts.securityAlerts ?? []
@@ -269,6 +278,31 @@ async function resolveRedisClient(): Promise<RedisCommandClient | null> {
   } catch {
     return null
   }
+}
+
+async function resolveAlertDeliveryQueueAdapter(): Promise<SecurityAlertDeliveryQueueAdapter | null> {
+  if (!globalForSecurityAlerts.securityAlertDeliveryQueueAdapterPromise) {
+    globalForSecurityAlerts.securityAlertDeliveryQueueAdapterPromise = createSecurityAlertDeliveryQueueFromEnv().catch(
+      (error) => {
+        logError('security-alert:delivery-queue', error)
+        throw error
+      },
+    )
+  }
+
+  try {
+    return await globalForSecurityAlerts.securityAlertDeliveryQueueAdapterPromise
+  } catch {
+    return null
+  }
+}
+
+function deliveryDrainInlineEnabled(): boolean {
+  return envBool('SECURITY_ALERT_DELIVERY_DRAIN_INLINE', process.env.NODE_ENV !== 'production')
+}
+
+function deliveryDequeueBatchSize(): number {
+  return Math.max(1, envInt('SECURITY_ALERT_DELIVERY_QUEUE_DEQUEUE_BATCH', 32))
 }
 
 function minWebhookSeverity(): SecurityAlertSeverity {
@@ -479,7 +513,7 @@ function buildSiemCefEvent(alert: SecurityAlertRecord): string {
   ].join(' ')
 }
 
-function buildSocPayload(alert: SecurityAlertRecord, containmentActions: string[]) {
+function buildSocPayload(alert: SecurityAlertRecord, containmentActions: string[]): SecurityAlertSocPayload {
   return {
     type: 'security.alert',
     schemaVersion: '1.0',
@@ -642,8 +676,8 @@ async function requestContainment(
   )
 }
 
-async function persistAlertEvent(alert: SecurityAlertRecord, containmentActions: string[]) {
-  if (!canUsePg()) return
+async function persistAlertEvent(alert: SecurityAlertRecord, containmentActions: string[]): Promise<boolean> {
+  if (!canUsePg()) return true
   try {
     const persistedContext = {
       ...(alert.context ?? {}),
@@ -676,11 +710,134 @@ async function persistAlertEvent(alert: SecurityAlertRecord, containmentActions:
       },
     })
     void runForensicRetentionMaintenance()
+    return true
   } catch (error) {
     logError('security-alert:forensic-write', error, {
       alertId: alert.id,
       ruleId: alert.ruleId,
     })
+    return false
+  }
+}
+
+function normalizeDeliveredState(
+  value: Partial<SecurityAlertRecord['delivered']> | null | undefined,
+): SecurityAlertRecord['delivered'] {
+  return {
+    log: Boolean(value?.log),
+    webhook: Boolean(value?.webhook),
+    siem: Boolean(value?.siem),
+    soar: Boolean(value?.soar),
+    containment: Boolean(value?.containment),
+  }
+}
+
+function mergeDeliveredState(
+  base: SecurityAlertRecord['delivered'],
+  updates: Partial<SecurityAlertRecord['delivered']>,
+): SecurityAlertRecord['delivered'] {
+  return normalizeDeliveredState({
+    ...base,
+    ...updates,
+  })
+}
+
+async function readPersistedAlertDeliveredState(alertId: string): Promise<SecurityAlertRecord['delivered'] | null> {
+  if (!canUsePg()) return null
+
+  try {
+    const row = await prismaPg.securityAlertEvent.findUnique({
+      where: { id: alertId },
+      select: { delivered: true },
+    })
+
+    if (!row) return null
+
+    const delivered = fromJsonRecord(row.delivered)
+    return normalizeDeliveredState({
+      log: Boolean(delivered.log),
+      webhook: Boolean(delivered.webhook),
+      siem: Boolean(delivered.siem),
+      soar: Boolean(delivered.soar),
+      containment: Boolean(delivered.containment),
+    })
+  } catch (error) {
+    logError('security-alert:forensic-read', error, { alertId })
+    return null
+  }
+}
+
+async function updatePersistedAlertDeliveredState(
+  alertId: string,
+  delivered: SecurityAlertRecord['delivered'],
+): Promise<void> {
+  if (!canUsePg()) return
+
+  try {
+    await prismaPg.securityAlertEvent.update({
+      where: { id: alertId },
+      data: {
+        delivered: toJson(delivered),
+      },
+    })
+  } catch (error) {
+    logError('security-alert:forensic-update', error, { alertId })
+  }
+}
+
+async function enqueueSecurityAlertDelivery(job: SecurityAlertDeliveryJob): Promise<void> {
+  const adapter = await resolveAlertDeliveryQueueAdapter()
+  if (!adapter) {
+    throw new Error('alert_delivery_queue_unavailable')
+  }
+
+  await adapter.enqueue(job)
+}
+
+async function processSecurityAlertDeliveryJob(
+  job: SecurityAlertDeliveryJob,
+): Promise<SecurityAlertRecord['delivered']> {
+  const delivered = mergeDeliveredState(
+    job.record.delivered,
+    (await readPersistedAlertDeliveredState(job.alertId)) ?? job.record.delivered,
+  )
+  const record: SecurityAlertRecord = {
+    ...job.record,
+    delivered,
+  }
+
+  if (!record.delivered.webhook) {
+    record.delivered.webhook = await deliverWebhook(record, job.socPayload)
+  }
+  if (!record.delivered.siem) {
+    record.delivered.siem = await deliverSiem(record, job.socPayload)
+  }
+  if (!record.delivered.soar) {
+    record.delivered.soar = await deliverSoar(record, job.socPayload)
+  }
+  if (!record.delivered.containment) {
+    record.delivered.containment = await requestContainment(record, job.socPayload, job.containmentActions)
+  }
+
+  await updatePersistedAlertDeliveredState(job.alertId, record.delivered)
+  return record.delivered
+}
+
+export async function drainSecurityAlertDeliveryQueue(): Promise<Map<string, SecurityAlertRecord['delivered']>> {
+  const adapter = await resolveAlertDeliveryQueueAdapter()
+  const processed = new Map<string, SecurityAlertRecord['delivered']>()
+
+  if (!adapter) return processed
+
+  while (true) {
+    const messages = await adapter.dequeue(deliveryDequeueBatchSize())
+    if (messages.length === 0) return processed
+
+    for (const message of messages) {
+      const delivered = await processSecurityAlertDeliveryJob(message.job)
+      processed.set(message.job.alertId, delivered)
+      await adapter.ack(message)
+    }
   }
 }
 
@@ -705,11 +862,6 @@ function trimBuffers(now: number) {
 function fromJsonRecord(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
   return value as Record<string, unknown>
-}
-
-function fromJsonStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.map((item) => normalizeString(item)).filter((item): item is string => !!item)
 }
 
 function parseStoredDedupState(raw: unknown): DedupState | null {
@@ -883,12 +1035,36 @@ export async function emitSecurityAlert(input: SecurityAlertInput): Promise<Secu
     record.delivered.log = true
   }
 
-  record.delivered.webhook = await deliverWebhook(record, socPayload)
-  record.delivered.siem = await deliverSiem(record, socPayload)
-  record.delivered.soar = await deliverSoar(record, socPayload)
-  record.delivered.containment = await requestContainment(record, socPayload, containmentActions)
+  const persisted = await persistAlertEvent(record, containmentActions)
+  if (persisted) {
+    try {
+      await enqueueSecurityAlertDelivery({
+        alertId: record.id,
+        record,
+        socPayload,
+        containmentActions,
+      })
 
-  await persistAlertEvent(record, containmentActions)
+      if (deliveryDrainInlineEnabled()) {
+        const processed = await drainSecurityAlertDeliveryQueue()
+        const delivered = processed.get(record.id)
+        if (delivered) {
+          record.delivered = mergeDeliveredState(record.delivered, delivered)
+        }
+      }
+    } catch (error) {
+      logError('security-alert:delivery-queue', error, {
+        alertId: record.id,
+        ruleId: record.ruleId,
+      })
+    }
+  } else {
+    logError('security-alert:delivery-queue', new Error('Skipped queued alert delivery because forensic persistence failed'), {
+      alertId: record.id,
+      ruleId: record.ruleId,
+    })
+  }
+
   alertBuffer.push(record)
   trimBuffers(now)
   return record
@@ -920,7 +1096,6 @@ export async function getSecurityAlertsForensics(limit = 200): Promise<SecurityA
     return rows.map((row) => {
       const delivered = fromJsonRecord(row.delivered)
       const context = fromJsonRecord(row.context)
-      const containmentActions = fromJsonStringArray(row.containmentActions)
       const fallbackRunbook = resolveRunbook(row.ruleId)
       const runbookHint = normalizeString(context.runbookHint)
 
@@ -957,7 +1132,7 @@ export async function getSecurityAlertsForensics(limit = 200): Promise<SecurityA
           webhook: Boolean(delivered.webhook),
           siem: Boolean(delivered.siem),
           soar: Boolean(delivered.soar),
-          containment: Boolean(delivered.containment) || containmentActions.length > 0,
+          containment: Boolean(delivered.containment),
         },
         createdAt: row.createdAt.getTime(),
       } satisfies SecurityAlertRecord
@@ -971,5 +1146,15 @@ export async function getSecurityAlertsForensics(limit = 200): Promise<SecurityA
 export function clearSecurityAlertsForTests() {
   alertBuffer.splice(0, alertBuffer.length)
   alertDedup.clear()
+  const adapterPromise = globalForSecurityAlerts.securityAlertDeliveryQueueAdapterPromise
   globalForSecurityAlerts.securityAlertRedisClientPromise = undefined
+  globalForSecurityAlerts.securityAlertDeliveryQueueAdapterPromise = undefined
+  if (adapterPromise) {
+    void adapterPromise
+      .then((adapter) => {
+        maybeResetSecurityAlertDeliveryQueueForTests(adapter)
+        maybeCloseSecurityAlertDeliveryQueueForTests(adapter)
+      })
+      .catch(() => {})
+  }
 }

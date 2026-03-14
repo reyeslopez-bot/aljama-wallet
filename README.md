@@ -9,7 +9,7 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 - **Data**:
   - **CockroachDB (OLTP)** via `prisma/crdb/schema.prisma` for wallet state and chain/XRPL records.
   - **PostgreSQL (OLAP + control plane)** via `prisma/pg/schema.prisma` for auth/sessioning, telemetry, risk decisions, idempotency keys, and security forensic streams.
-- **Security pipeline**: Signal ingestion/anomaly scoring/alert delivery with adapter pattern for queue durability.
+- **Security pipeline**: Redis Streams for durable security-signal ingestion and alert-delivery fan-out, with PostgreSQL as the control-plane store for forensic receipts and stateful workflows.
 
 ## 2. Security Assessment (Current Risks + Mitigations)
 
@@ -73,7 +73,8 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 
 **Mitigations**
 
-- Durable queue adapter in production + dead-letter stream.
+- Redis Streams required in production for event ingestion/fan-out, with no in-memory fallback.
+- Persist forensic receipts before enqueueing outbound alert delivery work.
 - Persist ingress receipt before async processing when route is marked forensic-critical.
 - Backfill reconciler that compares ingress counts vs anomaly/alert counts per window.
 
@@ -263,7 +264,7 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 
 ### Current flow
 
-- API receives telemetry/security signals -> queue adapter -> anomaly rules -> alert delivery and persistence.
+- API receives telemetry/security signals -> Redis Streams ingestion -> anomaly rules -> persisted alert receipt -> alert-delivery queue/worker.
 
 ### Frontend responsibilities
 
@@ -272,6 +273,7 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 ### Backend responsibilities
 
 - Validate/normalize events, detect anomalies, dedup/escalate alerts, persist for forensics.
+- Use PostgreSQL-backed state machines for signing intents and other control-plane jobs; do not route those workflows through the event queue.
 
 ### Failure modes
 
@@ -283,6 +285,7 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 - Versioned telemetry/security event schema + strict validation.
 - Feedback loop from SOC triage to rule tuning.
 - End-to-end delivery SLOs with lag/error budgets.
+- In production, in-memory queueing is development/test only and must not be used for security ingestion or alert delivery.
 
 ## 5. API Inventory (Routes, Function, Risk, Improvement)
 

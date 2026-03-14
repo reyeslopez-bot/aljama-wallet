@@ -1,37 +1,25 @@
 import os from 'node:os'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError, logWarn } from '@/lib/security/logging'
+import type { SecurityAlertRecord } from '@/services/security-alert.service'
 
-export type SecuritySignalOutcome = 'success' | 'failure' | 'blocked'
-export type SecuritySignalTransport = 'direct' | 'api' | 'queue' | 'event_bus'
+export type SecurityAlertSocPayload = Record<string, unknown>
 
-export type QueueSignalPayload = {
-  source: string
-  route?: string | null
-  outcome: SecuritySignalOutcome
-  statusCode?: number | null
-  ipHash?: string | null
-  userId?: string | null
-  sessionId?: string | null
-  deviceId?: string | null
-  principal?: string | null
-  country?: string | null
-  latitude?: number | null
-  longitude?: number | null
-  userAgent?: string | null
-  details?: Record<string, unknown>
-  detectedAt?: number | null
+export type SecurityAlertDeliveryJob = {
+  alertId: string
+  record: SecurityAlertRecord
+  socPayload: SecurityAlertSocPayload
+  containmentActions: string[]
 }
 
-export type SecuritySignalQueueMessage = {
+export type SecurityAlertDeliveryQueueMessage = {
   id: string
-  signal: QueueSignalPayload
-  transport: SecuritySignalTransport
+  job: SecurityAlertDeliveryJob
   retryCount: number
   queuedAt: number
 }
 
-export type SecuritySignalQueueStats = {
+export type SecurityAlertDeliveryQueueStats = {
   backend: 'in_memory' | 'redis'
   depth: number
   pending: number
@@ -40,7 +28,7 @@ export type SecuritySignalQueueStats = {
   newestQueuedAt: number | null
 }
 
-export type SecuritySignalQueueAdapterHealth = {
+export type SecurityAlertDeliveryQueueAdapterHealth = {
   requestedBackend: 'in_memory' | 'redis'
   activeBackend: 'in_memory' | 'redis'
   degraded: boolean
@@ -49,40 +37,46 @@ export type SecuritySignalQueueAdapterHealth = {
   requireDurable: boolean
 }
 
-export type SecuritySignalQueueEnqueueOptions = {
-  transport?: SecuritySignalTransport
+export type SecurityAlertDeliveryQueueEnqueueOptions = {
   retryCount?: number
   delayMs?: number
 }
 
-export type SecuritySignalQueueEnqueueResult = {
-  message: SecuritySignalQueueMessage
+export type SecurityAlertDeliveryQueueEnqueueResult = {
+  message: SecurityAlertDeliveryQueueMessage
   dropped: boolean
   queueLength: number
 }
 
-export interface SecuritySignalQueueAdapter {
+export interface SecurityAlertDeliveryQueueAdapter {
   backend: 'in_memory' | 'redis'
   enqueue(
-    signal: QueueSignalPayload,
-    options?: SecuritySignalQueueEnqueueOptions,
-  ): Promise<SecuritySignalQueueEnqueueResult>
-  dequeue(batchSize: number): Promise<SecuritySignalQueueMessage[]>
-  ack(message: SecuritySignalQueueMessage): Promise<void>
-  getStats(): Promise<SecuritySignalQueueStats>
+    job: SecurityAlertDeliveryJob,
+    options?: SecurityAlertDeliveryQueueEnqueueOptions,
+  ): Promise<SecurityAlertDeliveryQueueEnqueueResult>
+  dequeue(batchSize: number): Promise<SecurityAlertDeliveryQueueMessage[]>
+  ack(message: SecurityAlertDeliveryQueueMessage): Promise<void>
+  getStats(): Promise<SecurityAlertDeliveryQueueStats>
   resetForTests?(): void | Promise<void>
   closeForTests?(): void | Promise<void>
 }
 
-type InMemoryQueueEntry = SecuritySignalQueueMessage & {
+type InMemoryQueueEntry = SecurityAlertDeliveryQueueMessage & {
   availableAt: number
 }
 
-const globalForQueueAdapter = globalThis as unknown as {
-  securitySignalQueueAdapterHealth?: SecuritySignalQueueAdapterHealth
+type RedisCommandClient = {
+  sendCommand(args: string[]): Promise<unknown>
+  connect?: () => Promise<void>
+  quit?: () => Promise<void>
+  on?: (event: string, listener: (error: unknown) => void) => void
 }
 
-function defaultQueueAdapterHealth(): SecuritySignalQueueAdapterHealth {
+const globalForAlertDeliveryQueue = globalThis as unknown as {
+  securityAlertDeliveryQueueAdapterHealth?: SecurityAlertDeliveryQueueAdapterHealth
+}
+
+function defaultQueueAdapterHealth(): SecurityAlertDeliveryQueueAdapterHealth {
   return {
     requestedBackend: 'in_memory',
     activeBackend: 'in_memory',
@@ -93,12 +87,13 @@ function defaultQueueAdapterHealth(): SecuritySignalQueueAdapterHealth {
   }
 }
 
-const adapterHealth = globalForQueueAdapter.securitySignalQueueAdapterHealth ?? defaultQueueAdapterHealth()
-if (!globalForQueueAdapter.securitySignalQueueAdapterHealth) {
-  globalForQueueAdapter.securitySignalQueueAdapterHealth = adapterHealth
+const adapterHealth =
+  globalForAlertDeliveryQueue.securityAlertDeliveryQueueAdapterHealth ?? defaultQueueAdapterHealth()
+if (!globalForAlertDeliveryQueue.securityAlertDeliveryQueueAdapterHealth) {
+  globalForAlertDeliveryQueue.securityAlertDeliveryQueueAdapterHealth = adapterHealth
 }
 
-function nextQueueId(prefix = 'queue'): string {
+function nextQueueId(prefix = 'alert_delivery'): string {
   if (globalThis.crypto?.randomUUID) return `${prefix}_${globalThis.crypto.randomUUID()}`
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`
 }
@@ -125,10 +120,10 @@ function envBool(name: string, fallback = false): boolean {
 }
 
 function durableQueueRequired(): boolean {
-  return envBool('SECURITY_SIGNAL_QUEUE_REQUIRE_DURABLE', process.env.NODE_ENV === 'production')
+  return envBool('SECURITY_ALERT_DELIVERY_QUEUE_REQUIRE_DURABLE', process.env.NODE_ENV === 'production')
 }
 
-function setQueueAdapterHealth(input: SecuritySignalQueueAdapterHealth) {
+function setQueueAdapterHealth(input: SecurityAlertDeliveryQueueAdapterHealth) {
   adapterHealth.requestedBackend = input.requestedBackend
   adapterHealth.activeBackend = input.activeBackend
   adapterHealth.degraded = input.degraded
@@ -138,154 +133,13 @@ function setQueueAdapterHealth(input: SecuritySignalQueueAdapterHealth) {
 }
 
 function queueOverflowStrategy(): 'drop_oldest' | 'reject_new' {
-  const raw = (process.env.SECURITY_SIGNAL_QUEUE_OVERFLOW_STRATEGY ?? 'drop_oldest').trim().toLowerCase()
+  const raw = (process.env.SECURITY_ALERT_DELIVERY_QUEUE_OVERFLOW_STRATEGY ?? 'drop_oldest').trim().toLowerCase()
   if (raw === 'reject_new') return 'reject_new'
   return 'drop_oldest'
 }
 
 function hasThen(value: unknown): value is Promise<unknown> {
   return !!value && typeof value === 'object' && 'then' in value
-}
-
-export class InMemoryQueueAdapter implements SecuritySignalQueueAdapter {
-  backend = 'in_memory' as const
-
-  private readonly queue: InMemoryQueueEntry[] = []
-  private readonly inflight = new Map<string, { entry: InMemoryQueueEntry; expiresAt: number }>()
-
-  private maxDepth(): number {
-    return envInt('SECURITY_SIGNAL_QUEUE_MAX_DEPTH', 5_000)
-  }
-
-  private ackTimeoutMs(): number {
-    return envInt('SECURITY_SIGNAL_QUEUE_ACK_TIMEOUT_MS', 30_000)
-  }
-
-  private reclaimExpired(now = Date.now()) {
-    for (const [id, inflight] of this.inflight.entries()) {
-      if (inflight.expiresAt <= now) {
-        this.inflight.delete(id)
-        this.queue.push({
-          ...inflight.entry,
-          availableAt: now,
-        })
-      }
-    }
-  }
-
-  async enqueue(
-    signal: QueueSignalPayload,
-    options?: SecuritySignalQueueEnqueueOptions,
-  ): Promise<SecuritySignalQueueEnqueueResult> {
-    const strategy = queueOverflowStrategy()
-    let dropped = false
-
-    if (this.queue.length >= this.maxDepth()) {
-      if (strategy === 'reject_new') {
-        throw new Error('queue_full')
-      }
-      const droppedEntry = this.queue.shift()
-      dropped = !!droppedEntry
-      if (droppedEntry) {
-        logWarn('security-signal:queue', new Error('Dropped oldest signal due to queue pressure'), {
-          droppedQueueId: droppedEntry.id,
-          source: droppedEntry.signal.source,
-        })
-      }
-    }
-
-    const queuedAt = Date.now()
-    const message: SecuritySignalQueueMessage = {
-      id: nextQueueId('queue'),
-      signal,
-      transport: options?.transport ?? 'queue',
-      retryCount: options?.retryCount ?? 0,
-      queuedAt,
-    }
-
-    this.queue.push({
-      ...message,
-      availableAt: queuedAt + Math.max(0, options?.delayMs ?? 0),
-    })
-
-    return {
-      message,
-      dropped,
-      queueLength: this.queue.length,
-    }
-  }
-
-  async dequeue(batchSize: number): Promise<SecuritySignalQueueMessage[]> {
-    const now = Date.now()
-    const maxBatch = Math.max(1, Math.floor(batchSize))
-    const messages: SecuritySignalQueueMessage[] = []
-
-    this.reclaimExpired(now)
-
-    for (let index = 0; index < this.queue.length && messages.length < maxBatch;) {
-      const entry = this.queue[index]
-      if (entry.availableAt > now) {
-        index += 1
-        continue
-      }
-
-      this.queue.splice(index, 1)
-      this.inflight.set(entry.id, {
-        entry,
-        expiresAt: now + this.ackTimeoutMs(),
-      })
-      messages.push({
-        id: entry.id,
-        signal: entry.signal,
-        transport: entry.transport,
-        retryCount: entry.retryCount,
-        queuedAt: entry.queuedAt,
-      })
-    }
-
-    return messages
-  }
-
-  async ack(message: SecuritySignalQueueMessage): Promise<void> {
-    this.inflight.delete(message.id)
-  }
-
-  async getStats(): Promise<SecuritySignalQueueStats> {
-    this.reclaimExpired(Date.now())
-
-    const oldest = this.queue[0]
-    const newest = this.queue[this.queue.length - 1]
-
-    return {
-      backend: this.backend,
-      depth: this.queue.length,
-      pending: this.inflight.size,
-      lag: this.queue.length,
-      oldestQueuedAt: oldest?.queuedAt ?? null,
-      newestQueuedAt: newest?.queuedAt ?? null,
-    }
-  }
-
-  resetForTests() {
-    this.queue.splice(0, this.queue.length)
-    this.inflight.clear()
-  }
-
-  closeForTests() {}
-}
-
-type RedisCommandClient = {
-  sendCommand(args: string[]): Promise<unknown>
-  connect?: () => Promise<void>
-  quit?: () => Promise<void>
-  on?: (event: string, listener: (error: unknown) => void) => void
-}
-
-function normalizeTransport(value: unknown): SecuritySignalTransport {
-  if (value === 'direct' || value === 'api' || value === 'queue' || value === 'event_bus') {
-    return value
-  }
-  return 'queue'
 }
 
 function parseNumber(value: unknown): number | null {
@@ -307,9 +161,30 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>
 }
 
-function parseStreamEntry(
-  entry: unknown,
-): { id: string; fields: Record<string, string> } | null {
+function parseStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string')
+}
+
+function parseSecurityAlertDeliveryJob(value: unknown): SecurityAlertDeliveryJob | null {
+  const record = asRecord(value)
+  if (!record) return null
+
+  const alertId = parseString(record.alertId)
+  const alertRecord = asRecord(record.record)
+  const socPayload = asRecord(record.socPayload)
+  if (!alertId || !alertRecord || !socPayload) return null
+
+  const containmentActions = parseStringArray(record.containmentActions)
+  return {
+    alertId,
+    record: alertRecord as unknown as SecurityAlertRecord,
+    socPayload,
+    containmentActions,
+  }
+}
+
+function parseStreamEntry(entry: unknown): { id: string; fields: Record<string, string> } | null {
   if (!Array.isArray(entry) || entry.length < 2) return null
   const id = parseString(entry[0])
   if (!id) return null
@@ -388,49 +263,22 @@ function parseXInfoGroups(
 
 function toStreamMessage(
   entry: { id: string; fields: Record<string, string> },
-): SecuritySignalQueueMessage | null {
+): SecurityAlertDeliveryQueueMessage | null {
   const payloadRaw = entry.fields.payload
   if (!payloadRaw) return null
 
-  let payload: QueueSignalPayload
+  let job: SecurityAlertDeliveryJob | null
   try {
-    const parsed = JSON.parse(payloadRaw)
-    const record = asRecord(parsed)
-    if (!record) return null
-
-    const source = parseString(record.source)
-    if (!source) return null
-
-    const outcome = record.outcome
-    if (outcome !== 'success' && outcome !== 'failure' && outcome !== 'blocked') {
-      return null
-    }
-
-    payload = {
-      source,
-      route: parseString(record.route),
-      outcome,
-      statusCode: parseNumber(record.statusCode),
-      ipHash: parseString(record.ipHash),
-      userId: parseString(record.userId),
-      sessionId: parseString(record.sessionId),
-      deviceId: parseString(record.deviceId),
-      principal: parseString(record.principal),
-      country: parseString(record.country),
-      latitude: parseNumber(record.latitude),
-      longitude: parseNumber(record.longitude),
-      userAgent: parseString(record.userAgent),
-      details: asRecord(record.details) ?? {},
-      detectedAt: parseNumber(record.detectedAt),
-    }
+    job = parseSecurityAlertDeliveryJob(JSON.parse(payloadRaw))
   } catch {
     return null
   }
 
+  if (!job) return null
+
   return {
     id: entry.id,
-    signal: payload,
-    transport: normalizeTransport(entry.fields.transport),
+    job,
     retryCount: parseNumber(entry.fields.retry) ?? 0,
     queuedAt: parseNumber(entry.fields.queuedAt) ?? Date.now(),
   }
@@ -446,7 +294,132 @@ async function loadRedisModule(): Promise<{ createClient: (options: { url: strin
   return { createClient: createClient as (options: { url: string }) => RedisCommandClient }
 }
 
-export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
+export class InMemorySecurityAlertDeliveryQueueAdapter implements SecurityAlertDeliveryQueueAdapter {
+  backend = 'in_memory' as const
+
+  private readonly queue: InMemoryQueueEntry[] = []
+  private readonly inflight = new Map<string, { entry: InMemoryQueueEntry; expiresAt: number }>()
+
+  private maxDepth(): number {
+    return envInt('SECURITY_ALERT_DELIVERY_QUEUE_MAX_DEPTH', 2_000)
+  }
+
+  private ackTimeoutMs(): number {
+    return envInt('SECURITY_ALERT_DELIVERY_QUEUE_ACK_TIMEOUT_MS', 30_000)
+  }
+
+  private reclaimExpired(now = Date.now()) {
+    for (const [id, inflight] of this.inflight.entries()) {
+      if (inflight.expiresAt <= now) {
+        this.inflight.delete(id)
+        this.queue.push({
+          ...inflight.entry,
+          availableAt: now,
+        })
+      }
+    }
+  }
+
+  async enqueue(
+    job: SecurityAlertDeliveryJob,
+    options?: SecurityAlertDeliveryQueueEnqueueOptions,
+  ): Promise<SecurityAlertDeliveryQueueEnqueueResult> {
+    const strategy = queueOverflowStrategy()
+    let dropped = false
+
+    if (this.queue.length >= this.maxDepth()) {
+      if (strategy === 'reject_new') {
+        throw new Error('queue_full')
+      }
+      const droppedEntry = this.queue.shift()
+      dropped = !!droppedEntry
+      if (droppedEntry) {
+        logWarn('security-alert:delivery-queue', new Error('Dropped oldest alert delivery job due to queue pressure'), {
+          alertId: droppedEntry.job.alertId,
+          queueId: droppedEntry.id,
+        })
+      }
+    }
+
+    const queuedAt = Date.now()
+    const message: SecurityAlertDeliveryQueueMessage = {
+      id: nextQueueId(),
+      job,
+      retryCount: options?.retryCount ?? 0,
+      queuedAt,
+    }
+
+    this.queue.push({
+      ...message,
+      availableAt: queuedAt + Math.max(0, options?.delayMs ?? 0),
+    })
+
+    return {
+      message,
+      dropped,
+      queueLength: this.queue.length,
+    }
+  }
+
+  async dequeue(batchSize: number): Promise<SecurityAlertDeliveryQueueMessage[]> {
+    const now = Date.now()
+    const maxBatch = Math.max(1, Math.floor(batchSize))
+    const messages: SecurityAlertDeliveryQueueMessage[] = []
+
+    this.reclaimExpired(now)
+
+    for (let index = 0; index < this.queue.length && messages.length < maxBatch;) {
+      const entry = this.queue[index]
+      if (entry.availableAt > now) {
+        index += 1
+        continue
+      }
+
+      this.queue.splice(index, 1)
+      this.inflight.set(entry.id, {
+        entry,
+        expiresAt: now + this.ackTimeoutMs(),
+      })
+      messages.push({
+        id: entry.id,
+        job: entry.job,
+        retryCount: entry.retryCount,
+        queuedAt: entry.queuedAt,
+      })
+    }
+
+    return messages
+  }
+
+  async ack(message: SecurityAlertDeliveryQueueMessage): Promise<void> {
+    this.inflight.delete(message.id)
+  }
+
+  async getStats(): Promise<SecurityAlertDeliveryQueueStats> {
+    this.reclaimExpired(Date.now())
+
+    const oldest = this.queue[0]
+    const newest = this.queue[this.queue.length - 1]
+
+    return {
+      backend: this.backend,
+      depth: this.queue.length,
+      pending: this.inflight.size,
+      lag: this.queue.length,
+      oldestQueuedAt: oldest?.queuedAt ?? null,
+      newestQueuedAt: newest?.queuedAt ?? null,
+    }
+  }
+
+  resetForTests() {
+    this.queue.splice(0, this.queue.length)
+    this.inflight.clear()
+  }
+
+  closeForTests() {}
+}
+
+export class RedisSecurityAlertDeliveryQueueAdapter implements SecurityAlertDeliveryQueueAdapter {
   backend = 'redis' as const
 
   private readonly streamKey: string
@@ -486,30 +459,33 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
     }
   }
 
-  static fromEnv(): RedisQueueAdapter {
+  static fromEnv(): RedisSecurityAlertDeliveryQueueAdapter {
     const redisUrl =
-      process.env.SECURITY_SIGNAL_REDIS_URL?.trim() ??
+      process.env.SECURITY_ALERT_DELIVERY_REDIS_URL?.trim() ??
+      process.env.SECURITY_ALERT_REDIS_URL?.trim() ??
       process.env.REDIS_URL?.trim() ??
       ''
 
     if (!redisUrl) {
-      throw new Error('SECURITY_SIGNAL_REDIS_URL or REDIS_URL is required for redis queue backend')
+      throw new Error(
+        'SECURITY_ALERT_DELIVERY_REDIS_URL, SECURITY_ALERT_REDIS_URL, or REDIS_URL is required for redis queue backend',
+      )
     }
 
-    const streamKey = process.env.SECURITY_SIGNAL_REDIS_STREAM?.trim() || 'security:signals'
-    const group = process.env.SECURITY_SIGNAL_REDIS_GROUP?.trim() || 'detectionGroup'
+    const streamKey = process.env.SECURITY_ALERT_DELIVERY_REDIS_STREAM?.trim() || 'security:alert-delivery'
+    const group = process.env.SECURITY_ALERT_DELIVERY_REDIS_GROUP?.trim() || 'deliveryGroup'
     const consumer =
-      process.env.SECURITY_SIGNAL_REDIS_CONSUMER?.trim() ||
+      process.env.SECURITY_ALERT_DELIVERY_REDIS_CONSUMER?.trim() ||
       `${os.hostname().replace(/[^a-zA-Z0-9_-]/g, '_')}-${process.pid}`
 
-    return new RedisQueueAdapter({
+    return new RedisSecurityAlertDeliveryQueueAdapter({
       redisUrl,
       streamKey,
       group,
       consumer,
-      blockMs: envInt('SECURITY_SIGNAL_REDIS_BLOCK_MS', 250),
-      minIdleMs: envInt('SECURITY_SIGNAL_REDIS_MIN_IDLE_MS', 30_000),
-      maxDepth: envInt('SECURITY_SIGNAL_QUEUE_MAX_DEPTH', 5_000),
+      blockMs: envInt('SECURITY_ALERT_DELIVERY_REDIS_BLOCK_MS', 250),
+      minIdleMs: envInt('SECURITY_ALERT_DELIVERY_REDIS_MIN_IDLE_MS', 30_000),
+      maxDepth: envInt('SECURITY_ALERT_DELIVERY_QUEUE_MAX_DEPTH', 2_000),
     })
   }
 
@@ -523,14 +499,14 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
       minIdleMs?: number
       maxDepth?: number
     },
-  ): RedisQueueAdapter {
-    return new RedisQueueAdapter({
-      streamKey: options?.streamKey ?? 'security:signals',
-      group: options?.group ?? 'detectionGroup',
+  ): RedisSecurityAlertDeliveryQueueAdapter {
+    return new RedisSecurityAlertDeliveryQueueAdapter({
+      streamKey: options?.streamKey ?? 'security:alert-delivery',
+      group: options?.group ?? 'deliveryGroup',
       consumer: options?.consumer ?? `test-${process.pid}`,
       blockMs: options?.blockMs ?? 250,
       minIdleMs: options?.minIdleMs ?? 30_000,
-      maxDepth: options?.maxDepth ?? 5_000,
+      maxDepth: options?.maxDepth ?? 2_000,
       clientFactory: async () => client,
     })
   }
@@ -539,7 +515,7 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
     const redisModule = await loadRedisModule()
     const client = redisModule.createClient({ url: redisUrl })
     client.on?.('error', (error) => {
-      logError('security-signal:redis', error)
+      logError('security-alert:delivery-queue:redis', error)
     })
     if (client.connect) {
       await client.connect()
@@ -573,9 +549,9 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
   }
 
   async enqueue(
-    signal: QueueSignalPayload,
-    options?: SecuritySignalQueueEnqueueOptions,
-  ): Promise<SecuritySignalQueueEnqueueResult> {
+    job: SecurityAlertDeliveryJob,
+    options?: SecurityAlertDeliveryQueueEnqueueOptions,
+  ): Promise<SecurityAlertDeliveryQueueEnqueueResult> {
     await this.ensureGroup()
 
     const depth = await this.getDepthUnsafe()
@@ -595,9 +571,7 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
       String(this.maxDepth),
       '*',
       'payload',
-      JSON.stringify(signal),
-      'transport',
-      options?.transport ?? 'queue',
+      JSON.stringify(job),
       'retry',
       String(retryCount),
       'queuedAt',
@@ -614,8 +588,7 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
     return {
       message: {
         id,
-        signal,
-        transport: options?.transport ?? 'queue',
+        job,
         retryCount,
         queuedAt,
       },
@@ -628,7 +601,6 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
     const availableAt = parseNumber(entry.fields.availableAt)
     if (availableAt === null || availableAt <= Date.now()) return false
 
-    // Keep delayed retries durable without blocking pending entries forever.
     await this.send(['XACK', this.streamKey, this.group, entry.id])
     await this.send([
       'XADD',
@@ -636,8 +608,6 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
       '*',
       'payload',
       entry.fields.payload ?? '{}',
-      'transport',
-      entry.fields.transport ?? 'queue',
       'retry',
       entry.fields.retry ?? '0',
       'queuedAt',
@@ -648,7 +618,7 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
     return true
   }
 
-  async dequeue(batchSize: number): Promise<SecuritySignalQueueMessage[]> {
+  async dequeue(batchSize: number): Promise<SecurityAlertDeliveryQueueMessage[]> {
     await this.ensureGroup()
 
     const count = Math.max(1, Math.floor(batchSize))
@@ -664,7 +634,6 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
     ])
 
     const claimed = parseAutoClaimEntries(claimedRaw)
-
     const needed = Math.max(0, count - claimed.length)
     let fresh: Array<{ id: string; fields: Record<string, string> }> = []
 
@@ -686,7 +655,7 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
     }
 
     const entries = [...claimed, ...fresh]
-    const messages: SecuritySignalQueueMessage[] = []
+    const messages: SecurityAlertDeliveryQueueMessage[] = []
 
     for (const entry of entries) {
       if (await this.normalizeDelayedEntry(entry)) {
@@ -706,11 +675,11 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
     return messages
   }
 
-  async ack(message: SecuritySignalQueueMessage): Promise<void> {
+  async ack(message: SecurityAlertDeliveryQueueMessage): Promise<void> {
     await this.send(['XACK', this.streamKey, this.group, message.id])
   }
 
-  async getStats(): Promise<SecuritySignalQueueStats> {
+  async getStats(): Promise<SecurityAlertDeliveryQueueStats> {
     await this.ensureGroup()
 
     const depthRaw = await this.send(['XLEN', this.streamKey])
@@ -729,11 +698,6 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
       lag = null
     }
 
-    if (pending === null) {
-      const pendingRaw = await this.send(['XPENDING', this.streamKey, this.group])
-      pending = Array.isArray(pendingRaw) ? (parseNumber(pendingRaw[0]) ?? 0) : 0
-    }
-
     const oldestRaw = await this.send(['XRANGE', this.streamKey, '-', '+', 'COUNT', '1'])
     const newestRaw = await this.send(['XREVRANGE', this.streamKey, '+', '-', 'COUNT', '1'])
 
@@ -743,7 +707,7 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
     return {
       backend: this.backend,
       depth,
-      pending,
+      pending: pending ?? 0,
       lag,
       oldestQueuedAt: parseNumber(oldestEntry?.fields.queuedAt) ?? null,
       newestQueuedAt: parseNumber(newestEntry?.fields.queuedAt) ?? null,
@@ -755,7 +719,10 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
       await this.send(['DEL', this.streamKey])
       this.groupReady = false
     } catch (error) {
-      logWarn('security-signal:redis', new Error(getErrorMessage(error, 'Failed to reset stream for tests')))
+      logWarn(
+        'security-alert:delivery-queue:redis',
+        new Error(getErrorMessage(error, 'Failed to reset alert delivery stream for tests')),
+      )
     }
   }
 
@@ -765,18 +732,21 @@ export class RedisQueueAdapter implements SecuritySignalQueueAdapter {
       const client = await this.clientPromise
       await client.quit?.()
     } catch (error) {
-      logWarn('security-signal:redis', new Error(getErrorMessage(error, 'Failed to close redis test client')))
+      logWarn(
+        'security-alert:delivery-queue:redis',
+        new Error(getErrorMessage(error, 'Failed to close alert delivery redis test client')),
+      )
     }
   }
 }
 
-export async function createQueueAdapterFromEnv(): Promise<SecuritySignalQueueAdapter> {
-  const backendRaw = (process.env.SECURITY_SIGNAL_QUEUE_BACKEND ?? 'in_memory').trim().toLowerCase()
+export async function createSecurityAlertDeliveryQueueFromEnv(): Promise<SecurityAlertDeliveryQueueAdapter> {
+  const backendRaw = (process.env.SECURITY_ALERT_DELIVERY_QUEUE_BACKEND ?? 'in_memory').trim().toLowerCase()
   const requestedBackend = backendRaw === 'redis' ? 'redis' : 'in_memory'
   const requireDurable = durableQueueRequired()
 
   if (requestedBackend !== 'redis' && requireDurable) {
-    const reason = 'SECURITY_SIGNAL_QUEUE_BACKEND must be redis when durable queueing is required'
+    const reason = 'SECURITY_ALERT_DELIVERY_QUEUE_BACKEND must be redis when durable delivery is required'
     setQueueAdapterHealth({
       requestedBackend,
       activeBackend: 'in_memory',
@@ -790,7 +760,7 @@ export async function createQueueAdapterFromEnv(): Promise<SecuritySignalQueueAd
 
   if (requestedBackend === 'redis') {
     try {
-      const adapter = RedisQueueAdapter.fromEnv()
+      const adapter = RedisSecurityAlertDeliveryQueueAdapter.fromEnv()
       await adapter.getStats()
       setQueueAdapterHealth({
         requestedBackend,
@@ -803,7 +773,7 @@ export async function createQueueAdapterFromEnv(): Promise<SecuritySignalQueueAd
       return adapter
     } catch (error) {
       const reason = getErrorMessage(error, 'redis_backend_unavailable')
-      logError('security-signal:adapter', error, {
+      logError('security-alert:delivery-queue:adapter', error, {
         backend: requestedBackend,
         requireDurable,
         fallbackBackend: requireDurable ? 'none' : 'in_memory',
@@ -819,7 +789,7 @@ export async function createQueueAdapterFromEnv(): Promise<SecuritySignalQueueAd
       if (requireDurable) {
         throw new Error(`durable_queue_required:${reason}`)
       }
-      return new InMemoryQueueAdapter()
+      return new InMemorySecurityAlertDeliveryQueueAdapter()
     }
   }
 
@@ -831,10 +801,10 @@ export async function createQueueAdapterFromEnv(): Promise<SecuritySignalQueueAd
     lastFailureAt: null,
     requireDurable,
   })
-  return new InMemoryQueueAdapter()
+  return new InMemorySecurityAlertDeliveryQueueAdapter()
 }
 
-export function getSecuritySignalQueueAdapterHealth(): SecuritySignalQueueAdapterHealth {
+export function getSecurityAlertDeliveryQueueAdapterHealth(): SecurityAlertDeliveryQueueAdapterHealth {
   return {
     requestedBackend: adapterHealth.requestedBackend,
     activeBackend: adapterHealth.activeBackend,
@@ -845,26 +815,30 @@ export function getSecuritySignalQueueAdapterHealth(): SecuritySignalQueueAdapte
   }
 }
 
-export function resetSecuritySignalQueueAdapterHealthForTests() {
+export function resetSecurityAlertDeliveryQueueAdapterHealthForTests() {
   setQueueAdapterHealth(defaultQueueAdapterHealth())
 }
 
-export function maybeResetQueueAdapterForTests(adapter: SecuritySignalQueueAdapter | null | undefined) {
+export function maybeResetSecurityAlertDeliveryQueueForTests(
+  adapter: SecurityAlertDeliveryQueueAdapter | null | undefined,
+) {
   if (!adapter?.resetForTests) return
   const result = adapter.resetForTests()
   if (hasThen(result)) {
     void result.catch((error) => {
-      logError('security-signal:adapter', error)
+      logError('security-alert:delivery-queue:adapter', error)
     })
   }
 }
 
-export function maybeCloseQueueAdapterForTests(adapter: SecuritySignalQueueAdapter | null | undefined) {
+export function maybeCloseSecurityAlertDeliveryQueueForTests(
+  adapter: SecurityAlertDeliveryQueueAdapter | null | undefined,
+) {
   if (!adapter?.closeForTests) return
   const result = adapter.closeForTests()
   if (hasThen(result)) {
     void result.catch((error) => {
-      logError('security-signal:adapter', error)
+      logError('security-alert:delivery-queue:adapter', error)
     })
   }
 }
