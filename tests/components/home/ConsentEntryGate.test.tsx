@@ -3,12 +3,15 @@
 import { render, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ConsentEntryGate from '@/components/home/ConsentEntryGate.client'
+import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { createHuman, HUMAN_DELAYS } from '@/tests/helpers/human'
 import {
   CONSENT_MODE_KEY,
   CONSENT_PROMPT_SESSION_KEY,
   CONSENT_SITE_ENTRY_SESSION_KEY,
 } from '@/infra/consent/constants'
+import { useSession } from 'next-auth/react'
+import { useConnection } from 'wagmi'
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -22,6 +25,28 @@ vi.mock('next/navigation', () => ({
   usePathname: () => mocks.pathname,
   useSearchParams: () => new URLSearchParams(mocks.search),
 }))
+
+vi.mock('next-auth/react', () => ({
+  useSession: vi.fn(),
+}))
+
+vi.mock('wagmi', () => ({
+  useConnection: vi.fn(),
+}))
+
+const mockedUseSession = vi.mocked(useSession)
+const mockedUseConnection = vi.mocked(useConnection)
+const initialState = useDynamicInfoStore.getState()
+
+const resetStore = () => {
+  useDynamicInfoStore.setState(
+    {
+      ...initialState,
+      wallet: { ...initialState.wallet },
+    },
+    true,
+  )
+}
 
 describe('ConsentEntryGate', () => {
   beforeEach(() => {
@@ -78,8 +103,19 @@ describe('ConsentEntryGate', () => {
     localStorage.clear()
     sessionStorage.clear()
     vi.clearAllMocks()
+    resetStore()
     mocks.pathname = '/en/consent'
     mocks.search = 'next=%2Fen%2Fcompliance'
+    mockedUseSession.mockReturnValue({
+      data: null,
+      status: 'unauthenticated',
+    } as any)
+    mockedUseConnection.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+      chain: undefined,
+      connector: undefined,
+    } as any)
   })
 
   it('continues to the requested site route after saving consent', async () => {
@@ -112,5 +148,33 @@ describe('ConsentEntryGate', () => {
     const { getByTestId } = render(<ConsentEntryGate />)
 
     expect(getByTestId('consent-gate-next-steps')).toBeTruthy()
+  })
+
+  it('hides the auth prompt when the site session already exists', () => {
+    mockedUseSession.mockReturnValue({
+      data: { user: { id: 'user-1', email: 'test@example.com' } },
+      status: 'authenticated',
+    } as any)
+
+    const { queryByRole } = render(<ConsentEntryGate />)
+
+    expect(queryByRole('button', { name: 'Sign in' })).toBeNull()
+  })
+
+  it('hides the onboarding explainer when session and wallet are already ready', () => {
+    mockedUseSession.mockReturnValue({
+      data: { user: { id: 'user-1', email: 'test@example.com' } },
+      status: 'authenticated',
+    } as any)
+    mockedUseConnection.mockReturnValue({
+      address: '0x1234567890abcdef1234567890abcdef12345678',
+      isConnected: true,
+      chain: { id: 1, name: 'Ethereum' },
+      connector: { name: 'MetaMask' },
+    } as any)
+
+    const { queryByTestId } = render(<ConsentEntryGate />)
+
+    expect(queryByTestId('consent-gate-next-steps')).toBeNull()
   })
 })

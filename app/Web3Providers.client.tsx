@@ -119,7 +119,7 @@ export default function Web3Providers({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <WagmiProvider config={config} reconnectOnMount={false}>
+    <WagmiProvider config={config} reconnectOnMount>
       <QueryClientProvider client={queryClient}>
         {children}
       </QueryClientProvider>

@@ -2,8 +2,11 @@
 
 import * as React from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useLocale, useTranslations } from "next-intl"
+import { useConnection } from "wagmi"
 import { replacePathLocale } from "@/i18n/routing"
+import { useDynamicInfoStore } from "@/hooks/useDynamicInfoStore"
 import { setLocationConsent, getLocationConsent } from "@/infra/location/client"
 import { getTelemetryConsent, setTelemetryConsent } from "@/infra/telemetry/client"
 import {
@@ -29,6 +32,9 @@ export default function ConsentEntryGate() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { status: sessionStatus } = useSession()
+  const { address, isConnected } = useConnection()
+  const wallet = useDynamicInfoStore((state) => state.wallet)
 
   const [consentPreset, setConsentPreset] = React.useState<ConsentPreset>("essentialOnly")
   const [busy, setBusy] = React.useState(false)
@@ -68,6 +74,13 @@ export default function ConsentEntryGate() {
   }, [])
 
   const optionalServicesEnabled = consentPreset === "allowAll"
+  const walletReady = Boolean(
+    (isConnected && address) ||
+    wallet.connectedAddress ||
+    wallet.createdAddress,
+  )
+  const showNextSteps = !(sessionStatus === "authenticated" && walletReady)
+  const showAuthPrompt = sessionStatus === "unauthenticated"
   const nextSteps = React.useMemo(
     () =>
       [
@@ -160,38 +173,40 @@ export default function ConsentEntryGate() {
         </div>
 
         <div className="mt-6 space-y-4">
-          <div
-            data-testid="consent-gate-next-steps"
-            className="rounded-2xl border border-white/10 bg-[#07111d]/70 p-4"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-saffron/82">
-                  {tConsent("nextTitle")}
-                </p>
-                <h3 className="mt-1 text-base font-semibold tracking-tight text-ivory">
-                  {tConsent("nextBody")}
-                </h3>
+          {showNextSteps ? (
+            <div
+              data-testid="consent-gate-next-steps"
+              className="rounded-2xl border border-white/10 bg-[#07111d]/70 p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-saffron/82">
+                    {tConsent("nextTitle")}
+                  </p>
+                  <h3 className="mt-1 text-base font-semibold tracking-tight text-ivory">
+                    {tConsent("nextBody")}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {nextSteps.map((step, index) => (
+                  <div
+                    key={step.key}
+                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-3"
+                  >
+                    <div className="text-[10px] uppercase tracking-[0.16em] text-saffron/78">
+                      {index + 1}
+                    </div>
+                    <div className="mt-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-ivory">
+                      {step.title}
+                    </div>
+                    <p className="mt-1 text-[11px] leading-5 text-ivory/62">{step.body}</p>
+                  </div>
+                ))}
               </div>
             </div>
-
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              {nextSteps.map((step, index) => (
-                <div
-                  key={step.key}
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-3"
-                >
-                  <div className="text-[10px] uppercase tracking-[0.16em] text-saffron/78">
-                    {index + 1}
-                  </div>
-                  <div className="mt-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-ivory">
-                    {step.title}
-                  </div>
-                  <p className="mt-1 text-[11px] leading-5 text-ivory/62">{step.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          ) : null}
 
           <div className="surface-inner space-y-3 rounded-2xl border border-white/10 p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-saffron/80">{tConsent("eyebrow")}</p>
@@ -263,16 +278,18 @@ export default function ConsentEntryGate() {
             </button>
           </div>
 
-          <div className="text-center text-xs text-ivory/62">
-            <span>{tAuth("alreadyHaveAccount")}</span>{" "}
-            <button
-              type="button"
-              onClick={() => router.push(`/${locale}/login?mode=login`)}
-              className="font-semibold uppercase tracking-[0.12em] text-saffron transition hover:text-ivory"
-            >
-              {tAuth("signIn")}
-            </button>
-          </div>
+          {showAuthPrompt ? (
+            <div className="text-center text-xs text-ivory/62">
+              <span>{tAuth("alreadyHaveAccount")}</span>{" "}
+              <button
+                type="button"
+                onClick={() => router.push(`/${locale}/login?mode=login`)}
+                className="font-semibold uppercase tracking-[0.12em] text-saffron transition hover:text-ivory"
+              >
+                {tAuth("signIn")}
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
