@@ -45,5 +45,6 @@ export async function assessXrplActionRisk(input: XrplRiskInput) {
     dailyLimitWei: readDailyLimitWei(),
     spentTodayWei: 0n,
     idempotencyKey: input.idempotencyKey,
+    riskAction: 'xrpl.action',
   })
 }

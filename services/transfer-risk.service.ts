@@ -11,6 +11,7 @@ export type TransferRiskInput = {
   dailyLimitWei: bigint
   spentTodayWei: bigint
   idempotencyKey: string
+  riskAction?: string
 }
 
 export type TransferRiskResult = {
@@ -212,7 +213,7 @@ export async function assessTransferRisk(input: TransferRiskInput): Promise<Tran
   }
 
   await recordRiskDecision({
-    action: 'wallet.send',
+    action: input.riskAction ?? 'wallet.send',
     walletId: input.walletId,
     userId: input.userId ?? null,
     score: result.score,

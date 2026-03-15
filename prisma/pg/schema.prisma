@@ -265,6 +265,29 @@ model RiskDecision {
   @@index([action, createdAt])
 }
 
+model ReconciliationIssue {
+  id          String   @id @default(cuid())
+  scope       String
+  kind        String
+  refId       String
+  status      String   @default("open")
+  severity    String   @default("high")
+  traceId     String?
+  summary     String?
+  details     Json?
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([scope, kind, refId])
+  @@index([status, updatedAt])
+  @@index([scope, status, updatedAt])
+  @@index([refId])
+  @@index([traceId])
+}
+
 model SecuritySignalEvent {
   id                String   @id
   schemaVersion     String   @default("1")
