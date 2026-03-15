@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { HydrationBoundary, type DehydratedState } from '@tanstack/react-query'
+import { ManagedWalletSessionProvider } from '@/components/wallet/sync/ManagedWalletSessionContext.client'
 import { persistWalletId } from '@/lib/storage/walletSession'
 import { useWalletInvalidationSocket } from '@/components/wallet/sync/useWalletInvalidationSocket'
 import { useWalletSnapshotQuery } from '@/components/wallet/sync/useWalletQueries'
@@ -30,8 +31,10 @@ export default function WalletSyncBoundary({
 }) {
   return (
     <HydrationBoundary state={dehydratedState}>
-      <WalletSyncRuntime walletId={walletId} />
-      {children}
+      <ManagedWalletSessionProvider walletId={walletId}>
+        <WalletSyncRuntime walletId={walletId} />
+        {children}
+      </ManagedWalletSessionProvider>
     </HydrationBoundary>
   )
 }

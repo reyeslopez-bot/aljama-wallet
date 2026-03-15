@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { walletQueryKeys } from '@/components/wallet/sync/wallet-query-keys'
-import type { WalletSnapshot } from '@/types/wallet-api'
+import type { WalletSnapshot, WalletTransactionsPage } from '@/types/wallet-api'
 
 type ApiError = {
   error?: string
@@ -27,6 +27,7 @@ async function expectJson<T>(response: Response): Promise<T> {
 }
 
 type WalletSnapshotResponse = { ok: true; wallet: WalletSnapshot }
+type WalletTransactionsResponse = WalletTransactionsPage & { ok: true }
 
 async function fetchWalletSnapshot(walletId: string): Promise<WalletSnapshot> {
   const response = await fetch(`/api/wallet/${walletId}`, {
@@ -35,6 +36,29 @@ async function fetchWalletSnapshot(walletId: string): Promise<WalletSnapshot> {
   })
   const payload = await expectJson<WalletSnapshotResponse>(response)
   return payload.wallet
+}
+
+async function fetchWalletTransactions(
+  walletId: string,
+  {
+    cursor = null,
+    limit = 25,
+  }: {
+    cursor?: string | null
+    limit?: number
+  } = {},
+): Promise<WalletTransactionsPage> {
+  const params = new URLSearchParams()
+  params.set('limit', String(limit))
+  if (cursor) {
+    params.set('cursor', cursor)
+  }
+
+  const response = await fetch(`/api/wallet/${walletId}/transactions?${params.toString()}`, {
+    method: 'GET',
+    cache: 'no-store',
+  })
+  return expectJson<WalletTransactionsResponse>(response)
 }
 
 export function useWalletSnapshotQuery(
@@ -50,6 +74,29 @@ export function useWalletSnapshotQuery(
     queryFn: () => fetchWalletSnapshot(walletId as string),
     enabled,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    ...(options?.initialData ? { initialData: options.initialData } : {}),
+  })
+}
+
+export function useWalletTransactionsQuery(
+  walletId: string | null,
+  options?: {
+    enabled?: boolean
+    cursor?: string | null
+    limit?: number
+    initialData?: WalletTransactionsPage
+  },
+) {
+  const enabled = Boolean(walletId) && (options?.enabled ?? true)
+  const cursor = options?.cursor ?? null
+  const limit = options?.limit ?? 25
+
+  return useQuery({
+    queryKey: walletId ? walletQueryKeys.transactions(walletId, cursor, limit) : walletQueryKeys.all,
+    queryFn: () => fetchWalletTransactions(walletId as string, { cursor, limit }),
+    enabled,
+    staleTime: 15_000,
     refetchOnWindowFocus: false,
     ...(options?.initialData ? { initialData: options.initialData } : {}),
   })

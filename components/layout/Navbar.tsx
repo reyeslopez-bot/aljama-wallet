@@ -17,7 +17,7 @@ const LANGUAGES = [
 ]
 
 type ThemeMode = 'light' | 'dark'
-type MenuItemKey = 'overview' | 'create-connect' | 'xrpl' | 'trade-desk'
+type MenuItemKey = 'wallet' | 'overview' | 'create-connect' | 'xrpl' | 'trade-desk'
 
 const THEME_KEY = 'aljama.theme'
 
@@ -122,12 +122,16 @@ export default function Navbar() {
     setMenuOpen(false)
     setLanguageOpen(false)
     if (typeof window === 'undefined') return
+    if (walletRoutes && isAuthed) {
+      setActiveMenuKey('wallet')
+      return
+    }
     if (pathWithoutLocale !== '/') {
       setActiveMenuKey(null)
       return
     }
     setActiveMenuKey(hashToMenuKey(window.location.hash) ?? 'overview')
-  }, [hashToMenuKey, pathWithoutLocale, pathname])
+  }, [hashToMenuKey, isAuthed, pathWithoutLocale, pathname, walletRoutes])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -185,6 +189,7 @@ export default function Navbar() {
   }, [hashToMenuKey, pathWithoutLocale])
 
   const menuItems: Array<{ key: MenuItemKey; label: string; href: string }> = [
+    ...(isAuthed ? [{ key: 'wallet' as const, label: t('wallet'), href: `/${locale}/wallet` }] : []),
     { key: 'overview', label: t('overview'), href: `/${locale}#overview` },
     { key: 'create-connect', label: t('createConnect'), href: `/${locale}#create` },
     { key: 'xrpl', label: t('xrpl'), href: `/${locale}#xrpl` },

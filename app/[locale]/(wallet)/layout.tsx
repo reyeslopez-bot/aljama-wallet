@@ -61,7 +61,7 @@ export default async function WalletLayout({
         <div className="fixed inset-0 -z-10 bg-gradient-to-b from-black/70 via-black/55 to-black/85" />
         <div className="fixed inset-0 -z-10 shadow-[inset_0_0_180px_rgba(0,0,0,0.85)]" />
 
-        <div className="mx-auto flex min-h-screen w-full max-w-xl items-center justify-center px-6 py-16">
+        <div className="mx-auto flex min-h-screen w-full max-w-6xl items-start justify-center px-6 py-24">
           <div className="w-full">{children}</div>
         </div>
 
