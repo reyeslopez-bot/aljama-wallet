@@ -222,13 +222,13 @@ describe('XrplTradeDesk', () => {
       expect((getByTestId('xrpl-trade-desk-quick-swap-refresh-quote') as HTMLButtonElement).disabled).toBe(false)
     })
 
-    expect(queryByText('No live quote available. Refresh order book to estimate receive amount.')).toBeNull()
+    expect(queryByText(/No live quote for XRP -> USD/i)).toBeNull()
 
     fireEvent.click(getByTestId('xrpl-trade-desk-quick-swap-refresh-quote'))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
-      expect(getByText('No live quote available. Refresh order book to estimate receive amount.')).toBeTruthy()
+      expect(getByText(/No live quote for XRP -> USD/i)).toBeTruthy()
     })
   })
 })
