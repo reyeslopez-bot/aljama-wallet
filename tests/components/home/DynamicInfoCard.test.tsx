@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { fireEvent, render, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import DynamicInfoCard from '@/components/home/DynamicInfoCard.client'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
@@ -99,6 +100,27 @@ describe('DynamicInfoCard', () => {
     })
 
     fireEvent.click(getByTestId('dynamic-info-card-collapse-button'))
+
+    await waitFor(() => {
+      expect(queryByTestId('dynamic-info-card-collapsed')).toBeTruthy()
+    })
+  })
+
+  it('supports keyboard activation without double-toggling', async () => {
+    const user = userEvent.setup()
+    const { getByTestId, queryByTestId } = render(<DynamicInfoCard />)
+
+    const expandButton = getByTestId('dynamic-info-card-expand-button')
+    expandButton.focus()
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => {
+      expect(queryByTestId('dynamic-info-card-expanded')).toBeTruthy()
+    })
+
+    const collapseButton = getByTestId('dynamic-info-card-collapse-button')
+    collapseButton.focus()
+    await user.keyboard('{Enter}')
 
     await waitFor(() => {
       expect(queryByTestId('dynamic-info-card-collapsed')).toBeTruthy()

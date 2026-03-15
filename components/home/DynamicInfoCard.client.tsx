@@ -3,7 +3,6 @@
 import { gsap } from 'gsap'
 import type {
   CSSProperties,
-  KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
@@ -581,17 +580,13 @@ export default function DynamicInfoCard() {
     [detailsPinned, hoverExpansionEnabled, shouldExpandFromHoverTarget],
   )
 
-  const handleExpandKeyDown = useCallback((event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return
-    event.preventDefault()
-    setDetailsPinned(true)
-  }, [])
-
-  const handleCollapseKeyDown = useCallback((event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return
-    event.preventDefault()
+  const collapseDetails = useCallback(() => {
     setDetailsPinned(false)
     setHovered(false)
+  }, [])
+
+  const expandDetails = useCallback(() => {
+    setDetailsPinned(true)
   }, [])
 
   return (
@@ -833,11 +828,7 @@ export default function DynamicInfoCard() {
                     data-dynamic-info-card-toggle-state="expanded"
                     data-testid="dynamic-info-card-collapse-button"
                     aria-expanded={detailsExpanded}
-                    onKeyDown={handleCollapseKeyDown}
-                    onClick={() => {
-                      setDetailsPinned(false)
-                      setHovered(false)
-                    }}
+                    onClick={collapseDetails}
                     className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
                       isLightTheme
                         ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
@@ -885,8 +876,7 @@ export default function DynamicInfoCard() {
                   data-dynamic-info-card-toggle-state="collapsed"
                   data-testid="dynamic-info-card-expand-button"
                   aria-expanded={detailsExpanded}
-                  onKeyDown={handleExpandKeyDown}
-                  onClick={() => setDetailsPinned(true)}
+                  onClick={expandDetails}
                   className={`rounded-full border px-3 py-1 text-[0.6875rem] font-semibold tracking-wide transition ${
                     isLightTheme
                       ? 'border-[#7fa3c1]/45 bg-white/70 text-[#36516d]/85 hover:bg-white'

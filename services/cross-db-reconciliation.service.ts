@@ -455,7 +455,7 @@ export async function reconcileWalletTransfers(
       summary.transfer.missingCount += 1
     }
 
-    let mismatchReasons: string[] = []
+    const mismatchReasons: string[] = []
     if (chainTx) {
       if (chainTx.fromWalletId !== log.walletId) mismatchReasons.push('from_wallet_mismatch')
       if (normalizeEvmAddress(chainTx.toAddress) !== normalizeEvmAddress(log.toAddress)) {
@@ -789,7 +789,7 @@ export async function reconcileSendRiskDecisions(
       summary.risk.missingCount += 1
     }
 
-    let mismatchReasons: string[] = []
+    const mismatchReasons: string[] = []
     const normalizedTransferStatus = transferLog ? normalizeTransferWorkflowStatus(transferLog.status) : null
     if (transferLog) {
       if (decision.decision === 'allow') {
