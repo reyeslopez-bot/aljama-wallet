@@ -160,4 +160,38 @@ describe('ConnectWalletPanel', () => {
 
     expect(connect).toHaveBeenCalledWith({ connector })
   })
+
+  it('disables injected connect when no browser wallet provider exists', async () => {
+    const connector = { id: 'injected', name: 'Injected' } as Connector
+    const connect = vi.fn()
+
+    Object.defineProperty(window, 'ethereum', {
+      value: undefined,
+      configurable: true,
+    })
+
+    mockedUseConnection.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+      chain: undefined,
+      connector: undefined,
+    } as any)
+    mockedUseConnectors.mockReturnValue([connector])
+    mockedUseConnect.mockReturnValue({ mutate: connect, isPending: false } as any)
+    mockedUseDisconnect.mockReturnValue({ mutate: vi.fn() } as any)
+
+    const { getByTestId } = render(<ConnectWalletPanel />)
+
+    await waitFor(() => {
+      expect(getByTestId('connect-wallet-status').textContent).toContain('No connector')
+      expect(getByTestId('connect-wallet-no-connector-note').textContent).toContain(
+        'No wallet connector detected',
+      )
+      expect((getByTestId('connect-wallet-action') as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    fireEvent.click(getByTestId('connect-wallet-action'))
+
+    expect(connect).not.toHaveBeenCalled()
+  })
 })
