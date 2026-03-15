@@ -1,18 +1,26 @@
 // services/telemetry.service.ts
 import { prismaPg } from '@/lib/prisma-pg'
 import type { Prisma } from '@/prisma/generated/pg'
+import { assertNoSensitiveFreeFormFields } from '@/lib/security/event-schema'
 import { logWarn } from '@/lib/security/logging'
+import { createTraceId } from '@/lib/security/trace'
 
 export type TelemetryEventInput = {
+  schemaVersion?: string | null
   event: string
   sessionId: string
   deviceId: string
+  traceId?: string | null
   path?: string | null
   context?: Record<string, unknown> | null
   payload?: Record<string, unknown> | null
 }
 
-export type TelemetryEventStored = TelemetryEventInput & { createdAt: number }
+export type TelemetryEventStored = Omit<TelemetryEventInput, 'schemaVersion' | 'traceId'> & {
+  schemaVersion: string
+  traceId: string
+  createdAt: number
+}
 
 const MAX_EVENTS = 500
 const DEFAULT_DB_TIMEOUT_MS = 1_200
@@ -46,6 +54,11 @@ function resolveTelemetryStorageMode(): 'db' | 'memory' {
 function toJsonValue(value?: Record<string, unknown> | null): Prisma.InputJsonValue | undefined {
   if (!value) return undefined
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
+}
+
+function normalizeString(value: string | null | undefined): string | null {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
 }
 
 function resolveDbTimeoutMs() {
@@ -82,6 +95,14 @@ async function withTimeout<T>(work: Promise<T>, timeoutMs: number): Promise<T> {
 }
 
 export async function recordTelemetryEvent(input: TelemetryEventInput) {
+  assertNoSensitiveFreeFormFields('context', input.context)
+  assertNoSensitiveFreeFormFields('payload', input.payload)
+
+  const normalized = {
+    ...input,
+    schemaVersion: normalizeString(input.schemaVersion) ?? '1',
+    traceId: normalizeString(input.traceId) ?? createTraceId('telemetry'),
+  }
   const timeoutMs = resolveDbTimeoutMs()
   const storageMode = resolveTelemetryStorageMode()
 
@@ -90,12 +111,14 @@ export async function recordTelemetryEvent(input: TelemetryEventInput) {
       await withTimeout(
         prismaPg.telemetryEvent.create({
           data: {
-            event: input.event,
-            sessionId: input.sessionId,
-            deviceId: input.deviceId,
-            path: input.path ?? null,
-            context: toJsonValue(input.context),
-            payload: toJsonValue(input.payload),
+            schemaVersion: normalized.schemaVersion,
+            event: normalized.event,
+            sessionId: normalized.sessionId,
+            deviceId: normalized.deviceId,
+            traceId: normalized.traceId,
+            path: normalized.path ?? null,
+            context: toJsonValue(normalized.context),
+            payload: toJsonValue(normalized.payload),
           },
         }),
         timeoutMs,
@@ -105,10 +128,12 @@ export async function recordTelemetryEvent(input: TelemetryEventInput) {
     } catch (error) {
       dbBackoffUntil = Date.now() + resolveDbBackoffMs()
       logWarn('telemetry', error, {
-        event: input.event,
-        sessionId: input.sessionId,
-        deviceId: input.deviceId,
-        path: input.path ?? null,
+        event: normalized.event,
+        sessionId: normalized.sessionId,
+        deviceId: normalized.deviceId,
+        traceId: normalized.traceId,
+        schemaVersion: normalized.schemaVersion,
+        path: normalized.path ?? null,
         storage: 'db',
         fallback: 'memory',
         fallbackReason:
@@ -119,7 +144,7 @@ export async function recordTelemetryEvent(input: TelemetryEventInput) {
     }
   }
 
-  events.push({ ...input, createdAt: Date.now() })
+  events.push({ ...normalized, createdAt: Date.now() })
   if (events.length > MAX_EVENTS) {
     events.splice(0, events.length - MAX_EVENTS)
   }

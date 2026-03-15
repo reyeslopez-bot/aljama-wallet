@@ -93,9 +93,11 @@ async function persistToTelemetry(event: 'xrpl_action_created' | 'xrpl_action_up
   try {
     await prismaPg.telemetryEvent.create({
       data: {
+        schemaVersion: '1',
         event,
         sessionId: record.userId ?? 'system',
         deviceId: `xrpl-${record.networkId}`,
+        traceId: record.traceId,
         path: '/api/xrpl',
         payload: toJson(toPayload(record)),
       },

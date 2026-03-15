@@ -186,6 +186,7 @@ async function maybeEmitStuckAlert(input: {
 
 export async function observeChainTransactionSyncPass(metrics: ChainTransactionSyncMetrics) {
   await recordTelemetryEvent({
+    schemaVersion: '1',
     event: 'chain_transaction_sync_pass',
     sessionId: WORKER_SESSION_ID,
     deviceId: metrics.networkId ?? 'all',

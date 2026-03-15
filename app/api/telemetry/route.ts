@@ -8,18 +8,9 @@ import { logError, logWarn } from '@/lib/security/logging'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
 import { extractRequestSignalContext } from '@/lib/security/request-signal'
 import { withApiRoute, type ApiRouteContext } from '@/lib/security/api-route'
+import { telemetryEventV1Schema } from '@/lib/security/event-schema'
 
 const MAX_BODY_BYTES = 16_384
-
-const telemetrySchema = z.object({
-  event: z.string().min(1).max(64),
-  ts: z.string().datetime(),
-  sessionId: z.string().min(8).max(64),
-  deviceId: z.string().min(8).max(64),
-  path: z.string().max(512).optional(),
-  context: z.record(z.string(), z.unknown()).optional(),
-  payload: z.record(z.string(), z.unknown()).optional(),
-})
 
 function buildTelemetryLogDetails(
   req: Request,
@@ -194,27 +185,36 @@ async function postTelemetry(req: Request, context: ApiRouteContext) {
       return errorJson(400, 'invalid_json', 'Body must be valid JSON')
     }
 
-    const validation = telemetrySchema.safeParse(parsed)
+    const validation = telemetryEventV1Schema.safeParse(parsed)
     if (!validation.success) {
       logWarn(
-        'telemetry:invalid_payload',
+        'telemetry:invalid_schema',
         { message: 'Telemetry payload failed schema validation' },
         buildTelemetryLogDetails(req, context, {
-          reason: 'invalid_payload',
+          reason: 'invalid_schema',
           issues: mapValidationIssues(validation.error.issues),
         }),
       )
       await trackSignal({
         outcome: 'failure',
         statusCode: 400,
-        details: { reason: 'invalid_payload' },
+        details: { reason: 'invalid_schema' },
       })
-      return errorJson(400, 'invalid_payload', 'Validation failed', validation.error.format())
+      return errorJson(
+        400,
+        'INVALID_TELEMETRY_SCHEMA',
+        'INVALID_TELEMETRY_SCHEMA',
+        validation.error.format(),
+      )
     }
 
+    const eventTraceId = validation.data.traceId
     const enrichedContext = {
       ...validation.data.context,
       server: {
+        requestId: context.requestId,
+        ingestTraceId: context.traceId,
+        eventTraceId,
         ipHash: signalContext.ipHash,
         geo: {
           country: signalContext.country,
@@ -228,9 +228,11 @@ async function postTelemetry(req: Request, context: ApiRouteContext) {
     }
 
     scheduleTelemetryPersist({
+      schemaVersion: validation.data.schemaVersion,
       event: validation.data.event,
       sessionId: validation.data.sessionId,
       deviceId: validation.data.deviceId,
+      traceId: eventTraceId,
       path: validation.data.path ?? null,
       context: enrichedContext ?? null,
       payload: validation.data.payload ?? null,

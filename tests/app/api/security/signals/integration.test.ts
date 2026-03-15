@@ -28,6 +28,17 @@ function createSignedRequest(body: unknown) {
   })
 }
 
+function buildSignalEnvelope(
+  signals: Array<Record<string, unknown>>,
+  overrides?: Record<string, unknown>,
+) {
+  return {
+    schemaVersion: '1',
+    signals,
+    ...(overrides ?? {}),
+  }
+}
+
 describe('app/api/security/signals integration', () => {
   beforeEach(() => {
     clearSecurityAnomalyStateForTests()
@@ -51,24 +62,28 @@ describe('app/api/security/signals integration', () => {
 
   it('processes ingested signals through queue, anomaly detection, alert emission, and producer audit fields', async () => {
     const res = await POST(
-      createSignedRequest({
-        transport: 'event_bus',
-        enqueue: true,
-        signals: [
+      createSignedRequest(
+        buildSignalEnvelope(
+          [
+            {
+              source: 'auth.register',
+              statusCode: 401,
+              ip: '198.51.100.42',
+              principal: 'a@example.com',
+            },
+            {
+              source: 'auth.register',
+              statusCode: 401,
+              ip: '198.51.100.42',
+              principal: 'b@example.com',
+            },
+          ],
           {
-            source: 'auth.register',
-            status: 401,
-            ip: '198.51.100.42',
-            principal: 'a@example.com',
+            transport: 'event_bus',
+            enqueue: true,
           },
-          {
-            source: 'auth.register',
-            status: 401,
-            ip: '198.51.100.42',
-            principal: 'b@example.com',
-          },
-        ],
-      }),
+        ),
+      ),
     )
 
     const body = await res.json()

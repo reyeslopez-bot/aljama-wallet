@@ -4,6 +4,7 @@ import { logError } from '@/lib/security/logging'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { readJsonTextBody } from '@/lib/security/request-body'
 import { extractRequestSignalContext } from '@/lib/security/request-signal'
+import { securitySignalsBatchV1Schema } from '@/lib/security/event-schema'
 import {
   authenticateSecuritySignalProducer,
   getSecuritySignalProducerRegistry,
@@ -16,31 +17,9 @@ import {
   type SecuritySignalTransport,
 } from '@/services/security-anomaly.service'
 
-const MAX_BATCH_SIGNALS = 200
-
-function normalizeTransport(value: unknown): SecuritySignalTransport {
-  if (typeof value !== 'string') return 'api'
-  const normalized = value.trim().toLowerCase()
-  if (normalized === 'direct' || normalized === 'api' || normalized === 'queue' || normalized === 'event_bus') {
-    return normalized
-  }
-  return 'api'
-}
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
   return value as Record<string, unknown>
-}
-
-function collectSignals(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) return payload
-
-  const body = asRecord(payload)
-  if (!body) return []
-
-  if (Array.isArray(body.signals)) return body.signals
-  if (body.signal !== undefined) return [body.signal]
-  return [body]
 }
 
 function attachProducerMetadata(signal: unknown, producer: VerifiedSecuritySignalProducer): unknown {
@@ -53,16 +32,6 @@ function attachProducerMetadata(signal: unknown, producer: VerifiedSecuritySigna
     producerType: producer.producerType,
     signatureVerified: producer.signatureVerified,
     ingestVersion: producer.ingestVersion,
-  }
-}
-
-function attachTraceId(signal: unknown, traceId: string): unknown {
-  const body = asRecord(signal)
-  if (!body) return signal
-
-  return {
-    ...body,
-    traceId: typeof body.traceId === 'string' && body.traceId.trim() ? body.traceId : traceId,
   }
 }
 
@@ -204,30 +173,41 @@ async function postSecuritySignals(
     return errorJson(400, 'invalid_json', 'Body must be valid JSON')
   }
 
-  const signals = collectSignals(payload)
-  if (signals.length === 0) {
+  const validation = securitySignalsBatchV1Schema.safeParse(payload)
+  if (!validation.success) {
+    const batchTooLarge = validation.error.issues.some(
+      (issue) => issue.code === 'too_big' && issue.path[0] === 'signals',
+    )
     await trackSignal({
-      outcome: 'failure',
-      statusCode: 400,
-      details: { reason: 'empty_signals' },
+      outcome: batchTooLarge ? 'blocked' : 'failure',
+      statusCode: batchTooLarge ? 413 : 400,
+      details: {
+        reason: batchTooLarge ? 'batch_too_large' : 'invalid_schema',
+      },
     })
-    return errorJson(400, 'invalid_payload', 'At least one signal is required')
+    if (batchTooLarge) {
+      return errorJson(413, 'payload_too_large', 'Security signal batch exceeds limit')
+    }
+    return errorJson(
+      400,
+      'INVALID_SECURITY_SIGNAL_SCHEMA',
+      'INVALID_SECURITY_SIGNAL_SCHEMA',
+      validation.error.format(),
+    )
   }
 
-  if (signals.length > MAX_BATCH_SIGNALS) {
-    await trackSignal({
-      outcome: 'blocked',
-      statusCode: 413,
-      details: { reason: 'batch_too_large', signalCount: signals.length },
-    })
-    return errorJson(413, 'payload_too_large', `Maximum ${MAX_BATCH_SIGNALS} signals per request`)
-  }
-
-  const body = asRecord(payload) ?? {}
-  const enqueue = typeof body.enqueue === 'boolean' ? body.enqueue : true
-  const transport = normalizeTransport(body.transport)
-  const preparedSignals = signals.map((signal) =>
-    attachTraceId(attachProducerMetadata(signal, auth.producer), routeContext.traceId),
+  const envelope = validation.data
+  const enqueue = envelope.enqueue ?? true
+  const transport: SecuritySignalTransport = envelope.transport ?? 'api'
+  const preparedSignals = envelope.signals.map((signal) =>
+    attachProducerMetadata(
+      {
+        ...signal,
+        statusCode: signal.statusCode ?? signal.status,
+        traceId: signal.traceId ?? routeContext.traceId,
+      },
+      auth.producer,
+    ),
   )
 
   const results = await ingestSecuritySignalsBatch(preparedSignals as Array<Record<string, unknown>>, {
@@ -250,7 +230,7 @@ async function postSecuritySignals(
         reason: 'queue_throttled',
         enqueue,
         transport,
-        signalCount: signals.length,
+        signalCount: envelope.signals.length,
         accepted,
         rejected,
         dropped,
@@ -271,7 +251,7 @@ async function postSecuritySignals(
     details: {
       enqueue,
       transport,
-      signalCount: signals.length,
+      signalCount: envelope.signals.length,
       accepted,
       rejected,
       dropped,
@@ -289,7 +269,7 @@ async function postSecuritySignals(
     rejected,
     dropped,
     throttled,
-    signalCount: signals.length,
+    signalCount: envelope.signals.length,
     results,
   })
 }

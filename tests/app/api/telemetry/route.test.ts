@@ -14,6 +14,19 @@ function buildRequest(body: string, headers?: Record<string, string>) {
   })
 }
 
+function buildTelemetryPayload(overrides?: Record<string, unknown>) {
+  return {
+    schemaVersion: '1',
+    event: 'page_view',
+    ts: new Date('2026-02-10T12:00:00Z').toISOString(),
+    traceId: '11111111-1111-4111-8111-111111111111',
+    sessionId: 'session-1234',
+    deviceId: 'device-1234',
+    path: '/connect',
+    ...(overrides ?? {}),
+  }
+}
+
 describe('app/api/telemetry route', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -46,13 +59,49 @@ describe('app/api/telemetry route', () => {
     })
   })
 
-  it('rejects invalid payload', async () => {
+  it('rejects telemetry bodies that do not match the versioned schema', async () => {
     const { POST } = await import('@/app/api/telemetry/route')
-    const res = await POST(buildRequest(JSON.stringify({})))
+    const res = await POST(buildRequest(JSON.stringify({ schemaVersion: '1' })))
 
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.code).toBe('invalid_payload')
+    expect(body.code).toBe('INVALID_TELEMETRY_SCHEMA')
+  })
+
+  it('rejects unknown top-level telemetry fields', async () => {
+    const { POST } = await import('@/app/api/telemetry/route')
+    const res = await POST(
+      buildRequest(
+        JSON.stringify({
+          ...buildTelemetryPayload(),
+          unexpected: true,
+        }),
+      ),
+    )
+
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'INVALID_TELEMETRY_SCHEMA',
+    })
+  })
+
+  it('rejects sensitive free-form telemetry fields', async () => {
+    const { POST } = await import('@/app/api/telemetry/route')
+    const res = await POST(
+      buildRequest(
+        JSON.stringify({
+          ...buildTelemetryPayload(),
+          context: {
+            email: 'user@example.com',
+          },
+        }),
+      ),
+    )
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.code).toBe('INVALID_TELEMETRY_SCHEMA')
+    expect(body.details?._errors ?? []).toBeDefined()
   })
 
   it('accepts a valid payload and records telemetry', async () => {
@@ -62,11 +111,7 @@ describe('app/api/telemetry route', () => {
     const res = await POST(
       buildRequest(
         JSON.stringify({
-          event: 'page_view',
-          ts: new Date('2026-02-10T12:00:00Z').toISOString(),
-          sessionId: 'session-1234',
-          deviceId: 'device-1234',
-          path: '/connect',
+          ...buildTelemetryPayload(),
           context: { foo: 'bar' },
           payload: { a: 1 },
         }),
@@ -83,7 +128,9 @@ describe('app/api/telemetry route', () => {
 
     const call = mockRecordTelemetryEvent.mock.calls[0]?.[0]
     expect(call).toMatchObject({
+      schemaVersion: '1',
       event: 'page_view',
+      traceId: '11111111-1111-4111-8111-111111111111',
       sessionId: 'session-1234',
       deviceId: 'device-1234',
       path: '/connect',
@@ -98,13 +145,14 @@ describe('app/api/telemetry route', () => {
     const startedAt = Date.now()
     const res = await POST(
       buildRequest(
-        JSON.stringify({
-          event: 'page_view',
-          ts: new Date('2026-02-10T12:00:00Z').toISOString(),
-          sessionId: 'session-slow',
-          deviceId: 'device-slow',
-          path: '/login',
-        }),
+        JSON.stringify(
+          buildTelemetryPayload({
+            traceId: '22222222-2222-4222-8222-222222222222',
+            sessionId: 'session-slow',
+            deviceId: 'device-slow',
+            path: '/login',
+          }),
+        ),
         { 'x-forwarded-for': '127.0.0.1' },
       ),
     )
@@ -123,13 +171,15 @@ describe('app/api/telemetry route', () => {
     const { POST } = await import('@/app/api/telemetry/route')
     const res = await POST(
       buildRequest(
-        JSON.stringify({
-          event: 'wallet_sync',
-          ts: new Date('2026-02-10T12:00:00Z').toISOString(),
-          sessionId: 'session-persist',
-          deviceId: 'device-persist',
-          path: '/wallet',
-        }),
+        JSON.stringify(
+          buildTelemetryPayload({
+            event: 'wallet_sync',
+            traceId: '33333333-3333-4333-8333-333333333333',
+            sessionId: 'session-persist',
+            deviceId: 'device-persist',
+            path: '/wallet',
+          }),
+        ),
         { 'x-forwarded-for': '127.0.0.1' },
       ),
     )

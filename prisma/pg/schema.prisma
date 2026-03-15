@@ -83,18 +83,22 @@ model DailyTransactionSummary {
 }
 
 model TelemetryEvent {
-  id        String   @id @default(cuid())
-  event     String
-  sessionId String
-  deviceId  String
-  path      String?
-  context   Json?
-  payload   Json?
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  schemaVersion String   @default("1")
+  event         String
+  sessionId     String
+  deviceId      String
+  traceId       String
+  path          String?
+  context       Json?
+  payload       Json?
+  createdAt     DateTime @default(now())
 
   @@index([createdAt])
   @@index([event])
+  @@index([schemaVersion])
   @@index([sessionId])
+  @@index([traceId])
 }
 
 model TrackWalletEvent {
@@ -261,6 +265,7 @@ model RiskDecision {
 
 model SecuritySignalEvent {
   id                String   @id
+  schemaVersion     String   @default("1")
   source            String
   route             String?
   outcome           String
@@ -287,6 +292,7 @@ model SecuritySignalEvent {
   anomalies SecurityAnomalyEvent[]
 
   @@index([detectedAt])
+  @@index([schemaVersion])
   @@index([source, detectedAt])
   @@index([outcome, detectedAt])
   @@index([ipHash, detectedAt])

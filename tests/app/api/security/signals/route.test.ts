@@ -46,6 +46,17 @@ function createSignedRequest(body: unknown, init?: { signature?: string; produce
   })
 }
 
+function buildSignalEnvelope(
+  signals: Array<Record<string, unknown>>,
+  overrides?: Record<string, unknown>,
+) {
+  return {
+    schemaVersion: '1',
+    signals,
+    ...(overrides ?? {}),
+  }
+}
+
 describe('app/api/security/signals route', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -87,7 +98,7 @@ describe('app/api/security/signals route', () => {
     const res = await POST(
       new Request('http://localhost/api/security/signals', {
         method: 'POST',
-        body: JSON.stringify({ source: 'auth.register', outcome: 'success' }),
+        body: JSON.stringify(buildSignalEnvelope([{ source: 'auth.register', outcome: 'success' }])),
         headers: { 'content-type': 'application/json' },
       }),
     )
@@ -102,7 +113,7 @@ describe('app/api/security/signals route', () => {
     const { POST } = await import('@/app/api/security/signals/route')
     const res = await POST(
       createSignedRequest(
-        { source: 'auth.register', outcome: 'success' },
+        buildSignalEnvelope([{ source: 'auth.register', outcome: 'success' }]),
         { signature: '0'.repeat(64) },
       ),
     )
@@ -120,7 +131,7 @@ describe('app/api/security/signals route', () => {
     const res = await POST(
       new Request('http://localhost/api/security/signals', {
         method: 'POST',
-        body: JSON.stringify({ source: 'auth.register', outcome: 'success' }),
+        body: JSON.stringify(buildSignalEnvelope([{ source: 'auth.register', outcome: 'success' }])),
         headers: { 'content-type': 'application/json' },
       }),
     )
@@ -135,20 +146,22 @@ describe('app/api/security/signals route', () => {
     const { POST } = await import('@/app/api/security/signals/route')
 
     const res = await POST(
-      createSignedRequest({
-        transport: 'event_bus',
-        enqueue: true,
-        signals: [
+      createSignedRequest(
+        buildSignalEnvelope(
+          [
+            {
+              source: 'auth.register',
+              statusCode: 401,
+              ip: '203.0.113.1',
+            },
+            { source: 'wallet.send', statusCode: 200, outcome: 'success' },
+          ],
           {
-            source: 'auth.register',
-            status: 401,
-            ip: '203.0.113.1',
-            producerId: 'attacker',
-            signatureVerified: false,
+            transport: 'event_bus',
+            enqueue: true,
           },
-          { source: 'wallet.send', statusCode: 200, outcome: 'success' },
-        ],
-      }),
+        ),
+      ),
     )
     const body = await res.json()
 
@@ -172,7 +185,7 @@ describe('app/api/security/signals route', () => {
       [
         expect.objectContaining({
           source: 'auth.register',
-          status: 401,
+          statusCode: 401,
           ip: '203.0.113.1',
           producerId: PRODUCER_ID,
           producerType: 'event_bus',
@@ -205,6 +218,50 @@ describe('app/api/security/signals route', () => {
     )
   })
 
+  it('rejects producer-reserved metadata inside signals', async () => {
+    const { POST } = await import('@/app/api/security/signals/route')
+
+    const res = await POST(
+      createSignedRequest(
+        buildSignalEnvelope([
+          {
+            source: 'auth.register',
+            statusCode: 401,
+            producerId: 'attacker',
+          },
+        ]),
+      ),
+    )
+
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.code).toBe('INVALID_SECURITY_SIGNAL_SCHEMA')
+  })
+
+  it('rejects sensitive free-form signal details', async () => {
+    const { POST } = await import('@/app/api/security/signals/route')
+
+    const res = await POST(
+      createSignedRequest(
+        buildSignalEnvelope([
+          {
+            source: 'auth.register',
+            statusCode: 401,
+            details: {
+              password: 'secret',
+            },
+          },
+        ]),
+      ),
+    )
+
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.code).toBe('INVALID_SECURITY_SIGNAL_SCHEMA')
+  })
+
   it('returns 503 when the distributed rate limit backend is unavailable', async () => {
     mockRateLimit.mockReturnValue({
       ok: false,
@@ -214,7 +271,9 @@ describe('app/api/security/signals route', () => {
     })
 
     const { POST } = await import('@/app/api/security/signals/route')
-    const res = await POST(createSignedRequest({ source: 'auth.register', outcome: 'success' }))
+    const res = await POST(
+      createSignedRequest(buildSignalEnvelope([{ source: 'auth.register', outcome: 'success' }])),
+    )
     const body = await res.json()
 
     expect(res.status).toBe(503)
@@ -248,12 +307,12 @@ describe('app/api/security/signals route', () => {
 
     const { POST } = await import('@/app/api/security/signals/route')
     const res = await POST(
-      createSignedRequest({
-        signals: [
-          { source: 'auth.register', status: 401 },
+      createSignedRequest(
+        buildSignalEnvelope([
+          { source: 'auth.register', statusCode: 401 },
           { source: 'wallet.send', statusCode: 500 },
-        ],
-      }),
+        ]),
+      ),
     )
     const body = await res.json()
 

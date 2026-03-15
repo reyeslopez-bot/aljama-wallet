@@ -104,6 +104,18 @@ describe('telemetry client utilities', () => {
       context: { foo: 'bar' },
     })
 
-    expect(fetchSpy).toHaveBeenCalled()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+    const [, init] = fetchSpy.mock.calls[0] ?? []
+    const body = JSON.parse(String(init?.body))
+
+    expect(body.schemaVersion).toBe('1')
+    expect(body.traceId).toBeTruthy()
+    expect(body.event).toBe('test_event')
+    expect(init?.headers).toMatchObject({
+      'content-type': 'application/json',
+      'x-trace-id': body.traceId,
+      'x-correlation-id': body.traceId,
+    })
   })
 })

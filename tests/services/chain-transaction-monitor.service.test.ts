@@ -125,21 +125,24 @@ describe('chain-transaction-monitor.service', () => {
       },
     })
 
-    expect(mockRecordTelemetryEvent).toHaveBeenCalledWith({
-      event: 'chain_transaction_sync_pass',
-      sessionId: 'server:chain-tx-sync-worker',
-      deviceId: '11155111',
-      path: '/internal/workers/chain-tx-sync',
-      context: {
-        trigger: 'startup',
-        networkId: '11155111',
-      },
-      payload: expect.objectContaining({
-        processedCount: 5,
-        stuckSubmitted: expect.objectContaining({ count: 2 }),
-        stuckIncluded: expect.objectContaining({ count: 1 }),
+    expect(mockRecordTelemetryEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        schemaVersion: '1',
+        event: 'chain_transaction_sync_pass',
+        sessionId: 'server:chain-tx-sync-worker',
+        deviceId: '11155111',
+        path: '/internal/workers/chain-tx-sync',
+        context: {
+          trigger: 'startup',
+          networkId: '11155111',
+        },
+        payload: expect.objectContaining({
+          processedCount: 5,
+          stuckSubmitted: expect.objectContaining({ count: 2 }),
+          stuckIncluded: expect.objectContaining({ count: 1 }),
+        }),
       }),
-    })
+    )
     expect(mockEmitSecurityAlert).toHaveBeenCalledTimes(2)
     expect(mockEmitSecurityAlert).toHaveBeenNthCalledWith(
       1,

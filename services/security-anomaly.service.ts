@@ -1,5 +1,6 @@
 import crypto from 'node:crypto'
 import { getErrorMessage } from '@/lib/security/errors'
+import { assertNoSensitiveFreeFormFields } from '@/lib/security/event-schema'
 import { prismaPg } from '@/lib/prisma-pg'
 import { logError, logWarn } from '@/lib/security/logging'
 import { createTraceId } from '@/lib/security/trace'
@@ -23,6 +24,7 @@ export type SecuritySignalOutcome = 'success' | 'failure' | 'blocked'
 export type SecuritySignalTransport = 'direct' | 'api' | 'queue' | 'event_bus'
 
 export type SecuritySignalInput = {
+  schemaVersion?: string | null
   source: string
   route?: string | null
   outcome: SecuritySignalOutcome
@@ -45,8 +47,9 @@ export type SecuritySignalInput = {
   detectedAt?: number | null
 }
 
-export type SecuritySignalRecord = Omit<SecuritySignalInput, 'detectedAt' | 'traceId'> & {
+export type SecuritySignalRecord = Omit<SecuritySignalInput, 'detectedAt' | 'traceId' | 'schemaVersion'> & {
   id: string
+  schemaVersion: string
   traceId: string
   detectedAt: number
   transport: SecuritySignalTransport
@@ -959,6 +962,7 @@ function buildSignalRecord(input: SecuritySignalInput, transport: SecuritySignal
   return {
     ...input,
     id: nextId('sig'),
+    schemaVersion: normalizeString(input.schemaVersion) ?? '1',
     source: input.source,
     route: input.route ?? null,
     outcome: input.outcome,
@@ -1011,6 +1015,7 @@ async function persistSignalToForensicStore(signal: SecuritySignalRecord) {
     await prismaPg.securitySignalEvent.create({
       data: {
         id: signal.id,
+        schemaVersion: signal.schemaVersion,
         source: signal.source,
         route: signal.route ?? null,
         outcome: signal.outcome,
@@ -1131,8 +1136,10 @@ export function normalizeSecuritySignalInput(
   const details =
     asRecord(readFirstValue(raw, ['details', 'meta'])) ??
     (asRecord(raw.details) ?? {})
+  assertNoSensitiveFreeFormFields('details', details)
 
   return {
+    schemaVersion: readFirstString(raw, ['schemaVersion']) ?? '1',
     source,
     route: readFirstString(raw, ['route', 'path', 'endpoint']),
     outcome,
@@ -1460,6 +1467,7 @@ export async function getRecentSecuritySignalsForensics(limit = 300): Promise<Se
 
     return rows.map((row) => ({
       id: row.id,
+      schemaVersion: row.schemaVersion,
       source: row.source,
       route: row.route,
       outcome: row.outcome as SecuritySignalOutcome,

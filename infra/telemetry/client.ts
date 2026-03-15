@@ -1,5 +1,7 @@
 // infra/telemetry/client.ts
 
+import { buildTraceHeaders, createTraceId } from '@/lib/security/trace'
+
 export type TelemetryConsent = 'granted' | 'denied' | 'unset'
 
 const CONSENT_KEY = 'aljama.telemetry.consent'
@@ -136,7 +138,10 @@ export async function sendTelemetryEvent(input: {
   payload?: Record<string, unknown>
   immediate?: boolean
 }) {
+  const traceId = createTraceId('telemetry')
   const body = {
+    schemaVersion: '1' as const,
+    traceId,
     event: input.event,
     ts: new Date().toISOString(),
     sessionId: input.sessionId,
@@ -155,7 +160,10 @@ export async function sendTelemetryEvent(input: {
 
     await fetch('/api/telemetry', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        ...buildTraceHeaders(traceId),
+      },
       body: JSON.stringify(body),
       keepalive: Boolean(input.immediate),
     })
