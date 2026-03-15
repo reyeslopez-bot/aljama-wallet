@@ -376,9 +376,14 @@ export default function DynamicInfoCard() {
     return t('status.idle')
   }, [connectStatus, t, wallet.connectedAddress, wallet.createdAddress])
 
-  const vaultNetworkLabel = wallet.chainName ?? (wallet.connectedAddress ? 'EVM' : '—')
+  const vaultNetworkLabel = wallet.chainName ?? (wallet.connectedAddress || wallet.createdAddress ? 'EVM' : '—')
   const vaultConnectorLabel =
-    wallet.connectorName ?? (wallet.connectedAddress ? t('unknownConnector') : '—')
+    wallet.connectorName ??
+    (wallet.connectedAddress
+      ? t('unknownConnector')
+      : wallet.createdAddress
+        ? tCreate('badgeSessionOnly')
+        : '—')
 
   const selectedXrplNetwork = XRPL_NETWORKS_BY_ID[selectedXrplNetworkId]
   const xrplBadgeTone = selectedXrplNetwork.isProduction

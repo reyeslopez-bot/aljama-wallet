@@ -143,11 +143,12 @@
     "downloadKeystore": "הורדת keystore",
     "keystoreDownloaded": "keystore הורד",
     "buyWithCard": "קנייה בכרטיס",
-    "buyWithCardDisabled": "הקישור הזה פותח את תהליך הרכישה ברירת המחדל של Transak. הגדירו NEXT_PUBLIC_ONRAMP_URL_TEMPLATE רק אם תרצו להחליף את היעד.",
+    "buyWithCardDisabled": "רכישת כרטיס אינה מוגדרת בפריסה זו. הגדירו NEXT_PUBLIC_ONRAMP_URL_TEMPLATE כדי להפעיל אותה.",
     "receiveCryptoTitle": "קבלה אונצ׳יין",
     "receiveCryptoBody": "שלחו ETH, USDC, EURC או נכסי EVM נתמכים נוספים לכתובת הזו.",
     "offlineReceiveNote": "כספים יכולים להגיע גם כשהאפליקציה לא מקוונת. סנכרנו יתרה אחרי חיבור מחדש.",
     "sessionOnlyMode": "מצב סשן בלבד פעיל. לא נוצר מפתח משמורת בשרת.",
+    "sendUnavailableSessionOnly": "הכספת המקומית הזו יכולה לקבל כספים, אבל שליחה מתוך האפליקציה עדיין לא מחוברת לארנקים במצב session-only. השתמשו ב-Connect Wallet כדי לחתום על עסקאות EVM חיות.",
     "localOnlyNotice": "מצב לא-משמורן: המפתחות נשארו בדפדפן. שמרו את ביטוי השחזור וקובץ ה-keystore אופליין."
   },
   "featureShowcase": {

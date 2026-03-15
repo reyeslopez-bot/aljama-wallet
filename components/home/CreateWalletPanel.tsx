@@ -317,8 +317,10 @@ export function CreateWalletPanel() {
 
   const passphraseValidation = useMemo(() => evaluatePassphrase(password), [password])
   const onRampTemplate = process.env.NEXT_PUBLIC_ONRAMP_URL_TEMPLATE
-  const usingDefaultOnRamp = isUsingDefaultOnRampTemplate(onRampTemplate)
-  const onRampUrl = walletPreview ? buildOnRampUrl(walletPreview.activeAddress, onRampTemplate) : undefined
+  const onRampConfigured = !isUsingDefaultOnRampTemplate(onRampTemplate)
+  const onRampUrl = walletPreview && onRampConfigured
+    ? buildOnRampUrl(walletPreview.activeAddress, onRampTemplate)
+    : undefined
   const mainWalletSpace = walletPreview?.spaces.find((space) => space.id === 'main') ?? null
   const hasHiddenVault = Boolean(walletPreview?.spaces.some((space) => space.id === 'hidden'))
   const strengthLevel =
@@ -1173,6 +1175,14 @@ export function CreateWalletPanel() {
           <div className="space-y-4">
             <p className="text-xs uppercase tracking-[0.16em] text-jade/80">{t('readyTitle')}</p>
             <p className="text-sm text-ivory/70">{t('readyBody')}</p>
+            {mode === 'session-only' ? (
+              <div
+                data-testid="create-wallet-session-send-note"
+                className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-xs text-amber-100/90"
+              >
+                {t('sendUnavailableSessionOnly')}
+              </div>
+            ) : null}
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.95fr)]">
               <div className="rounded-xl border border-jade/30 bg-jade/10 px-4 py-4 text-sm text-jade">
                 <p className="text-xs uppercase tracking-[0.14em] text-jade/80">{t('mainWalletTitle')}</p>
@@ -1197,18 +1207,30 @@ export function CreateWalletPanel() {
                   >
                     {addressCopied ? t('copiedAddress') : t('copyAddress')}
                   </button>
-                  <a
-                    data-testid="create-wallet-buy-with-card"
-                    href={onRampUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={t('buyWithCard')}
-                    className="rounded-full border border-saffron/30 bg-saffron/10 px-3 py-1.5 text-xs font-semibold text-saffron transition hover:bg-saffron/20"
-                  >
-                    {t('buyWithCard')}
-                  </a>
+                  {onRampUrl ? (
+                    <a
+                      data-testid="create-wallet-buy-with-card"
+                      href={onRampUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={t('buyWithCard')}
+                      className="rounded-full border border-saffron/30 bg-saffron/10 px-3 py-1.5 text-xs font-semibold text-saffron transition hover:bg-saffron/20"
+                    >
+                      {t('buyWithCard')}
+                    </a>
+                  ) : (
+                    <button
+                      data-testid="create-wallet-buy-with-card"
+                      type="button"
+                      disabled
+                      aria-label={t('buyWithCard')}
+                      className="rounded-full border border-saffron/20 bg-saffron/5 px-3 py-1.5 text-xs font-semibold text-saffron/55 opacity-70"
+                    >
+                      {t('buyWithCard')}
+                    </button>
+                  )}
                 </div>
-                {usingDefaultOnRamp && <p className="mt-2 text-[11px] text-ivory/55">{t('buyWithCardDisabled')}</p>}
+                {!onRampConfigured && <p className="mt-2 text-[11px] text-ivory/55">{t('buyWithCardDisabled')}</p>}
               </div>
 
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4">

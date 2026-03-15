@@ -158,6 +158,13 @@ function explorerTransactionUrl(networkId: string, txHash: string): string {
   return `${explorerBase}/transactions/${txHash}`
 }
 
+function formatAssetSelection(currency: string, issuer: string): string {
+  const code = currency.trim().toUpperCase()
+  const normalizedIssuer = issuer.trim()
+  if (isXrpCurrency(code) || !normalizedIssuer) return code
+  return `${code} (${shortHash(normalizedIssuer)})`
+}
+
 export default function XrplTradeDesk() {
   useComponentTelemetry('XrplTradeDesk')
   const { track } = useContext(TelemetryContext)
@@ -463,6 +470,17 @@ export default function XrplTradeDesk() {
   }, [bestOfferQuality])
   const shouldShowMissingQuoteIssue =
     hasAttemptedQuoteRefresh && !offersLoading && !offersError && !bestOfferQuality
+  const missingQuoteMessage = useMemo(
+    () =>
+      `No live quote for ${formatAssetSelection(quickSwapForm.fromCurrency, quickSwapForm.fromIssuer)} -> ${formatAssetSelection(quickSwapForm.toCurrency, quickSwapForm.toIssuer)} on ${networkConfig.name}. Refresh the order book or switch asset/issuer.`,
+    [
+      networkConfig.name,
+      quickSwapForm.fromCurrency,
+      quickSwapForm.fromIssuer,
+      quickSwapForm.toCurrency,
+      quickSwapForm.toIssuer,
+    ],
+  )
   const quickSwapValidationIssues = useMemo(() => {
     const issues: string[] = []
     if (!quickSwapFromAmount) {
@@ -482,10 +500,11 @@ export default function XrplTradeDesk() {
       issues.push('Choose a different destination asset for quick swap.')
     }
     if (shouldShowMissingQuoteIssue) {
-      issues.push('No live quote available. Refresh order book to estimate receive amount.')
+      issues.push(missingQuoteMessage)
     }
     return issues
   }, [
+    missingQuoteMessage,
     quickSwapForm.fromIssuer,
     quickSwapForm.toIssuer,
     quickSwapFromCode,
@@ -901,6 +920,11 @@ export default function XrplTradeDesk() {
                 Start here: enter the asset you want to spend, check the quote, and submit the trade. Everything else
                 stays muted until you open it on purpose.
               </p>
+            </div>
+
+            <div className="surface-inner rounded-[1.5rem] border border-amber-300/25 bg-amber-300/10 p-4 text-sm text-amber-100/90">
+              Trades here submit through the server-configured XRPL signer for {networkConfig.name}. It is separate
+              from the `0x` vault shown in the session card above.
             </div>
 
             <form

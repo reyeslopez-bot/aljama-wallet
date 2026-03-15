@@ -171,6 +171,8 @@ describe('DynamicInfoCard', () => {
       expect(getByTestId('dynamic-info-card-full-address').textContent).toContain(
         '0x1234567890abcdef1234567890abcdef12345678',
       )
+      expect(getByTestId('dynamic-info-card-expanded').textContent).toContain('EVM')
+      expect(getByTestId('dynamic-info-card-expanded').textContent).toContain('Session-only')
     })
 
     fireEvent.click(getByTestId('dynamic-info-card-copy-address'))

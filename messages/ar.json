@@ -143,11 +143,12 @@
     "downloadKeystore": "تنزيل keystore",
     "keystoreDownloaded": "تم تنزيل keystore",
     "buyWithCard": "شراء بالبطاقة",
-    "buyWithCardDisabled": "هذا الرابط يفتح صفحة الدفع الافتراضية من Transak. اضبط NEXT_PUBLIC_ONRAMP_URL_TEMPLATE فقط إذا أردت استبدال هذه الوجهة.",
+    "buyWithCardDisabled": "شراء البطاقات غير مهيأ في هذا النشر. اضبط NEXT_PUBLIC_ONRAMP_URL_TEMPLATE لتفعيله.",
     "receiveCryptoTitle": "استلام على السلسلة",
     "receiveCryptoBody": "أرسل ETH أو USDC أو EURC أو أي أصل EVM مدعوم إلى هذا العنوان.",
     "offlineReceiveNote": "يمكن أن تصل الأموال حتى عند عدم اتصال التطبيق. قم بمزامنة الرصيد بعد إعادة الاتصال.",
     "sessionOnlyMode": "وضع الجلسة فقط نشط. لم يتم إنشاء مفتاح حفظ على الخادم.",
+    "sendUnavailableSessionOnly": "يمكن لهذا القبو المحلي استقبال الأموال، لكن الإرسال داخل التطبيق غير موصول بعد لمحافظ session-only. استخدم Connect Wallet لتوقيع معاملات EVM الحية.",
     "localOnlyNotice": "وضع غير وصائي: المفاتيح بقيت في المتصفح. احفظ عبارة الاسترداد وملف keystore خارج الإنترنت."
   },
   "featureShowcase": {

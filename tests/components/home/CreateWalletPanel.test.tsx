@@ -174,14 +174,17 @@ describe('CreateWalletPanel', () => {
       expect(getByTestId('create-wallet-ready-panel')).toBeTruthy()
       expect(getByTestId('create-wallet-copy-address')).toBeTruthy()
       expect(getByText('Receive onchain')).toBeTruthy()
+      expect(getByTestId('create-wallet-session-send-note').textContent).toMatch(/in-app send is not wired/i)
       expect(useDynamicInfoStore.getState().createWalletStatus).toBe('success')
       expect(useDynamicInfoStore.getState().wallet.createdAddress).toBe('0x1111111111111111111111111111111111111111')
       expect(sessionStorage.getItem('aljama.encryptedWallet')).toBe('encrypted-payload')
       expect(sessionStorage.getItem('aljama.walletId')).toBeNull()
     })
 
-    const buyWithCard = getByTestId('create-wallet-buy-with-card') as HTMLAnchorElement
-    expect(buyWithCard.getAttribute('href')).toContain('walletAddress=0x1111111111111111111111111111111111111111')
+    const buyWithCard = getByTestId('create-wallet-buy-with-card') as HTMLButtonElement
+    expect(buyWithCard.disabled).toBe(true)
+    expect(buyWithCard.getAttribute('href')).toBeNull()
+    expect(getByText(/Card checkout is not configured/i)).toBeTruthy()
   })
 
   it('shows passphrase backup guidance and allows copying generated passphrase', async () => {
@@ -237,7 +240,7 @@ describe('CreateWalletPanel', () => {
       expect(buyWithCard.getAttribute('href')).toBe(
         'https://buy.example/checkout?dest=0x1111111111111111111111111111111111111111&network=base',
       )
-      expect(queryByText(/Using a default card provider/i)).toBeNull()
+      expect(queryByText(/Card checkout is not configured/i)).toBeNull()
     })
   })
 

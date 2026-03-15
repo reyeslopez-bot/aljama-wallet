@@ -143,11 +143,12 @@
     "downloadKeystore": "Download keystore",
     "keystoreDownloaded": "Keystore downloaded",
     "buyWithCard": "Buy with card",
-    "buyWithCardDisabled": "This opens the default Transak checkout. Set NEXT_PUBLIC_ONRAMP_URL_TEMPLATE only if you want to replace that destination.",
+    "buyWithCardDisabled": "Card checkout is not configured for this deployment. Set NEXT_PUBLIC_ONRAMP_URL_TEMPLATE to enable it.",
     "receiveCryptoTitle": "Receive onchain",
     "receiveCryptoBody": "Send ETH, USDC, EURC, or other supported EVM assets to this address.",
     "offlineReceiveNote": "Funds can arrive while this app is offline. Sync balance after reconnect.",
     "sessionOnlyMode": "Session-only mode active. No server custody key was created.",
+    "sendUnavailableSessionOnly": "This local vault can receive funds, but in-app send is not wired for session-only wallets yet. Use Connect Wallet for live EVM signing.",
     "localOnlyNotice": "Non-custodial mode: keys stayed in your browser. Store your recovery phrase and keystore offline."
   },
   "featureShowcase": {

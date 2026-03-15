@@ -474,6 +474,10 @@ export function XrplPanel() {
               <div>
                 <p className="text-xs uppercase tracking-[0.16em] text-jade/80">{t('accountTitle')}</p>
                 <p className="mt-1 break-all font-mono text-sm text-jade">{state.account.address}</p>
+                <p className="mt-2 text-[11px] text-ivory/60">
+                  This XRPL account comes from the server signer seed, not the local `0x` vault. Mainnet and testnet
+                  can share the same address while keeping separate balances and ledger state.
+                </p>
               </div>
               <div className="surface-soft px-4 py-3">
                 <p className="text-xs uppercase tracking-[0.14em] text-ivory/60">{t('balanceLabel')}</p>
