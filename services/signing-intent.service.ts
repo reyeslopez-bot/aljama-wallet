@@ -3,6 +3,12 @@ import type { TransactionRequest } from 'ethers'
 import { z } from 'zod'
 import { CHAIN_TRANSACTION_TYPES, type ChainTransactionType } from '@/lib/chain-transactions'
 import { prismaPg } from '@/lib/prisma-pg'
+import {
+  archiveWalletSigningIntentPayload,
+  measureWalletSigningIntentPayloadBytes,
+  readWalletSigningIntentPayload,
+  resolveWalletSigningIntentPayloadArchivePolicy,
+} from '@/lib/storage/wallet-signing-intent-payload'
 import { logWarn } from '@/lib/security/logging'
 import { isStrictMode } from '@/lib/security/runtime'
 import { Prisma } from '@/prisma/generated/pg'
@@ -53,6 +59,7 @@ export const evmTransactionSigningIntentPayloadSchema = z.object({
 
 export type EvmTransactionSigningIntentPayload = z.infer<typeof evmTransactionSigningIntentPayloadSchema>
 export type WalletSigningIntentPayload = EvmTransactionSigningIntentPayload
+export type WalletSigningIntentPayloadStorage = 'inline' | 'archived'
 
 export type WalletSigningIntentRecord = {
   id: string
@@ -67,12 +74,19 @@ export type WalletSigningIntentRecord = {
   correlationId: string
   transferLogId: string | null
   payload: WalletSigningIntentPayload
+  payloadRef: string | null
+  payloadStorage: WalletSigningIntentPayloadStorage
+  payloadSizeBytes: number
   signedPayload: string | null
   txHash: string | null
   errorCode: string | null
   errorDetails: Record<string, unknown> | null
   createdAt: number
   updatedAt: number
+}
+
+type StoredWalletSigningIntentRecord = Omit<WalletSigningIntentRecord, 'payload'> & {
+  payload: WalletSigningIntentPayload | null
 }
 
 export type CreateWalletSigningIntentInput = {
@@ -110,6 +124,8 @@ type PersistedIntentRow = {
   traceId: string
   transferLogId: string | null
   txPayload: unknown
+  txPayloadRef: string | null
+  txPayloadSizeBytes: number | null
   signedPayload: string | null
   txHash: string | null
   errorCode: string | null
@@ -118,11 +134,23 @@ type PersistedIntentRow = {
   updatedAt: Date
 }
 
-const globalForWalletSigningIntents = globalThis as unknown as {
-  walletSigningIntents?: Map<string, WalletSigningIntentRecord>
+type ResolvedWalletSigningIntentPayload = {
+  payload: WalletSigningIntentPayload
+  payloadRef: string | null
+  payloadStorage: WalletSigningIntentPayloadStorage
+  payloadSizeBytes: number
 }
 
-const memoryIntents = globalForWalletSigningIntents.walletSigningIntents ?? new Map<string, WalletSigningIntentRecord>()
+type PreparedWalletSigningIntentPayload = ResolvedWalletSigningIntentPayload & {
+  inlinePayload: WalletSigningIntentPayload | null
+}
+
+const globalForWalletSigningIntents = globalThis as unknown as {
+  walletSigningIntents?: Map<string, StoredWalletSigningIntentRecord>
+}
+
+const memoryIntents =
+  globalForWalletSigningIntents.walletSigningIntents ?? new Map<string, StoredWalletSigningIntentRecord>()
 if (!globalForWalletSigningIntents.walletSigningIntents) {
   globalForWalletSigningIntents.walletSigningIntents = memoryIntents
 }
@@ -153,6 +181,193 @@ function parseWalletSigningIntentPayload(value: unknown): WalletSigningIntentPay
   return evmTransactionSigningIntentPayloadSchema.parse(value)
 }
 
+function resolvePayloadSizeBytes(payloadSizeBytes: number | null | undefined, payload: WalletSigningIntentPayload): number {
+  if (typeof payloadSizeBytes === 'number' && Number.isFinite(payloadSizeBytes) && payloadSizeBytes >= 0) {
+    return Math.floor(payloadSizeBytes)
+  }
+
+  return measureWalletSigningIntentPayloadBytes(payload)
+}
+
+function shouldArchiveWalletSigningIntentPayload(input: { payloadSizeBytes: number; createdAtMs: number; nowMs?: number }) {
+  const policy = resolveWalletSigningIntentPayloadArchivePolicy()
+  if (input.payloadSizeBytes > policy.inlineMaxBytes) {
+    return true
+  }
+
+  if (policy.hotWindowMs <= 0) {
+    return true
+  }
+
+  return (input.nowMs ?? Date.now()) - input.createdAtMs > policy.hotWindowMs
+}
+
+function buildWalletSigningIntentRecord(
+  base: {
+    id: string
+    chain: string | WalletSigningIntentChain
+    actionType: string
+    status: string | WalletSigningIntentStatus
+    walletId: string
+    userId: string | null
+    chainId: number
+    idempotencyKey: string
+    traceId: string
+    transferLogId: string | null
+    signedPayload: string | null
+    txHash: string | null
+    errorCode: string | null
+    errorDetails: unknown
+    createdAt: Date | number
+    updatedAt: Date | number
+  },
+  payloadState: ResolvedWalletSigningIntentPayload,
+): WalletSigningIntentRecord {
+  const traceId = base.traceId
+
+  return {
+    id: base.id,
+    chain: normalizeWalletSigningIntentChain(base.chain),
+    actionType: normalizeNullableString(base.actionType) ?? 'transfer',
+    status: walletSigningIntentStatusSchema.parse(base.status),
+    walletId: base.walletId,
+    userId: base.userId,
+    chainId: base.chainId,
+    idempotencyKey: base.idempotencyKey,
+    traceId,
+    correlationId: traceId,
+    transferLogId: normalizeNullableString(base.transferLogId),
+    payload: payloadState.payload,
+    payloadRef: normalizeNullableString(payloadState.payloadRef),
+    payloadStorage: payloadState.payloadStorage,
+    payloadSizeBytes: payloadState.payloadSizeBytes,
+    signedPayload: normalizeNullableString(base.signedPayload),
+    txHash: normalizeNullableString(base.txHash),
+    errorCode: normalizeNullableString(base.errorCode),
+    errorDetails: fromJsonRecord(base.errorDetails),
+    createdAt: base.createdAt instanceof Date ? base.createdAt.getTime() : base.createdAt,
+    updatedAt: base.updatedAt instanceof Date ? base.updatedAt.getTime() : base.updatedAt,
+  }
+}
+
+async function loadWalletSigningIntentPayload(payloadRef: string): Promise<WalletSigningIntentPayload> {
+  return parseWalletSigningIntentPayload(await readWalletSigningIntentPayload<unknown>(payloadRef))
+}
+
+async function prepareWalletSigningIntentPayloadPersistence(input: {
+  walletId: string
+  chainId: number
+  idempotencyKey: string
+  actionType: string
+  payload: WalletSigningIntentPayload
+  createdAtMs: number
+}): Promise<PreparedWalletSigningIntentPayload> {
+  const payloadSizeBytes = measureWalletSigningIntentPayloadBytes(input.payload)
+  if (!shouldArchiveWalletSigningIntentPayload({ payloadSizeBytes, createdAtMs: input.createdAtMs })) {
+    return {
+      payload: input.payload,
+      inlinePayload: input.payload,
+      payloadRef: null,
+      payloadStorage: 'inline',
+      payloadSizeBytes,
+    }
+  }
+
+  const { payloadRef } = await archiveWalletSigningIntentPayload({
+    walletId: input.walletId,
+    chainId: input.chainId,
+    idempotencyKey: input.idempotencyKey,
+    actionType: input.actionType,
+    payload: input.payload,
+  })
+
+  return {
+    payload: input.payload,
+    inlinePayload: null,
+    payloadRef,
+    payloadStorage: 'archived',
+    payloadSizeBytes,
+  }
+}
+
+async function archivePersistedWalletSigningIntentRow(
+  row: PersistedIntentRow,
+  payload: WalletSigningIntentPayload,
+  payloadSizeBytes: number,
+): Promise<WalletSigningIntentRecord | null> {
+  try {
+    const { payloadRef } = await archiveWalletSigningIntentPayload({
+      walletId: row.walletId,
+      chainId: row.chainId,
+      idempotencyKey: row.idempotencyKey,
+      actionType: row.actionType,
+      payload,
+    })
+
+    const result = await prismaPg.walletSigningIntent.updateMany({
+      where: {
+        id: row.id,
+        txPayloadRef: null,
+      },
+      data: {
+        txPayload: Prisma.DbNull,
+        txPayloadRef: payloadRef,
+        txPayloadSizeBytes: payloadSizeBytes,
+      },
+    })
+
+    if (result.count !== 1) {
+      const refreshed = await prismaPg.walletSigningIntent.findUnique({ where: { id: row.id } })
+      return refreshed ? materializeWalletSigningIntentRow(refreshed) : null
+    }
+
+    return buildWalletSigningIntentRecord(row, {
+      payload,
+      payloadRef,
+      payloadStorage: 'archived',
+      payloadSizeBytes,
+    })
+  } catch (error) {
+    if (isStrictMode) throw error
+    logWarn('wallet-signing-intent:payload-archive', error, { intentId: row.id })
+    return null
+  }
+}
+
+async function materializeWalletSigningIntentRow(row: PersistedIntentRow): Promise<WalletSigningIntentRecord> {
+  const inlinePayload = row.txPayload === null || row.txPayload === undefined ? null : parseWalletSigningIntentPayload(row.txPayload)
+  const payloadRef = normalizeNullableString(row.txPayloadRef)
+
+  if (inlinePayload) {
+    const payloadSizeBytes = resolvePayloadSizeBytes(row.txPayloadSizeBytes, inlinePayload)
+    if (!payloadRef && shouldArchiveWalletSigningIntentPayload({ payloadSizeBytes, createdAtMs: row.createdAt.getTime() })) {
+      const archived = await archivePersistedWalletSigningIntentRow(row, inlinePayload, payloadSizeBytes)
+      if (archived) {
+        return archived
+      }
+    }
+
+    return buildWalletSigningIntentRecord(row, {
+      payload: inlinePayload,
+      payloadRef: null,
+      payloadStorage: 'inline',
+      payloadSizeBytes,
+    })
+  }
+
+  if (!payloadRef) {
+    throw new Error('SIGNING_INTENT_PAYLOAD_MISSING')
+  }
+
+  const payload = await loadWalletSigningIntentPayload(payloadRef)
+  return buildWalletSigningIntentRecord(row, {
+    payload,
+    payloadRef,
+    payloadStorage: 'archived',
+    payloadSizeBytes: resolvePayloadSizeBytes(row.txPayloadSizeBytes, payload),
+  })
+}
+
 function resolveCreatePayload(input: CreateWalletSigningIntentInput): WalletSigningIntentPayload {
   const rawPayload = input.txPayload ?? input.payload
   if (!rawPayload) {
@@ -173,34 +388,10 @@ function resolveActionType(input: CreateWalletSigningIntentInput, payload: Walle
   return normalizeNullableString(input.actionType ?? payload.txType) ?? payload.txType
 }
 
-function mapWalletSigningIntentRow(row: PersistedIntentRow): WalletSigningIntentRecord {
-  const traceId = row.traceId
-  return {
-    id: row.id,
-    chain: normalizeWalletSigningIntentChain(row.chain),
-    actionType: normalizeNullableString(row.actionType) ?? 'transfer',
-    status: walletSigningIntentStatusSchema.parse(row.status),
-    walletId: row.walletId,
-    userId: row.userId,
-    chainId: row.chainId,
-    idempotencyKey: row.idempotencyKey,
-    traceId,
-    correlationId: traceId,
-    transferLogId: normalizeNullableString(row.transferLogId),
-    payload: parseWalletSigningIntentPayload(row.txPayload),
-    signedPayload: normalizeNullableString(row.signedPayload),
-    txHash: normalizeNullableString(row.txHash),
-    errorCode: normalizeNullableString(row.errorCode),
-    errorDetails: fromJsonRecord(row.errorDetails),
-    createdAt: row.createdAt.getTime(),
-    updatedAt: row.updatedAt.getTime(),
-  }
-}
-
 function applyWalletSigningIntentUpdates(
-  record: WalletSigningIntentRecord,
+  record: StoredWalletSigningIntentRecord,
   updates: UpdateWalletSigningIntentInput,
-): WalletSigningIntentRecord {
+): StoredWalletSigningIntentRecord {
   return {
     ...record,
     status: updates.status ?? record.status,
@@ -216,6 +407,63 @@ function applyWalletSigningIntentUpdates(
         : record.errorDetails,
     updatedAt: Date.now(),
   }
+}
+
+async function maybeArchiveStoredWalletSigningIntentRecord(
+  record: StoredWalletSigningIntentRecord,
+): Promise<StoredWalletSigningIntentRecord> {
+  if (!record.payload) {
+    return record
+  }
+
+  if (!shouldArchiveWalletSigningIntentPayload({ payloadSizeBytes: record.payloadSizeBytes, createdAtMs: record.createdAt })) {
+    return record
+  }
+
+  try {
+    const { payloadRef } = await archiveWalletSigningIntentPayload({
+      walletId: record.walletId,
+      chainId: record.chainId,
+      idempotencyKey: record.idempotencyKey,
+      actionType: record.actionType,
+      payload: record.payload,
+    })
+
+    const archivedRecord: StoredWalletSigningIntentRecord = {
+      ...record,
+      payload: null,
+      payloadRef,
+      payloadStorage: 'archived',
+    }
+    memoryIntents.set(record.id, archivedRecord)
+    return archivedRecord
+  } catch (error) {
+    if (isStrictMode) throw error
+    logWarn('wallet-signing-intent:payload-archive', error, { intentId: record.id })
+    return record
+  }
+}
+
+async function materializeStoredWalletSigningIntentRecord(
+  record: StoredWalletSigningIntentRecord,
+): Promise<WalletSigningIntentRecord> {
+  const resolvedRecord = await maybeArchiveStoredWalletSigningIntentRecord(record)
+  let payload = resolvedRecord.payload
+
+  if (!payload) {
+    const payloadRef = normalizeNullableString(resolvedRecord.payloadRef)
+    if (!payloadRef) {
+      throw new Error('SIGNING_INTENT_PAYLOAD_MISSING')
+    }
+    payload = await loadWalletSigningIntentPayload(payloadRef)
+  }
+
+  return buildWalletSigningIntentRecord(resolvedRecord, {
+    payload,
+    payloadRef: resolvedRecord.payloadRef,
+    payloadStorage: resolvedRecord.payloadStorage,
+    payloadSizeBytes: resolvedRecord.payloadSizeBytes,
+  })
 }
 
 function buildPgUpdateData(updates: UpdateWalletSigningIntentInput) {
@@ -293,6 +541,15 @@ export async function createWalletSigningIntent(
   const traceId = resolveTraceId(input)
   const actionType = resolveActionType(input, payload)
   const chain = normalizeWalletSigningIntentChain(input.chain)
+  const now = Date.now()
+  const preparedPayload = await prepareWalletSigningIntentPayloadPersistence({
+    walletId: input.walletId,
+    chainId: input.chainId,
+    idempotencyKey: input.idempotencyKey,
+    actionType,
+    payload,
+    createdAtMs: now,
+  })
 
   if (canUsePg()) {
     try {
@@ -307,10 +564,12 @@ export async function createWalletSigningIntent(
           idempotencyKey: input.idempotencyKey,
           traceId,
           transferLogId,
-          txPayload: toJson(payload),
+          txPayload: preparedPayload.inlinePayload ? toJson(preparedPayload.inlinePayload) : Prisma.DbNull,
+          txPayloadRef: preparedPayload.payloadRef,
+          txPayloadSizeBytes: preparedPayload.payloadSizeBytes,
         },
       })
-      return mapWalletSigningIntentRow(row)
+      return buildWalletSigningIntentRecord(row, preparedPayload)
     } catch (error: unknown) {
       const err = error as { code?: string } | null
       if (err?.code === 'P2002') {
@@ -321,8 +580,7 @@ export async function createWalletSigningIntent(
   }
 
   const id = `intent_${crypto.randomUUID()}`
-  const now = Date.now()
-  const record: WalletSigningIntentRecord = {
+  const record: StoredWalletSigningIntentRecord = {
     id,
     chain,
     actionType,
@@ -334,7 +592,10 @@ export async function createWalletSigningIntent(
     traceId,
     correlationId: traceId,
     transferLogId,
-    payload,
+    payload: preparedPayload.inlinePayload,
+    payloadRef: preparedPayload.payloadRef,
+    payloadStorage: preparedPayload.payloadStorage,
+    payloadSizeBytes: preparedPayload.payloadSizeBytes,
     signedPayload: null,
     txHash: null,
     errorCode: null,
@@ -351,21 +612,22 @@ export async function createWalletSigningIntent(
     }
   }
 
-  return record
+  return buildWalletSigningIntentRecord(record, preparedPayload)
 }
 
 export async function getWalletSigningIntent(intentId: string): Promise<WalletSigningIntentRecord | null> {
   if (canUsePg()) {
     try {
       const row = await prismaPg.walletSigningIntent.findUnique({ where: { id: intentId } })
-      return row ? mapWalletSigningIntentRow(row) : null
+      return row ? await materializeWalletSigningIntentRow(row) : null
     } catch (error) {
       if (isStrictMode) throw error
       logWarn('wallet-signing-intent:read', error, { intentId })
     }
   }
 
-  return memoryIntents.get(intentId) ?? null
+  const record = memoryIntents.get(intentId)
+  return record ? materializeStoredWalletSigningIntentRecord(record) : null
 }
 
 export async function updateWalletSigningIntent(
@@ -378,7 +640,7 @@ export async function updateWalletSigningIntent(
         where: { id: intentId },
         data: buildPgUpdateData(updates),
       })
-      return mapWalletSigningIntentRow(row)
+      return materializeWalletSigningIntentRow(row)
     } catch (error) {
       if (isStrictMode) throw error
       logWarn('wallet-signing-intent:update', error, { intentId })
@@ -390,7 +652,7 @@ export async function updateWalletSigningIntent(
   if (!record) return null
   const updated = applyWalletSigningIntentUpdates(record, updates)
   memoryIntents.set(intentId, updated)
-  return updated
+  return materializeStoredWalletSigningIntentRecord(updated)
 }
 
 export async function updateWalletSigningIntentByTxHash(
@@ -447,7 +709,7 @@ export async function claimNextQueuedWalletSigningIntent(): Promise<WalletSignin
         const claimedRow = await prismaPg.walletSigningIntent.findUnique({
           where: { id: row.id },
         })
-        return claimedRow ? mapWalletSigningIntentRow(claimedRow) : null
+        return claimedRow ? materializeWalletSigningIntentRow(claimedRow) : null
       }
     }
 
@@ -461,7 +723,7 @@ export async function claimNextQueuedWalletSigningIntent(): Promise<WalletSignin
 
   const claimed = applyWalletSigningIntentUpdates(record, { status: 'approved' })
   memoryIntents.set(record.id, claimed)
-  return claimed
+  return materializeStoredWalletSigningIntentRecord(claimed)
 }
 
 export async function markWalletSigningIntentSigned(

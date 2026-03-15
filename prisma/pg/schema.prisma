@@ -192,23 +192,25 @@ model WalletTransferLog {
 }
 
 model WalletSigningIntent {
-  id             String   @id @default(cuid())
-  chain          String   @default("EVM")
-  actionType     String
-  status         String
-  walletId       String
-  userId         String?
-  chainId        Int
-  idempotencyKey String
-  traceId        String
-  transferLogId  String?
-  txPayload      Json
-  signedPayload  String?
-  txHash         String?
-  errorCode      String?
-  errorDetails   Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  chain              String   @default("EVM")
+  actionType         String
+  status             String
+  walletId           String
+  userId             String?
+  chainId            Int
+  idempotencyKey     String
+  traceId            String
+  transferLogId      String?
+  txPayload          Json?
+  txPayloadRef       String?
+  txPayloadSizeBytes Int?
+  signedPayload      String?
+  txHash             String?
+  errorCode          String?
+  errorDetails       Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@unique([walletId, idempotencyKey, actionType])
   @@index([walletId, createdAt])
