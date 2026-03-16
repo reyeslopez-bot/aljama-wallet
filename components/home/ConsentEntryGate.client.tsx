@@ -24,7 +24,11 @@ const LANGUAGES = [
   { label: "AR", value: "ar" },
 ]
 
-export default function ConsentEntryGate() {
+type ConsentEntryGateProps = {
+  variant?: "page" | "inline"
+}
+
+export default function ConsentEntryGate({ variant = "page" }: ConsentEntryGateProps) {
   const tConsent = useTranslations("consent")
   const tAuth = useTranslations("auth")
   const tInfo = useTranslations("infoCard")
@@ -117,17 +121,28 @@ export default function ConsentEntryGate() {
       setBusy(false)
     }
   }, [applyConsentPreset, busy, consentPreset, nextPath, router])
+  const isInline = variant === "inline"
 
   return (
     <div
       data-testid="consent-gate-root"
-      className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-black/80 px-6 py-12"
+      className={
+        isInline
+          ? "relative flex w-full items-center justify-center overflow-hidden"
+          : "relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-black/80 px-6 py-12"
+      }
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(closest-side_at_50%_50%,rgba(210,167,98,0.12),rgba(255,255,255,0.00)_62%)]" />
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_60%_40%,rgba(78,120,160,0.16),rgba(0,0,0,0)_60%)] blur-[20px]" />
+      {!isInline ? (
+        <>
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(closest-side_at_50%_50%,rgba(210,167,98,0.12),rgba(255,255,255,0.00)_62%)]" />
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_60%_40%,rgba(78,120,160,0.16),rgba(0,0,0,0)_60%)] blur-[20px]" />
+        </>
+      ) : null}
 
       <div
-        className="surface-panel panel-glow-saffron relative w-full max-w-xl rounded-[2rem] p-8"
+        className={`surface-panel panel-glow-saffron relative w-full rounded-[2rem] ${
+          isInline ? "max-w-3xl p-6 sm:p-8" : "max-w-xl p-8"
+        }`}
       >
         <div className="absolute right-6 top-6 z-10 flex items-center gap-2">
           {LANGUAGES.map((language) => (
@@ -283,7 +298,7 @@ export default function ConsentEntryGate() {
               <span>{tAuth("alreadyHaveAccount")}</span>{" "}
               <button
                 type="button"
-                onClick={() => router.push(`/${locale}/login?mode=login`)}
+                onClick={() => router.push(`/${locale}?mode=login#wallet`)}
                 className="font-semibold uppercase tracking-[0.12em] text-saffron transition hover:text-ivory"
               >
                 {tAuth("signIn")}

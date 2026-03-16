@@ -21,7 +21,7 @@ export default async function WalletLayout({
   const { locale } = await params
   const session = await getSession()
   if (!session?.user?.id) {
-    redirect(`/${locale}/login`)
+    redirect(`/${locale}?mode=login#wallet`)
   }
 
   const isAdmin = isAdminEmail(session.user?.email ?? null)

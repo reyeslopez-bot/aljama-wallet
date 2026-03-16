@@ -196,7 +196,7 @@ export default function Navbar() {
     { key: 'trade-desk', label: t('tradeDesk'), href: `/${locale}#trade-desk` },
   ]
   const authCtaLabel = recognizedDevice ? t('signIn') : t('signUp')
-  const authCtaHref = recognizedDevice ? `/${locale}/login?mode=login` : `/${locale}/login?mode=register`
+  const authCtaHref = recognizedDevice ? `/${locale}?mode=login#wallet` : `/${locale}?mode=register#wallet`
   const currentLanguage = LANGUAGES.find((lang) => lang.value === locale)
   const accountLabel =
     session?.user?.name?.trim() ||

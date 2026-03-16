@@ -43,10 +43,9 @@ describe('HomeActionButtons', () => {
     expect(queryByTestId('home-action-button-xrpl')).toBeNull()
     expect(getByTestId('home-action-buttons')).toBeTruthy()
     expect(getByTestId('home-action-buttons-list')).toBeTruthy()
-    expect(queryByTestId('home-action-buttons-unlock')).toBeNull()
   })
 
-  it('locks create and connect CTA links when unauthenticated', () => {
+  it('routes locked CTAs back to the inline home auth stage when unauthenticated', () => {
     mockedUseSession.mockReturnValue({
       data: null,
       status: 'unauthenticated',
@@ -57,11 +56,11 @@ describe('HomeActionButtons', () => {
     const create = getByTestId('home-action-button-create-wallet') as HTMLAnchorElement
     const connect = getByTestId('home-action-button-connect-wallet') as HTMLAnchorElement
 
-    expect(create.getAttribute('aria-disabled')).toBe('true')
-    expect(connect.getAttribute('aria-disabled')).toBe('true')
-    expect(create.tabIndex).toBe(-1)
-    expect(connect.tabIndex).toBe(-1)
+    expect(create.getAttribute('href')).toBe('/en?mode=register#wallet')
+    expect(connect.getAttribute('href')).toBe('/en?mode=login#wallet')
+    expect(create.getAttribute('aria-disabled')).toBeNull()
+    expect(connect.getAttribute('aria-disabled')).toBeNull()
     expect(queryByTestId('home-action-button-xrpl')).toBeNull()
-    expect(getByTestId('home-action-buttons-unlock')).toBeTruthy()
+    expect(queryByTestId('home-action-buttons-unlock')).toBeNull()
   })
 })

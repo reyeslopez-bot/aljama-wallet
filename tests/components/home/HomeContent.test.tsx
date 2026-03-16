@@ -24,6 +24,12 @@ vi.mock('@/components/home/HomeActionButtons.client', () => ({
   default: () => <div data-testid="mock-home-action-buttons" />,
 }))
 
+vi.mock('@/components/home/HomeStageShell.client', () => ({
+  default: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="mock-home-stage-shell">{children}</div>
+  ),
+}))
+
 vi.mock('@/components/home/CreateWalletPanel', () => ({
   CreateWalletPanel: () => <div data-testid="mock-create-wallet-panel" />,
 }))
@@ -95,6 +101,7 @@ describe('HomeContent', () => {
     expect(getByTestId('mock-home-motion-scene')).toBeTruthy()
     expect(getByTestId('mock-mapbox-map')).toBeTruthy()
     expect(getByTestId('mock-home-action-buttons')).toBeTruthy()
+    expect(getByTestId('mock-home-stage-shell')).toBeTruthy()
     expect(getByTestId('mock-create-wallet-panel')).toBeTruthy()
     expect(getByTestId('mock-connect-wallet-panel')).toBeTruthy()
     expect(getByTestId('mock-xrpl-panel')).toBeTruthy()

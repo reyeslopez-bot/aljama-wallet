@@ -4,7 +4,6 @@
 import Link from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
-import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { useGsapPressable } from '@/hooks/useGsapPressable'
 
 type ButtonTone = 'primary' | 'secondary'
@@ -60,14 +59,13 @@ export default function HomeActionButtons() {
   const t = useTranslations('actions')
   const locale = useLocale()
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus === 'unauthenticated'
-  const unlockHintId = 'home-action-buttons-unlock'
+  const locked = sessionStatus !== 'authenticated'
 
   const buttons: Btn[] = [
     {
       kind: 'anchor',
       label: t('createWallet'),
-      href: `/${locale}#create`,
+      href: locked ? `/${locale}?mode=register#wallet` : `/${locale}#create`,
       bg: 'linear-gradient(135deg, #f3d9aa 0%, #e0ad70 45%, #c67a4a 100%)',
       testId: 'home-action-button-create-wallet',
       tone: 'primary',
@@ -75,7 +73,7 @@ export default function HomeActionButtons() {
     {
       kind: 'anchor',
       label: t('connectWallet'),
-      href: `/${locale}#connect`,
+      href: locked ? `/${locale}?mode=login#wallet` : `/${locale}#connect`,
       bg: 'linear-gradient(135deg, #7fb0d9 0%, #5c8db4 50%, #4b7c79 100%)',
       testId: 'home-action-button-connect-wallet',
       tone: 'secondary',
@@ -94,28 +92,16 @@ export default function HomeActionButtons() {
             key={button.label}
             data-testid={button.testId}
             href={button.href}
-            onClick={(event) => {
-              if (locked) event.preventDefault()
-            }}
-            aria-disabled={locked}
-            tabIndex={locked ? -1 : 0}
-            aria-describedby={locked ? unlockHintId : undefined}
             className={`block w-full appearance-none border-0 bg-transparent p-0 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saffron/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
-              locked ? 'pointer-events-none opacity-60' : ''
+              locked ? 'opacity-90' : ''
             }`}
-            aria-label={locked ? `${button.label}. Sign in required.` : button.label}
+            aria-label={locked ? `${button.label}. Sign in or sign up first.` : button.label}
             role="listitem"
           >
             <ActionSurface button={button} />
           </Link>
         ))}
       </div>
-
-      {locked && (
-        <div id={unlockHintId} data-testid="home-action-buttons-unlock">
-          <UnlockActionsLink className="mt-4 block w-full text-center text-xs uppercase tracking-[0.18em] text-saffron/75" />
-        </div>
-      )}
     </div>
   )
 }

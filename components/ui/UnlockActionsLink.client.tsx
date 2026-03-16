@@ -44,11 +44,11 @@ export default function UnlockActionsLink({
   const ctaLabel = label ?? (
     resolvedMode === 'signup' ? tAuth('unlockActionsSignUp') : tAuth('unlockActions')
   )
-  const query = resolvedMode === 'signup' ? '?mode=register' : '?mode=login'
+  const query = resolvedMode === 'signup' ? '?mode=register#wallet' : '?mode=login#wallet'
 
   return (
     <Link
-      href={`/${locale}/login${query}`}
+      href={`/${locale}${query}`}
       className={`${className} cursor-pointer transition hover:text-saffron focus:outline-none focus:ring-2 focus:ring-saffron/40`}
     >
       {ctaLabel}

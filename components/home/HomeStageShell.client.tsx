@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { useSearchParams } from 'next/navigation'
 import LoginGate from '@/components/home/LoginGate'
 import ConsentEntryGate from '@/components/home/ConsentEntryGate.client'
 import {
@@ -18,7 +19,7 @@ import {
   onLocationConsentChange,
 } from '@/infra/location/client'
 
-export type AppStage = 'locked' | 'consent-required' | 'wallet-ready'
+export type AppStage = 'checking' | 'locked' | 'consent-required' | 'wallet-ready'
 
 type HomeStageShellProps = {
   children: ReactNode
@@ -40,7 +41,8 @@ function hasAnsweredConsent() {
 
 export default function HomeStageShell({ children }: HomeStageShellProps) {
   const { status } = useSession()
-  const [answeredConsent, setAnsweredConsent] = useState(false)
+  const searchParams = useSearchParams()
+  const [answeredConsent, setAnsweredConsent] = useState<boolean | null>(null)
 
   useEffect(() => {
     const sync = () => setAnsweredConsent(hasAnsweredConsent())
@@ -60,14 +62,19 @@ export default function HomeStageShell({ children }: HomeStageShellProps) {
   }, [])
 
   const stage = useMemo<AppStage>(() => {
+    if (status === 'loading' || answeredConsent === null) return 'checking'
     if (status !== 'authenticated') return 'locked'
     if (!answeredConsent) return 'consent-required'
     return 'wallet-ready'
   }, [answeredConsent, status])
+  const initialMode = searchParams.get('mode') === 'login' ? 'login' : 'register'
 
   return (
-    <>
-      <section data-testid="home-stage-progress" className="surface-soft sticky top-4 z-40 mb-6 flex items-center gap-2 rounded-full px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-ivory/70">
+    <div id="wallet-access-gate" data-testid="home-stage-shell" className="space-y-6">
+      <section
+        data-testid="home-stage-progress"
+        className="surface-soft flex flex-wrap items-center gap-2 rounded-full px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-ivory/70"
+      >
         <span className={stage === 'locked' ? 'text-saffron' : ''}>Secure</span>
         <span>→</span>
         <span className={stage === 'consent-required' ? 'text-saffron' : ''}>Consent</span>
@@ -75,16 +82,23 @@ export default function HomeStageShell({ children }: HomeStageShellProps) {
         <span className={stage === 'wallet-ready' ? 'text-saffron' : ''}>Wallet</span>
       </section>
 
-      {stage === 'locked' ? <LoginGate showBackLink={false} showCloseButton={false} /> : null}
-      {stage === 'consent-required' ? <ConsentEntryGate /> : null}
+      {stage === 'locked' ? (
+        <LoginGate
+          variant="inline"
+          showBackLink={false}
+          showCloseButton={false}
+          initialMode={initialMode}
+        />
+      ) : null}
+      {stage === 'consent-required' ? <ConsentEntryGate variant="inline" /> : null}
 
       <div
         data-testid="home-stage-workspace"
         data-stage={stage}
-        className={stage === 'wallet-ready' ? '' : 'pointer-events-none opacity-60'}
+        className={stage === 'wallet-ready' || stage === 'checking' ? '' : 'pointer-events-none opacity-60'}
       >
         {children}
       </div>
-    </>
+    </div>
   )
 }

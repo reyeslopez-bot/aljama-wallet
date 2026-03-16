@@ -1163,7 +1163,7 @@ export default function XrplTradeDesk() {
                     </p>
                     {swapQuote ? (
                       <p className="mt-1 text-xs text-ivory/55">
-                        Trusted route: {formatAssetSelection(swapQuote.sourceAmount.currency, swapQuote.sourceAmount.issuer ?? '')} ->{' '}
+                        Trusted route: {formatAssetSelection(swapQuote.sourceAmount.currency, swapQuote.sourceAmount.issuer ?? '')}{' -> '}
                         {formatAssetSelection(swapQuote.destinationAmount.currency, swapQuote.destinationAmount.issuer ?? '')}
                       </p>
                     ) : null}
