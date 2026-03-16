@@ -81,6 +81,8 @@ function inferXrplTxType(txType: string | null): ReturnType<typeof normalizeChai
   switch (txType) {
     case 'TrustSet':
       return 'trustline_set'
+    case 'Payment':
+      return 'transfer'
     case 'NFTokenMint':
       return 'nft_mint'
     case 'OfferCreate':

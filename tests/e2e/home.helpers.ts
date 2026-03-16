@@ -107,6 +107,31 @@ async function mockHomeApi(page: Page) {
       }),
     ),
   )
+  await page.route('**/api/xrpl/trade/swap/quote**', (route) =>
+    route.fulfill(
+      jsonResponse({
+        ok: true,
+        quote: {
+          sourceAmount: { currency: 'XRP', value: '50' },
+          quotedSourceAmount: { currency: 'XRP', value: '50' },
+          destinationAmount: {
+            currency: 'USD',
+            issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
+            value: '45.5',
+          },
+          deliverMin: {
+            currency: 'USD',
+            issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
+            value: '45.2725',
+          },
+          pathCount: 1,
+          alternativeCount: 2,
+          fullReply: true,
+          slippageBps: 50,
+        },
+      }),
+    ),
+  )
   await page.route('**/api/xrpl/orderbook**', (route) =>
     route.fulfill(
       jsonResponse({

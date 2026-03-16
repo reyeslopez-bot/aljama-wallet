@@ -68,6 +68,25 @@ describe('XrplTradeDesk', () => {
         } as Response
       }
 
+      if (url.startsWith('/api/xrpl/trade/swap/quote')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            quote: {
+              sourceAmount: { currency: 'XRP', value: '50' },
+              quotedSourceAmount: { currency: 'XRP', value: '50' },
+              destinationAmount: { currency: 'USD', issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', value: '45.5' },
+              deliverMin: { currency: 'USD', issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', value: '45.2725' },
+              pathCount: 1,
+              alternativeCount: 2,
+              fullReply: true,
+              slippageBps: 50,
+            },
+          }),
+        } as Response
+      }
+
       if (url.startsWith('/api/xrpl/orderbook')) {
         return {
           ok: true,
@@ -159,12 +178,21 @@ describe('XrplTradeDesk', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
 
-      if (url.startsWith('/api/xrpl/orderbook')) {
+      if (url.startsWith('/api/xrpl/trade/swap/quote')) {
         return {
           ok: true,
           json: async () => ({
             ok: true,
-            offers: [{ account: 'rOffer', sequence: 1, quality: '1.1', takerGets: '10', takerPays: '20' }],
+            quote: {
+              sourceAmount: { currency: 'XRP', value: '50' },
+              quotedSourceAmount: { currency: 'XRP', value: '50' },
+              destinationAmount: { currency: 'USD', issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', value: '45.5' },
+              deliverMin: { currency: 'USD', issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', value: '45.2725' },
+              pathCount: 1,
+              alternativeCount: 2,
+              fullReply: true,
+              slippageBps: 50,
+            },
           }),
         } as Response
       }
@@ -197,12 +225,12 @@ describe('XrplTradeDesk', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
 
-      if (url.startsWith('/api/xrpl/orderbook')) {
+      if (url.startsWith('/api/xrpl/trade/swap/quote')) {
         return {
-          ok: true,
+          ok: false,
           json: async () => ({
-            ok: true,
-            offers: [],
+            ok: false,
+            error: 'No XRPL swap path found',
           }),
         } as Response
       }
@@ -222,13 +250,13 @@ describe('XrplTradeDesk', () => {
       expect((getByTestId('xrpl-trade-desk-quick-swap-refresh-quote') as HTMLButtonElement).disabled).toBe(false)
     })
 
-    expect(queryByText(/No live quote for XRP -> USD/i)).toBeNull()
+    expect(queryByText(/No live swap path for XRP -> USD/i)).toBeNull()
 
     fireEvent.click(getByTestId('xrpl-trade-desk-quick-swap-refresh-quote'))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
-      expect(getByText(/No live quote for XRP -> USD/i)).toBeTruthy()
+      expect(getByText(/No live swap path for XRP -> USD/i)).toBeTruthy()
     })
   })
 })

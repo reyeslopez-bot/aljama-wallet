@@ -338,6 +338,7 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 - `GET /api/xrpl/nfts`
 - `GET /api/xrpl/orderbook`
 - `GET /api/xrpl/action-history`
+- `GET /api/xrpl/trade/swap/quote`
 - `POST /api/xrpl/trustline/set`
 - `POST /api/xrpl/nft/mint`
 - `POST /api/xrpl/nft/offer/create`
@@ -345,6 +346,7 @@ Aljama Wallet is a Next.js application for encrypted custody, EVM transaction co
 - `POST /api/xrpl/nft/offer/cancel`
 - `POST /api/xrpl/trade/offer/create`
 - `POST /api/xrpl/trade/offer/cancel`
+- `POST /api/xrpl/trade/swap`
 - `POST /api/xrpl/pqc/anchor`
 
 **Primary risks**: network mismatch, stale sequence handling, eventual consistency misreported as hard failure.

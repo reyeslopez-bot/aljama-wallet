@@ -49,6 +49,36 @@ type OrderbookResponse = {
   }>
 }
 
+type SwapQuoteResponse = {
+  ok: true
+  quote: {
+    sourceAmount: {
+      currency: string
+      issuer?: string
+      value: string
+    }
+    quotedSourceAmount: {
+      currency: string
+      issuer?: string
+      value: string
+    }
+    destinationAmount: {
+      currency: string
+      issuer?: string
+      value: string
+    }
+    deliverMin: {
+      currency: string
+      issuer?: string
+      value: string
+    }
+    pathCount: number
+    alternativeCount: number
+    fullReply: boolean
+    slippageBps: number
+  }
+}
+
 type ActionHistoryResponse = {
   ok: true
   actions: Array<{
@@ -123,6 +153,7 @@ const TRADE_CURRENCY_OPTIONS: CurrencyOption[] = [
 const ISSUED_CURRENCY_OPTIONS = TRADE_CURRENCY_OPTIONS.filter((option) => option.code !== 'XRP')
 const DEFAULT_QUOTE_ISSUER =
   process.env.NEXT_PUBLIC_XRPL_DEFAULT_QUOTE_ISSUER?.trim() || 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe'
+const DEFAULT_SWAP_SLIPPAGE_BPS = 50
 
 function isXrpCurrency(currency: string): boolean {
   return currency.trim().toUpperCase() === 'XRP'
@@ -132,19 +163,6 @@ function parsePositiveAmount(value: string): number | null {
   const parsed = Number(value)
   if (!Number.isFinite(parsed) || parsed <= 0) return null
   return parsed
-}
-
-function parseNullableNumber(value: unknown): number | null {
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) return null
-    return value
-  }
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    if (!Number.isFinite(parsed)) return null
-    return parsed
-  }
-  return null
 }
 
 function formatPreviewAmount(value: number): string {
@@ -193,8 +211,11 @@ export default function XrplTradeDesk() {
   const pageSize = 6
 
   const [offers, setOffers] = useState<OrderbookResponse['offers']>([])
-  const [offersLoading, setOffersLoading] = useState(true)
+  const [offersLoading, setOffersLoading] = useState(false)
   const [offersError, setOffersError] = useState<string | null>(null)
+  const [swapQuote, setSwapQuote] = useState<SwapQuoteResponse['quote'] | null>(null)
+  const [swapQuoteLoading, setSwapQuoteLoading] = useState(true)
+  const [swapQuoteError, setSwapQuoteError] = useState<string | null>(null)
   const [hasAttemptedQuoteRefresh, setHasAttemptedQuoteRefresh] = useState(false)
   const [pair, setPair] = useState({
     takerGetsCurrency: 'USD',
@@ -354,10 +375,90 @@ export default function XrplTradeDesk() {
     }
   }, [selectedNetworkId, signerConfigError])
 
-  const loadOrderbook = useCallback(async ({ revealMissingQuote = false }: { revealMissingQuote?: boolean } = {}) => {
+  const loadSwapQuote = useCallback(async ({ revealMissingQuote = false }: { revealMissingQuote?: boolean } = {}) => {
     if (revealMissingQuote) {
       setHasAttemptedQuoteRefresh(true)
     }
+    if (signerConfigError) {
+      setSwapQuoteLoading(false)
+      setSwapQuoteError(signerConfigError)
+      setSwapQuote(null)
+      return
+    }
+
+    const sourceCurrency = quickSwapForm.fromCurrency.trim().toUpperCase()
+    const destinationCurrency = quickSwapForm.toCurrency.trim().toUpperCase()
+    const sourceIssuer = quickSwapForm.fromIssuer.trim()
+    const destinationIssuer = quickSwapForm.toIssuer.trim()
+    const sourceAmount = quickSwapForm.fromValue.trim()
+    const sourceIsXrp = isXrpCurrency(sourceCurrency)
+    const destinationIsXrp = isXrpCurrency(destinationCurrency)
+    const sameAsset =
+      sourceCurrency === destinationCurrency &&
+      (sourceIsXrp || sourceIssuer.toLowerCase() === destinationIssuer.toLowerCase())
+
+    if (
+      !parsePositiveAmount(sourceAmount) ||
+      (!sourceIsXrp && !sourceIssuer) ||
+      (!destinationIsXrp && !destinationIssuer) ||
+      sameAsset
+    ) {
+      setSwapQuote(null)
+      setSwapQuoteError(null)
+      setSwapQuoteLoading(false)
+      return
+    }
+
+    setSwapQuoteLoading(true)
+    setSwapQuoteError(null)
+    try {
+      const params = new URLSearchParams({
+        network: selectedNetworkId,
+        sourceCurrency,
+        sourceValue: sourceAmount,
+        destinationCurrency,
+        slippageBps: String(DEFAULT_SWAP_SLIPPAGE_BPS),
+      })
+      if (!sourceIsXrp) {
+        params.set('sourceIssuer', sourceIssuer)
+      }
+      if (!destinationIsXrp) {
+        params.set('destinationIssuer', destinationIssuer)
+      }
+
+      const res = await fetch(`/api/xrpl/trade/swap/quote?${params.toString()}`)
+      const body = (await res.json()) as SwapQuoteResponse | { ok: false; error: string }
+      if (!res.ok || !body.ok) {
+        throw new Error(body.ok ? 'Failed to load XRPL swap quote' : body.error)
+      }
+
+      setSwapQuote(body.quote)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load XRPL swap quote'
+      if (isMissingSignerConfig(message)) {
+        const configMessage = 'XRPL signer is not configured on the server.'
+        setSignerConfigError(configMessage)
+        setSwapQuoteError(configMessage)
+      } else if (message === 'No XRPL swap path found') {
+        setSwapQuoteError(null)
+      } else {
+        setSwapQuoteError(message)
+      }
+      setSwapQuote(null)
+    } finally {
+      setSwapQuoteLoading(false)
+    }
+  }, [
+    quickSwapForm.fromCurrency,
+    quickSwapForm.fromIssuer,
+    quickSwapForm.fromValue,
+    quickSwapForm.toCurrency,
+    quickSwapForm.toIssuer,
+    selectedNetworkId,
+    signerConfigError,
+  ])
+
+  const loadOrderbook = useCallback(async () => {
     setOffersLoading(true)
     setOffersError(null)
     try {
@@ -423,14 +524,29 @@ export default function XrplTradeDesk() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      void loadSwapQuote()
+    }, 220)
+    return () => window.clearTimeout(timer)
+  }, [loadSwapQuote])
+
+  useEffect(() => {
+    if (!showExpertTools) return
+    const timer = window.setTimeout(() => {
       void loadOrderbook()
     }, 220)
     return () => window.clearTimeout(timer)
-  }, [loadOrderbook])
+  }, [loadOrderbook, showExpertTools])
 
   useEffect(() => {
     setHasAttemptedQuoteRefresh(false)
-  }, [pair.takerGetsCurrency, pair.takerGetsIssuer, pair.takerPaysCurrency, pair.takerPaysIssuer, selectedNetworkId])
+  }, [
+    quickSwapForm.fromCurrency,
+    quickSwapForm.fromIssuer,
+    quickSwapForm.fromValue,
+    quickSwapForm.toCurrency,
+    quickSwapForm.toIssuer,
+    selectedNetworkId,
+  ])
 
   useEffect(() => {
     if (locked || !showLaunchContext || showExpertTools) return
@@ -453,26 +569,19 @@ export default function XrplTradeDesk() {
   const quickSwapFromCode = quickSwapForm.fromCurrency.trim().toUpperCase()
   const quickSwapToCode = quickSwapForm.toCurrency.trim().toUpperCase()
   const quickSwapFromAmount = parsePositiveAmount(quickSwapForm.fromValue)
-  const bestOfferQuality = useMemo(() => {
-    for (const offer of offers) {
-      const parsed = parseNullableNumber(offer.quality)
-      if (parsed && parsed > 0) return parsed
-    }
-    return null
-  }, [offers])
+  const quickSwapDeliverMin = parsePositiveAmount(swapQuote?.deliverMin.value ?? '')
   const quickSwapEstimatedReceive = useMemo(() => {
-    if (!quickSwapFromAmount || !bestOfferQuality) return null
-    return quickSwapFromAmount / bestOfferQuality
-  }, [bestOfferQuality, quickSwapFromAmount])
+    return parsePositiveAmount(swapQuote?.destinationAmount.value ?? '')
+  }, [swapQuote])
   const quickSwapUnitReceive = useMemo(() => {
-    if (!bestOfferQuality) return null
-    return 1 / bestOfferQuality
-  }, [bestOfferQuality])
+    if (!quickSwapEstimatedReceive || !quickSwapFromAmount) return null
+    return quickSwapEstimatedReceive / quickSwapFromAmount
+  }, [quickSwapEstimatedReceive, quickSwapFromAmount])
   const shouldShowMissingQuoteIssue =
-    hasAttemptedQuoteRefresh && !offersLoading && !offersError && !bestOfferQuality
+    hasAttemptedQuoteRefresh && !swapQuoteLoading && !swapQuoteError && !swapQuote
   const missingQuoteMessage = useMemo(
     () =>
-      `No live quote for ${formatAssetSelection(quickSwapForm.fromCurrency, quickSwapForm.fromIssuer)} -> ${formatAssetSelection(quickSwapForm.toCurrency, quickSwapForm.toIssuer)} on ${networkConfig.name}. Refresh the order book or switch asset/issuer.`,
+      `No live swap path for ${formatAssetSelection(quickSwapForm.fromCurrency, quickSwapForm.fromIssuer)} -> ${formatAssetSelection(quickSwapForm.toCurrency, quickSwapForm.toIssuer)} on ${networkConfig.name}. Refresh the quote or switch asset/issuer.`,
     [
       networkConfig.name,
       quickSwapForm.fromCurrency,
@@ -502,8 +611,12 @@ export default function XrplTradeDesk() {
     if (shouldShowMissingQuoteIssue) {
       issues.push(missingQuoteMessage)
     }
+    if (hasAttemptedQuoteRefresh && swapQuoteError) {
+      issues.push(swapQuoteError)
+    }
     return issues
   }, [
+    hasAttemptedQuoteRefresh,
     missingQuoteMessage,
     quickSwapForm.fromIssuer,
     quickSwapForm.toIssuer,
@@ -512,6 +625,7 @@ export default function XrplTradeDesk() {
     quickSwapFromIsXrp,
     quickSwapToCode,
     quickSwapToIsXrp,
+    swapQuoteError,
     shouldShowMissingQuoteIssue,
   ])
 
@@ -586,12 +700,12 @@ export default function XrplTradeDesk() {
       )
       pushEvent({ kind: 'success', message: msg })
       track('xrpl_trade_action_success', { action: actionName, network: selectedNetworkId })
-      const postSubmitRefreshes: Array<Promise<unknown>> = []
+      const postSubmitRefreshes: Array<Promise<unknown>> = [loadSwapQuote({ revealMissingQuote: true })]
       if (!locked && (showLaunchContext || showExpertTools)) {
         postSubmitRefreshes.push(loadAssets(), loadHistory())
       }
       if (!locked && showExpertTools) {
-        postSubmitRefreshes.push(loadNfts())
+        postSubmitRefreshes.push(loadNfts(), loadOrderbook())
       }
       if (postSubmitRefreshes.length > 0) {
         await Promise.all(postSubmitRefreshes)
@@ -623,7 +737,7 @@ export default function XrplTradeDesk() {
     regionBlocked ||
     submitting ||
     quickSwapValidationIssues.length > 0 ||
-    !quickSwapEstimatedReceive ||
+    !swapQuote ||
     !quickSwapFromAmount
 
   const canRetryLastAction = !locked && !regionBlocked && !submitting && !!lastActionRequest
@@ -636,12 +750,12 @@ export default function XrplTradeDesk() {
   })
 
   const handleRefreshVisibleData = () => {
-    const refreshes: Array<Promise<unknown>> = [loadOrderbook({ revealMissingQuote: true })]
+    const refreshes: Array<Promise<unknown>> = [loadSwapQuote({ revealMissingQuote: true })]
     if (!locked && (showLaunchContext || showExpertTools)) {
       refreshes.push(loadAssets(), loadHistory())
     }
     if (!locked && showExpertTools) {
-      refreshes.push(loadNfts())
+      refreshes.push(loadNfts(), loadOrderbook())
     }
     void Promise.all(refreshes)
   }
@@ -665,23 +779,23 @@ export default function XrplTradeDesk() {
 
   const handleQuickSwapSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (quickSwapSubmitDisabled || !quickSwapEstimatedReceive || !quickSwapFromAmount) return
+    if (quickSwapSubmitDisabled || !swapQuote || !quickSwapFromAmount) return
 
     void submitAction(
-      '/api/xrpl/trade/offer/create',
+      '/api/xrpl/trade/swap',
       {
-        takerGets: {
-          currency: quickSwapToCode,
-          issuer: quickSwapToIsXrp ? undefined : quickSwapForm.toIssuer.trim() || undefined,
-          value: formatPreviewAmount(quickSwapEstimatedReceive),
-        },
-        takerPays: {
+        sourceAmount: {
           currency: quickSwapFromCode,
           issuer: quickSwapFromIsXrp ? undefined : quickSwapForm.fromIssuer.trim() || undefined,
-          value: formatPreviewAmount(quickSwapFromAmount),
+          value: quickSwapForm.fromValue.trim(),
         },
+        destinationAsset: {
+          currency: quickSwapToCode,
+          issuer: quickSwapToIsXrp ? undefined : quickSwapForm.toIssuer.trim() || undefined,
+        },
+        slippageBps: swapQuote.slippageBps,
       },
-      'simple_swap',
+      'swap_payment',
     )
   }
 
@@ -698,7 +812,7 @@ export default function XrplTradeDesk() {
           onPointerUp={refreshButton.onPointerUp}
           onPointerCancel={refreshButton.onPointerCancel}
           onBlur={refreshButton.onBlur}
-          disabled={submitting || (locked && offersLoading)}
+          disabled={submitting || swapQuoteLoading || offersLoading}
           onClick={handleRefreshVisibleData}
           aria-describedby={regionBlocked ? regionPolicyId : undefined}
           className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b9577]/30 transition disabled:cursor-not-allowed disabled:opacity-60"
@@ -946,8 +1060,8 @@ export default function XrplTradeDesk() {
                 <button
                   data-testid="xrpl-trade-desk-quick-swap-refresh-quote"
                   type="button"
-                  onClick={() => void loadOrderbook({ revealMissingQuote: true })}
-                  disabled={offersLoading}
+                  onClick={() => void loadSwapQuote({ revealMissingQuote: true })}
+                  disabled={swapQuoteLoading}
                   className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
                 >
                   Refresh quote
@@ -1039,13 +1153,24 @@ export default function XrplTradeDesk() {
                       </span>
                     </p>
                     <p className="mt-1">
+                      Minimum receive:{' '}
+                      <span className="font-semibold text-ivory">
+                        {quickSwapDeliverMin ? `${formatPreviewAmount(quickSwapDeliverMin)} ${quickSwapToCode}` : '--'}
+                      </span>
+                    </p>
+                    <p className="mt-1">
                       Network fee:{' '}
                       <span className="font-semibold text-ivory">~{networkFeeEstimateXrp} XRP</span>
                     </p>
                     <p className="mt-1 text-xs text-ivory/55">
                       {quickSwapUnitReceive
                         ? `1 ${quickSwapFromCode} is pricing near ${formatPreviewAmount(quickSwapUnitReceive)} ${quickSwapToCode}.`
-                        : 'Refresh the quote to estimate what you will receive.'}
+                        : 'Refresh the quote to pathfind the best currently available route.'}
+                    </p>
+                    <p className="mt-1 text-xs text-ivory/55">
+                      {swapQuote
+                        ? `Using XRPL pathfinding with a ${formatPreviewAmount(swapQuote.slippageBps / 100)}% minimum-receive guard.`
+                        : 'Quotes use XRPL pathfinding with SendMax and DeliverMin.'}
                     </p>
                   </div>
                 </div>
@@ -1217,7 +1342,7 @@ export default function XrplTradeDesk() {
                         data-testid="xrpl-trade-desk-orderbook-refresh"
                         type="button"
                         disabled={offersLoading}
-                        onClick={() => void loadOrderbook({ revealMissingQuote: true })}
+                        onClick={() => void loadOrderbook()}
                         aria-label="Refresh order book"
                         className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
                       >

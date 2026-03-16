@@ -6,6 +6,7 @@ import { runForensicRetentionMaintenance } from '@/services/forensic-retention.s
 
 export type XrplActionKind =
   | 'trustset'
+  | 'swap_payment'
   | 'nft_mint'
   | 'offer_create'
   | 'offer_cancel'

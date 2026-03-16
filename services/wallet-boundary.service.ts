@@ -476,6 +476,10 @@ export async function getWalletTransactionsForUser(input: {
       row.rawTransaction && typeof row.rawTransaction === 'object' && !Array.isArray(row.rawTransaction)
         ? (row.rawTransaction as Record<string, unknown>)
         : null
+    const rawAmount =
+      rawTransaction?.Amount && typeof rawTransaction.Amount === 'object' && rawTransaction.Amount !== null
+        ? (rawTransaction.Amount as Record<string, unknown>)
+        : null
     const derivedAsset =
       row.txType === 'trustline_set' &&
       rawTransaction?.LimitAmount &&
@@ -484,6 +488,8 @@ export async function getWalletTransactionsForUser(input: {
       'currency' in rawTransaction.LimitAmount &&
       typeof rawTransaction.LimitAmount.currency === 'string'
         ? rawTransaction.LimitAmount.currency
+        : rawAmount && typeof rawAmount.currency === 'string'
+          ? rawAmount.currency
         : row.txType.startsWith('nft_') || row.txType === 'nft_mint'
           ? 'NFT'
           : 'XRP'
@@ -495,6 +501,8 @@ export async function getWalletTransactionsForUser(input: {
       amountWei:
         typeof rawTransaction?.Amount === 'string'
           ? rawTransaction.Amount
+          : rawAmount && typeof rawAmount.value === 'string'
+            ? rawAmount.value
           : typeof row.feeDrops === 'string'
             ? row.feeDrops
             : '0',
