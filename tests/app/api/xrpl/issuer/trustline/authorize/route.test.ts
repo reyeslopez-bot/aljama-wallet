@@ -11,6 +11,8 @@ const {
   mockAssessXrplActionRisk,
   mockSubmitXrplTx,
   mockRecordXrplTransactionSubmission,
+  mockRequireXrplIssuerHolderEligibility,
+  mockMarkXrplIssuerHolderAuthorized,
 } = vi.hoisted(() => ({
   mockRequireSession: vi.fn(),
   mockIsAllowedOrigin: vi.fn(),
@@ -22,6 +24,8 @@ const {
   mockAssessXrplActionRisk: vi.fn(),
   mockSubmitXrplTx: vi.fn(),
   mockRecordXrplTransactionSubmission: vi.fn(),
+  mockRequireXrplIssuerHolderEligibility: vi.fn(),
+  mockMarkXrplIssuerHolderAuthorized: vi.fn(),
 }))
 
 vi.mock('@/lib/security/session', () => ({ requireSession: mockRequireSession }))
@@ -32,6 +36,10 @@ vi.mock('@/services/xrpl-action-log.service', () => ({ createXrplAction: mockCre
 vi.mock('@/services/xrpl-risk.service', () => ({ assessXrplActionRisk: mockAssessXrplActionRisk }))
 vi.mock('@/services/xrpl-tx-submit.service', () => ({ submitXrplTx: mockSubmitXrplTx }))
 vi.mock('@/services/xrpl-transaction-store.service', () => ({ recordXrplTransactionSubmission: mockRecordXrplTransactionSubmission }))
+vi.mock('@/services/xrpl-issuer-policy.service', () => ({
+  requireXrplIssuerHolderEligibility: mockRequireXrplIssuerHolderEligibility,
+  markXrplIssuerHolderAuthorized: mockMarkXrplIssuerHolderAuthorized,
+}))
 
 describe('app/api/xrpl/issuer/trustline/authorize route', () => {
   beforeEach(() => {
@@ -66,8 +74,14 @@ describe('app/api/xrpl/issuer/trustline/authorize route', () => {
       sequence: 1,
     })
     mockRecordXrplTransactionSubmission.mockResolvedValue({})
+    mockRequireXrplIssuerHolderEligibility.mockResolvedValue({
+      asset: { id: 'asset-1' },
+    })
+    mockMarkXrplIssuerHolderAuthorized.mockResolvedValue({})
   })
 
+  // XRP is the native currency, so it must never be treated like an issuer-
+  // controlled token that can be authorized with TrustSet.
   it('rejects XRP as an authorization currency', async () => {
     const { POST } = await import('@/app/api/xrpl/issuer/trustline/authorize/route')
     const res = await POST(
@@ -86,6 +100,8 @@ describe('app/api/xrpl/issuer/trustline/authorize route', () => {
     expect(mockSubmitXrplTx).not.toHaveBeenCalled()
   })
 
+  // The happy path now has two side effects: enforce local approval policy
+  // before submit, then mark the holder as authorized after a successful tx.
   it('submits a TrustSet authorization transaction', async () => {
     const { POST } = await import('@/app/api/xrpl/issuer/trustline/authorize/route')
     const res = await POST(
@@ -115,5 +131,39 @@ describe('app/api/xrpl/issuer/trustline/authorize route', () => {
       }),
     )
     expect(mockRecordXrplTransactionSubmission).toHaveBeenCalled()
+    expect(mockRequireXrplIssuerHolderEligibility).toHaveBeenCalledWith({
+      networkId: 'testnet',
+      issuerAccount: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+      currency: 'RWAUSD',
+      holderAddress: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
+      action: 'authorize',
+    })
+    expect(mockMarkXrplIssuerHolderAuthorized).toHaveBeenCalledWith({
+      assetId: 'asset-1',
+      holderAddress: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
+    })
+  })
+
+  // This is the policy gate we actually wanted: a wallet cannot be authorized
+  // on-ledger until the app has an approval record for that asset.
+  it('rejects holders that have not been approved for the asset', async () => {
+    mockRequireXrplIssuerHolderEligibility.mockRejectedValue(new Error('Holder is not approved for this asset'))
+
+    const { POST } = await import('@/app/api/xrpl/issuer/trustline/authorize/route')
+    const res = await POST(
+      new Request('http://localhost/api/xrpl/issuer/trustline/authorize', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          idempotencyKey: '11111111-1111-4111-8111-111111111111',
+          holder: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
+          currency: 'RWAUSD',
+        }),
+      }),
+    )
+
+    expect(res.status).toBe(403)
+    expect(mockCreateXrplAction).not.toHaveBeenCalled()
+    expect(mockSubmitXrplTx).not.toHaveBeenCalled()
   })
 })

@@ -11,6 +11,7 @@ const {
   mockAssessXrplActionRisk,
   mockSubmitXrplTx,
   mockRecordXrplTransactionSubmission,
+  mockUpsertXrplIssuerProgram,
 } = vi.hoisted(() => ({
   mockRequireSession: vi.fn(),
   mockIsAllowedOrigin: vi.fn(),
@@ -22,6 +23,7 @@ const {
   mockAssessXrplActionRisk: vi.fn(),
   mockSubmitXrplTx: vi.fn(),
   mockRecordXrplTransactionSubmission: vi.fn(),
+  mockUpsertXrplIssuerProgram: vi.fn(),
 }))
 
 vi.mock('@/lib/security/session', () => ({ requireSession: mockRequireSession }))
@@ -32,6 +34,7 @@ vi.mock('@/services/xrpl-action-log.service', () => ({ createXrplAction: mockCre
 vi.mock('@/services/xrpl-risk.service', () => ({ assessXrplActionRisk: mockAssessXrplActionRisk }))
 vi.mock('@/services/xrpl-tx-submit.service', () => ({ submitXrplTx: mockSubmitXrplTx }))
 vi.mock('@/services/xrpl-transaction-store.service', () => ({ recordXrplTransactionSubmission: mockRecordXrplTransactionSubmission }))
+vi.mock('@/services/xrpl-issuer-policy.service', () => ({ upsertXrplIssuerProgram: mockUpsertXrplIssuerProgram }))
 
 describe('app/api/xrpl/issuer/account-set route', () => {
   beforeEach(() => {
@@ -66,8 +69,11 @@ describe('app/api/xrpl/issuer/account-set route', () => {
       sequence: 1,
     })
     mockRecordXrplTransactionSubmission.mockResolvedValue({})
+    mockUpsertXrplIssuerProgram.mockResolvedValue({})
   })
 
+  // The route should reject empty writes before touching XRPL or local policy
+  // state, because an empty AccountSet is both pointless and misleading.
   it('requires at least one account setting', async () => {
     const { POST } = await import('@/app/api/xrpl/issuer/account-set/route')
     const res = await POST(
@@ -84,6 +90,8 @@ describe('app/api/xrpl/issuer/account-set route', () => {
     expect(mockSubmitXrplTx).not.toHaveBeenCalled()
   })
 
+  // A successful AccountSet should also sync the issuer program metadata that
+  // later authorization and distribution rules depend on.
   it('submits an AccountSet transaction with issuer settings', async () => {
     const { POST } = await import('@/app/api/xrpl/issuer/account-set/route')
     const res = await POST(
@@ -113,5 +121,14 @@ describe('app/api/xrpl/issuer/account-set route', () => {
       }),
     )
     expect(mockRecordXrplTransactionSubmission).toHaveBeenCalled()
+    expect(mockUpsertXrplIssuerProgram).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'testnet',
+        issuerAccount: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+        domain: 'issuer.example.com',
+        transferFeeBps: 50,
+        tickSize: 10,
+      }),
+    )
   })
 })

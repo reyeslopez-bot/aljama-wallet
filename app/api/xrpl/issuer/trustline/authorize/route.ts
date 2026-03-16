@@ -12,6 +12,10 @@ import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
 import { normalizeIssuedCurrency, normalizeXrplClassicAddress } from '@/lib/xrpl-issuer'
 import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
+import {
+  markXrplIssuerHolderAuthorized,
+  requireXrplIssuerHolderEligibility,
+} from '@/services/xrpl-issuer-policy.service'
 import { recordXrplTransactionSubmission } from '@/services/xrpl-transaction-store.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
@@ -32,6 +36,16 @@ function resolveRouteStatus(message: string): number {
     message === 'Invalid holder address'
   ) {
     return 400
+  }
+  if (
+    message === 'Issuer asset is not registered' ||
+    message === 'Issuer program is not active' ||
+    message === 'Issuer asset is not active'
+  ) {
+    return 409
+  }
+  if (message === 'Holder is not approved for this asset') {
+    return 403
   }
   return 400
 }
@@ -101,6 +115,13 @@ async function postXrplIssuerTrustlineAuthorize(
     const account = getXrplSignerAccount()
     const holder = normalizeXrplClassicAddress(parsed.data.holder, 'holder address')
     const currency = normalizeIssuedCurrency(parsed.data.currency)
+    const policy = await requireXrplIssuerHolderEligibility({
+      networkId,
+      issuerAccount: account.address,
+      currency,
+      holderAddress: holder,
+      action: 'authorize',
+    })
 
     const action = await createXrplAction({
       action: 'trustline_authorize',
@@ -173,6 +194,21 @@ async function postXrplIssuerTrustlineAuthorize(
       await recordXrplTransactionSubmission({ actionId: action.id, result })
     } catch (recordError) {
       logError('xrpl-issuer-trustline-authorize:transaction-store', recordError, {
+        requestId: routeContext.requestId,
+        traceId: routeContext.traceId,
+        route: routePath,
+        actionId: action.id,
+        txHash: result.txHash,
+      })
+    }
+
+    try {
+      await markXrplIssuerHolderAuthorized({
+        assetId: policy.asset.id,
+        holderAddress: holder,
+      })
+    } catch (policyError) {
+      logError('xrpl-issuer-trustline-authorize:holder-sync', policyError, {
         requestId: routeContext.requestId,
         traceId: routeContext.traceId,
         route: routePath,

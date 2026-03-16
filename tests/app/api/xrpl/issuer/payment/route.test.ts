@@ -11,6 +11,9 @@ const {
   mockAssessXrplActionRisk,
   mockSubmitXrplTx,
   mockRecordXrplTransactionSubmission,
+  mockRequireXrplIssuerHolderEligibility,
+  mockCreateXrplIssuerDistribution,
+  mockUpdateXrplIssuerDistribution,
 } = vi.hoisted(() => ({
   mockRequireSession: vi.fn(),
   mockIsAllowedOrigin: vi.fn(),
@@ -22,6 +25,9 @@ const {
   mockAssessXrplActionRisk: vi.fn(),
   mockSubmitXrplTx: vi.fn(),
   mockRecordXrplTransactionSubmission: vi.fn(),
+  mockRequireXrplIssuerHolderEligibility: vi.fn(),
+  mockCreateXrplIssuerDistribution: vi.fn(),
+  mockUpdateXrplIssuerDistribution: vi.fn(),
 }))
 
 vi.mock('@/lib/security/session', () => ({ requireSession: mockRequireSession }))
@@ -32,6 +38,11 @@ vi.mock('@/services/xrpl-action-log.service', () => ({ createXrplAction: mockCre
 vi.mock('@/services/xrpl-risk.service', () => ({ assessXrplActionRisk: mockAssessXrplActionRisk }))
 vi.mock('@/services/xrpl-tx-submit.service', () => ({ submitXrplTx: mockSubmitXrplTx }))
 vi.mock('@/services/xrpl-transaction-store.service', () => ({ recordXrplTransactionSubmission: mockRecordXrplTransactionSubmission }))
+vi.mock('@/services/xrpl-issuer-policy.service', () => ({
+  requireXrplIssuerHolderEligibility: mockRequireXrplIssuerHolderEligibility,
+  createXrplIssuerDistribution: mockCreateXrplIssuerDistribution,
+  updateXrplIssuerDistribution: mockUpdateXrplIssuerDistribution,
+}))
 vi.mock('@/lib/xrpl-amount', () => ({
   toXrplAmount: vi.fn((value) => value),
   normalizeCurrency: vi.fn((value: string) => value.trim().toUpperCase()),
@@ -70,8 +81,15 @@ describe('app/api/xrpl/issuer/payment route', () => {
       sequence: 1,
     })
     mockRecordXrplTransactionSubmission.mockResolvedValue({})
+    mockRequireXrplIssuerHolderEligibility.mockResolvedValue({})
+    mockCreateXrplIssuerDistribution.mockResolvedValue({
+      distribution: { id: 'dist-1' },
+    })
+    mockUpdateXrplIssuerDistribution.mockResolvedValue({})
   })
 
+  // XRP is not an issued token, so a distribution route should reject it before
+  // any policy or transaction work begins.
   it('rejects XRP as an issuer distribution currency', async () => {
     const { POST } = await import('@/app/api/xrpl/issuer/payment/route')
     const res = await POST(
@@ -91,6 +109,9 @@ describe('app/api/xrpl/issuer/payment route', () => {
     expect(mockSubmitXrplTx).not.toHaveBeenCalled()
   })
 
+  // The payment path now has to satisfy both policy and audit requirements:
+  // validate holder eligibility, create a distribution record, then update it
+  // with the tx result after submit.
   it('submits an issued-asset payment and defaults issuer to the signer account', async () => {
     const { POST } = await import('@/app/api/xrpl/issuer/payment/route')
     const res = await POST(
@@ -121,5 +142,55 @@ describe('app/api/xrpl/issuer/payment route', () => {
       }),
     )
     expect(mockRecordXrplTransactionSubmission).toHaveBeenCalled()
+    expect(mockRequireXrplIssuerHolderEligibility).toHaveBeenCalledWith({
+      networkId: 'testnet',
+      issuerAccount: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+      currency: 'RWAUSD',
+      holderAddress: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
+      action: 'distribute',
+      amount: '100',
+    })
+    expect(mockCreateXrplIssuerDistribution).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionId: 'act-1',
+        issuerAccount: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+        currency: 'RWAUSD',
+        destinationAddress: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
+      }),
+    )
+    expect(mockUpdateXrplIssuerDistribution).toHaveBeenCalledWith(
+      expect.objectContaining({
+        distributionId: 'dist-1',
+        status: 'validated',
+        txHash: 'ABC',
+      }),
+    )
+  })
+
+  // RequireAuth-style programs must not distribute before a holder has been
+  // explicitly authorized; this is the policy regression that matters most.
+  it('rejects distributions to holders without an authorized trustline', async () => {
+    mockRequireXrplIssuerHolderEligibility.mockRejectedValue(
+      new Error('Holder trustline is not authorized for this asset'),
+    )
+
+    const { POST } = await import('@/app/api/xrpl/issuer/payment/route')
+    const res = await POST(
+      new Request('http://localhost/api/xrpl/issuer/payment', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          idempotencyKey: '11111111-1111-4111-8111-111111111111',
+          destination: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
+          currency: 'RWAUSD',
+          value: '100',
+        }),
+      }),
+    )
+
+    expect(res.status).toBe(403)
+    expect(mockCreateXrplAction).not.toHaveBeenCalled()
+    expect(mockCreateXrplIssuerDistribution).not.toHaveBeenCalled()
+    expect(mockSubmitXrplTx).not.toHaveBeenCalled()
   })
 })

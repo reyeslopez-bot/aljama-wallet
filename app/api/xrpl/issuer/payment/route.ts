@@ -12,6 +12,11 @@ import { normalizeIssuedCurrency, normalizeXrplClassicAddress } from '@/lib/xrpl
 import { toXrplAmount } from '@/lib/xrpl-amount'
 import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
+import {
+  createXrplIssuerDistribution,
+  requireXrplIssuerHolderEligibility,
+  updateXrplIssuerDistribution,
+} from '@/services/xrpl-issuer-policy.service'
 import { recordXrplTransactionSubmission } from '@/services/xrpl-transaction-store.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
@@ -37,6 +42,22 @@ function resolveRouteStatus(message: string): number {
   ) {
     return 400
   }
+  if (
+    message === 'Issuer asset is not registered' ||
+    message === 'Issuer program is not active' ||
+    message === 'Issuer asset is not active'
+  ) {
+    return 409
+  }
+  if (
+    message === 'Holder is not approved for this asset' ||
+    message === 'Holder trustline is not authorized for this asset' ||
+    message === 'Issuer program does not allow distributions' ||
+    message === 'Issuer distributions are disabled for this asset' ||
+    message === 'Distribution amount exceeds the configured asset limit'
+  ) {
+    return 403
+  }
   return 400
 }
 
@@ -45,6 +66,7 @@ async function postXrplIssuerPayment(
   routeContext: Pick<ApiRouteContext, 'requestId' | 'traceId' | 'correlationId'>,
 ) {
   let actionId: string | null = null
+  let distributionId: string | null = null
   const routePath = '/api/xrpl/issuer/payment'
 
   try {
@@ -108,6 +130,14 @@ async function postXrplIssuerPayment(
     const issuer = parsed.data.issuer?.trim()
       ? normalizeXrplClassicAddress(parsed.data.issuer, 'issuer address')
       : account.address
+    await requireXrplIssuerHolderEligibility({
+      networkId,
+      issuerAccount: issuer,
+      currency,
+      holderAddress: destination,
+      action: 'distribute',
+      amount: parsed.data.value,
+    })
 
     const action = await createXrplAction({
       action: 'issuer_payment',
@@ -127,6 +157,22 @@ async function postXrplIssuerPayment(
     })
     actionId = action.id
 
+    const distribution = await createXrplIssuerDistribution({
+      networkId,
+      issuerAccount: issuer,
+      currency,
+      destinationAddress: destination,
+      amount: parsed.data.value,
+      actionId: action.id,
+      idempotencyKey: parsed.data.idempotencyKey,
+      requestedByUserId: session.user.id,
+      details: {
+        issuer,
+        destinationTag: parsed.data.destinationTag,
+      },
+    })
+    distributionId = distribution.distribution.id
+
     const risk = await assessXrplActionRisk({
       walletId: account.address,
       userId: session.user.id,
@@ -143,6 +189,16 @@ async function postXrplIssuerPayment(
           risk,
         },
       })
+      if (distributionId) {
+        await updateXrplIssuerDistribution({
+          distributionId,
+          status: 'failed',
+          failureCode: risk.decision === 'deny' ? 'RISK_DENIED' : 'RISK_REVIEW',
+          details: {
+            risk,
+          },
+        }).catch(() => {})
+      }
       return errorJson(
         403,
         risk.decision === 'deny' ? 'risk_denied' : 'risk_review',
@@ -192,6 +248,19 @@ async function postXrplIssuerPayment(
       })
     }
 
+    if (distributionId) {
+      await updateXrplIssuerDistribution({
+        distributionId,
+        status: result.validated ? 'validated' : 'submitted',
+        txHash: result.txHash,
+        details: {
+          engineResult: result.engineResult,
+          ledgerIndex: result.ledgerIndex,
+          sequence: result.sequence,
+        },
+      })
+    }
+
     return okJson({
       network: networkId,
       actionId: action.id,
@@ -217,6 +286,14 @@ async function postXrplIssuerPayment(
       await updateXrplAction({
         id: actionId,
         status: 'failed',
+      }).catch(() => {})
+    }
+    if (distributionId) {
+      const failureCode = getErrorMessage(error, 'Failed to distribute issued asset')
+      await updateXrplIssuerDistribution({
+        distributionId,
+        status: 'failed',
+        failureCode,
       }).catch(() => {})
     }
 

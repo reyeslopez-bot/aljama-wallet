@@ -266,20 +266,20 @@ model RiskDecision {
 }
 
 model ReconciliationIssue {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   scope       String
   kind        String
   refId       String
-  status      String   @default("open")
-  severity    String   @default("high")
+  status      String    @default("open")
+  severity    String    @default("high")
   traceId     String?
   summary     String?
   details     Json?
-  firstSeenAt DateTime @default(now())
-  lastSeenAt  DateTime @default(now())
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
   resolvedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([scope, kind, refId])
   @@index([status, updatedAt])
@@ -392,7 +392,10 @@ model XrplAction {
   createdAt      DateTime
   updatedAt      DateTime
 
-  events XrplActionEvent[]
+  events             XrplActionEvent[]
+  /// A payment action can map to one audited issuer distribution attempt.
+  /// Keeping the relation optional lets older XRPL actions remain valid.
+  issuerDistribution XrplIssuerDistribution?
 
   @@index([updatedAt])
   @@index([networkId, updatedAt])
@@ -415,4 +418,125 @@ model XrplActionEvent {
 
   @@index([actionId, occurredAt])
   @@index([occurredAt])
+}
+
+/// One issuer program represents the account-level operating policy for an XRPL
+/// issuer on a single network. This is intentionally separate from individual
+/// currencies because AccountSet settings apply to the issuer account itself,
+/// not to a specific token.
+model XrplIssuerProgram {
+  id                           String   @id @default(cuid())
+  networkId                    String
+  issuerAccount                String
+  distributorAccount           String?
+  status                       String   @default("active")
+  name                         String?
+  domain                       String?
+  transferFeeBps               Int?
+  tickSize                     Int?
+  requiresAuthorizedTrustlines Boolean  @default(true)
+  allowDistributions           Boolean  @default(true)
+  metadata                     Json?
+  createdByUserId              String?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  assets        XrplIssuerAsset[]
+  distributions XrplIssuerDistribution[]
+
+  /// There should only be one program per issuer account on a network.
+  @@unique([networkId, issuerAccount])
+  @@index([status, updatedAt])
+  @@index([networkId, status, updatedAt])
+}
+
+/// Assets capture token-specific policy that the XRPL ledger itself does not
+/// model for us, such as whether distributions are currently enabled or whether
+/// a human approval step is mandatory before we authorize a holder.
+model XrplIssuerAsset {
+  id                    String   @id @default(cuid())
+  programId             String
+  currency              String
+  status                String   @default("active")
+  displayName           String?
+  precision             Int?
+  trustlineLimit        String?
+  distributionsEnabled  Boolean  @default(true)
+  requireHolderApproval Boolean  @default(true)
+  maxDistributionValue  String?
+  metadata              Json?
+  createdByUserId       String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  program       XrplIssuerProgram        @relation(fields: [programId], references: [id], onDelete: Cascade)
+  holders       XrplIssuerHolder[]
+  distributions XrplIssuerDistribution[]
+
+  /// Currency codes are only unique within the issuer program. Reusing the same
+  /// code across networks or issuers is allowed and expected.
+  @@unique([programId, currency])
+  @@index([status, updatedAt])
+}
+
+/// Holder rows are our internal compliance state. XRPL authorization alone only
+/// says "a TrustSet was submitted"; this table answers "was this wallet
+/// approved, revoked, or rejected under our off-ledger policy?"
+model XrplIssuerHolder {
+  id                 String    @id @default(cuid())
+  assetId            String
+  holderAddress      String
+  status             String    @default("pending")
+  approvedByUserId   String?
+  approvedAt         DateTime?
+  revokedAt          DateTime?
+  lastAuthorizedAt   DateTime?
+  lastDistributionAt DateTime?
+  notes              String?
+  reviewContext      Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  asset         XrplIssuerAsset          @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  distributions XrplIssuerDistribution[]
+
+  /// A wallet should have one authoritative policy row per asset.
+  @@unique([assetId, holderAddress])
+  @@index([holderAddress])
+  @@index([status, updatedAt])
+}
+
+/// Every issuer-side payment attempt is persisted here so the app has an
+/// auditable source of truth that survives XRPL action logs, retries, and
+/// future reconciliation work.
+model XrplIssuerDistribution {
+  id                 String    @id @default(cuid())
+  programId          String
+  assetId            String
+  holderId           String?
+  actionId           String?   @unique
+  destinationAddress String
+  amount             String
+  status             String    @default("queued")
+  idempotencyKey     String?
+  txHash             String?
+  failureCode        String?
+  requestedByUserId  String?
+  requestedAt        DateTime  @default(now())
+  submittedAt        DateTime?
+  validatedAt        DateTime?
+  details            Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  program XrplIssuerProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  asset   XrplIssuerAsset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  holder  XrplIssuerHolder? @relation(fields: [holderId], references: [id], onDelete: SetNull)
+  action  XrplAction?       @relation(fields: [actionId], references: [id], onDelete: SetNull)
+
+  @@index([programId, createdAt])
+  @@index([assetId, createdAt])
+  @@index([holderId, createdAt])
+  @@index([status, updatedAt])
+  @@index([txHash])
 }

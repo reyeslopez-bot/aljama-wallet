@@ -17,6 +17,7 @@ import {
 } from '@/lib/xrpl-issuer'
 import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
+import { upsertXrplIssuerProgram } from '@/services/xrpl-issuer-policy.service'
 import { recordXrplTransactionSubmission } from '@/services/xrpl-transaction-store.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
@@ -221,6 +222,26 @@ async function postXrplIssuerAccountSet(
       await recordXrplTransactionSubmission({ actionId: action.id, result })
     } catch (recordError) {
       logError('xrpl-issuer-account-set:transaction-store', recordError, {
+        requestId: routeContext.requestId,
+        traceId: routeContext.traceId,
+        route: routePath,
+        actionId: action.id,
+        txHash: result.txHash,
+      })
+    }
+
+    try {
+      await upsertXrplIssuerProgram({
+        networkId,
+        issuerAccount: account.address,
+        status: 'active',
+        ...(domain !== undefined ? { domain } : {}),
+        ...(parsed.data.transferFeeBps !== undefined ? { transferFeeBps: parsed.data.transferFeeBps } : {}),
+        ...(parsed.data.tickSize !== undefined ? { tickSize: parsed.data.tickSize } : {}),
+        createdByUserId: session.user.id,
+      })
+    } catch (policyError) {
+      logError('xrpl-issuer-account-set:policy-sync', policyError, {
         requestId: routeContext.requestId,
         traceId: routeContext.traceId,
         route: routePath,
