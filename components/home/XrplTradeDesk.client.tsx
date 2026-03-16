@@ -159,6 +159,10 @@ function isXrpCurrency(currency: string): boolean {
   return currency.trim().toUpperCase() === 'XRP'
 }
 
+function looksLikeClassicAddress(value: string): boolean {
+  return /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(value.trim())
+}
+
 function parsePositiveAmount(value: string): number | null {
   const parsed = Number(value)
   if (!Number.isFinite(parsed) || parsed <= 0) return null
@@ -256,10 +260,8 @@ export default function XrplTradeDesk() {
   const [offerCancelSequence, setOfferCancelSequence] = useState('')
   const [quickSwapForm, setQuickSwapForm] = useState({
     fromCurrency: 'XRP',
-    fromIssuer: '',
     fromValue: '50',
     toCurrency: 'USD',
-    toIssuer: DEFAULT_QUOTE_ISSUER,
   })
   const [nftOfferCreateForm, setNftOfferCreateForm] = useState({
     nftokenId: '',
@@ -388,21 +390,10 @@ export default function XrplTradeDesk() {
 
     const sourceCurrency = quickSwapForm.fromCurrency.trim().toUpperCase()
     const destinationCurrency = quickSwapForm.toCurrency.trim().toUpperCase()
-    const sourceIssuer = quickSwapForm.fromIssuer.trim()
-    const destinationIssuer = quickSwapForm.toIssuer.trim()
     const sourceAmount = quickSwapForm.fromValue.trim()
-    const sourceIsXrp = isXrpCurrency(sourceCurrency)
-    const destinationIsXrp = isXrpCurrency(destinationCurrency)
-    const sameAsset =
-      sourceCurrency === destinationCurrency &&
-      (sourceIsXrp || sourceIssuer.toLowerCase() === destinationIssuer.toLowerCase())
+    const sameAsset = sourceCurrency === destinationCurrency
 
-    if (
-      !parsePositiveAmount(sourceAmount) ||
-      (!sourceIsXrp && !sourceIssuer) ||
-      (!destinationIsXrp && !destinationIssuer) ||
-      sameAsset
-    ) {
+    if (!parsePositiveAmount(sourceAmount) || sameAsset) {
       setSwapQuote(null)
       setSwapQuoteError(null)
       setSwapQuoteLoading(false)
@@ -419,12 +410,6 @@ export default function XrplTradeDesk() {
         destinationCurrency,
         slippageBps: String(DEFAULT_SWAP_SLIPPAGE_BPS),
       })
-      if (!sourceIsXrp) {
-        params.set('sourceIssuer', sourceIssuer)
-      }
-      if (!destinationIsXrp) {
-        params.set('destinationIssuer', destinationIssuer)
-      }
 
       const res = await fetch(`/api/xrpl/trade/swap/quote?${params.toString()}`)
       const body = (await res.json()) as SwapQuoteResponse | { ok: false; error: string }
@@ -439,8 +424,6 @@ export default function XrplTradeDesk() {
         const configMessage = 'XRPL signer is not configured on the server.'
         setSignerConfigError(configMessage)
         setSwapQuoteError(configMessage)
-      } else if (message === 'No XRPL swap path found') {
-        setSwapQuoteError(null)
       } else {
         setSwapQuoteError(message)
       }
@@ -450,10 +433,8 @@ export default function XrplTradeDesk() {
     }
   }, [
     quickSwapForm.fromCurrency,
-    quickSwapForm.fromIssuer,
     quickSwapForm.fromValue,
     quickSwapForm.toCurrency,
-    quickSwapForm.toIssuer,
     selectedNetworkId,
     signerConfigError,
   ])
@@ -472,9 +453,19 @@ export default function XrplTradeDesk() {
         setOffersError('Set an issuer for non-XRP taker gets currency.')
         return
       }
+      if (takerGetsIssuer && !looksLikeClassicAddress(takerGetsIssuer)) {
+        setOffers([])
+        setOffersError('Taker gets issuer must be a valid XRPL classic address.')
+        return
+      }
       if (!isXrpCurrency(takerPaysCurrency) && !takerPaysIssuer) {
         setOffers([])
         setOffersError('Set an issuer for non-XRP taker pays currency.')
+        return
+      }
+      if (takerPaysIssuer && !looksLikeClassicAddress(takerPaysIssuer)) {
+        setOffers([])
+        setOffersError('Taker pays issuer must be a valid XRPL classic address.')
         return
       }
 
@@ -541,10 +532,8 @@ export default function XrplTradeDesk() {
     setHasAttemptedQuoteRefresh(false)
   }, [
     quickSwapForm.fromCurrency,
-    quickSwapForm.fromIssuer,
     quickSwapForm.fromValue,
     quickSwapForm.toCurrency,
-    quickSwapForm.toIssuer,
     selectedNetworkId,
   ])
 
@@ -569,16 +558,10 @@ export default function XrplTradeDesk() {
   const quickSwapFromCode = quickSwapForm.fromCurrency.trim().toUpperCase()
   const quickSwapToCode = quickSwapForm.toCurrency.trim().toUpperCase()
   const quickSwapFromAmount = parsePositiveAmount(quickSwapForm.fromValue)
-  const quickSwapFromIssuer = quickSwapForm.fromIssuer.trim()
-  const quickSwapToIssuer = quickSwapForm.toIssuer.trim()
-  const quickSwapHasDifferentDestination =
-    quickSwapFromCode !== quickSwapToCode ||
-    (!quickSwapFromIsXrp && quickSwapFromIssuer.toLowerCase() !== quickSwapToIssuer.toLowerCase())
-  const quickSwapQuoteReady =
-    Boolean(quickSwapFromAmount) &&
-    (quickSwapFromIsXrp || quickSwapFromIssuer.length > 0) &&
-    (quickSwapToIsXrp || quickSwapToIssuer.length > 0) &&
-    quickSwapHasDifferentDestination
+  const quickSwapSelectedFromIssuer = swapQuote?.sourceAmount.issuer?.trim() ?? ''
+  const quickSwapSelectedToIssuer = swapQuote?.destinationAmount.issuer?.trim() ?? ''
+  const quickSwapHasDifferentDestination = quickSwapFromCode !== quickSwapToCode
+  const quickSwapQuoteReady = Boolean(quickSwapFromAmount) && quickSwapHasDifferentDestination
   const quickSwapDeliverMin = parsePositiveAmount(swapQuote?.deliverMin.value ?? '')
   const quickSwapEstimatedReceive = useMemo(() => {
     return parsePositiveAmount(swapQuote?.destinationAmount.value ?? '')
@@ -591,25 +574,17 @@ export default function XrplTradeDesk() {
     hasAttemptedQuoteRefresh && quickSwapQuoteReady && !swapQuoteLoading && !swapQuoteError && !swapQuote
   const missingQuoteMessage = useMemo(
     () =>
-      `No live swap path for ${formatAssetSelection(quickSwapForm.fromCurrency, quickSwapForm.fromIssuer)} -> ${formatAssetSelection(quickSwapForm.toCurrency, quickSwapForm.toIssuer)} on ${networkConfig.name}. This usually means the exact issuer pair has no usable trustline/liquidity path right now.`,
+      `No trusted swap path is available for ${quickSwapFromCode} -> ${quickSwapToCode} on ${networkConfig.name}. Refresh the quote or switch assets.`,
     [
       networkConfig.name,
-      quickSwapForm.fromCurrency,
-      quickSwapForm.fromIssuer,
-      quickSwapForm.toCurrency,
-      quickSwapForm.toIssuer,
+      quickSwapFromCode,
+      quickSwapToCode,
     ],
   )
   const quickSwapValidationIssues = useMemo(() => {
     const issues: string[] = []
     if (!quickSwapFromAmount) {
       issues.push('Enter a valid amount greater than zero.')
-    }
-    if (!quickSwapFromIsXrp && !quickSwapFromIssuer) {
-      issues.push(`Enter the issuer address for ${quickSwapFromCode}. On XRPL, non-XRP assets are currency + issuer.`)
-    }
-    if (!quickSwapToIsXrp && !quickSwapToIssuer) {
-      issues.push(`Enter the issuer address for ${quickSwapToCode}. On XRPL, non-XRP assets are currency + issuer.`)
     }
     if (!quickSwapHasDifferentDestination) {
       issues.push('Choose a different destination asset for quick swap.')
@@ -624,14 +599,8 @@ export default function XrplTradeDesk() {
   }, [
     hasAttemptedQuoteRefresh,
     missingQuoteMessage,
-    quickSwapFromCode,
     quickSwapFromAmount,
-    quickSwapFromIssuer,
-    quickSwapFromIsXrp,
     quickSwapHasDifferentDestination,
-    quickSwapToCode,
-    quickSwapToIssuer,
-    quickSwapToIsXrp,
     swapQuoteError,
     shouldShowMissingQuoteIssue,
   ])
@@ -639,44 +608,46 @@ export default function XrplTradeDesk() {
     if (!quickSwapFromAmount) {
       return 'Enter an amount to request a quote.'
     }
-    if (!quickSwapFromIsXrp && !quickSwapFromIssuer) {
-      return `Add the issuer address for ${quickSwapFromCode} before requesting a quote.`
-    }
-    if (!quickSwapToIsXrp && !quickSwapToIssuer) {
-      return `Add the issuer address for ${quickSwapToCode} before requesting a quote.`
-    }
     if (!quickSwapHasDifferentDestination) {
       return 'Choose a different destination asset before requesting a quote.'
+    }
+    if (swapQuote && (!quickSwapFromIsXrp || !quickSwapToIsXrp)) {
+      return `Best trusted route: ${formatAssetSelection(
+        swapQuote.sourceAmount.currency,
+        swapQuote.sourceAmount.issuer ?? '',
+      )} -> ${formatAssetSelection(
+        swapQuote.destinationAmount.currency,
+        swapQuote.destinationAmount.issuer ?? '',
+      )}.`
     }
     if (quickSwapUnitReceive) {
       return `1 ${quickSwapFromCode} is pricing near ${formatPreviewAmount(quickSwapUnitReceive)} ${quickSwapToCode}.`
     }
-    return 'Refresh the quote to pathfind the best currently available route.'
+    return 'Refresh the quote to pathfind the best trusted route automatically.'
   }, [
+    quickSwapFromIsXrp,
     quickSwapFromAmount,
     quickSwapFromCode,
-    quickSwapFromIssuer,
-    quickSwapFromIsXrp,
     quickSwapHasDifferentDestination,
     quickSwapToCode,
-    quickSwapToIssuer,
     quickSwapToIsXrp,
     quickSwapUnitReceive,
+    swapQuote,
   ])
 
   useEffect(() => {
     setPair((prev) => ({
       ...prev,
       takerGetsCurrency: quickSwapToCode,
-      takerGetsIssuer: quickSwapToIsXrp ? '' : quickSwapForm.toIssuer.trim(),
+      takerGetsIssuer: quickSwapToIsXrp ? '' : quickSwapSelectedToIssuer,
       takerPaysCurrency: quickSwapFromCode,
-      takerPaysIssuer: quickSwapFromIsXrp ? '' : quickSwapForm.fromIssuer.trim(),
+      takerPaysIssuer: quickSwapFromIsXrp ? '' : quickSwapSelectedFromIssuer,
     }))
   }, [
-    quickSwapForm.fromIssuer,
-    quickSwapForm.toIssuer,
     quickSwapFromCode,
     quickSwapFromIsXrp,
+    quickSwapSelectedFromIssuer,
+    quickSwapSelectedToIssuer,
     quickSwapToCode,
     quickSwapToIsXrp,
   ])
@@ -821,12 +792,12 @@ export default function XrplTradeDesk() {
       {
         sourceAmount: {
           currency: quickSwapFromCode,
-          issuer: quickSwapFromIsXrp ? undefined : quickSwapForm.fromIssuer.trim() || undefined,
+          issuer: quickSwapFromIsXrp ? undefined : swapQuote.sourceAmount.issuer,
           value: quickSwapForm.fromValue.trim(),
         },
         destinationAsset: {
           currency: quickSwapToCode,
-          issuer: quickSwapToIsXrp ? undefined : quickSwapForm.toIssuer.trim() || undefined,
+          issuer: quickSwapToIsXrp ? undefined : swapQuote.destinationAmount.issuer,
         },
         slippageBps: swapQuote.slippageBps,
       },
@@ -1114,7 +1085,6 @@ export default function XrplTradeDesk() {
                       setQuickSwapForm((prev) => ({
                         ...prev,
                         fromCurrency: currency,
-                        fromIssuer: isXrpCurrency(currency) ? '' : prev.fromIssuer,
                       }))
                     }}
                     className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
@@ -1126,20 +1096,11 @@ export default function XrplTradeDesk() {
                       </option>
                     ))}
                   </select>
-                  <input
-                    data-testid="xrpl-trade-desk-quick-swap-from-issuer"
-                    value={quickSwapForm.fromIssuer}
-                    onChange={(event) => setQuickSwapForm((prev) => ({ ...prev, fromIssuer: event.target.value }))}
-                    placeholder={quickSwapFromIsXrp ? 'No issuer needed for XRP' : `Issuer address for ${quickSwapFromCode}`}
-                    disabled={quickSwapFromIsXrp}
-                    aria-label="Quick swap from issuer"
-                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                  {!quickSwapFromIsXrp ? (
-                    <p className="text-[11px] text-ivory/55">
-                      XRPL note: {quickSwapFromCode} is an issued asset, so the issuer address is required.
-                    </p>
-                  ) : null}
+                  <p className="text-[11px] text-ivory/55">
+                    {quickSwapFromIsXrp
+                      ? 'XRP is native, so there is no issuer on the spend side.'
+                      : `We will auto-pick a trusted ${quickSwapFromCode} issuer from the wallet policy.`}
+                  </p>
                   <input
                     data-testid="xrpl-trade-desk-quick-swap-from-value"
                     value={quickSwapForm.fromValue}
@@ -1160,7 +1121,6 @@ export default function XrplTradeDesk() {
                       setQuickSwapForm((prev) => ({
                         ...prev,
                         toCurrency: currency,
-                        toIssuer: isXrpCurrency(currency) ? '' : prev.toIssuer,
                       }))
                     }}
                     className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
@@ -1172,20 +1132,11 @@ export default function XrplTradeDesk() {
                       </option>
                     ))}
                   </select>
-                  <input
-                    data-testid="xrpl-trade-desk-quick-swap-to-issuer"
-                    value={quickSwapForm.toIssuer}
-                    onChange={(event) => setQuickSwapForm((prev) => ({ ...prev, toIssuer: event.target.value }))}
-                    placeholder={quickSwapToIsXrp ? 'No issuer needed for XRP' : `Issuer address for ${quickSwapToCode}`}
-                    disabled={quickSwapToIsXrp}
-                    aria-label="Quick swap to issuer"
-                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                  {!quickSwapToIsXrp ? (
-                    <p className="text-[11px] text-ivory/55">
-                      XRPL note: {quickSwapToCode} is an issued asset, so the issuer address is required.
-                    </p>
-                  ) : null}
+                  <p className="text-[11px] text-ivory/55">
+                    {quickSwapToIsXrp
+                      ? 'XRP is native, so there is no issuer on the receive side.'
+                      : `We will auto-pick the best trusted ${quickSwapToCode} route that matches this wallet.`}
+                  </p>
                   <div
                     data-testid="xrpl-trade-desk-quick-swap-preview"
                     className="rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-ivory/75"
@@ -1210,6 +1161,12 @@ export default function XrplTradeDesk() {
                     <p className="mt-1 text-xs text-ivory/55">
                       {quickSwapStatusHint}
                     </p>
+                    {swapQuote ? (
+                      <p className="mt-1 text-xs text-ivory/55">
+                        Trusted route: {formatAssetSelection(swapQuote.sourceAmount.currency, swapQuote.sourceAmount.issuer ?? '')} ->{' '}
+                        {formatAssetSelection(swapQuote.destinationAmount.currency, swapQuote.destinationAmount.issuer ?? '')}
+                      </p>
+                    ) : null}
                     <p className="mt-1 text-xs text-ivory/55">
                       {swapQuote
                         ? `Using XRPL pathfinding with a ${formatPreviewAmount(swapQuote.slippageBps / 100)}% minimum-receive guard.`
@@ -1220,9 +1177,9 @@ export default function XrplTradeDesk() {
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-ivory/65">
-                XRP is native on XRPL. EUR, USD, JPY, XAU and other issued assets are always `currency + issuer`.
-                Quotes on {networkConfig.name} only work when the signer account has the right trustlines and there is
-                liquidity for that exact issuer pair.
+                Simple swap uses a trusted issuer policy behind the scenes. XRP stays native; issued assets such as
+                EUR, USD, JPY, and XAU are resolved automatically from trusted issuers, wallet trustlines, and live
+                liquidity on {networkConfig.name}. Open the advanced desk only if you need raw issuer control.
               </div>
 
               {quickSwapValidationIssues.length > 0 ? (
