@@ -79,6 +79,8 @@ function extractResultEnvelope(result: XrplSubmitResult) {
 
 function inferXrplTxType(txType: string | null): ReturnType<typeof normalizeChainTransactionType> {
   switch (txType) {
+    case 'AccountSet':
+      return 'account_set'
     case 'TrustSet':
       return 'trustline_set'
     case 'Payment':

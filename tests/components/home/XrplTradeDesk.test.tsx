@@ -221,6 +221,118 @@ describe('XrplTradeDesk', () => {
     expect(queryByTestId('xrpl-trade-desk-activity-rail')).toBeNull()
   })
 
+  it('submits issuer distribution actions from the advanced desk', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method ?? 'GET').toUpperCase()
+
+      if (method === 'POST' && url === '/api/xrpl/issuer/payment') {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, tx: { hash: 'ISSUE123' } }),
+        } as Response
+      }
+
+      if (url.startsWith('/api/xrpl/account-assets')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            network: 'testnet',
+            account: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+            assets: [{ assetType: 'xrp', currency: 'XRP', issuer: null, value: '12.1', limit: null }],
+          }),
+        } as Response
+      }
+
+      if (url.startsWith('/api/xrpl/nfts')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            nfts: [],
+          }),
+        } as Response
+      }
+
+      if (url.startsWith('/api/xrpl/trade/swap/quote')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            quote: {
+              sourceAmount: { currency: 'XRP', value: '50' },
+              quotedSourceAmount: { currency: 'XRP', value: '50' },
+              destinationAmount: { currency: 'USD', issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', value: '45.5' },
+              deliverMin: { currency: 'USD', issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', value: '45.2725' },
+              pathCount: 1,
+              alternativeCount: 2,
+              fullReply: true,
+              slippageBps: 50,
+            },
+          }),
+        } as Response
+      }
+
+      if (url.startsWith('/api/xrpl/orderbook')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            offers: [],
+          }),
+        } as Response
+      }
+
+      if (url.startsWith('/api/xrpl/action-history')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            actions: [],
+          }),
+        } as Response
+      }
+
+      return {
+        ok: false,
+        json: async () => ({ ok: false, error: 'not mocked' }),
+      } as Response
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByTestId, getByText } = render(<XrplTradeDesk />)
+
+    await waitFor(() => {
+      expect(getByText('One swap flow, nothing extra')).toBeTruthy()
+    })
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-expert-toggle'))
+
+    await waitFor(() => {
+      expect(getByTestId('xrpl-trade-desk-advanced-overlay')).toBeTruthy()
+    })
+
+    fireEvent.change(getByTestId('xrpl-trade-desk-issuer-payment-destination'), {
+      target: { value: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe' },
+    })
+    fireEvent.change(getByTestId('xrpl-trade-desk-issuer-payment-currency'), {
+      target: { value: 'RWAUSD' },
+    })
+    fireEvent.change(getByTestId('xrpl-trade-desk-issuer-payment-value'), {
+      target: { value: '250' },
+    })
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-issuer-payment-submit'))
+
+    await waitFor(() => {
+      expect(getByTestId('xrpl-trade-desk-action-status').textContent).toMatch(/issuer_payment submitted/i)
+    })
+
+    expect(fetchMock.mock.calls.some(([input]) => String(input) === '/api/xrpl/issuer/payment')).toBe(true)
+  })
+
   it('hides the missing quote warning until a manual refresh is attempted', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -250,17 +362,17 @@ describe('XrplTradeDesk', () => {
       expect((getByTestId('xrpl-trade-desk-quick-swap-refresh-quote') as HTMLButtonElement).disabled).toBe(false)
     })
 
-    expect(queryByText(/No live swap path for XRP -> USD/i)).toBeNull()
+    expect(queryByText(/No XRPL swap path found/i)).toBeNull()
 
     fireEvent.click(getByTestId('xrpl-trade-desk-quick-swap-refresh-quote'))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
-      expect(getByText(/No live swap path for XRP -> USD/i)).toBeTruthy()
+      expect(getByText(/No XRPL swap path found/i)).toBeTruthy()
     })
   })
 
-  it('does not show a no-path warning when issuer fields are still missing', async () => {
+  it('does not show a no-path warning when quote prerequisites are still missing', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
 
@@ -298,26 +410,19 @@ describe('XrplTradeDesk', () => {
     })
 
     fireEvent.change(getByTestId('xrpl-trade-desk-quick-swap-from-currency'), {
-      target: { value: 'EUR' },
-    })
-    fireEvent.change(getByTestId('xrpl-trade-desk-quick-swap-from-issuer'), {
-      target: { value: '' },
+      target: { value: 'USD' },
     })
     fireEvent.change(getByTestId('xrpl-trade-desk-quick-swap-to-currency'), {
-      target: { value: 'JPY' },
-    })
-    fireEvent.change(getByTestId('xrpl-trade-desk-quick-swap-to-issuer'), {
-      target: { value: '' },
+      target: { value: 'USD' },
     })
 
     fireEvent.click(getByTestId('xrpl-trade-desk-quick-swap-refresh-quote'))
 
     await waitFor(() => {
-      expect(getByText(/Enter the issuer address for EUR/i)).toBeTruthy()
-      expect(getByText(/Enter the issuer address for JPY/i)).toBeTruthy()
+      expect(getByText(/Choose a different destination asset for quick swap/i)).toBeTruthy()
     })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(queryByText(/No live swap path for EUR -> JPY/i)).toBeNull()
+    expect(queryByText(/No trusted swap path is available for USD -> USD/i)).toBeNull()
   })
 })

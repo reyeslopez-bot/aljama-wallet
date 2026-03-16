@@ -154,6 +154,13 @@ const ISSUED_CURRENCY_OPTIONS = TRADE_CURRENCY_OPTIONS.filter((option) => option
 const DEFAULT_QUOTE_ISSUER =
   process.env.NEXT_PUBLIC_XRPL_DEFAULT_QUOTE_ISSUER?.trim() || 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe'
 const DEFAULT_SWAP_SLIPPAGE_BPS = 50
+const ISSUER_ACCOUNT_FLAG_OPTIONS = [
+  { value: '', label: 'No flag change' },
+  { value: 'default_ripple', label: 'Default Ripple' },
+  { value: 'require_auth', label: 'Require Auth' },
+  { value: 'disallow_xrp', label: 'Disallow XRP' },
+  { value: 'deposit_auth', label: 'Deposit Auth' },
+] as const
 
 function isXrpCurrency(currency: string): boolean {
   return currency.trim().toUpperCase() === 'XRP'
@@ -248,6 +255,24 @@ export default function XrplTradeDesk() {
   const [mintForm, setMintForm] = useState({
     uri: '',
     taxon: '0',
+  })
+  const [issuerAccountSetForm, setIssuerAccountSetForm] = useState({
+    domain: '',
+    transferFeeBps: '',
+    tickSize: '',
+    setFlag: '',
+    clearFlag: '',
+  })
+  const [issuerAuthorizeForm, setIssuerAuthorizeForm] = useState({
+    holder: '',
+    currency: 'USD',
+  })
+  const [issuerPaymentForm, setIssuerPaymentForm] = useState({
+    destination: '',
+    currency: 'USD',
+    issuer: '',
+    value: '100',
+    destinationTag: '',
   })
   const [offerForm, setOfferForm] = useState({
     takerGetsCurrency: 'USD',
@@ -736,6 +761,76 @@ export default function XrplTradeDesk() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function submitIssuerAccountSet() {
+    const payload: Record<string, unknown> = {}
+    const domain = issuerAccountSetForm.domain.trim()
+    const transferFeeBps = issuerAccountSetForm.transferFeeBps.trim()
+    const tickSize = issuerAccountSetForm.tickSize.trim()
+
+    if (domain) payload.domain = domain
+    if (/^\d+$/.test(transferFeeBps)) payload.transferFeeBps = Number(transferFeeBps)
+    if (/^\d+$/.test(tickSize)) payload.tickSize = Number(tickSize)
+    if (issuerAccountSetForm.setFlag.trim()) payload.setFlag = issuerAccountSetForm.setFlag
+    if (issuerAccountSetForm.clearFlag.trim()) payload.clearFlag = issuerAccountSetForm.clearFlag
+
+    if (Object.keys(payload).length === 0) {
+      setActionError('Add at least one issuer account setting before submitting.')
+      return
+    }
+
+    void submitAction('/api/xrpl/issuer/account-set', payload, 'account_set')
+  }
+
+  function submitIssuerAuthorize() {
+    const holder = issuerAuthorizeForm.holder.trim()
+    const currency = issuerAuthorizeForm.currency.trim().toUpperCase()
+    if (!holder || !looksLikeClassicAddress(holder)) {
+      setActionError('Enter a valid holder XRPL classic address.')
+      return
+    }
+    if (!currency || isXrpCurrency(currency)) {
+      setActionError('Enter a non-XRP currency code to authorize.')
+      return
+    }
+
+    void submitAction('/api/xrpl/issuer/trustline/authorize', {
+      holder,
+      currency,
+    }, 'trustline_authorize')
+  }
+
+  function submitIssuerPayment() {
+    const destination = issuerPaymentForm.destination.trim()
+    const currency = issuerPaymentForm.currency.trim().toUpperCase()
+    const issuer = issuerPaymentForm.issuer.trim()
+    const destinationTag = issuerPaymentForm.destinationTag.trim()
+
+    if (!destination || !looksLikeClassicAddress(destination)) {
+      setActionError('Enter a valid destination XRPL classic address.')
+      return
+    }
+    if (!currency || isXrpCurrency(currency)) {
+      setActionError('Enter a non-XRP currency code to distribute.')
+      return
+    }
+    if (issuer && !looksLikeClassicAddress(issuer)) {
+      setActionError('Issuer must be a valid XRPL classic address.')
+      return
+    }
+    if (destinationTag && !/^\d+$/.test(destinationTag)) {
+      setActionError('Destination tag must be a positive integer.')
+      return
+    }
+
+    void submitAction('/api/xrpl/issuer/payment', {
+      destination,
+      currency,
+      issuer: issuer || undefined,
+      value: issuerPaymentForm.value,
+      destinationTag: destinationTag ? Number(destinationTag) : undefined,
+    }, 'issuer_payment')
   }
 
   const quickSwapSubmitDisabled =
@@ -1548,19 +1643,15 @@ export default function XrplTradeDesk() {
                     className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
                   />
                   <div className="grid grid-cols-2 gap-2">
-                    <select
+                    <input
                       data-testid="xrpl-trade-desk-trustline-currency"
                       value={trustlineForm.currency}
                       onChange={(event) => setTrustlineForm((prev) => ({ ...prev, currency: event.target.value }))}
+                      list="xrpl-issued-currency-options"
                       className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
                       aria-label="Trustline currency"
-                    >
-                      {ISSUED_CURRENCY_OPTIONS.map((option) => (
-                        <option key={`trustline-${option.code}`} value={option.code} className="bg-black text-ivory">
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Currency"
+                    />
                     <input
                       data-testid="xrpl-trade-desk-trustline-limit"
                       value={trustlineForm.limit}
@@ -1577,6 +1668,196 @@ export default function XrplTradeDesk() {
                     className="rounded-xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
                     Submit Trustline
+                  </button>
+                </form>
+
+                <form
+                  data-testid="xrpl-trade-desk-issuer-account-set-form"
+                  className="surface-inner space-y-3 p-4"
+                  aria-labelledby="xrpl-trade-desk-issuer-account-set-title"
+                  aria-describedby={regionBlocked ? regionPolicyId : undefined}
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    submitIssuerAccountSet()
+                  }}
+                >
+                  <p id="xrpl-trade-desk-issuer-account-set-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+                    Issuer Account Setup
+                  </p>
+                  <p className="text-xs text-ivory/55">
+                    Uses the server XRPL signer as the active issuer or distributor account for this environment.
+                  </p>
+                  <input
+                    data-testid="xrpl-trade-desk-issuer-account-set-domain"
+                    value={issuerAccountSetForm.domain}
+                    onChange={(event) => setIssuerAccountSetForm((prev) => ({ ...prev, domain: event.target.value }))}
+                    aria-label="Issuer domain"
+                    placeholder="issuer.example.com"
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      data-testid="xrpl-trade-desk-issuer-account-set-transfer-fee-bps"
+                      value={issuerAccountSetForm.transferFeeBps}
+                      onChange={(event) => setIssuerAccountSetForm((prev) => ({ ...prev, transferFeeBps: event.target.value }))}
+                      aria-label="Issuer transfer fee bps"
+                      placeholder="Transfer fee bps"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-issuer-account-set-tick-size"
+                      value={issuerAccountSetForm.tickSize}
+                      onChange={(event) => setIssuerAccountSetForm((prev) => ({ ...prev, tickSize: event.target.value }))}
+                      aria-label="Issuer tick size"
+                      placeholder="Tick size (0 or 3-15)"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <select
+                      data-testid="xrpl-trade-desk-issuer-account-set-flag"
+                      value={issuerAccountSetForm.setFlag}
+                      onChange={(event) => setIssuerAccountSetForm((prev) => ({ ...prev, setFlag: event.target.value }))}
+                      aria-label="Issuer set flag"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    >
+                      {ISSUER_ACCOUNT_FLAG_OPTIONS.map((option) => (
+                        <option key={`issuer-set-flag-${option.value || 'none'}`} value={option.value} className="bg-black text-ivory">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      data-testid="xrpl-trade-desk-issuer-account-clear-flag"
+                      value={issuerAccountSetForm.clearFlag}
+                      onChange={(event) => setIssuerAccountSetForm((prev) => ({ ...prev, clearFlag: event.target.value }))}
+                      aria-label="Issuer clear flag"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    >
+                      {ISSUER_ACCOUNT_FLAG_OPTIONS.map((option) => (
+                        <option key={`issuer-clear-flag-${option.value || 'none'}`} value={option.value} className="bg-black text-ivory">
+                          {option.value ? `Clear ${option.label}` : option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    data-testid="xrpl-trade-desk-issuer-account-set-submit"
+                    type="submit"
+                    disabled={locked || regionBlocked || submitting}
+                    className="rounded-xl bg-gradient-to-r from-[#8aaea1] via-[#5a8d7a] to-[#35685d] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    Submit AccountSet
+                  </button>
+                </form>
+
+                <form
+                  data-testid="xrpl-trade-desk-issuer-authorize-form"
+                  className="surface-inner space-y-3 p-4"
+                  aria-labelledby="xrpl-trade-desk-issuer-authorize-title"
+                  aria-describedby={regionBlocked ? regionPolicyId : undefined}
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    submitIssuerAuthorize()
+                  }}
+                >
+                  <p id="xrpl-trade-desk-issuer-authorize-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+                    Authorize Holder
+                  </p>
+                  <p className="text-xs text-ivory/55">
+                    Use this after enabling Require Auth if holders must be allow-listed before they can hold your token.
+                  </p>
+                  <input
+                    data-testid="xrpl-trade-desk-issuer-authorize-holder"
+                    value={issuerAuthorizeForm.holder}
+                    onChange={(event) => setIssuerAuthorizeForm((prev) => ({ ...prev, holder: event.target.value }))}
+                    aria-label="Holder address"
+                    placeholder="Holder classic address"
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                  />
+                  <input
+                    data-testid="xrpl-trade-desk-issuer-authorize-currency"
+                    value={issuerAuthorizeForm.currency}
+                    onChange={(event) => setIssuerAuthorizeForm((prev) => ({ ...prev, currency: event.target.value }))}
+                    list="xrpl-issued-currency-options"
+                    aria-label="Authorized currency"
+                    placeholder="Currency"
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                  />
+                  <button
+                    data-testid="xrpl-trade-desk-issuer-authorize-submit"
+                    type="submit"
+                    disabled={locked || regionBlocked || submitting}
+                    className="rounded-xl bg-gradient-to-r from-[#6e9dc0] via-[#507aa1] to-[#355778] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    Authorize Trustline
+                  </button>
+                </form>
+
+                <form
+                  data-testid="xrpl-trade-desk-issuer-payment-form"
+                  className="surface-inner space-y-3 p-4"
+                  aria-labelledby="xrpl-trade-desk-issuer-payment-title"
+                  aria-describedby={regionBlocked ? regionPolicyId : undefined}
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    submitIssuerPayment()
+                  }}
+                >
+                  <p id="xrpl-trade-desk-issuer-payment-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+                    Distribute Issued Asset
+                  </p>
+                  <p className="text-xs text-ivory/55">
+                    Leave issuer blank to use the current signer account as the issuer on the payment amount.
+                  </p>
+                  <input
+                    data-testid="xrpl-trade-desk-issuer-payment-destination"
+                    value={issuerPaymentForm.destination}
+                    onChange={(event) => setIssuerPaymentForm((prev) => ({ ...prev, destination: event.target.value }))}
+                    aria-label="Issuer payment destination"
+                    placeholder="Destination classic address"
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      data-testid="xrpl-trade-desk-issuer-payment-currency"
+                      value={issuerPaymentForm.currency}
+                      onChange={(event) => setIssuerPaymentForm((prev) => ({ ...prev, currency: event.target.value }))}
+                      list="xrpl-issued-currency-options"
+                      aria-label="Issuer payment currency"
+                      placeholder="Currency"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-issuer-payment-value"
+                      value={issuerPaymentForm.value}
+                      onChange={(event) => setIssuerPaymentForm((prev) => ({ ...prev, value: event.target.value }))}
+                      aria-label="Issuer payment value"
+                      placeholder="Amount"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-issuer-payment-issuer"
+                      value={issuerPaymentForm.issuer}
+                      onChange={(event) => setIssuerPaymentForm((prev) => ({ ...prev, issuer: event.target.value }))}
+                      aria-label="Issuer payment issuer override"
+                      placeholder="Issuer override (optional)"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-issuer-payment-destination-tag"
+                      value={issuerPaymentForm.destinationTag}
+                      onChange={(event) => setIssuerPaymentForm((prev) => ({ ...prev, destinationTag: event.target.value }))}
+                      aria-label="Issuer payment destination tag"
+                      placeholder="Destination tag (optional)"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                  </div>
+                  <button
+                    data-testid="xrpl-trade-desk-issuer-payment-submit"
+                    type="submit"
+                    disabled={locked || regionBlocked || submitting}
+                    className="rounded-xl bg-gradient-to-r from-[#d6b072] via-[#c78b57] to-[#9d6136] px-4 py-2 text-sm font-semibold text-[#201205] disabled:opacity-60"
+                  >
+                    Send Issued Asset
                   </button>
                 </form>
 
@@ -1886,6 +2167,13 @@ export default function XrplTradeDesk() {
                   </div>
                 </form>
                 </div>
+                      <datalist id="xrpl-issued-currency-options">
+                        {ISSUED_CURRENCY_OPTIONS.map((option) => (
+                          <option key={`issued-currency-option-${option.code}`} value={option.code}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </datalist>
                       {renderDeskUtilities()}
                     </div>
 

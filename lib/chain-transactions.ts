@@ -20,6 +20,7 @@ export const CHAIN_TRANSACTION_TYPES = [
   'contract_call',
   'token_transfer',
   'approval',
+  'account_set',
   'trustline_set',
   'nft_mint',
   'offer_create',
@@ -175,6 +176,7 @@ export function normalizeChainTransactionType(value?: string | null): ChainTrans
     case 'contract_call':
     case 'token_transfer':
     case 'approval':
+    case 'account_set':
     case 'trustline_set':
     case 'nft_mint':
     case 'offer_create':

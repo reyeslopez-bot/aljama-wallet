@@ -5,7 +5,10 @@ import type { Prisma } from '@/prisma/generated/pg'
 import { runForensicRetentionMaintenance } from '@/services/forensic-retention.service'
 
 export type XrplActionKind =
+  | 'account_set'
   | 'trustset'
+  | 'trustline_authorize'
+  | 'issuer_payment'
   | 'swap_payment'
   | 'nft_mint'
   | 'offer_create'
