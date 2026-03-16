@@ -569,6 +569,16 @@ export default function XrplTradeDesk() {
   const quickSwapFromCode = quickSwapForm.fromCurrency.trim().toUpperCase()
   const quickSwapToCode = quickSwapForm.toCurrency.trim().toUpperCase()
   const quickSwapFromAmount = parsePositiveAmount(quickSwapForm.fromValue)
+  const quickSwapFromIssuer = quickSwapForm.fromIssuer.trim()
+  const quickSwapToIssuer = quickSwapForm.toIssuer.trim()
+  const quickSwapHasDifferentDestination =
+    quickSwapFromCode !== quickSwapToCode ||
+    (!quickSwapFromIsXrp && quickSwapFromIssuer.toLowerCase() !== quickSwapToIssuer.toLowerCase())
+  const quickSwapQuoteReady =
+    Boolean(quickSwapFromAmount) &&
+    (quickSwapFromIsXrp || quickSwapFromIssuer.length > 0) &&
+    (quickSwapToIsXrp || quickSwapToIssuer.length > 0) &&
+    quickSwapHasDifferentDestination
   const quickSwapDeliverMin = parsePositiveAmount(swapQuote?.deliverMin.value ?? '')
   const quickSwapEstimatedReceive = useMemo(() => {
     return parsePositiveAmount(swapQuote?.destinationAmount.value ?? '')
@@ -578,10 +588,10 @@ export default function XrplTradeDesk() {
     return quickSwapEstimatedReceive / quickSwapFromAmount
   }, [quickSwapEstimatedReceive, quickSwapFromAmount])
   const shouldShowMissingQuoteIssue =
-    hasAttemptedQuoteRefresh && !swapQuoteLoading && !swapQuoteError && !swapQuote
+    hasAttemptedQuoteRefresh && quickSwapQuoteReady && !swapQuoteLoading && !swapQuoteError && !swapQuote
   const missingQuoteMessage = useMemo(
     () =>
-      `No live swap path for ${formatAssetSelection(quickSwapForm.fromCurrency, quickSwapForm.fromIssuer)} -> ${formatAssetSelection(quickSwapForm.toCurrency, quickSwapForm.toIssuer)} on ${networkConfig.name}. Refresh the quote or switch asset/issuer.`,
+      `No live swap path for ${formatAssetSelection(quickSwapForm.fromCurrency, quickSwapForm.fromIssuer)} -> ${formatAssetSelection(quickSwapForm.toCurrency, quickSwapForm.toIssuer)} on ${networkConfig.name}. This usually means the exact issuer pair has no usable trustline/liquidity path right now.`,
     [
       networkConfig.name,
       quickSwapForm.fromCurrency,
@@ -595,17 +605,13 @@ export default function XrplTradeDesk() {
     if (!quickSwapFromAmount) {
       issues.push('Enter a valid amount greater than zero.')
     }
-    if (!quickSwapFromIsXrp && !quickSwapForm.fromIssuer.trim()) {
-      issues.push('Issuer is required for non-XRP "From" currency.')
+    if (!quickSwapFromIsXrp && !quickSwapFromIssuer) {
+      issues.push(`Enter the issuer address for ${quickSwapFromCode}. On XRPL, non-XRP assets are currency + issuer.`)
     }
-    if (!quickSwapToIsXrp && !quickSwapForm.toIssuer.trim()) {
-      issues.push('Issuer is required for non-XRP "To" currency.')
+    if (!quickSwapToIsXrp && !quickSwapToIssuer) {
+      issues.push(`Enter the issuer address for ${quickSwapToCode}. On XRPL, non-XRP assets are currency + issuer.`)
     }
-    if (
-      quickSwapFromCode === quickSwapToCode &&
-      (quickSwapFromIsXrp ||
-        quickSwapForm.fromIssuer.trim().toLowerCase() === quickSwapForm.toIssuer.trim().toLowerCase())
-    ) {
+    if (!quickSwapHasDifferentDestination) {
       issues.push('Choose a different destination asset for quick swap.')
     }
     if (shouldShowMissingQuoteIssue) {
@@ -618,15 +624,44 @@ export default function XrplTradeDesk() {
   }, [
     hasAttemptedQuoteRefresh,
     missingQuoteMessage,
-    quickSwapForm.fromIssuer,
-    quickSwapForm.toIssuer,
     quickSwapFromCode,
     quickSwapFromAmount,
+    quickSwapFromIssuer,
     quickSwapFromIsXrp,
+    quickSwapHasDifferentDestination,
     quickSwapToCode,
+    quickSwapToIssuer,
     quickSwapToIsXrp,
     swapQuoteError,
     shouldShowMissingQuoteIssue,
+  ])
+  const quickSwapStatusHint = useMemo(() => {
+    if (!quickSwapFromAmount) {
+      return 'Enter an amount to request a quote.'
+    }
+    if (!quickSwapFromIsXrp && !quickSwapFromIssuer) {
+      return `Add the issuer address for ${quickSwapFromCode} before requesting a quote.`
+    }
+    if (!quickSwapToIsXrp && !quickSwapToIssuer) {
+      return `Add the issuer address for ${quickSwapToCode} before requesting a quote.`
+    }
+    if (!quickSwapHasDifferentDestination) {
+      return 'Choose a different destination asset before requesting a quote.'
+    }
+    if (quickSwapUnitReceive) {
+      return `1 ${quickSwapFromCode} is pricing near ${formatPreviewAmount(quickSwapUnitReceive)} ${quickSwapToCode}.`
+    }
+    return 'Refresh the quote to pathfind the best currently available route.'
+  }, [
+    quickSwapFromAmount,
+    quickSwapFromCode,
+    quickSwapFromIssuer,
+    quickSwapFromIsXrp,
+    quickSwapHasDifferentDestination,
+    quickSwapToCode,
+    quickSwapToIssuer,
+    quickSwapToIsXrp,
+    quickSwapUnitReceive,
   ])
 
   useEffect(() => {
@@ -1095,11 +1130,16 @@ export default function XrplTradeDesk() {
                     data-testid="xrpl-trade-desk-quick-swap-from-issuer"
                     value={quickSwapForm.fromIssuer}
                     onChange={(event) => setQuickSwapForm((prev) => ({ ...prev, fromIssuer: event.target.value }))}
-                    placeholder={quickSwapFromIsXrp ? 'No issuer needed for XRP' : 'Issuer address'}
+                    placeholder={quickSwapFromIsXrp ? 'No issuer needed for XRP' : `Issuer address for ${quickSwapFromCode}`}
                     disabled={quickSwapFromIsXrp}
                     aria-label="Quick swap from issuer"
                     className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
                   />
+                  {!quickSwapFromIsXrp ? (
+                    <p className="text-[11px] text-ivory/55">
+                      XRPL note: {quickSwapFromCode} is an issued asset, so the issuer address is required.
+                    </p>
+                  ) : null}
                   <input
                     data-testid="xrpl-trade-desk-quick-swap-from-value"
                     value={quickSwapForm.fromValue}
@@ -1136,11 +1176,16 @@ export default function XrplTradeDesk() {
                     data-testid="xrpl-trade-desk-quick-swap-to-issuer"
                     value={quickSwapForm.toIssuer}
                     onChange={(event) => setQuickSwapForm((prev) => ({ ...prev, toIssuer: event.target.value }))}
-                    placeholder={quickSwapToIsXrp ? 'No issuer needed for XRP' : 'Issuer address'}
+                    placeholder={quickSwapToIsXrp ? 'No issuer needed for XRP' : `Issuer address for ${quickSwapToCode}`}
                     disabled={quickSwapToIsXrp}
                     aria-label="Quick swap to issuer"
                     className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory disabled:cursor-not-allowed disabled:opacity-50"
                   />
+                  {!quickSwapToIsXrp ? (
+                    <p className="text-[11px] text-ivory/55">
+                      XRPL note: {quickSwapToCode} is an issued asset, so the issuer address is required.
+                    </p>
+                  ) : null}
                   <div
                     data-testid="xrpl-trade-desk-quick-swap-preview"
                     className="rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-ivory/75"
@@ -1163,17 +1208,21 @@ export default function XrplTradeDesk() {
                       <span className="font-semibold text-ivory">~{networkFeeEstimateXrp} XRP</span>
                     </p>
                     <p className="mt-1 text-xs text-ivory/55">
-                      {quickSwapUnitReceive
-                        ? `1 ${quickSwapFromCode} is pricing near ${formatPreviewAmount(quickSwapUnitReceive)} ${quickSwapToCode}.`
-                        : 'Refresh the quote to pathfind the best currently available route.'}
+                      {quickSwapStatusHint}
                     </p>
                     <p className="mt-1 text-xs text-ivory/55">
                       {swapQuote
                         ? `Using XRPL pathfinding with a ${formatPreviewAmount(swapQuote.slippageBps / 100)}% minimum-receive guard.`
-                        : 'Quotes use XRPL pathfinding with SendMax and DeliverMin.'}
+                        : `Quotes on ${networkConfig.name} use XRPL pathfinding with SendMax and DeliverMin.`}
                     </p>
                   </div>
                 </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-ivory/65">
+                XRP is native on XRPL. EUR, USD, JPY, XAU and other issued assets are always `currency + issuer`.
+                Quotes on {networkConfig.name} only work when the signer account has the right trustlines and there is
+                liquidity for that exact issuer pair.
               </div>
 
               {quickSwapValidationIssues.length > 0 ? (

@@ -259,4 +259,65 @@ describe('XrplTradeDesk', () => {
       expect(getByText(/No live swap path for XRP -> USD/i)).toBeTruthy()
     })
   })
+
+  it('does not show a no-path warning when issuer fields are still missing', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.startsWith('/api/xrpl/trade/swap/quote')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            quote: {
+              sourceAmount: { currency: 'XRP', value: '50' },
+              quotedSourceAmount: { currency: 'XRP', value: '50' },
+              destinationAmount: { currency: 'USD', issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', value: '45.5' },
+              deliverMin: { currency: 'USD', issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', value: '45.2725' },
+              pathCount: 1,
+              alternativeCount: 2,
+              fullReply: true,
+              slippageBps: 50,
+            },
+          }),
+        } as Response
+      }
+
+      return {
+        ok: false,
+        json: async () => ({ ok: false, error: 'not mocked' }),
+      } as Response
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByTestId, getByText, queryByText } = render(<XrplTradeDesk />)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    fireEvent.change(getByTestId('xrpl-trade-desk-quick-swap-from-currency'), {
+      target: { value: 'EUR' },
+    })
+    fireEvent.change(getByTestId('xrpl-trade-desk-quick-swap-from-issuer'), {
+      target: { value: '' },
+    })
+    fireEvent.change(getByTestId('xrpl-trade-desk-quick-swap-to-currency'), {
+      target: { value: 'JPY' },
+    })
+    fireEvent.change(getByTestId('xrpl-trade-desk-quick-swap-to-issuer'), {
+      target: { value: '' },
+    })
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-quick-swap-refresh-quote'))
+
+    await waitFor(() => {
+      expect(getByText(/Enter the issuer address for EUR/i)).toBeTruthy()
+      expect(getByText(/Enter the issuer address for JPY/i)).toBeTruthy()
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(queryByText(/No live swap path for EUR -> JPY/i)).toBeNull()
+  })
 })
