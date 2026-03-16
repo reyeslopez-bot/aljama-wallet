@@ -5,21 +5,21 @@ const {
   mockIsAllowedOrigin,
   mockBuildRateLimitKey,
   mockRateLimit,
-  mockGetXrplSignerAccount,
+  mockResolveConfiguredXrplAccount,
   mockUpsertXrplIssuerAsset,
 } = vi.hoisted(() => ({
   mockRequireSession: vi.fn(),
   mockIsAllowedOrigin: vi.fn(),
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
-  mockGetXrplSignerAccount: vi.fn(),
+  mockResolveConfiguredXrplAccount: vi.fn(),
   mockUpsertXrplIssuerAsset: vi.fn(),
 }))
 
 vi.mock('@/lib/security/session', () => ({ requireSession: mockRequireSession }))
 vi.mock('@/lib/security/origin', () => ({ isAllowedOrigin: mockIsAllowedOrigin }))
 vi.mock('@/lib/security/rate-limit', () => ({ buildRateLimitKey: mockBuildRateLimitKey, rateLimit: mockRateLimit }))
-vi.mock('@/lib/xrpl-signer', () => ({ getXrplSignerAccount: mockGetXrplSignerAccount }))
+vi.mock('@/services/xrpl-runtime-signer.service', () => ({ resolveConfiguredXrplAccount: mockResolveConfiguredXrplAccount }))
 vi.mock('@/services/xrpl-issuer-policy.service', () => ({
   XRPL_ISSUER_ASSET_STATUSES: ['draft', 'active', 'paused', 'archived'],
   XRPL_ISSUER_PROGRAM_STATUSES: ['draft', 'active', 'paused', 'archived'],
@@ -33,7 +33,7 @@ describe('app/api/xrpl/issuer/asset route', () => {
     mockIsAllowedOrigin.mockReturnValue(true)
     mockBuildRateLimitKey.mockReturnValue('user:user-1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 10, resetAt: Date.now() + 60_000 })
-    mockGetXrplSignerAccount.mockReturnValue({
+    mockResolveConfiguredXrplAccount.mockResolvedValue({
       address: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
     })
     mockUpsertXrplIssuerAsset.mockResolvedValue({

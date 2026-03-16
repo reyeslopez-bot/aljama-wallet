@@ -53,8 +53,11 @@ export type ManagedSignerAccountRef = {
   walletId: string
 }
 
+export type XrplEnvSignerRole = 'default' | 'issuer' | 'distributor'
+
 export type XrplEnvSignerAccountRef = {
   kind: 'xrpl-env'
+  role?: XrplEnvSignerRole
 }
 
 export type SignerAccountRef = ManagedSignerAccountRef | XrplEnvSignerAccountRef

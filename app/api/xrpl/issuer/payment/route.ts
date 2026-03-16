@@ -10,13 +10,13 @@ import { logError } from '@/lib/security/logging'
 import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
 import { normalizeIssuedCurrency, normalizeXrplClassicAddress } from '@/lib/xrpl-issuer'
 import { toXrplAmount } from '@/lib/xrpl-amount'
-import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
 import {
   createXrplIssuerDistribution,
   requireXrplIssuerHolderEligibility,
   updateXrplIssuerDistribution,
 } from '@/services/xrpl-issuer-policy.service'
+import { getConfiguredXrplAccountRef, resolveConfiguredXrplAccount } from '@/services/xrpl-runtime-signer.service'
 import { recordXrplTransactionSubmission } from '@/services/xrpl-transaction-store.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
@@ -124,12 +124,13 @@ async function postXrplIssuerPayment(
         ? requestedNetwork
         : DEFAULT_XRPL_NETWORK_ID
 
-    const account = getXrplSignerAccount()
+    const account = await resolveConfiguredXrplAccount('distributor')
     const destination = normalizeXrplClassicAddress(parsed.data.destination, 'destination address')
     const currency = normalizeIssuedCurrency(parsed.data.currency)
+    const issuerAccount = await resolveConfiguredXrplAccount('issuer')
     const issuer = parsed.data.issuer?.trim()
       ? normalizeXrplClassicAddress(parsed.data.issuer, 'issuer address')
-      : account.address
+      : issuerAccount.address
     await requireXrplIssuerHolderEligibility({
       networkId,
       issuerAccount: issuer,
@@ -211,7 +212,7 @@ async function postXrplIssuerPayment(
       scope: `xrpl.issuer.payment:${account.address}`,
       idempotencyKey: parsed.data.idempotencyKey,
       networkId,
-      accountRef: { kind: 'xrpl-env' },
+      accountRef: getConfiguredXrplAccountRef('distributor'),
       tx: {
         TransactionType: 'Payment',
         Destination: destination,

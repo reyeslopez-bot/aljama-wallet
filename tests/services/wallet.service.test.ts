@@ -115,6 +115,32 @@ describe('wallet.service createWalletRecord', () => {
     expect(mockWalletCreate).toHaveBeenCalledTimes(1)
   })
 
+  it('allows XRPL wallet records with classic addresses without applying EVM normalization', async () => {
+    const { createWalletRecord } = await import('@/services/wallet.service')
+
+    await createWalletRecord({
+      address: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
+      chain: 'XRPL',
+      pubKey: 'EDPUBKEY',
+      keyType: 'ed25519',
+      signerBackend: 'local',
+      encryptedPrivateKey: new Uint8Array([1, 2, 3]),
+      encryptionIv: new Uint8Array(12).fill(7),
+      keyVersion: 1,
+    })
+
+    expect(mockWalletCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          chain: 'XRPL',
+          address: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
+          pubKey: 'EDPUBKEY',
+          keyType: 'ed25519',
+        }),
+      }),
+    )
+  })
+
   it('prefers wallet-address ownership over the primary wallet address for network-scoped lookups', async () => {
     mockWalletFindMany.mockResolvedValue([
       {

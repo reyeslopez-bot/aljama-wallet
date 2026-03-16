@@ -10,12 +10,12 @@ import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
 import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
 import { normalizeIssuedCurrency, normalizeXrplClassicAddress } from '@/lib/xrpl-issuer'
-import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
 import {
   markXrplIssuerHolderAuthorized,
   requireXrplIssuerHolderEligibility,
 } from '@/services/xrpl-issuer-policy.service'
+import { getConfiguredXrplAccountRef, resolveConfiguredXrplAccount } from '@/services/xrpl-runtime-signer.service'
 import { recordXrplTransactionSubmission } from '@/services/xrpl-transaction-store.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
@@ -112,7 +112,7 @@ async function postXrplIssuerTrustlineAuthorize(
         ? requestedNetwork
         : DEFAULT_XRPL_NETWORK_ID
 
-    const account = getXrplSignerAccount()
+    const account = await resolveConfiguredXrplAccount('issuer')
     const holder = normalizeXrplClassicAddress(parsed.data.holder, 'holder address')
     const currency = normalizeIssuedCurrency(parsed.data.currency)
     const policy = await requireXrplIssuerHolderEligibility({
@@ -166,7 +166,7 @@ async function postXrplIssuerTrustlineAuthorize(
       scope: `xrpl.issuer.trustline.authorize:${account.address}`,
       idempotencyKey: parsed.data.idempotencyKey,
       networkId,
-      accountRef: { kind: 'xrpl-env' },
+      accountRef: getConfiguredXrplAccountRef('issuer'),
       tx: {
         TransactionType: 'TrustSet',
         LimitAmount: {

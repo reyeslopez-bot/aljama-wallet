@@ -8,12 +8,12 @@ import { readJsonBody } from '@/lib/security/request-body'
 import { getErrorMessage } from '@/lib/security/errors'
 import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
 import { normalizeIssuedCurrency, normalizeXrplClassicAddress } from '@/lib/xrpl-issuer'
-import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 import {
   XRPL_ISSUER_ASSET_STATUSES,
   XRPL_ISSUER_PROGRAM_STATUSES,
   upsertXrplIssuerAsset,
 } from '@/services/xrpl-issuer-policy.service'
+import { resolveConfiguredXrplAccount } from '@/services/xrpl-runtime-signer.service'
 
 const jsonRecordSchema = z.record(z.string(), z.unknown())
 const decimalStringSchema = z.string().regex(/^\d+(\.\d+)?$/)
@@ -91,7 +91,7 @@ async function postXrplIssuerAsset(req: Request) {
         ? requestedNetwork
         : DEFAULT_XRPL_NETWORK_ID
 
-    const signer = getXrplSignerAccount()
+    const signer = await resolveConfiguredXrplAccount('issuer')
     const issuer = parsed.data.issuer?.trim()
       ? normalizeXrplClassicAddress(parsed.data.issuer, 'issuer address')
       : signer.address

@@ -1,4 +1,5 @@
 import { getAddress } from 'ethers'
+import { isValidClassicAddress } from 'xrpl'
 import type { ChainTransactionStatus, ChainTransactionType } from '@/lib/chain-transactions'
 import {
   ACTIVE_SPEND_CHAIN_TRANSACTION_STATUSES,
@@ -31,8 +32,29 @@ import { incrementDailySummary } from '@/services/summary.service'
 
 const WALLET_ADDRESS_ANY_NETWORK = '*'
 
-function normalizeAddress(address: string): string {
-  return getAddress(address.trim())
+function normalizeXrplClassicAddress(address: string): string {
+  const normalized = address.trim()
+  if (!isValidClassicAddress(normalized)) {
+    throw new Error('Invalid XRPL classic address')
+  }
+  return normalized
+}
+
+function normalizeAddressForChain(address: string, chain: SigningChain): string {
+  return chain === 'XRPL' ? normalizeXrplClassicAddress(address) : getAddress(address.trim())
+}
+
+function normalizeAddressForLookup(address: string, chain?: SigningChain): string {
+  if (chain) {
+    return normalizeAddressForChain(address, chain)
+  }
+
+  const trimmed = address.trim()
+  try {
+    return getAddress(trimmed)
+  } catch {
+    return normalizeXrplClassicAddress(trimmed)
+  }
 }
 
 function normalizePubKey(value?: string | null): string | null {
@@ -134,8 +156,8 @@ async function selectWalletByAddress(
   address: string,
   scope?: { chainType?: SigningChain; networkId?: string | null },
 ) {
-  const normalizedAddress = normalizeAddress(address)
   const chainType = scope?.chainType ? normalizeSigningChain(scope.chainType) : undefined
+  const normalizedAddress = normalizeAddressForLookup(address, chainType)
   const networkId = scope?.networkId?.trim() || null
 
   const rows = await prismaCrdb.walletAddress.findMany({
@@ -295,12 +317,8 @@ export async function resolveWalletIdsByAddresses(input: {
           const trimmed = value.trim()
           if (!trimmed) return null
 
-          if (normalizedChainType && normalizedChainType !== 'EVM') {
-            return trimmed
-          }
-
           try {
-            return normalizeAddress(trimmed)
+            return normalizeAddressForLookup(trimmed, normalizedChainType)
           } catch {
             return trimmed
           }
@@ -383,7 +401,7 @@ export async function createWalletRecord(input: CreateWalletRecordInput) {
   const keyType = normalizeSigningCurve(input.keyType ?? (normalizedChain === 'XRPL' ? 'ed25519' : 'secp256k1'))
   const signerBackend = normalizeSignerBackend(input.signerBackend)
   const vaultId = normalizeVaultScope(input.vaultId)
-  const address = normalizeAddress(input.address)
+  const address = normalizeAddressForChain(input.address, normalizedChain)
   const pubKey = normalizePubKey(input.pubKey)
   const pqcBinding = input.pqcBinding ?? null
   const pqcBindingHash =
@@ -529,7 +547,7 @@ export async function recordChainTransaction(params: {
   const nonce = normalizeNullableString(params.nonce)
   const normalizedStatus = normalizeChainTransactionStatus(params.status ?? 'submitted')
   const normalizedTxType = normalizeChainTransactionType(params.txType ?? 'transfer')
-  const normalizedToAddress = normalizeAddress(params.toAddress)
+  const normalizedToAddress = normalizeAddressForChain(params.toAddress, 'EVM')
   const resolvedToWalletId =
     params.toWalletId === undefined
       ? (await resolveWalletIdsByAddresses({
@@ -598,7 +616,7 @@ export async function recordChainTransaction(params: {
             : 0,
         fromWalletId: params.fromWalletId,
         toWalletId: resolvedToWalletId,
-        fromAddress: normalizeAddress(params.fromAddress),
+        fromAddress: normalizeAddressForChain(params.fromAddress, 'EVM'),
         toAddress: normalizedToAddress,
         data: normalizeNullableString(params.data),
         confirmedAt: params.confirmedAt ?? null,

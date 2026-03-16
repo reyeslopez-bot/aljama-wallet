@@ -44,6 +44,7 @@
     "prisma:migrate:deploy:pg": "prisma migrate deploy --config=prisma/pg/prisma.config.ts",
     "security:migrate-wallet-keys": "tsx scripts/migrate-wallet-encryption.ts",
     "wallet:backfill-pqc-binding-hashes": "tsx scripts/backfill-pqc-binding-hashes.ts",
+    "wallet:provision:xrpl": "tsx scripts/provision-xrpl-managed-wallet.ts",
     "contracts:build": "forge build --root contracts",
     "contracts:test": "forge test --root contracts",
     "contracts:abi": "tsx scripts/generate-pqc-binding-registry-abi.ts"

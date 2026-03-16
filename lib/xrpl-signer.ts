@@ -5,27 +5,79 @@ import {
   buildAccountRef,
   normalizeWalletAccountPolicy,
   type ResolvedSigningAccount,
+  type XrplEnvSignerRole,
   type XrplKeyType,
 } from '@/lib/signing/types'
 
-export function getXrplSignerSeed(): string {
-  const seed = process.env.XRPL_SIGNER_SEED ?? process.env.XRPL_DEV_SEED
-  if (!seed || !seed.trim()) {
-    throw new Error('Missing XRPL signer seed (XRPL_SIGNER_SEED or XRPL_DEV_SEED)')
-  }
-  return seed.trim()
+type XrplEnvSignerConfig = {
+  role: XrplEnvSignerRole
+  accountId: string
+  seedEnvVars: readonly string[]
+  keyTypeEnvVars: readonly string[]
+  missingSeedMessage: string
 }
 
-export function getXrplSignerKeyType(): XrplKeyType {
-  const raw = process.env.XRPL_SIGNER_KEY_TYPE ?? process.env.XRPL_DEV_KEY_TYPE
-  if (!raw || !raw.trim()) {
+const XRPL_ENV_SIGNER_CONFIGS: Record<XrplEnvSignerRole, XrplEnvSignerConfig> = {
+  default: {
+    role: 'default',
+    accountId: 'xrpl-env',
+    seedEnvVars: ['XRPL_SIGNER_SEED', 'XRPL_DEV_SEED'],
+    keyTypeEnvVars: ['XRPL_SIGNER_KEY_TYPE', 'XRPL_DEV_KEY_TYPE'],
+    missingSeedMessage: 'Missing XRPL signer seed (XRPL_SIGNER_SEED or XRPL_DEV_SEED)',
+  },
+  issuer: {
+    role: 'issuer',
+    accountId: 'xrpl-env-issuer',
+    seedEnvVars: ['XRPL_ISSUER_SEED', 'XRPL_SIGNER_SEED', 'XRPL_DEV_SEED'],
+    keyTypeEnvVars: ['XRPL_ISSUER_KEY_TYPE', 'XRPL_SIGNER_KEY_TYPE', 'XRPL_DEV_KEY_TYPE'],
+    missingSeedMessage:
+      'Missing XRPL issuer seed (XRPL_ISSUER_SEED, XRPL_SIGNER_SEED, or XRPL_DEV_SEED)',
+  },
+  distributor: {
+    role: 'distributor',
+    accountId: 'xrpl-env-distributor',
+    seedEnvVars: ['XRPL_DISTRIBUTOR_SEED', 'XRPL_SIGNER_SEED', 'XRPL_DEV_SEED'],
+    keyTypeEnvVars: ['XRPL_DISTRIBUTOR_KEY_TYPE', 'XRPL_SIGNER_KEY_TYPE', 'XRPL_DEV_KEY_TYPE'],
+    missingSeedMessage:
+      'Missing XRPL distributor seed (XRPL_DISTRIBUTOR_SEED, XRPL_SIGNER_SEED, or XRPL_DEV_SEED)',
+  },
+}
+
+function resolveEnvValue(envVars: readonly string[]): string | null {
+  for (const envVar of envVars) {
+    const value = process.env[envVar]?.trim()
+    if (value) {
+      return value
+    }
+  }
+  return null
+}
+
+function getXrplEnvSignerConfig(role: XrplEnvSignerRole): XrplEnvSignerConfig {
+  return XRPL_ENV_SIGNER_CONFIGS[role]
+}
+
+export function getXrplSignerSeed(role: XrplEnvSignerRole = 'default'): string {
+  const config = getXrplEnvSignerConfig(role)
+  const seed = resolveEnvValue(config.seedEnvVars)
+  if (!seed) {
+    throw new Error(config.missingSeedMessage)
+  }
+  return seed
+}
+
+export function getXrplSignerKeyType(role: XrplEnvSignerRole = 'default'): XrplKeyType {
+  const config = getXrplEnvSignerConfig(role)
+  const raw = resolveEnvValue(config.keyTypeEnvVars)
+  if (!raw) {
     if (isStrictMode) {
-      throw new Error('Missing XRPL signer key type (XRPL_SIGNER_KEY_TYPE or XRPL_DEV_KEY_TYPE)')
+      const keyTypeNames = config.keyTypeEnvVars.join(', ')
+      throw new Error(`Missing XRPL signer key type (${keyTypeNames})`)
     }
     return 'ed25519'
   }
 
-  const normalized = raw.trim().toLowerCase()
+  const normalized = raw.toLowerCase()
   if (normalized === 'secp256k1' || normalized === 'ed25519') {
     return normalized
   }
@@ -33,17 +85,18 @@ export function getXrplSignerKeyType(): XrplKeyType {
   throw new Error('Invalid XRPL signer key type')
 }
 
-export function getXrplSignerWallet() {
+export function getXrplSignerWallet(role: XrplEnvSignerRole = 'default') {
   // Guardrail: env-backed XRPL execution remains classical-only in this repo.
-  return createXrplWalletFromSeed(getXrplSignerSeed(), getXrplSignerKeyType())
+  return createXrplWalletFromSeed(getXrplSignerSeed(role), getXrplSignerKeyType(role))
 }
 
-export function getXrplSignerAccount(): ResolvedSigningAccount {
-  const wallet = getXrplSignerWallet()
-  const keyType = getXrplSignerKeyType()
+export function getXrplSignerAccount(role: XrplEnvSignerRole = 'default'): ResolvedSigningAccount {
+  const config = getXrplEnvSignerConfig(role)
+  const wallet = getXrplSignerWallet(role)
+  const keyType = getXrplSignerKeyType(role)
 
   return {
-    id: 'xrpl-env',
+    id: config.accountId,
     accountRef: buildAccountRef({
       chain: 'XRPL',
       keyType,
@@ -64,8 +117,24 @@ export function getXrplSignerAccount(): ResolvedSigningAccount {
   }
 }
 
-export function getXrplSignerAddress(): string {
-  return getXrplSignerAccount().address
+export function getXrplIssuerAccount(): ResolvedSigningAccount {
+  return getXrplSignerAccount('issuer')
+}
+
+export function getXrplDistributorAccount(): ResolvedSigningAccount {
+  return getXrplSignerAccount('distributor')
+}
+
+export function getXrplSignerAddress(role: XrplEnvSignerRole = 'default'): string {
+  return getXrplSignerAccount(role).address
+}
+
+export function getXrplIssuerAddress(): string {
+  return getXrplIssuerAccount().address
+}
+
+export function getXrplDistributorAddress(): string {
+  return getXrplDistributorAccount().address
 }
 
 export function normalizeXrplAddress(address: string): string {

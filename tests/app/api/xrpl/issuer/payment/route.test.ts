@@ -5,7 +5,8 @@ const {
   mockIsAllowedOrigin,
   mockBuildRateLimitKey,
   mockRateLimit,
-  mockGetXrplSignerAccount,
+  mockResolveConfiguredXrplAccount,
+  mockGetConfiguredXrplAccountRef,
   mockCreateXrplAction,
   mockUpdateXrplAction,
   mockAssessXrplActionRisk,
@@ -19,7 +20,8 @@ const {
   mockIsAllowedOrigin: vi.fn(),
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
-  mockGetXrplSignerAccount: vi.fn(),
+  mockResolveConfiguredXrplAccount: vi.fn(),
+  mockGetConfiguredXrplAccountRef: vi.fn(),
   mockCreateXrplAction: vi.fn(),
   mockUpdateXrplAction: vi.fn(),
   mockAssessXrplActionRisk: vi.fn(),
@@ -33,7 +35,10 @@ const {
 vi.mock('@/lib/security/session', () => ({ requireSession: mockRequireSession }))
 vi.mock('@/lib/security/origin', () => ({ isAllowedOrigin: mockIsAllowedOrigin }))
 vi.mock('@/lib/security/rate-limit', () => ({ buildRateLimitKey: mockBuildRateLimitKey, rateLimit: mockRateLimit }))
-vi.mock('@/lib/xrpl-signer', () => ({ getXrplSignerAccount: mockGetXrplSignerAccount }))
+vi.mock('@/services/xrpl-runtime-signer.service', () => ({
+  resolveConfiguredXrplAccount: mockResolveConfiguredXrplAccount,
+  getConfiguredXrplAccountRef: mockGetConfiguredXrplAccountRef,
+}))
 vi.mock('@/services/xrpl-action-log.service', () => ({ createXrplAction: mockCreateXrplAction, updateXrplAction: mockUpdateXrplAction }))
 vi.mock('@/services/xrpl-risk.service', () => ({ assessXrplActionRisk: mockAssessXrplActionRisk }))
 vi.mock('@/services/xrpl-tx-submit.service', () => ({ submitXrplTx: mockSubmitXrplTx }))
@@ -51,16 +56,19 @@ vi.mock('@/lib/xrpl-amount', () => ({
 describe('app/api/xrpl/issuer/payment route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockResolveConfiguredXrplAccount.mockReset()
     mockRequireSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockIsAllowedOrigin.mockReturnValue(true)
     mockBuildRateLimitKey.mockReturnValue('user:user-1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 10, resetAt: Date.now() + 60_000 })
-    const address = 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh'
-    mockGetXrplSignerAccount.mockReturnValue({
-      id: 'xrpl-env',
+    const distributorAddress = 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh'
+    const issuerAddress = 'rDsbeomae4FXwgQTJp9Rs64Qg9vDiTCdBv'
+    mockResolveConfiguredXrplAccount
+      .mockResolvedValueOnce({
+      id: 'xrpl-env-distributor',
       accountRef: 'XRPL:ed25519:pubkey',
       chain: 'XRPL',
-      address,
+      address: distributorAddress,
       pubKey: 'EDPUBKEY',
       keyType: 'ed25519',
       signerBackend: 'local',
@@ -70,6 +78,21 @@ describe('app/api/xrpl/issuer/payment route', () => {
       pqcBinding: null,
       createdAt: new Date(0),
     })
+      .mockResolvedValueOnce({
+      id: 'xrpl-env-issuer',
+      accountRef: 'XRPL:ed25519:issuer',
+      chain: 'XRPL',
+      address: issuerAddress,
+      pubKey: 'EDISSUER',
+      keyType: 'ed25519',
+      signerBackend: 'local',
+      vaultId: 'public',
+      derivationPath: null,
+      policy: { requiresSecondFactor: false, requiresPQAttestation: false },
+      pqcBinding: null,
+      createdAt: new Date(0),
+    })
+    mockGetConfiguredXrplAccountRef.mockImplementation((role: string) => ({ kind: 'xrpl-env', role }))
     mockCreateXrplAction.mockResolvedValue({ id: 'act-1', details: {} })
     mockUpdateXrplAction.mockResolvedValue({})
     mockAssessXrplActionRisk.mockResolvedValue({ decision: 'allow', score: 0, reasons: [] })
@@ -112,7 +135,7 @@ describe('app/api/xrpl/issuer/payment route', () => {
   // The payment path now has to satisfy both policy and audit requirements:
   // validate holder eligibility, create a distribution record, then update it
   // with the tx result after submit.
-  it('submits an issued-asset payment and defaults issuer to the signer account', async () => {
+  it('submits an issued-asset payment from the distributor account and defaults the amount issuer to the issuer account', async () => {
     const { POST } = await import('@/app/api/xrpl/issuer/payment/route')
     const res = await POST(
       new Request('http://localhost/api/xrpl/issuer/payment', {
@@ -130,12 +153,13 @@ describe('app/api/xrpl/issuer/payment route', () => {
     expect(res.status).toBe(200)
     expect(mockSubmitXrplTx).toHaveBeenCalledWith(
       expect.objectContaining({
+        accountRef: { kind: 'xrpl-env', role: 'distributor' },
         tx: expect.objectContaining({
           TransactionType: 'Payment',
           Destination: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
           Amount: {
             currency: 'RWAUSD',
-            issuer: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+            issuer: 'rDsbeomae4FXwgQTJp9Rs64Qg9vDiTCdBv',
             value: '100',
           },
         }),
@@ -144,7 +168,7 @@ describe('app/api/xrpl/issuer/payment route', () => {
     expect(mockRecordXrplTransactionSubmission).toHaveBeenCalled()
     expect(mockRequireXrplIssuerHolderEligibility).toHaveBeenCalledWith({
       networkId: 'testnet',
-      issuerAccount: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+      issuerAccount: 'rDsbeomae4FXwgQTJp9Rs64Qg9vDiTCdBv',
       currency: 'RWAUSD',
       holderAddress: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
       action: 'distribute',
@@ -153,7 +177,7 @@ describe('app/api/xrpl/issuer/payment route', () => {
     expect(mockCreateXrplIssuerDistribution).toHaveBeenCalledWith(
       expect.objectContaining({
         actionId: 'act-1',
-        issuerAccount: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+        issuerAccount: 'rDsbeomae4FXwgQTJp9Rs64Qg9vDiTCdBv',
         currency: 'RWAUSD',
         destinationAddress: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
       }),

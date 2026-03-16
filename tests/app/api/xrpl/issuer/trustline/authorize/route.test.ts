@@ -5,7 +5,8 @@ const {
   mockIsAllowedOrigin,
   mockBuildRateLimitKey,
   mockRateLimit,
-  mockGetXrplSignerAccount,
+  mockResolveConfiguredXrplAccount,
+  mockGetConfiguredXrplAccountRef,
   mockCreateXrplAction,
   mockUpdateXrplAction,
   mockAssessXrplActionRisk,
@@ -18,7 +19,8 @@ const {
   mockIsAllowedOrigin: vi.fn(),
   mockBuildRateLimitKey: vi.fn(),
   mockRateLimit: vi.fn(),
-  mockGetXrplSignerAccount: vi.fn(),
+  mockResolveConfiguredXrplAccount: vi.fn(),
+  mockGetConfiguredXrplAccountRef: vi.fn(),
   mockCreateXrplAction: vi.fn(),
   mockUpdateXrplAction: vi.fn(),
   mockAssessXrplActionRisk: vi.fn(),
@@ -31,7 +33,10 @@ const {
 vi.mock('@/lib/security/session', () => ({ requireSession: mockRequireSession }))
 vi.mock('@/lib/security/origin', () => ({ isAllowedOrigin: mockIsAllowedOrigin }))
 vi.mock('@/lib/security/rate-limit', () => ({ buildRateLimitKey: mockBuildRateLimitKey, rateLimit: mockRateLimit }))
-vi.mock('@/lib/xrpl-signer', () => ({ getXrplSignerAccount: mockGetXrplSignerAccount }))
+vi.mock('@/services/xrpl-runtime-signer.service', () => ({
+  resolveConfiguredXrplAccount: mockResolveConfiguredXrplAccount,
+  getConfiguredXrplAccountRef: mockGetConfiguredXrplAccountRef,
+}))
 vi.mock('@/services/xrpl-action-log.service', () => ({ createXrplAction: mockCreateXrplAction, updateXrplAction: mockUpdateXrplAction }))
 vi.mock('@/services/xrpl-risk.service', () => ({ assessXrplActionRisk: mockAssessXrplActionRisk }))
 vi.mock('@/services/xrpl-tx-submit.service', () => ({ submitXrplTx: mockSubmitXrplTx }))
@@ -49,8 +54,8 @@ describe('app/api/xrpl/issuer/trustline/authorize route', () => {
     mockBuildRateLimitKey.mockReturnValue('user:user-1')
     mockRateLimit.mockReturnValue({ ok: true, remaining: 10, resetAt: Date.now() + 60_000 })
     const address = 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh'
-    mockGetXrplSignerAccount.mockReturnValue({
-      id: 'xrpl-env',
+    mockResolveConfiguredXrplAccount.mockResolvedValue({
+      id: 'xrpl-env-issuer',
       accountRef: 'XRPL:ed25519:pubkey',
       chain: 'XRPL',
       address,
@@ -63,6 +68,7 @@ describe('app/api/xrpl/issuer/trustline/authorize route', () => {
       pqcBinding: null,
       createdAt: new Date(0),
     })
+    mockGetConfiguredXrplAccountRef.mockReturnValue({ kind: 'xrpl-env', role: 'issuer' })
     mockCreateXrplAction.mockResolvedValue({ id: 'act-1', details: {} })
     mockUpdateXrplAction.mockResolvedValue({})
     mockAssessXrplActionRisk.mockResolvedValue({ decision: 'allow', score: 0, reasons: [] })
@@ -119,6 +125,7 @@ describe('app/api/xrpl/issuer/trustline/authorize route', () => {
     expect(res.status).toBe(200)
     expect(mockSubmitXrplTx).toHaveBeenCalledWith(
       expect.objectContaining({
+        accountRef: { kind: 'xrpl-env', role: 'issuer' },
         tx: expect.objectContaining({
           TransactionType: 'TrustSet',
           LimitAmount: {

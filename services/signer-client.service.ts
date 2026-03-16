@@ -11,6 +11,7 @@ const managedAccountRefSchema = z.object({
 
 const xrplEnvAccountRefSchema = z.object({
   kind: z.literal('xrpl-env'),
+  role: z.enum(['default', 'issuer', 'distributor']).optional(),
 })
 
 const signerAccountRefSchema = z.union([managedAccountRefSchema, xrplEnvAccountRefSchema])

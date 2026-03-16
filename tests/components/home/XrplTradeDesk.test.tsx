@@ -221,10 +221,31 @@ describe('XrplTradeDesk', () => {
     expect(queryByTestId('xrpl-trade-desk-activity-rail')).toBeNull()
   })
 
-  it('submits issuer distribution actions from the advanced desk', async () => {
+  it('submits issuer policy admin and distribution actions from the advanced desk', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       const method = (init?.method ?? 'GET').toUpperCase()
+
+      if (method === 'POST' && url === '/api/xrpl/issuer/asset') {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            issuerProgram: { id: 'program-1' },
+            asset: { id: 'asset-1' },
+          }),
+        } as Response
+      }
+
+      if (method === 'POST' && url === '/api/xrpl/issuer/holder/review') {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            holder: { id: 'holder-1', status: 'approved' },
+          }),
+        } as Response
+      }
 
       if (method === 'POST' && url === '/api/xrpl/issuer/payment') {
         return {
@@ -314,6 +335,42 @@ describe('XrplTradeDesk', () => {
       expect(getByTestId('xrpl-trade-desk-advanced-overlay')).toBeTruthy()
     })
 
+    // Register the asset policy first so the rest of the issuer workflow has a
+    // policy object to enforce against.
+    fireEvent.change(getByTestId('xrpl-trade-desk-issuer-asset-currency'), {
+      target: { value: 'RWAUSD' },
+    })
+    fireEvent.change(getByTestId('xrpl-trade-desk-issuer-asset-display-name'), {
+      target: { value: 'Real World USD' },
+    })
+    fireEvent.change(getByTestId('xrpl-trade-desk-issuer-asset-max-distribution'), {
+      target: { value: '5000' },
+    })
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-issuer-asset-submit'))
+
+    await waitFor(() => {
+      expect(getByTestId('xrpl-trade-desk-action-status').textContent).toMatch(/issuer_asset_policy completed/i)
+    })
+
+    // Then persist the off-ledger holder approval that precedes on-ledger
+    // trustline authorization in the new issuer policy model.
+    fireEvent.change(getByTestId('xrpl-trade-desk-issuer-holder-review-holder'), {
+      target: { value: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe' },
+    })
+    fireEvent.change(getByTestId('xrpl-trade-desk-issuer-holder-review-currency'), {
+      target: { value: 'RWAUSD' },
+    })
+    fireEvent.change(getByTestId('xrpl-trade-desk-issuer-holder-review-notes'), {
+      target: { value: 'KYC approved' },
+    })
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-issuer-holder-review-submit'))
+
+    await waitFor(() => {
+      expect(getByTestId('xrpl-trade-desk-action-status').textContent).toMatch(/issuer_holder_review completed/i)
+    })
+
     fireEvent.change(getByTestId('xrpl-trade-desk-issuer-payment-destination'), {
       target: { value: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe' },
     })
@@ -328,6 +385,25 @@ describe('XrplTradeDesk', () => {
 
     await waitFor(() => {
       expect(getByTestId('xrpl-trade-desk-action-status').textContent).toMatch(/issuer_payment submitted/i)
+    })
+
+    const assetCall = fetchMock.mock.calls.find(([input]) => String(input) === '/api/xrpl/issuer/asset')
+    const assetBody = JSON.parse(String(assetCall?.[1]?.body ?? '{}'))
+    expect(assetBody).toMatchObject({
+      currency: 'RWAUSD',
+      displayName: 'Real World USD',
+      maxDistributionValue: '5000',
+      requireHolderApproval: true,
+      requiresAuthorizedTrustlines: true,
+    })
+
+    const holderReviewCall = fetchMock.mock.calls.find(([input]) => String(input) === '/api/xrpl/issuer/holder/review')
+    const holderReviewBody = JSON.parse(String(holderReviewCall?.[1]?.body ?? '{}'))
+    expect(holderReviewBody).toMatchObject({
+      holder: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe',
+      currency: 'RWAUSD',
+      status: 'approved',
+      notes: 'KYC approved',
     })
 
     expect(fetchMock.mock.calls.some(([input]) => String(input) === '/api/xrpl/issuer/payment')).toBe(true)

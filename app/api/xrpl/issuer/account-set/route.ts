@@ -15,9 +15,9 @@ import {
   resolveXrplIssuerAccountFlag,
   transferFeeBpsToTransferRate,
 } from '@/lib/xrpl-issuer'
-import { getXrplSignerAccount } from '@/lib/xrpl-signer'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
 import { upsertXrplIssuerProgram } from '@/services/xrpl-issuer-policy.service'
+import { getConfiguredXrplAccountRef, resolveConfiguredXrplAccount } from '@/services/xrpl-runtime-signer.service'
 import { recordXrplTransactionSubmission } from '@/services/xrpl-transaction-store.service'
 import { submitXrplTx } from '@/services/xrpl-tx-submit.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
@@ -147,7 +147,7 @@ async function postXrplIssuerAccountSet(
     const setFlag = parsed.data.setFlag ? resolveXrplIssuerAccountFlag(parsed.data.setFlag) : undefined
     const clearFlag = parsed.data.clearFlag ? resolveXrplIssuerAccountFlag(parsed.data.clearFlag) : undefined
 
-    const account = getXrplSignerAccount()
+    const account = await resolveConfiguredXrplAccount('issuer')
     const action = await createXrplAction({
       action: 'account_set',
       status: 'queued',
@@ -195,7 +195,7 @@ async function postXrplIssuerAccountSet(
       scope: `xrpl.issuer.account-set:${account.address}`,
       idempotencyKey: parsed.data.idempotencyKey,
       networkId,
-      accountRef: { kind: 'xrpl-env' },
+      accountRef: getConfiguredXrplAccountRef('issuer'),
       tx: {
         TransactionType: 'AccountSet',
         ...(domain ? { Domain: encodeXrplIssuerDomain(domain) } : {}),

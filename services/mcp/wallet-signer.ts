@@ -21,6 +21,7 @@ const signerAccountRefSchema = z.union([
   }),
   z.object({
     kind: z.literal('xrpl-env'),
+    role: z.enum(['default', 'issuer', 'distributor']).optional(),
   }),
 ])
 

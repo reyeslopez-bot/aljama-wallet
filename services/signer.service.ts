@@ -1,5 +1,6 @@
 import { Wallet as EvmWallet } from 'ethers'
 import { Wallet as XrplWallet } from 'xrpl'
+import { createXrplWalletFromSeed } from '@/infra/xrpl/client'
 import { decryptPrivateKey, encryptPrivateKey } from '@/lib/crypto/wallet-crypto'
 import { deriveDeterministicWalletPqcMaterial } from '@/lib/pqc/deterministic'
 import { resolveWalletPqcSubjectScheme } from '@/lib/pqc/provider'
@@ -21,6 +22,8 @@ import {
   type LiveTransactionCurve,
   type LiveTransactionScheme,
   type VaultScope,
+  type WalletAccountPolicy,
+  type XrplKeyType,
 } from '@/lib/signing/types'
 import { createWalletRecord, getWalletById, getWalletSigningAccount } from '@/services/wallet.service'
 
@@ -58,6 +61,21 @@ export type ManagedWalletProvisioningHandle = {
   persist: () => Promise<Awaited<ReturnType<typeof createWalletRecord>>>
 }
 
+export type PrepareManagedXrplWalletProvisioningInput = {
+  seed: string
+  keyType?: XrplKeyType
+  networkId?: string | null
+  vaultId?: VaultScope
+  policy?: Partial<WalletAccountPolicy>
+}
+
+export type ManagedXrplWalletProvisioningHandle = {
+  address: string
+  publicKey: string
+  keyType: XrplKeyType
+  persist: () => Promise<Awaited<ReturnType<typeof createWalletRecord>>>
+}
+
 function assertPolicySatisfied(account: ResolvedSigningAccount, evidence?: SigningEvidence) {
   if (account.policy.requiresSecondFactor && !evidence?.secondFactorVerified) {
     throw new Error('SECOND_FACTOR_REQUIRED')
@@ -82,7 +100,7 @@ async function loadManagedSigningMaterial(accountRef: Extract<SignerAccountRef, 
     throw new Error('SIGNER_MATERIAL_UNAVAILABLE')
   }
 
-  const privateKey = decryptPrivateKey(
+  const signingMaterial = decryptPrivateKey(
     Buffer.from(account.encryptedPrivateKey),
     Buffer.from(account.encryptionIv),
     account.keyVersion,
@@ -107,13 +125,21 @@ async function loadManagedSigningMaterial(accountRef: Extract<SignerAccountRef, 
 
   return {
     account: resolved,
-    privateKey: privateKey.trim().startsWith('0x') ? privateKey.trim() : `0x${privateKey.trim()}`,
+    signingMaterial: signingMaterial.trim(),
   }
+}
+
+function normalizeManagedEvmPrivateKey(value: string): string {
+  return value.trim().startsWith('0x') ? value.trim() : `0x${value.trim()}`
+}
+
+function looksLikeXrplSeed(value: string): boolean {
+  return /^s[1-9A-HJ-NP-Za-km-z]{15,}$/.test(value.trim())
 }
 
 export async function resolveSigningAccount(accountRef: SignerAccountRef): Promise<ResolvedSigningAccount> {
   if (accountRef.kind === 'xrpl-env') {
-    return getXrplSignerAccount()
+    return getXrplSignerAccount(accountRef.role)
   }
 
   const account = await getWalletSigningAccount(accountRef.walletId)
@@ -183,6 +209,41 @@ export async function prepareManagedWalletProvisioning(
   }
 }
 
+export async function prepareManagedXrplWalletProvisioning(
+  input: PrepareManagedXrplWalletProvisioningInput,
+): Promise<ManagedXrplWalletProvisioningHandle> {
+  const seed = input.seed.trim()
+  if (!seed) {
+    throw new Error('XRPL seed is required')
+  }
+
+  const keyType = input.keyType ?? 'ed25519'
+  const wallet = createXrplWalletFromSeed(seed, keyType)
+  const encryptedSignerMaterial = encryptPrivateKey(seed, {
+    address: wallet.classicAddress,
+  })
+
+  return {
+    address: wallet.classicAddress,
+    publicKey: wallet.publicKey,
+    keyType,
+    persist: () =>
+      createWalletRecord({
+        address: wallet.classicAddress,
+        chain: 'XRPL',
+        networkId: input.networkId ?? null,
+        pubKey: wallet.publicKey,
+        keyType,
+        signerBackend: 'local',
+        vaultId: input.vaultId ?? 'vault',
+        policy: input.policy,
+        encryptedPrivateKey: encryptedSignerMaterial.encryptedPrivateKey,
+        encryptionIv: encryptedSignerMaterial.encryptionIv,
+        keyVersion: encryptedSignerMaterial.keyVersion,
+      }),
+  }
+}
+
 class LocalSigner implements Signer {
   supports(curve: LiveTransactionCurve, scheme: LiveTransactionScheme): boolean {
     if (curve === 'secp256k1' && scheme === 'ecdsa') return true
@@ -192,12 +253,12 @@ class LocalSigner implements Signer {
 
   async getPublicKey(accountRef: SignerAccountRef): Promise<string> {
     if (accountRef.kind === 'xrpl-env') {
-      return getXrplSignerAccount().pubKey ?? ''
+      return getXrplSignerAccount(accountRef.role).pubKey ?? ''
     }
 
-    const { account, privateKey } = await loadManagedSigningMaterial(accountRef)
+    const { account, signingMaterial } = await loadManagedSigningMaterial(accountRef)
     if (account.pubKey) return account.pubKey
-    return new EvmWallet(privateKey).signingKey.publicKey
+    return new EvmWallet(normalizeManagedEvmPrivateKey(signingMaterial)).signingKey.publicKey
   }
 
   async sign(
@@ -208,14 +269,14 @@ class LocalSigner implements Signer {
     // Guardrail: live chain execution is classical-only. PQ material is limited to
     // off-chain binding/attestation and on-chain commitment hashes in this repo.
     if (accountRef.kind === 'xrpl-env') {
-      const account = assertXrplTransactionSigningAccount(getXrplSignerAccount())
+      const account = assertXrplTransactionSigningAccount(getXrplSignerAccount(accountRef.role))
       assertPolicySatisfied(account, evidence)
 
       if (request.kind !== 'xrpl-transaction') {
         throw new Error('SIGNER_CHAIN_MISMATCH')
       }
 
-      const signed = getXrplSignerWallet().sign(
+      const signed = getXrplSignerWallet(accountRef.role).sign(
         request.preparedTransaction as Parameters<ReturnType<typeof getXrplSignerWallet>['sign']>[0],
       )
       return {
@@ -226,13 +287,13 @@ class LocalSigner implements Signer {
       }
     }
 
-    const { account, privateKey } = await loadManagedSigningMaterial(accountRef)
+    const { account, signingMaterial } = await loadManagedSigningMaterial(accountRef)
     assertPolicySatisfied(account, evidence)
 
     if (request.kind === 'evm-transaction') {
       const evmAccount = assertEvmTransactionSigningAccount(account)
 
-      const wallet = new EvmWallet(privateKey)
+      const wallet = new EvmWallet(normalizeManagedEvmPrivateKey(signingMaterial))
       const signedPayload = await wallet.signTransaction({
         ...request.transaction,
         chainId: request.chainId,
@@ -246,9 +307,11 @@ class LocalSigner implements Signer {
 
     const xrplAccount = assertXrplTransactionSigningAccount(account)
 
-    const wallet = new XrplWallet(xrplAccount.pubKey, privateKey, {
-      masterAddress: xrplAccount.address,
-    })
+    const wallet = looksLikeXrplSeed(signingMaterial)
+      ? createXrplWalletFromSeed(signingMaterial, xrplAccount.keyType)
+      : new XrplWallet(xrplAccount.pubKey, normalizeManagedEvmPrivateKey(signingMaterial), {
+          masterAddress: xrplAccount.address,
+        })
     const signed = wallet.sign(
       request.preparedTransaction as Parameters<typeof wallet.sign>[0],
     )

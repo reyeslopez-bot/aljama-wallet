@@ -161,6 +161,18 @@ const ISSUER_ACCOUNT_FLAG_OPTIONS = [
   { value: 'disallow_xrp', label: 'Disallow XRP' },
   { value: 'deposit_auth', label: 'Deposit Auth' },
 ] as const
+const ISSUER_POLICY_STATUS_OPTIONS = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'active', label: 'Active' },
+  { value: 'paused', label: 'Paused' },
+  { value: 'archived', label: 'Archived' },
+] as const
+const ISSUER_HOLDER_REVIEW_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'revoked', label: 'Revoked' },
+] as const
 
 function isXrpCurrency(currency: string): boolean {
   return currency.trim().toUpperCase() === 'XRP'
@@ -262,6 +274,24 @@ export default function XrplTradeDesk() {
     tickSize: '',
     setFlag: '',
     clearFlag: '',
+  })
+  const [issuerAssetForm, setIssuerAssetForm] = useState({
+    currency: 'USD',
+    displayName: '',
+    trustlineLimit: '',
+    maxDistributionValue: '',
+    assetStatus: 'active',
+    programStatus: 'active',
+    requireHolderApproval: true,
+    distributionsEnabled: true,
+    requiresAuthorizedTrustlines: true,
+    allowDistributions: true,
+  })
+  const [issuerHolderReviewForm, setIssuerHolderReviewForm] = useState({
+    holder: '',
+    currency: 'USD',
+    status: 'approved',
+    notes: '',
   })
   const [issuerAuthorizeForm, setIssuerAuthorizeForm] = useState({
     holder: '',
@@ -715,7 +745,8 @@ export default function XrplTradeDesk() {
       if (!res.ok || !body.ok) {
         throw new Error(body.error ?? `Action failed (${res.status})`)
       }
-      const msg = `${actionName} submitted (${shortHash(body.tx?.hash ?? null)})`
+      const txHash = typeof body.tx?.hash === 'string' && body.tx.hash.trim() ? body.tx.hash.trim() : null
+      const msg = txHash ? `${actionName} submitted (${shortHash(txHash)})` : `${actionName} completed`
       setActionMessage(msg)
       setActivityRail((prev) =>
         prev.map((item) =>
@@ -723,7 +754,7 @@ export default function XrplTradeDesk() {
             ? {
               ...item,
               status: 'success',
-              txHash: body.tx?.hash ?? null,
+              txHash,
               message: msg,
             }
             : item,
@@ -781,6 +812,61 @@ export default function XrplTradeDesk() {
     }
 
     void submitAction('/api/xrpl/issuer/account-set', payload, 'account_set')
+  }
+
+  function submitIssuerAssetPolicy() {
+    const currency = issuerAssetForm.currency.trim().toUpperCase()
+    const displayName = issuerAssetForm.displayName.trim()
+    const trustlineLimit = issuerAssetForm.trustlineLimit.trim()
+    const maxDistributionValue = issuerAssetForm.maxDistributionValue.trim()
+
+    if (!currency || isXrpCurrency(currency)) {
+      setActionError('Enter a non-XRP currency code for the issuer asset.')
+      return
+    }
+    if (trustlineLimit && !/^\d+(\.\d+)?$/.test(trustlineLimit)) {
+      setActionError('Trustline limit must be a positive decimal amount.')
+      return
+    }
+    if (maxDistributionValue && !/^\d+(\.\d+)?$/.test(maxDistributionValue)) {
+      setActionError('Maximum distribution value must be a positive decimal amount.')
+      return
+    }
+
+    void submitAction('/api/xrpl/issuer/asset', {
+      currency,
+      displayName: displayName || undefined,
+      trustlineLimit: trustlineLimit || undefined,
+      maxDistributionValue: maxDistributionValue || undefined,
+      status: issuerAssetForm.assetStatus,
+      programStatus: issuerAssetForm.programStatus,
+      requireHolderApproval: issuerAssetForm.requireHolderApproval,
+      distributionsEnabled: issuerAssetForm.distributionsEnabled,
+      requiresAuthorizedTrustlines: issuerAssetForm.requiresAuthorizedTrustlines,
+      allowDistributions: issuerAssetForm.allowDistributions,
+    }, 'issuer_asset_policy')
+  }
+
+  function submitIssuerHolderReview() {
+    const holder = issuerHolderReviewForm.holder.trim()
+    const currency = issuerHolderReviewForm.currency.trim().toUpperCase()
+    const notes = issuerHolderReviewForm.notes.trim()
+
+    if (!holder || !looksLikeClassicAddress(holder)) {
+      setActionError('Enter a valid holder XRPL classic address for review.')
+      return
+    }
+    if (!currency || isXrpCurrency(currency)) {
+      setActionError('Enter a non-XRP currency code to review.')
+      return
+    }
+
+    void submitAction('/api/xrpl/issuer/holder/review', {
+      holder,
+      currency,
+      status: issuerHolderReviewForm.status,
+      notes: notes || undefined,
+    }, 'issuer_holder_review')
   }
 
   function submitIssuerAuthorize() {
@@ -1672,6 +1758,203 @@ export default function XrplTradeDesk() {
                 </form>
 
                 <form
+                  data-testid="xrpl-trade-desk-issuer-asset-form"
+                  className="surface-inner space-y-3 p-4"
+                  aria-labelledby="xrpl-trade-desk-issuer-asset-title"
+                  aria-describedby={regionBlocked ? regionPolicyId : undefined}
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    submitIssuerAssetPolicy()
+                  }}
+                >
+                  <p id="xrpl-trade-desk-issuer-asset-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+                    Register Issuer Asset
+                  </p>
+                  <p className="text-xs text-ivory/55">
+                    Start here. This creates the app-level policy record that later approval, authorization, and
+                    distribution steps enforce.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      data-testid="xrpl-trade-desk-issuer-asset-currency"
+                      value={issuerAssetForm.currency}
+                      onChange={(event) => setIssuerAssetForm((prev) => ({ ...prev, currency: event.target.value }))}
+                      list="xrpl-issued-currency-options"
+                      aria-label="Issuer asset currency"
+                      placeholder="Currency"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-issuer-asset-display-name"
+                      value={issuerAssetForm.displayName}
+                      onChange={(event) => setIssuerAssetForm((prev) => ({ ...prev, displayName: event.target.value }))}
+                      aria-label="Issuer asset display name"
+                      placeholder="Display name"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-issuer-asset-trustline-limit"
+                      value={issuerAssetForm.trustlineLimit}
+                      onChange={(event) => setIssuerAssetForm((prev) => ({ ...prev, trustlineLimit: event.target.value }))}
+                      aria-label="Issuer asset trustline limit"
+                      placeholder="Trustline limit (optional)"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <input
+                      data-testid="xrpl-trade-desk-issuer-asset-max-distribution"
+                      value={issuerAssetForm.maxDistributionValue}
+                      onChange={(event) => setIssuerAssetForm((prev) => ({ ...prev, maxDistributionValue: event.target.value }))}
+                      aria-label="Issuer asset max distribution value"
+                      placeholder="Max distribution (optional)"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <select
+                      data-testid="xrpl-trade-desk-issuer-asset-status"
+                      value={issuerAssetForm.assetStatus}
+                      onChange={(event) => setIssuerAssetForm((prev) => ({ ...prev, assetStatus: event.target.value }))}
+                      aria-label="Issuer asset status"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    >
+                      {ISSUER_POLICY_STATUS_OPTIONS.map((option) => (
+                        <option key={`issuer-asset-status-${option.value}`} value={option.value} className="bg-black text-ivory">
+                          Asset: {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      data-testid="xrpl-trade-desk-issuer-program-status"
+                      value={issuerAssetForm.programStatus}
+                      onChange={(event) => setIssuerAssetForm((prev) => ({ ...prev, programStatus: event.target.value }))}
+                      aria-label="Issuer program status"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    >
+                      {ISSUER_POLICY_STATUS_OPTIONS.map((option) => (
+                        <option key={`issuer-program-status-${option.value}`} value={option.value} className="bg-black text-ivory">
+                          Program: {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-ivory/75">
+                      <input
+                        data-testid="xrpl-trade-desk-issuer-asset-require-holder-approval"
+                        type="checkbox"
+                        checked={issuerAssetForm.requireHolderApproval}
+                        onChange={(event) => setIssuerAssetForm((prev) => ({ ...prev, requireHolderApproval: event.target.checked }))}
+                      />
+                      Require holder approval
+                    </label>
+                    <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-ivory/75">
+                      <input
+                        data-testid="xrpl-trade-desk-issuer-asset-distributions-enabled"
+                        type="checkbox"
+                        checked={issuerAssetForm.distributionsEnabled}
+                        onChange={(event) => setIssuerAssetForm((prev) => ({ ...prev, distributionsEnabled: event.target.checked }))}
+                      />
+                      Asset distributions enabled
+                    </label>
+                    <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-ivory/75">
+                      <input
+                        data-testid="xrpl-trade-desk-issuer-asset-requires-authorized-trustlines"
+                        type="checkbox"
+                        checked={issuerAssetForm.requiresAuthorizedTrustlines}
+                        onChange={(event) => setIssuerAssetForm((prev) => ({ ...prev, requiresAuthorizedTrustlines: event.target.checked }))}
+                      />
+                      Require authorized trustlines
+                    </label>
+                    <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-ivory/75">
+                      <input
+                        data-testid="xrpl-trade-desk-issuer-asset-allow-distributions"
+                        type="checkbox"
+                        checked={issuerAssetForm.allowDistributions}
+                        onChange={(event) => setIssuerAssetForm((prev) => ({ ...prev, allowDistributions: event.target.checked }))}
+                      />
+                      Program distributions enabled
+                    </label>
+                  </div>
+                  <p className="text-xs text-ivory/50">
+                    Typical order: register the asset, approve holders, authorize trustlines, then distribute.
+                  </p>
+                  <button
+                    data-testid="xrpl-trade-desk-issuer-asset-submit"
+                    type="submit"
+                    disabled={locked || regionBlocked || submitting}
+                    className="rounded-xl bg-gradient-to-r from-[#5e91b8] via-[#4c7699] to-[#35536f] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    Save Asset Policy
+                  </button>
+                </form>
+
+                <form
+                  data-testid="xrpl-trade-desk-issuer-holder-review-form"
+                  className="surface-inner space-y-3 p-4"
+                  aria-labelledby="xrpl-trade-desk-issuer-holder-review-title"
+                  aria-describedby={regionBlocked ? regionPolicyId : undefined}
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    submitIssuerHolderReview()
+                  }}
+                >
+                  <p id="xrpl-trade-desk-issuer-holder-review-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
+                    Review Holder Eligibility
+                  </p>
+                  <p className="text-xs text-ivory/55">
+                    This is the off-ledger compliance step. Approve the holder here before submitting on-ledger
+                    authorization.
+                  </p>
+                  <input
+                    data-testid="xrpl-trade-desk-issuer-holder-review-holder"
+                    value={issuerHolderReviewForm.holder}
+                    onChange={(event) => setIssuerHolderReviewForm((prev) => ({ ...prev, holder: event.target.value }))}
+                    aria-label="Issuer holder review address"
+                    placeholder="Holder classic address"
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      data-testid="xrpl-trade-desk-issuer-holder-review-currency"
+                      value={issuerHolderReviewForm.currency}
+                      onChange={(event) => setIssuerHolderReviewForm((prev) => ({ ...prev, currency: event.target.value }))}
+                      list="xrpl-issued-currency-options"
+                      aria-label="Issuer holder review currency"
+                      placeholder="Currency"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    />
+                    <select
+                      data-testid="xrpl-trade-desk-issuer-holder-review-status"
+                      value={issuerHolderReviewForm.status}
+                      onChange={(event) => setIssuerHolderReviewForm((prev) => ({ ...prev, status: event.target.value }))}
+                      aria-label="Issuer holder review status"
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                    >
+                      {ISSUER_HOLDER_REVIEW_STATUS_OPTIONS.map((option) => (
+                        <option key={`issuer-holder-review-${option.value}`} value={option.value} className="bg-black text-ivory">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <textarea
+                    data-testid="xrpl-trade-desk-issuer-holder-review-notes"
+                    value={issuerHolderReviewForm.notes}
+                    onChange={(event) => setIssuerHolderReviewForm((prev) => ({ ...prev, notes: event.target.value }))}
+                    aria-label="Issuer holder review notes"
+                    placeholder="Notes for the audit trail (optional)"
+                    rows={3}
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
+                  />
+                  <button
+                    data-testid="xrpl-trade-desk-issuer-holder-review-submit"
+                    type="submit"
+                    disabled={locked || regionBlocked || submitting}
+                    className="rounded-xl bg-gradient-to-r from-[#7a8fb6] via-[#5f7398] to-[#495572] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    Save Holder Review
+                  </button>
+                </form>
+
+                <form
                   data-testid="xrpl-trade-desk-issuer-account-set-form"
                   className="surface-inner space-y-3 p-4"
                   aria-labelledby="xrpl-trade-desk-issuer-account-set-title"
@@ -1685,7 +1968,7 @@ export default function XrplTradeDesk() {
                     Issuer Account Setup
                   </p>
                   <p className="text-xs text-ivory/55">
-                    Uses the server XRPL signer as the active issuer or distributor account for this environment.
+                    Uses the server issuer account for AccountSet changes in this environment.
                   </p>
                   <input
                     data-testid="xrpl-trade-desk-issuer-account-set-domain"
@@ -1806,7 +2089,8 @@ export default function XrplTradeDesk() {
                     Distribute Issued Asset
                   </p>
                   <p className="text-xs text-ivory/55">
-                    Leave issuer blank to use the current signer account as the issuer on the payment amount.
+                    Leaves the payment sender on the distributor account and defaults the issued amount issuer to the
+                    configured issuer account.
                   </p>
                   <input
                     data-testid="xrpl-trade-desk-issuer-payment-destination"
