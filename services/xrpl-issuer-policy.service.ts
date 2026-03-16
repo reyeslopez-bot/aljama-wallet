@@ -594,7 +594,9 @@ function getAssetPolicyFromMemory(input: {
   return { program, asset, holder }
 }
 
-function assertActivePolicy(policy: XrplIssuerAssetPolicyRecord | null) {
+function assertActivePolicy(
+  policy: XrplIssuerAssetPolicyRecord | null,
+): asserts policy is XrplIssuerAssetPolicyRecord {
   if (!policy) {
     throw new Error('Issuer asset is not registered')
   }
