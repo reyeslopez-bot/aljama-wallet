@@ -118,4 +118,38 @@ describe('app/api/xrpl/trade/swap route', () => {
     expect(mockSubmitXrplTx).toHaveBeenCalled()
     expect(mockRecordXrplTransactionSubmission).toHaveBeenCalled()
   })
+
+  it('returns 400 when the signer account is not funded on the selected network', async () => {
+    mockQuoteXrplSwap.mockRejectedValue({
+      name: 'RippledError',
+      message: 'Account not found.',
+      data: { error: 'actNotFound', error_message: 'Account not found.' },
+    })
+
+    const { POST } = await import('@/app/api/xrpl/trade/swap/route')
+    const res = await POST(new Request('http://localhost/api/xrpl/trade/swap', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        network: 'mainnet',
+        idempotencyKey: '11111111-1111-4111-8111-111111111111',
+        sourceAmount: { currency: 'XRP', value: '50' },
+        destinationAsset: { currency: 'USD', issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe' },
+        slippageBps: 50,
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.code).toBe('account_not_funded')
+    expect(body.error).toMatch(/mainnet/i)
+    expect(body.details).toMatchObject({
+      account: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+      network: 'mainnet',
+      sourceCurrency: 'XRP',
+      destinationCurrency: 'USD',
+      needsFunding: true,
+    })
+    expect(mockSubmitXrplTx).not.toHaveBeenCalled()
+  })
 })

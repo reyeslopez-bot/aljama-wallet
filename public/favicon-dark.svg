@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <!-- Charcoal dunes -->
+    <linearGradient id="charcoal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1115"></stop>
+      <stop offset="50%" stop-color="#1c1f26"></stop>
+      <stop offset="100%" stop-color="#2a2f38"></stop>
+    </linearGradient>
+
+    <!-- Dune layers -->
+    <linearGradient id="dune1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2c313a"></stop>
+      <stop offset="100%" stop-color="#1f232b"></stop>
+    </linearGradient>
+    <linearGradient id="dune2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3a404a"></stop>
+      <stop offset="100%" stop-color="#242933"></stop>
+    </linearGradient>
+
+    <!-- Gold highlight -->
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f6e6b4"></stop>
+      <stop offset="50%" stop-color="#d4af37"></stop>
+      <stop offset="100%" stop-color="#8f7420"></stop>
+    </linearGradient>
+
+    <!-- Silver base -->
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e8eaed"></stop>
+      <stop offset="50%" stop-color="#b0b6bd"></stop>
+      <stop offset="100%" stop-color="#6f767d"></stop>
+    </linearGradient>
+
+    <!-- Subtle glow -->
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"></feGaussianBlur>
+      <feMerge>
+        <feMergeNode in="blur"></feMergeNode>
+        <feMergeNode in="SourceGraphic"></feMergeNode>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="url(#charcoal)"></rect>
+
+  <!-- Dunes -->
+  <path d="M0 42 Q16 34 32 40 T64 38 V64 H0 Z" fill="url(#dune1)" opacity="0.7"></path>
+  <path d="M0 48 Q20 40 40 46 T64 44 V64 H0 Z" fill="url(#dune2)" opacity="0.6"></path>
+
+  <!-- Olive branch (silver base + gold highlight overlay) -->
+  <g filter="url(#softGlow)">
+    <!-- Base -->
+    <path d="M14 50 C26 30, 44 20, 54 12" stroke="url(#silver)" stroke-width="2.6" stroke-linecap="round" fill="none"></path>
+
+    <!-- Gold highlight (slightly offset for depth) -->
+    <path d="M14 50 C26 30, 44 20, 54 12" stroke="url(#gold)" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.9"></path>
+
+    <!-- Leaves -->
+    <ellipse cx="26" cy="36" rx="4" ry="2.2" transform="rotate(-28 26 36)" fill="url(#silver)"></ellipse>
+    <ellipse cx="34" cy="30" rx="4" ry="2.2" transform="rotate(-24 34 30)" fill="url(#silver)"></ellipse>
+    <ellipse cx="42" cy="24" rx="4" ry="2.2" transform="rotate(-18 42 24)" fill="url(#silver)"></ellipse>
+    <ellipse cx="50" cy="18" rx="3.8" ry="2" transform="rotate(-12 50 18)" fill="url(#silver)"></ellipse>
+
+    <!-- Gold accents on leaves -->
+    <ellipse cx="26" cy="36" rx="2.5" ry="1.2" transform="rotate(-28 26 36)" fill="url(#gold)" opacity="0.8"></ellipse>
+    <ellipse cx="34" cy="30" rx="2.5" ry="1.2" transform="rotate(-24 34 30)" fill="url(#gold)" opacity="0.8"></ellipse>
+    <ellipse cx="42" cy="24" rx="2.5" ry="1.2" transform="rotate(-18 42 24)" fill="url(#gold)" opacity="0.8"></ellipse>
+  </g>
+</svg>

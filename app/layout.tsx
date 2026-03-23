@@ -1,10 +1,26 @@
 // app/layout.tsx
 import './globals.css'
 import type { ReactNode } from 'react'
+import type { Metadata } from 'next'   // ✅ add this
 import { El_Messiri, Manrope } from 'next/font/google'
 import { cookies } from 'next/headers'
 import { defaultLocale, isRtlLocale } from '@/i18n/routing'
 
+/* ✅ ADD METADATA HERE — OUTSIDE THE COMPONENT */
+export const metadata: Metadata = {
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-dark.svg', media: '(prefers-color-scheme: dark)' },
+    ],
+  },
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#e6cfa3' },
+    { media: '(prefers-color-scheme: dark)', color: '#0f1115' },
+  ],
+}
+
+/* fonts stay unchanged */
 const bodyFont = Manrope({
   subsets: ['latin'],
   display: 'swap',
@@ -19,6 +35,7 @@ const displayFont = El_Messiri({
   fallback: ['Georgia', 'serif'],
 })
 
+/* component stays unchanged */
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const cookieStore = await cookies()
   const locale = cookieStore.get('NEXT_LOCALE')?.value ?? defaultLocale

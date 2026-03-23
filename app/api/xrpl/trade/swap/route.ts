@@ -8,6 +8,7 @@ import { readJsonBody } from '@/lib/security/request-body'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError } from '@/lib/security/logging'
 import { DEFAULT_XRPL_NETWORK_ID, isXrplNetworkId } from '@/lib/xrpl-networks'
+import { isXrplAccountNotFoundError } from '@/lib/xrpl-errors'
 import { createXrplAction, updateXrplAction } from '@/services/xrpl-action-log.service'
 import { assessXrplActionRisk } from '@/services/xrpl-risk.service'
 import { recordXrplTransactionSubmission } from '@/services/xrpl-transaction-store.service'
@@ -42,7 +43,8 @@ function resolveRouteStatus(message: string): number {
     message === 'No XRPL swap path found' ||
     message === 'Invalid XRPL swap amount' ||
     message === 'Currency is required' ||
-    message.startsWith('Issuer required for non-XRP')
+    message.startsWith('Issuer required for non-XRP') ||
+    message.startsWith('No trusted ')
   ) {
     return 400
   }
@@ -58,6 +60,13 @@ async function postXrplTradeSwap(
 ) {
   let actionId: string | null = null
   const routePath = '/api/xrpl/trade/swap'
+  let networkId = DEFAULT_XRPL_NETWORK_ID
+  let accountAddress: string | null = null
+  let sourceCurrency: string | null = null
+  let sourceIssuer: string | null = null
+  let sourceValue: string | null = null
+  let destinationCurrency: string | null = null
+  let destinationIssuer: string | null = null
 
   try {
     const session = await requireSession()
@@ -109,12 +118,18 @@ async function postXrplTradeSwap(
     if (requestedNetwork && !isXrplNetworkId(requestedNetwork)) {
       return errorJson(400, 'invalid_network', 'Invalid XRPL network')
     }
-    const networkId =
+    networkId =
       requestedNetwork && isXrplNetworkId(requestedNetwork)
         ? requestedNetwork
         : DEFAULT_XRPL_NETWORK_ID
+    sourceCurrency = parsed.data.sourceAmount.currency
+    sourceIssuer = parsed.data.sourceAmount.issuer ?? null
+    sourceValue = parsed.data.sourceAmount.value
+    destinationCurrency = parsed.data.destinationAsset.currency
+    destinationIssuer = parsed.data.destinationAsset.issuer ?? null
 
     const account = getXrplSignerAccount()
+    accountAddress = account.address
     const action = await createXrplAction({
       action: 'swap_payment',
       status: 'queued',
@@ -234,15 +249,36 @@ async function postXrplTradeSwap(
       }).catch(() => {})
     }
 
+    const errorDetails = {
+      requestId: routeContext.requestId,
+      traceId: routeContext.traceId,
+      route: routePath,
+      actionId,
+      account: accountAddress,
+      network: networkId,
+      sourceCurrency,
+      sourceIssuer,
+      sourceValue,
+      destinationCurrency,
+      destinationIssuer,
+    }
+
+    if (isXrplAccountNotFoundError(error)) {
+      return errorJson(
+        400,
+        'account_not_funded',
+        `XRPL account must be funded on ${networkId} before submitting a swap.`,
+        {
+          ...errorDetails,
+          needsFunding: true,
+        },
+      )
+    }
+
     const message = getErrorMessage(error, 'Failed to submit XRPL swap payment')
     const status = resolveRouteStatus(message)
     if (status >= 500) {
-      logError('xrpl-trade-swap', error, {
-        requestId: routeContext.requestId,
-        traceId: routeContext.traceId,
-        route: routePath,
-        actionId,
-      })
+      logError('xrpl-trade-swap', error, errorDetails)
     }
 
     return errorJson(

@@ -51,6 +51,9 @@ type OrderbookResponse = {
 
 type SwapQuoteResponse = {
   ok: true
+  account?: string | null
+  accountExists?: boolean
+  quoteMode?: 'account' | 'public'
   quote: {
     sourceAmount: {
       currency: string
@@ -76,6 +79,22 @@ type SwapQuoteResponse = {
     alternativeCount: number
     fullReply: boolean
     slippageBps: number
+    sourceSelection?: string
+    destinationSelection?: string
+    liquiditySource?: 'path_find' | 'amm' | 'orderbook' | 'multi_hop'
+    quoteMode?: 'account' | 'public'
+    routeKind?: 'direct' | 'multi_hop'
+    hops?: Array<{
+      from: {
+        currency: string
+        issuer?: string
+      }
+      to: {
+        currency: string
+        issuer?: string
+      }
+      liquiditySource: 'amm' | 'orderbook'
+    }>
   }
 }
 
@@ -436,12 +455,6 @@ export default function XrplTradeDesk() {
     if (revealMissingQuote) {
       setHasAttemptedQuoteRefresh(true)
     }
-    if (signerConfigError) {
-      setSwapQuoteLoading(false)
-      setSwapQuoteError(signerConfigError)
-      setSwapQuote(null)
-      return
-    }
 
     const sourceCurrency = quickSwapForm.fromCurrency.trim().toUpperCase()
     const destinationCurrency = quickSwapForm.toCurrency.trim().toUpperCase()
@@ -618,6 +631,22 @@ export default function XrplTradeDesk() {
   const quickSwapHasDifferentDestination = quickSwapFromCode !== quickSwapToCode
   const quickSwapQuoteReady = Boolean(quickSwapFromAmount) && quickSwapHasDifferentDestination
   const quickSwapDeliverMin = parsePositiveAmount(swapQuote?.deliverMin.value ?? '')
+  const quickSwapRouteSummary = useMemo(() => {
+    if (!swapQuote) return null
+    const hops = swapQuote.hops ?? []
+    if (hops.length === 0) {
+      return `${formatAssetSelection(swapQuote.sourceAmount.currency, swapQuote.sourceAmount.issuer ?? '')} -> ${formatAssetSelection(
+        swapQuote.destinationAmount.currency,
+        swapQuote.destinationAmount.issuer ?? '',
+      )}`
+    }
+
+    const assets = [
+      formatAssetSelection(hops[0]!.from.currency, hops[0]!.from.issuer ?? ''),
+      ...hops.map((hop) => formatAssetSelection(hop.to.currency, hop.to.issuer ?? '')),
+    ]
+    return assets.join(' -> ')
+  }, [swapQuote])
   const quickSwapEstimatedReceive = useMemo(() => {
     return parsePositiveAmount(swapQuote?.destinationAmount.value ?? '')
   }, [swapQuote])
@@ -667,23 +696,21 @@ export default function XrplTradeDesk() {
       return 'Choose a different destination asset before requesting a quote.'
     }
     if (swapQuote && (!quickSwapFromIsXrp || !quickSwapToIsXrp)) {
-      return `Best trusted route: ${formatAssetSelection(
-        swapQuote.sourceAmount.currency,
-        swapQuote.sourceAmount.issuer ?? '',
-      )} -> ${formatAssetSelection(
-        swapQuote.destinationAmount.currency,
-        swapQuote.destinationAmount.issuer ?? '',
-      )}.`
+      if (swapQuote.quoteMode === 'public') {
+        return `Best public route: ${quickSwapRouteSummary ?? 'XRPL liquidity route'}.`
+      }
+      return `Best trusted route: ${quickSwapRouteSummary ?? 'XRPL liquidity route'}.`
     }
     if (quickSwapUnitReceive) {
       return `1 ${quickSwapFromCode} is pricing near ${formatPreviewAmount(quickSwapUnitReceive)} ${quickSwapToCode}.`
     }
-    return 'Refresh the quote to pathfind the best trusted route automatically.'
+    return 'Refresh the quote to search XRPL liquidity automatically.'
   }, [
     quickSwapFromIsXrp,
     quickSwapFromAmount,
     quickSwapFromCode,
     quickSwapHasDifferentDestination,
+    quickSwapRouteSummary,
     quickSwapToCode,
     quickSwapToIsXrp,
     quickSwapUnitReceive,
@@ -1344,23 +1371,27 @@ export default function XrplTradeDesk() {
                     </p>
                     {swapQuote ? (
                       <p className="mt-1 text-xs text-ivory/55">
-                        Trusted route: {formatAssetSelection(swapQuote.sourceAmount.currency, swapQuote.sourceAmount.issuer ?? '')}{' -> '}
-                        {formatAssetSelection(swapQuote.destinationAmount.currency, swapQuote.destinationAmount.issuer ?? '')}
+                        {swapQuote.quoteMode === 'public' ? 'Quote route' : 'Trusted route'}: {quickSwapRouteSummary}
                       </p>
                     ) : null}
                     <p className="mt-1 text-xs text-ivory/55">
                       {swapQuote
-                        ? `Using XRPL pathfinding with a ${formatPreviewAmount(swapQuote.slippageBps / 100)}% minimum-receive guard.`
-                        : `Quotes on ${networkConfig.name} use XRPL pathfinding with SendMax and DeliverMin.`}
+                        ? swapQuote.quoteMode === 'public'
+                          ? swapQuote.routeKind === 'multi_hop'
+                            ? `Using public XRPL liquidity across ${swapQuote.hops?.length ?? 0} legs with a ${formatPreviewAmount(swapQuote.slippageBps / 100)}% minimum-receive estimate.`
+                            : `Using public XRPL ${swapQuote.liquiditySource ?? 'liquidity'} data with a ${formatPreviewAmount(swapQuote.slippageBps / 100)}% minimum-receive estimate.`
+                          : `Using XRPL pathfinding with a ${formatPreviewAmount(swapQuote.slippageBps / 100)}% minimum-receive guard.`
+                        : `Quotes on ${networkConfig.name} search public XRPL liquidity first, then wallet-aware routing when available.`}
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-ivory/65">
-                Simple swap uses a trusted issuer policy behind the scenes. XRP stays native; issued assets such as
-                EUR, USD, JPY, and XAU are resolved automatically from trusted issuers, wallet trustlines, and live
-                liquidity on {networkConfig.name}. Open the advanced desk only if you need raw issuer control.
+                Simple swap uses trusted issuer policy behind the scenes. XRP stays native; issued assets such as EUR,
+                USD, JPY, and XAU are resolved automatically from trusted issuers and live liquidity on {networkConfig.name}.
+                Wallet-aware routing improves execution, but public quotes no longer depend on trustlines or funded
+                account state.
               </div>
 
               {quickSwapValidationIssues.length > 0 ? (
