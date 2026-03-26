@@ -3,6 +3,7 @@
 import { gsap } from 'gsap'
 import type {
   CSSProperties,
+  KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
@@ -594,6 +595,15 @@ export default function DynamicInfoCard() {
     setDetailsPinned(true)
   }, [])
 
+  const handleToggleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLButtonElement>, action: () => void) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      action()
+    },
+    [],
+  )
+
   return (
     <aside
       ref={cardRef}
@@ -833,6 +843,7 @@ export default function DynamicInfoCard() {
                     data-dynamic-info-card-toggle-state="expanded"
                     data-testid="dynamic-info-card-collapse-button"
                     aria-expanded={detailsExpanded}
+                    onKeyDown={(event) => handleToggleKeyDown(event, collapseDetails)}
                     onClick={collapseDetails}
                     className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.625rem] uppercase tracking-[0.16em] transition ${
                       isLightTheme
@@ -881,6 +892,7 @@ export default function DynamicInfoCard() {
                   data-dynamic-info-card-toggle-state="collapsed"
                   data-testid="dynamic-info-card-expand-button"
                   aria-expanded={detailsExpanded}
+                  onKeyDown={(event) => handleToggleKeyDown(event, expandDetails)}
                   onClick={expandDetails}
                   className={`rounded-full border px-3 py-1 text-[0.6875rem] font-semibold tracking-wide transition ${
                     isLightTheme

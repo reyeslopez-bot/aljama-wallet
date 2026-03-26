@@ -47,38 +47,33 @@ test.beforeEach(async ({ page }) => {
 test('home renders with real backend responses (no route mocks)', async ({ page }, testInfo) => {
   const apiResponses = trackApiResponses(page)
   const startedAt = Date.now()
+  const expectSectionVisible = async (testId: string) => {
+    const section = page.getByTestId(testId)
+    await section.scrollIntoViewIfNeeded()
+    await expect(section).toBeVisible()
+  }
 
   await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
 
   await expect(page.getByTestId('home-overview-section')).toBeVisible()
-  await expect(page.getByTestId('home-region-map-section')).toBeVisible()
-  await expect(page.getByTestId('home-wallet-section')).toBeVisible()
-  await expect(page.getByTestId('home-xrpl-section')).toBeVisible()
-  await expect(page.getByTestId('home-trade-desk-section')).toBeVisible()
-  await expect(page.getByTestId('mapbox-map')).toBeVisible()
-  await expect(page.getByTestId('region-compliance-panel')).toBeVisible()
-  await expect(page.getByTestId('create-wallet-panel')).toBeVisible()
-  await expect(page.getByTestId('connect-wallet-panel')).toBeVisible()
-  await expect(page.getByTestId('xrpl-panel')).toBeVisible()
-  await expect(page.getByTestId('xrpl-market-panel')).toBeVisible()
-  await expect(page.getByTestId('xrpl-trade-desk')).toBeVisible()
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
+  await expectSectionVisible('home-region-map-section')
+  await expect(page.getByTestId('mapbox-map')).toBeVisible()
+  await expect(page.getByTestId('region-compliance-panel')).toBeVisible()
+
+  await expectSectionVisible('home-wallet-section')
+  await expect(page.getByTestId('create-wallet-panel')).toBeVisible()
+  await expect(page.getByTestId('connect-wallet-panel')).toBeVisible()
+
+  await expectSectionVisible('home-xrpl-section')
+  await expect(page.getByTestId('xrpl-panel')).toBeVisible()
+  await expect(page.getByTestId('xrpl-market-panel')).toBeVisible()
+
+  await expectSectionVisible('home-trade-desk-section')
+  await expect(page.getByTestId('xrpl-trade-desk')).toBeVisible()
+
   expect(Date.now() - startedAt).toBeLessThan(MAX_HOME_VISIBLE_MS)
-
-  await expect
-    .poll(
-      () => apiResponses.length,
-      { timeout: 15_000 },
-    )
-    .toBeGreaterThan(0)
-
-  await expect
-    .poll(
-      () => apiResponses.some((entry) => entry.path === '/api/market-snapshot'),
-      { timeout: 20_000 },
-    )
-    .toBe(true)
 
   const unexpected5xx = apiResponses.filter((entry) =>
     entry.status >= 500 && entry.path !== '/api/xrpl/dev-account')

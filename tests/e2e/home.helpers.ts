@@ -14,6 +14,19 @@ const ENABLE_VISUAL_BASELINE = process.env.PLAYWRIGHT_VISUAL === 'true'
 const VISUAL_MAX_DIFF_PIXEL_RATIO = Number(process.env.PLAYWRIGHT_VISUAL_MAX_DIFF_RATIO ?? 0.01)
 const MAX_PAGE_CAPTURE_DIMENSION = 32_000
 const UNAUTHENTICATED_SESSION = { user: null, expires: '2099-01-01T00:00:00.000Z' }
+export const AUTHENTICATED_SESSION = {
+  user: {
+    id: 'e2e-user-1',
+    name: 'Test User',
+    email: 'test@example.com',
+    image: null,
+  },
+  expires: '2099-01-01T00:00:00.000Z',
+}
+
+type PrepareMockedHomeOptions = {
+  session?: unknown
+}
 
 type LocatorTarget = ReturnType<Page['locator']>
 
@@ -251,9 +264,10 @@ async function waitForStableTypography(page: Page) {
   })
 }
 
-export async function prepareMockedHome(page: Page) {
+export async function prepareMockedHome(page: Page, options: PrepareMockedHomeOptions = {}) {
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await mockAuthSession(page, UNAUTHENTICATED_SESSION)
+  await page.unroute('**/api/auth/session')
+  await mockAuthSession(page, options.session ?? UNAUTHENTICATED_SESSION)
   await mockHomeApi(page)
   await page.addInitScript(
     ({ fixedNowIso, promptKey, siteEntryKey }) => {
