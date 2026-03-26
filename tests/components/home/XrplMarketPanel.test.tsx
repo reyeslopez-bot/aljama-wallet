@@ -106,9 +106,10 @@ describe('XrplMarketPanel', () => {
     const { getByTestId, getByText } = render(<XrplMarketPanel />)
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(getByText('Sign in to unlock XRPL market tools.')).toBeTruthy()
     })
 
+    expect(fetchMock).not.toHaveBeenCalled()
     const all = getByTestId('xrpl-market-filter-all') as HTMLButtonElement
     const xrpl = getByTestId('xrpl-market-filter-xrpl') as HTMLButtonElement
     const reference = getByTestId('xrpl-market-filter-reference') as HTMLButtonElement
@@ -118,7 +119,6 @@ describe('XrplMarketPanel', () => {
     expect(xrpl.disabled).toBe(true)
     expect(reference.disabled).toBe(true)
     expect(refresh.disabled).toBe(true)
-    expect(getByText('Sign up to unlock actions.')).toBeTruthy()
   })
 
   it('keeps chart paths inside the clipped plot area', async () => {

@@ -81,12 +81,12 @@ describe('XrplPanel', () => {
     const { getByTestId, getByText } = render(<XrplPanel />)
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(getByText('Sign in to unlock XRPL endpoints and account state.')).toBeTruthy()
     })
 
+    expect(fetchMock).not.toHaveBeenCalled()
     const refresh = getByTestId('xrpl-panel-refresh') as HTMLButtonElement
     expect(refresh.disabled).toBe(true)
-    expect(getByText('Sign up to unlock actions.')).toBeTruthy()
   })
 
   it('requests a new snapshot when switching network', async () => {

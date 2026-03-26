@@ -1,15 +1,40 @@
 // @vitest-environment jsdom
 
 import { fireEvent, render, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from 'next-auth/react'
 import XrplTradeDesk from '@/components/home/XrplTradeDesk.client'
+import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 
 const mockedUseSession = vi.mocked(useSession)
+const initialState = useDynamicInfoStore.getState()
+
+const resetStore = () => {
+  useDynamicInfoStore.setState(
+    {
+      ...initialState,
+      user: initialState.user ? { ...initialState.user } : null,
+      wallet: { ...initialState.wallet },
+      lastEvent: initialState.lastEvent ? { ...initialState.lastEvent } : null,
+    },
+    true,
+  )
+}
+
+const unlockTradeDesk = () => {
+  useDynamicInfoStore.setState((state) => ({
+    wallet: {
+      ...state.wallet,
+      createdAddress: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+    },
+    createWalletStatus: 'success',
+  }))
+}
 
 describe('XrplTradeDesk', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetStore()
     mockedUseSession.mockReturnValue({
       data: { user: { id: 'user-1', email: 'test@example.com' } },
       status: 'authenticated',
@@ -24,7 +49,13 @@ describe('XrplTradeDesk', () => {
     })
   })
 
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('loads initial XRPL trade desk data and submits trustline action', async () => {
+    unlockTradeDesk()
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       const method = (init?.method ?? 'GET').toUpperCase()
@@ -169,7 +200,7 @@ describe('XrplTradeDesk', () => {
     })
   })
 
-  it('loads live quotes even when unauthenticated', async () => {
+  it('keeps the trade desk locked when unauthenticated', async () => {
     mockedUseSession.mockReturnValue({
       data: null,
       status: 'unauthenticated',
@@ -208,20 +239,26 @@ describe('XrplTradeDesk', () => {
     const { getByTestId, getByText, queryByTestId } = render(<XrplTradeDesk />)
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1)
       expect(getByText('One swap flow, nothing extra')).toBeTruthy()
       expect(getByTestId('xrpl-trade-desk-quick-swap-preview')).toBeTruthy()
+      expect(getByText('Sign in to unlock the XRPL trade desk.')).toBeTruthy()
     })
 
+    expect(fetchMock).not.toHaveBeenCalled()
     expect(queryByTestId('xrpl-trade-desk-history')).toBeNull()
     expect(queryByTestId('xrpl-trade-desk-launch-context')).toBeNull()
     expect(queryByTestId('xrpl-trade-desk-refresh')).toBeNull()
-    expect((getByTestId('xrpl-trade-desk-quick-swap-refresh-quote') as HTMLButtonElement).disabled).toBe(false)
+    expect((getByTestId('xrpl-trade-desk-context-toggle') as HTMLButtonElement).disabled).toBe(true)
+    expect((getByTestId('xrpl-trade-desk-expert-toggle') as HTMLButtonElement).disabled).toBe(true)
+    expect((getByTestId('xrpl-trade-desk-quick-swap-refresh-quote') as HTMLButtonElement).disabled).toBe(true)
+    expect(getByTestId('xrpl-trade-desk-unlock')).toBeTruthy()
     expect(queryByTestId('xrpl-trade-desk-log-toggle')).toBeNull()
     expect(queryByTestId('xrpl-trade-desk-activity-rail')).toBeNull()
   })
 
   it('submits issuer policy admin and distribution actions from the advanced desk', async () => {
+    unlockTradeDesk()
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       const method = (init?.method ?? 'GET').toUpperCase()
@@ -410,6 +447,8 @@ describe('XrplTradeDesk', () => {
   })
 
   it('hides the missing quote warning until a manual refresh is attempted', async () => {
+    unlockTradeDesk()
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
 
@@ -449,6 +488,8 @@ describe('XrplTradeDesk', () => {
   })
 
   it('does not show a no-path warning when quote prerequisites are still missing', async () => {
+    unlockTradeDesk()
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
 
