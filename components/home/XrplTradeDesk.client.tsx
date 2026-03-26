@@ -229,8 +229,11 @@ export default function XrplTradeDesk() {
   useComponentTelemetry('XrplTradeDesk')
   const { track } = useContext(TelemetryContext)
   const pushEvent = useDynamicInfoStore((s) => s.pushEvent)
+  const wallet = useDynamicInfoStore((s) => s.wallet)
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== 'authenticated'
+  const authLocked = sessionStatus !== 'authenticated'
+  const walletReady = Boolean(wallet.connectedAddress || wallet.createdAddress)
+  const deskLocked = authLocked || !walletReady
   const selectedNetworkId = useXrplNetworkStore((s) => s.selectedNetworkId)
 
   const [region, setRegion] = useState('us')
@@ -356,6 +359,16 @@ export default function XrplTradeDesk() {
   const actionErrorId = 'xrpl-trade-desk-action-error'
   const networkConfig = useMemo(() => resolveXrplNetwork(selectedNetworkId), [selectedNetworkId])
   const networkFeeEstimateXrp = networkConfig.isProduction ? '0.0002' : '0.00012'
+  const deskLockedMessage = authLocked
+    ? 'Sign in to unlock the XRPL trade desk.'
+    : 'Create or connect a wallet to unlock the XRPL trade desk.'
+
+  useEffect(() => {
+    if (!deskLocked) return
+    setShowLaunchContext(false)
+    setShowExpertTools(false)
+    setShowSubmissionLog(false)
+  }, [deskLocked])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -582,11 +595,18 @@ export default function XrplTradeDesk() {
   }, [selectedNetworkId])
 
   useEffect(() => {
+    if (deskLocked) {
+      setSwapQuote(null)
+      setSwapQuoteError(null)
+      setSwapQuoteLoading(false)
+      return
+    }
+
     const timer = window.setTimeout(() => {
       void loadSwapQuote()
     }, 220)
     return () => window.clearTimeout(timer)
-  }, [loadSwapQuote])
+  }, [deskLocked, loadSwapQuote])
 
   useEffect(() => {
     if (!showExpertTools) return
@@ -606,14 +626,14 @@ export default function XrplTradeDesk() {
   ])
 
   useEffect(() => {
-    if (locked || !showLaunchContext || showExpertTools) return
+    if (deskLocked || !showLaunchContext || showExpertTools) return
     void Promise.all([loadAssets(), loadHistory()])
-  }, [loadAssets, loadHistory, locked, showExpertTools, showLaunchContext])
+  }, [deskLocked, loadAssets, loadHistory, showExpertTools, showLaunchContext])
 
   useEffect(() => {
-    if (locked || !showExpertTools) return
+    if (deskLocked || !showExpertTools) return
     void Promise.all([loadAssets(), loadNfts(), loadHistory()])
-  }, [loadAssets, loadHistory, loadNfts, locked, showExpertTools])
+  }, [deskLocked, loadAssets, loadHistory, loadNfts, showExpertTools])
 
   const pagedNfts = useMemo(() => {
     const start = (nftPage - 1) * pageSize
@@ -689,6 +709,9 @@ export default function XrplTradeDesk() {
     shouldShowMissingQuoteIssue,
   ])
   const quickSwapStatusHint = useMemo(() => {
+    if (deskLocked) {
+      return deskLockedMessage
+    }
     if (!quickSwapFromAmount) {
       return 'Enter an amount to request a quote.'
     }
@@ -714,6 +737,8 @@ export default function XrplTradeDesk() {
     quickSwapToCode,
     quickSwapToIsXrp,
     quickSwapUnitReceive,
+    deskLocked,
+    deskLockedMessage,
     swapQuote,
   ])
 
@@ -735,7 +760,7 @@ export default function XrplTradeDesk() {
   ])
 
   async function submitAction(path: string, payload: Record<string, unknown>, actionName: string) {
-    if (locked || regionBlocked) return
+    if (deskLocked || regionBlocked) return
     setSubmitting(true)
     setActionMessage(null)
     setActionError(null)
@@ -790,10 +815,10 @@ export default function XrplTradeDesk() {
       pushEvent({ kind: 'success', message: msg })
       track('xrpl_trade_action_success', { action: actionName, network: selectedNetworkId })
       const postSubmitRefreshes: Array<Promise<unknown>> = [loadSwapQuote({ revealMissingQuote: true })]
-      if (!locked && (showLaunchContext || showExpertTools)) {
+      if (!deskLocked && (showLaunchContext || showExpertTools)) {
         postSubmitRefreshes.push(loadAssets(), loadHistory())
       }
-      if (!locked && showExpertTools) {
+      if (!deskLocked && showExpertTools) {
         postSubmitRefreshes.push(loadNfts(), loadOrderbook())
       }
       if (postSubmitRefreshes.length > 0) {
@@ -947,14 +972,14 @@ export default function XrplTradeDesk() {
   }
 
   const quickSwapSubmitDisabled =
-    locked ||
+    deskLocked ||
     regionBlocked ||
     submitting ||
     quickSwapValidationIssues.length > 0 ||
     !swapQuote ||
     !quickSwapFromAmount
 
-  const canRetryLastAction = !locked && !regionBlocked && !submitting && !!lastActionRequest
+  const canRetryLastAction = !deskLocked && !regionBlocked && !submitting && !!lastActionRequest
   const hasSubmissionHistory = activityRail.length > 0
   const showSubmissionRail = hasSubmissionHistory && showSubmissionLog
   const shouldShowGlobalRefresh = showLaunchContext || showExpertTools || hasSubmissionHistory
@@ -965,10 +990,10 @@ export default function XrplTradeDesk() {
 
   const handleRefreshVisibleData = () => {
     const refreshes: Array<Promise<unknown>> = [loadSwapQuote({ revealMissingQuote: true })]
-    if (!locked && (showLaunchContext || showExpertTools)) {
+    if (!deskLocked && (showLaunchContext || showExpertTools)) {
       refreshes.push(loadAssets(), loadHistory())
     }
-    if (!locked && showExpertTools) {
+    if (!deskLocked && showExpertTools) {
       refreshes.push(loadNfts(), loadOrderbook())
     }
     void Promise.all(refreshes)
@@ -1026,7 +1051,7 @@ export default function XrplTradeDesk() {
           onPointerUp={refreshButton.onPointerUp}
           onPointerCancel={refreshButton.onPointerCancel}
           onBlur={refreshButton.onBlur}
-          disabled={submitting || swapQuoteLoading || offersLoading}
+          disabled={deskLocked || submitting || swapQuoteLoading || offersLoading}
           onClick={handleRefreshVisibleData}
           aria-describedby={regionBlocked ? regionPolicyId : undefined}
           className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b9577]/30 transition disabled:cursor-not-allowed disabled:opacity-60"
@@ -1046,12 +1071,17 @@ export default function XrplTradeDesk() {
         </button>
       ) : null}
 
-      {locked ? (
+      {authLocked ? (
         <div data-testid="xrpl-trade-desk-unlock">
           <UnlockActionsLink
             className="text-xs uppercase tracking-[0.18em] text-ivory/50"
           />
         </div>
+      ) : null}
+      {!authLocked && !walletReady ? (
+        <p data-testid="xrpl-trade-desk-wallet-lock" className="text-sm text-ivory/60">
+          Create or connect a wallet to unlock the trade desk.
+        </p>
       ) : null}
       {actionMessage ? (
         <p
@@ -1203,12 +1233,13 @@ export default function XrplTradeDesk() {
         <button
           data-testid="xrpl-trade-desk-context-toggle"
           type="button"
+          disabled={deskLocked}
           aria-expanded={showLaunchContext && !showExpertTools}
           onClick={() => {
             setShowLaunchContext((open) => !open)
             setShowExpertTools(false)
           }}
-          className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+          className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
             showLaunchContext && !showExpertTools
               ? 'border-saffron/45 bg-saffron/20 text-saffron'
               : 'border-white/12 bg-white/5 text-ivory/70 hover:border-white/20 hover:text-ivory/90'
@@ -1219,9 +1250,10 @@ export default function XrplTradeDesk() {
         <button
           data-testid="xrpl-trade-desk-expert-toggle"
           type="button"
+          disabled={deskLocked}
           aria-expanded={showExpertTools}
           onClick={() => setShowExpertTools(true)}
-          className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+          className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
             showExpertTools
               ? 'border-saffron/45 bg-saffron/20 text-saffron'
               : 'border-white/12 bg-white/5 text-ivory/70 hover:border-white/20 hover:text-ivory/90'
@@ -1262,6 +1294,7 @@ export default function XrplTradeDesk() {
               aria-describedby={regionBlocked ? regionPolicyId : undefined}
               onSubmit={handleQuickSwapSubmit}
             >
+              <fieldset disabled={deskLocked} className="space-y-4 disabled:opacity-60">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p id="xrpl-trade-desk-quick-swap-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
@@ -1275,7 +1308,7 @@ export default function XrplTradeDesk() {
                   data-testid="xrpl-trade-desk-quick-swap-refresh-quote"
                   type="button"
                   onClick={() => void loadSwapQuote({ revealMissingQuote: true })}
-                  disabled={swapQuoteLoading}
+                  disabled={deskLocked || swapQuoteLoading}
                   className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
                 >
                   Refresh quote
@@ -1416,6 +1449,7 @@ export default function XrplTradeDesk() {
               >
                 Submit simple swap
               </button>
+              </fieldset>
             </form>
 
             {showLaunchContext && !showExpertTools ? (
@@ -1428,7 +1462,7 @@ export default function XrplTradeDesk() {
                   <button
                     data-testid="xrpl-trade-desk-assets-refresh"
                     type="button"
-                    disabled={locked}
+                    disabled={deskLocked}
                     onClick={() => void loadAssets()}
                     aria-label="Refresh wallet balances"
                     className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
@@ -1524,7 +1558,7 @@ export default function XrplTradeDesk() {
                       <button
                         data-testid="xrpl-trade-desk-assets-refresh"
                         type="button"
-                        disabled={locked}
+                        disabled={deskLocked}
                         onClick={() => void loadAssets()}
                         aria-label="Refresh wallet balances"
                         className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
@@ -1649,10 +1683,10 @@ export default function XrplTradeDesk() {
                   <div data-testid="xrpl-trade-desk-nfts" className="surface-inner space-y-3 p-4 lg:col-span-2">
                   <div className="flex items-center justify-between">
                     <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Wallet NFTs</p>
-                    <button
-                      data-testid="xrpl-trade-desk-nfts-refresh"
-                      type="button"
-                      disabled={locked}
+                      <button
+                        data-testid="xrpl-trade-desk-nfts-refresh"
+                        type="button"
+                        disabled={deskLocked}
                       onClick={() => void loadNfts()}
                       aria-label="Refresh wallet NFTs"
                       className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
@@ -1708,7 +1742,7 @@ export default function XrplTradeDesk() {
                     <button
                       data-testid="xrpl-trade-desk-history-refresh"
                       type="button"
-                      disabled={locked}
+                      disabled={deskLocked}
                       onClick={() => void loadHistory()}
                       aria-label="Refresh recent ledger actions"
                       className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
@@ -1781,7 +1815,7 @@ export default function XrplTradeDesk() {
                   <button
                     data-testid="xrpl-trade-desk-trustline-submit"
                     type="submit"
-                    disabled={locked || regionBlocked || submitting}
+                    disabled={deskLocked || regionBlocked || submitting}
                     className="rounded-xl bg-gradient-to-r from-[#6f96c9] via-[#5b86a8] to-[#4b9577] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
                     Submit Trustline
@@ -1910,7 +1944,7 @@ export default function XrplTradeDesk() {
                   <button
                     data-testid="xrpl-trade-desk-issuer-asset-submit"
                     type="submit"
-                    disabled={locked || regionBlocked || submitting}
+                    disabled={deskLocked || regionBlocked || submitting}
                     className="rounded-xl bg-gradient-to-r from-[#5e91b8] via-[#4c7699] to-[#35536f] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
                     Save Asset Policy
@@ -1978,7 +2012,7 @@ export default function XrplTradeDesk() {
                   <button
                     data-testid="xrpl-trade-desk-issuer-holder-review-submit"
                     type="submit"
-                    disabled={locked || regionBlocked || submitting}
+                    disabled={deskLocked || regionBlocked || submitting}
                     className="rounded-xl bg-gradient-to-r from-[#7a8fb6] via-[#5f7398] to-[#495572] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
                     Save Holder Review
@@ -2056,7 +2090,7 @@ export default function XrplTradeDesk() {
                   <button
                     data-testid="xrpl-trade-desk-issuer-account-set-submit"
                     type="submit"
-                    disabled={locked || regionBlocked || submitting}
+                    disabled={deskLocked || regionBlocked || submitting}
                     className="rounded-xl bg-gradient-to-r from-[#8aaea1] via-[#5a8d7a] to-[#35685d] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
                     Submit AccountSet
@@ -2099,7 +2133,7 @@ export default function XrplTradeDesk() {
                   <button
                     data-testid="xrpl-trade-desk-issuer-authorize-submit"
                     type="submit"
-                    disabled={locked || regionBlocked || submitting}
+                    disabled={deskLocked || regionBlocked || submitting}
                     className="rounded-xl bg-gradient-to-r from-[#6e9dc0] via-[#507aa1] to-[#355778] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
                     Authorize Trustline
@@ -2169,7 +2203,7 @@ export default function XrplTradeDesk() {
                   <button
                     data-testid="xrpl-trade-desk-issuer-payment-submit"
                     type="submit"
-                    disabled={locked || regionBlocked || submitting}
+                    disabled={deskLocked || regionBlocked || submitting}
                     className="rounded-xl bg-gradient-to-r from-[#d6b072] via-[#c78b57] to-[#9d6136] px-4 py-2 text-sm font-semibold text-[#201205] disabled:opacity-60"
                   >
                     Send Issued Asset
@@ -2211,7 +2245,7 @@ export default function XrplTradeDesk() {
                   <button
                     data-testid="xrpl-trade-desk-mint-submit"
                     type="submit"
-                    disabled={locked || regionBlocked || submitting}
+                    disabled={deskLocked || regionBlocked || submitting}
                     className="rounded-xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-4 py-2 text-sm font-semibold text-[#1c120a] disabled:opacity-60"
                   >
                     Mint
@@ -2325,7 +2359,7 @@ export default function XrplTradeDesk() {
                   <button
                     data-testid="xrpl-trade-desk-offer-submit"
                     type="submit"
-                    disabled={locked || regionBlocked || submitting}
+                    disabled={deskLocked || regionBlocked || submitting}
                     className="rounded-xl bg-gradient-to-r from-[#7fb0d9] via-[#5c8db4] to-[#4b7c79] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
                     Create Offer
@@ -2342,7 +2376,7 @@ export default function XrplTradeDesk() {
                     <button
                       data-testid="xrpl-trade-desk-offer-cancel"
                       type="button"
-                      disabled={locked || regionBlocked || submitting || !offerCancelSequence.trim()}
+                      disabled={deskLocked || regionBlocked || submitting || !offerCancelSequence.trim()}
                       onClick={() => {
                         const sequence = Number(offerCancelSequence)
                         if (!Number.isFinite(sequence) || sequence <= 0) return
@@ -2416,7 +2450,7 @@ export default function XrplTradeDesk() {
                   <button
                     data-testid="xrpl-trade-desk-nft-offer-submit"
                     type="submit"
-                    disabled={locked || regionBlocked || submitting}
+                    disabled={deskLocked || regionBlocked || submitting}
                     className="rounded-xl bg-gradient-to-r from-[#90b889] via-[#5ea47e] to-[#3b7d66] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
                     Create NFT Offer
@@ -2442,7 +2476,7 @@ export default function XrplTradeDesk() {
                   <button
                     data-testid="xrpl-trade-desk-nft-accept"
                     type="button"
-                    disabled={locked || regionBlocked || submitting || (!nftOfferAcceptForm.sellOffer.trim() && !nftOfferAcceptForm.buyOffer.trim())}
+                    disabled={deskLocked || regionBlocked || submitting || (!nftOfferAcceptForm.sellOffer.trim() && !nftOfferAcceptForm.buyOffer.trim())}
                     onClick={() =>
                       void submitAction('/api/xrpl/nft/offer/accept', {
                         sellOffer: nftOfferAcceptForm.sellOffer || undefined,
@@ -2465,7 +2499,7 @@ export default function XrplTradeDesk() {
                     <button
                       data-testid="xrpl-trade-desk-nft-cancel"
                       type="button"
-                      disabled={locked || regionBlocked || submitting || !nftOfferCancelIds.trim()}
+                      disabled={deskLocked || regionBlocked || submitting || !nftOfferCancelIds.trim()}
                       onClick={() => {
                         const offerIds = nftOfferCancelIds
                           .split(',')

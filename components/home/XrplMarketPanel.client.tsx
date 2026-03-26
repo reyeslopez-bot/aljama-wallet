@@ -1,7 +1,7 @@
 // components/home/XrplMarketPanel.client.tsx
 'use client'
 
-import { useCallback, useEffect, useId, useMemo, useState, type KeyboardEvent, type WheelEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type WheelEvent } from 'react'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useLocale, useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
@@ -84,6 +84,7 @@ const PLOT_INSET_X = 3
 const PLOT_INSET_Y = 4
 const PLOT_RANGE_PADDING_RATIO = 0.08
 const MIN_PLOT_RANGE_PADDING = 0.015
+const XRPL_MARKET_PANEL_ID_PREFIX = 'xrpl-market-panel'
 
 function paletteForSymbol(symbol: string): AssetPalette {
   return (
@@ -291,9 +292,8 @@ export default function XrplMarketPanel() {
   const t = useTranslations('market')
   const locale = useLocale()
   const { status: sessionStatus } = useSession()
-  const currentTimeMs = getHomeNowMs()
-  const locked = sessionStatus === 'unauthenticated'
-  const chartClipId = useId().replace(/:/g, '')
+  const locked = sessionStatus !== 'authenticated'
+  const chartClipId = `${XRPL_MARKET_PANEL_ID_PREFIX}-clip`
   const titleId = `${chartClipId}-title`
   const bodyId = `${chartClipId}-body`
   const viewFiltersId = `${chartClipId}-filters`
@@ -304,6 +304,7 @@ export default function XrplMarketPanel() {
   const tableLabelId = `${chartClipId}-table-label`
   const [chartSvgNode, setChartSvgNode] = useState<SVGSVGElement | null>(null)
   const [chartViewportWidth, setChartViewportWidth] = useState(CHART_WIDTH)
+  const [currentTimeMs, setCurrentTimeMs] = useState<number | null>(null)
   const [state, setState] = useState<{
     loading: boolean
     error: string | null
@@ -346,8 +347,22 @@ export default function XrplMarketPanel() {
   }, [])
 
   useEffect(() => {
+    setCurrentTimeMs(getHomeNowMs())
+  }, [])
+
+  useEffect(() => {
+    if (locked) {
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        error: null,
+        snapshot: null,
+      }))
+      return
+    }
+
     void loadSnapshot()
-  }, [loadSnapshot])
+  }, [loadSnapshot, locked])
 
   useEffect(() => {
     if (!chartSvgNode) return
@@ -597,7 +612,7 @@ export default function XrplMarketPanel() {
 
   const onChartWheel = useCallback(
     (event: WheelEvent<SVGSVGElement>) => {
-      if (pointCount < 4 || !event.deltaY) return
+      if (locked || pointCount < 4 || !event.deltaY) return
       event.preventDefault()
 
       const rect = event.currentTarget.getBoundingClientRect()
@@ -606,7 +621,7 @@ export default function XrplMarketPanel() {
       const next = indexFromClientX(event.clientX, rect)
       zoomChart(event.deltaY < 0 ? 'in' : 'out', next)
     },
-    [indexFromClientX, pointCount, zoomChart],
+    [indexFromClientX, locked, pointCount, zoomChart],
   )
 
   const hoverPoints = useMemo(() => {
@@ -765,14 +780,18 @@ export default function XrplMarketPanel() {
             </button>
           ))}
           <span data-testid="xrpl-market-updated" className="ml-auto text-[11px] text-ivory/40">
-              {state.snapshot?.updatedAt
+            {state.snapshot?.updatedAt && currentTimeMs !== null
               ? `${t('updated')} ${formatUpdatedTimeAgo(state.snapshot.updatedAt, locale, currentTimeMs)}`
               : ''}
           </span>
         </div>
 
         <div data-testid="xrpl-market-chart-shell" className="surface-inner p-4">
-          {state.loading ? (
+          {locked ? (
+            <p data-testid="xrpl-market-locked" role="status" aria-live="polite" className="text-sm text-ivory/60">
+              Sign in to unlock XRPL market tools.
+            </p>
+          ) : state.loading ? (
             <p data-testid="xrpl-market-loading" role="status" aria-live="polite" className="text-sm text-ivory/60">
               {t('loading')}
             </p>
@@ -806,7 +825,7 @@ export default function XrplMarketPanel() {
                       data-testid="xrpl-market-zoom-in"
                       type="button"
                       onClick={() => zoomChart('in', hoverIndex)}
-                      disabled={!canZoomIn}
+                      disabled={locked || !canZoomIn}
                       className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {t('zoomIn')}
@@ -815,7 +834,7 @@ export default function XrplMarketPanel() {
                       data-testid="xrpl-market-zoom-out"
                       type="button"
                       onClick={() => zoomChart('out', hoverIndex)}
-                      disabled={!canZoomOut}
+                      disabled={locked || !canZoomOut}
                       className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {t('zoomOut')}
@@ -824,7 +843,7 @@ export default function XrplMarketPanel() {
                       data-testid="xrpl-market-reset-zoom"
                       type="button"
                       onClick={resetChartZoom}
-                      disabled={!chartWindow.isZoomed}
+                      disabled={locked || !chartWindow.isZoomed}
                       className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {t('resetZoom')}
@@ -838,31 +857,31 @@ export default function XrplMarketPanel() {
                     data-testid="xrpl-market-chart"
                     viewBox={`0 0 ${chartViewportWidth} ${CHART_HEIGHT}`}
                     className="block h-44 w-full md:h-52"
-                    tabIndex={0}
+                    tabIndex={locked ? -1 : 0}
                     role="group"
                     aria-roledescription="interactive chart"
                     aria-labelledby={chartLabelId}
                     aria-describedby={`${chartInstructionsId} ${chartLiveStatusId}`}
                     onMouseMove={(event) => {
-                      if (pointCount < 2) return
+                      if (locked || pointCount < 2) return
                       const rect = event.currentTarget.getBoundingClientRect()
                       const next = indexFromClientX(event.clientX, rect)
                       if (next === null) return
                       setHoverIndex(next)
                     }}
                     onClick={(event) => {
-                      if (pointCount < 2) return
+                      if (locked || pointCount < 2) return
                       const rect = event.currentTarget.getBoundingClientRect()
                       const next = indexFromClientX(event.clientX, rect)
                       if (next === null) return
                       setHoverIndex(next)
                     }}
                     onFocus={() => {
-                      if (pointCount < 2) return
+                      if (locked || pointCount < 2) return
                       setHoverIndex((prev) => prev ?? chartWindow.start)
                     }}
                     onKeyDown={(event) => {
-                      if (pointCount < 2) return
+                      if (locked || pointCount < 2) return
                       if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
                         event.preventDefault()
                         moveHoverIndex(1)

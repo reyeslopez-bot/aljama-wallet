@@ -43,7 +43,7 @@ export function XrplPanel() {
   useComponentTelemetry('XrplPanel')
   const t = useTranslations('xrpl')
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus === 'unauthenticated'
+  const locked = sessionStatus !== 'authenticated'
   const [copiedEndpoint, setCopiedEndpoint] = useState<'rpc' | 'wss' | 'explorer' | null>(null)
   const [debugMenuOpen, setDebugMenuOpen] = useState(false)
   const [developerModeEnabled, setDeveloperModeEnabled] = useState(false)
@@ -108,6 +108,11 @@ export function XrplPanel() {
   }, [selectableNetworks, selectedNetworkId, setSelectedNetworkId])
 
   const loadAccount = useCallback(async () => {
+    if (locked) {
+      setState({ loading: false, error: null, account: null })
+      return
+    }
+
     const requestId = ++requestIdRef.current
     setState((prev) => ({ ...prev, loading: true, error: null }))
 
@@ -131,11 +136,17 @@ export function XrplPanel() {
         account: null,
       })
     }
-  }, [selectedNetwork.id])
+  }, [locked, selectedNetwork.id])
 
   useEffect(() => {
+    if (locked) {
+      requestIdRef.current += 1
+      setState({ loading: false, error: null, account: null })
+      return
+    }
+
     void loadAccount()
-  }, [loadAccount])
+  }, [loadAccount, locked])
 
   useEffect(() => {
     if (!copiedEndpoint) return
@@ -236,16 +247,17 @@ export function XrplPanel() {
 
           {devnetFlagEnabled ? (
             <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
-              <button
-                data-testid="xrpl-panel-debug-menu-button"
-                type="button"
-                onClick={() => setDebugMenuOpen((prev) => !prev)}
-                aria-expanded={debugMenuOpen}
-                aria-controls={debugMenuId}
-                className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ivory/80 transition hover:bg-white/10"
-              >
-                {t('debugMenuButton')}
-              </button>
+                    <button
+                      data-testid="xrpl-panel-debug-menu-button"
+                      type="button"
+                      disabled={locked}
+                      onClick={() => setDebugMenuOpen((prev) => !prev)}
+                      aria-expanded={debugMenuOpen}
+                      aria-controls={debugMenuId}
+                      className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ivory/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {t('debugMenuButton')}
+                    </button>
 
               {debugMenuOpen ? (
                 <div id={debugMenuId} data-testid="xrpl-panel-debug-menu" className="mt-3 space-y-3">
@@ -265,8 +277,9 @@ export function XrplPanel() {
                       aria-checked={developerModeEnabled}
                       aria-labelledby="xrpl-developer-mode-label"
                       aria-describedby="xrpl-developer-mode-hint"
+                      disabled={locked}
                       onClick={() => setDeveloperModeEnabled((prev) => !prev)}
-                      className="relative h-7 w-12 rounded-full border border-white/20 bg-white/10 transition"
+                      className="relative h-7 w-12 rounded-full border border-white/20 bg-white/10 transition disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <span
                         aria-hidden="true"
@@ -297,8 +310,8 @@ export function XrplPanel() {
                         if (!developerModeEnabled) return
                         setAdvancedDevnetEnabled((prev) => !prev)
                       }}
-                      disabled={!developerModeEnabled}
-                      className="relative h-7 w-12 rounded-full border border-white/20 bg-white/10 transition disabled:cursor-not-allowed"
+                      disabled={locked || !developerModeEnabled}
+                      className="relative h-7 w-12 rounded-full border border-white/20 bg-white/10 transition disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <span
                         aria-hidden="true"
@@ -330,6 +343,7 @@ export function XrplPanel() {
                   type="button"
                   onClick={() => setSelectedNetworkId(network.id)}
                   onKeyDown={(event) => handleNetworkOptionKeyDown(event, index)}
+                  disabled={locked}
                   role="radio"
                   aria-checked={active}
                   tabIndex={active ? 0 : -1}
@@ -366,10 +380,11 @@ export function XrplPanel() {
                   <button
                     data-testid="xrpl-panel-copy-rpc"
                     type="button"
+                    disabled={locked}
                     onClick={() => void copyEndpoint('rpc', selectedNetwork.rpcUrl)}
                     aria-label={`Copy RPC endpoint`}
                     aria-describedby={copyStatusId}
-                    className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10"
+                    className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {copiedEndpoint === 'rpc' ? t('copied') : t('copy')}
                   </button>
@@ -385,10 +400,11 @@ export function XrplPanel() {
                   <button
                     data-testid="xrpl-panel-copy-wss"
                     type="button"
+                    disabled={locked}
                     onClick={() => void copyEndpoint('wss', selectedNetwork.wsUrl)}
                     aria-label={`Copy WSS endpoint`}
                     aria-describedby={copyStatusId}
-                    className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10"
+                    className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {copiedEndpoint === 'wss' ? t('copied') : t('copy')}
                   </button>
@@ -403,24 +419,28 @@ export function XrplPanel() {
                   <span className="text-[10px] uppercase tracking-[0.14em] text-ivory/55">Explorer</span>
                   <div className="flex items-center gap-1.5">
                     {hasDedicatedExplorer ? (
-                      <a
+                      <button
                         data-testid="xrpl-panel-open-explorer"
-                        href={selectedNetwork.explorerUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        type="button"
+                        disabled={locked}
+                        onClick={() => {
+                          if (typeof window === 'undefined') return
+                          window.open(selectedNetwork.explorerUrl, '_blank', 'noopener,noreferrer')
+                        }}
                         aria-label={t('openExplorer')}
-                        className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10"
+                        className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {t('openExplorer')}
-                      </a>
+                      </button>
                     ) : null}
                     <button
                       data-testid="xrpl-panel-copy-explorer"
                       type="button"
+                      disabled={locked}
                       onClick={() => void copyEndpoint('explorer', selectedNetwork.explorerUrl)}
                       aria-label={`Copy explorer endpoint`}
                       aria-describedby={copyStatusId}
-                      className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10"
+                      className="rounded-full border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/75 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {copiedEndpoint === 'explorer' ? t('copied') : t('copy')}
                     </button>
@@ -465,7 +485,9 @@ export function XrplPanel() {
           className="surface-inner p-4"
           aria-live="polite"
         >
-          {state.loading ? (
+          {locked ? (
+            <p className="text-sm text-ivory/60">Sign in to unlock XRPL endpoints and account state.</p>
+          ) : state.loading ? (
             <p className="text-sm text-ivory/60">{t('loading')}</p>
           ) : state.error ? (
             <p role="alert" className="text-sm text-red-300">{state.error}</p>
