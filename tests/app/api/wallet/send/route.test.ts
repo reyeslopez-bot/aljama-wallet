@@ -15,6 +15,7 @@ const {
   mockRateLimit,
   mockGetClientIp,
   mockReserveIdempotencyKey,
+  mockReleaseIdempotencyKey,
   mockUserOwnsWallet,
   mockAssessTransferRisk,
   mockRecordTransferAttempt,
@@ -46,6 +47,7 @@ const {
   mockRateLimit: vi.fn(),
   mockGetClientIp: vi.fn(),
   mockReserveIdempotencyKey: vi.fn(),
+  mockReleaseIdempotencyKey: vi.fn(),
   mockUserOwnsWallet: vi.fn(),
   mockAssessTransferRisk: vi.fn(),
   mockRecordTransferAttempt: vi.fn(),
@@ -105,6 +107,7 @@ vi.mock('@/lib/security/rate-limit', () => ({
 
 vi.mock('@/services/idempotency.service', () => ({
   reserveIdempotencyKey: mockReserveIdempotencyKey,
+  releaseIdempotencyKey: mockReleaseIdempotencyKey,
 }))
 
 vi.mock('@/services/wallet-ownership.service', () => ({
@@ -239,6 +242,7 @@ describe('app/api/wallet/send route', () => {
       correlationId: intent.correlationId,
     }))
     mockReserveIdempotencyKey.mockResolvedValue(undefined)
+    mockReleaseIdempotencyKey.mockResolvedValue(undefined)
     mockRecordTransferAttempt.mockResolvedValue({ id: 'log-1' })
     mockUpdateTransferStatus.mockResolvedValue(undefined)
     mockGetWalletDailyLimitWei.mockResolvedValue(1000000000000000000n)
@@ -362,6 +366,44 @@ describe('app/api/wallet/send route', () => {
 
     expect(res.status).toBe(409)
     expect(body.code).toBe('idempotency_replay')
+    expect(mockReleaseIdempotencyKey).not.toHaveBeenCalled()
+  })
+
+  it('releases the reserved idempotency key when tx preparation fails before an intent is created', async () => {
+    mockBuildUnsignedEvmTx.mockRejectedValue(new Error('rpc timeout'))
+    const { POST } = await import('@/app/api/wallet/send/route')
+
+    const res = await POST(buildRequest())
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.code).toBe('send_failed')
+    expect(mockReleaseNonceReservation).toHaveBeenCalledWith('nonce-1')
+    expect(mockReleaseIdempotencyKey).toHaveBeenCalledWith({
+      scope: 'wallet.send:wallet-1',
+      key: '11111111-1111-4111-8111-111111111111',
+    })
+  })
+
+  it('releases the reserved idempotency key when risk review blocks the transfer before intent creation', async () => {
+    mockAssessTransferRisk.mockResolvedValue({
+      score: 61,
+      decision: 'review',
+      reasons: ['velocity'],
+      features: {},
+    })
+    const { POST } = await import('@/app/api/wallet/send/route')
+
+    const res = await POST(buildRequest())
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.code).toBe('risk_review')
+    expect(mockReleaseNonceReservation).toHaveBeenCalledWith('nonce-1')
+    expect(mockReleaseIdempotencyKey).toHaveBeenCalledWith({
+      scope: 'wallet.send:wallet-1',
+      key: '11111111-1111-4111-8111-111111111111',
+    })
   })
 
   it('queues a signing intent instead of signing in-request', async () => {
@@ -421,6 +463,7 @@ describe('app/api/wallet/send route', () => {
         transferLogId: 'log-1',
       }),
     )
+    expect(mockReleaseIdempotencyKey).not.toHaveBeenCalled()
     expect(mockUpdateTransferStatus).toHaveBeenCalledWith('log-1', 'pending_broadcast', {
       nonce: '7',
       txType: 'transfer',

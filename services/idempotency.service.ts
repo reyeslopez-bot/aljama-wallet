@@ -82,3 +82,24 @@ export async function reserveIdempotencyKey(params: {
     memoryKeys.clear()
   }
 }
+
+export async function releaseIdempotencyKey(params: {
+  scope: string
+  key: string
+}) {
+  if (canUsePg()) {
+    await prismaPg.idempotencyKey.deleteMany({
+      where: {
+        scope: params.scope,
+        key: params.key,
+      },
+    })
+    return
+  }
+
+  memoryKeys.delete(`${params.scope}:${params.key}`)
+}
+
+export function resetIdempotencyState() {
+  memoryKeys.clear()
+}

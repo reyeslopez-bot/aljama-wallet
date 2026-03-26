@@ -23,6 +23,7 @@ const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ??
   process.env.NEXT_PUBLIC_SITE_URL ??
   "http://localhost:2998"
+const APP_URL_WITHOUT_TRAILING_SLASH = APP_URL.replace(/\/+$/, "")
 
 const WC_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
 type WagmiConnectorsModule = typeof import("wagmi/connectors")
@@ -53,8 +54,8 @@ function buildConnectors(module: WagmiConnectorsModule): CreateConfigParameters[
       metadata: {
         name: BRAND.name,
         description: BRAND.description,
-        url: APP_URL,
-        icons: [`${APP_URL}/favicon.png`],
+        url: APP_URL_WITHOUT_TRAILING_SLASH,
+        icons: [`${APP_URL_WITHOUT_TRAILING_SLASH}/favicon.svg`],
       },
       showQrModal: true,
       qrModalOptions: {

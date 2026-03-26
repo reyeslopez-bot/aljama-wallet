@@ -375,14 +375,12 @@ export default function WalletWorkspace({ allowedChainIds }: WalletWorkspaceProp
                       ))}
                     </select>
                   ) : (
-                    <input
-                      data-testid="wallet-workspace-send-chain-input"
-                      value={chainInput}
-                      onChange={(event) => setChainInput(event.target.value)}
-                      inputMode="numeric"
-                      placeholder="1, 8453, 137..."
-                      className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-ivory placeholder:text-ivory/35"
-                    />
+                    <div
+                      data-testid="wallet-workspace-send-chain-unavailable"
+                      className="rounded-2xl border border-dashed border-white/10 bg-black/20 px-4 py-3 text-sm text-ivory/55"
+                    >
+                      Wallet sending is unavailable until the backend resolves its active EVM chain.
+                    </div>
                   )}
                 </label>
               </div>
@@ -390,7 +388,7 @@ export default function WalletWorkspace({ allowedChainIds }: WalletWorkspaceProp
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-xs text-ivory/60">
                 {selectedChain
                   ? `Submitting on ${selectedChain.label} (${selectedChain.id}) in ${selectedChain.symbol}.`
-                  : 'Provide a valid EVM chain ID that the backend RPC accepts.'}
+                  : 'The backend has not exposed an active EVM send chain to this session yet.'}
                 {amountWei ? ` Parsed amount: ${amountWei} wei.` : ''}
               </div>
 

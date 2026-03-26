@@ -132,7 +132,7 @@ export function useWalletInvalidationSocket(walletId: string | null, enabled = t
           query: 'transactions',
         })
         void queryClient.invalidateQueries({
-          queryKey: walletQueryKeys.transactions(walletId, null, 25),
+          queryKey: walletQueryKeys.transactionsRoot(walletId),
         })
         return
       }

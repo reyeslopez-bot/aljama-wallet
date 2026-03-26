@@ -18,7 +18,7 @@ import {
 import { requireSession, isAdminEmail } from '@/lib/security/session'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
-import { reserveIdempotencyKey } from '@/services/idempotency.service'
+import { releaseIdempotencyKey, reserveIdempotencyKey } from '@/services/idempotency.service'
 import { userOwnsWallet } from '@/services/wallet-ownership.service'
 import { isStrictMode } from '@/lib/security/runtime'
 import { assessTransferRisk } from '@/services/transfer-risk.service'
@@ -35,6 +35,7 @@ import {
   buildEvmTransactionSigningIntentPayload,
   createWalletSigningIntent,
 } from '@/services/signing-intent.service'
+import { parseWalletAllowedChainIds, requireEvmRpcUrl } from '@/lib/wallet-send-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,28 +56,6 @@ function stringifyTxValue(value: string | bigint | number | null | undefined): s
   return value.toString()
 }
 
-function requireRpcUrl() {
-  const rpcUrl = process.env.EVM_RPC_URL
-  if (!rpcUrl) throw new Error('Missing EVM_RPC_URL')
-  if (rpcUrl && process.env.NODE_ENV === 'production' && !rpcUrl.startsWith('https://')) {
-    throw new Error('EVM_RPC_URL must use https in production')
-  }
-  return rpcUrl
-}
-
-function parseAllowedChains(): Set<number> {
-  const raw = process.env.WALLET_ALLOWED_CHAIN_IDS
-  if (!raw) {
-    if (isStrictMode) throw new Error('Missing WALLET_ALLOWED_CHAIN_IDS')
-    return new Set()
-  }
-  const entries = raw
-    .split(',')
-    .map((value) => Number(value.trim()))
-    .filter((value) => Number.isInteger(value) && value > 0)
-  return new Set(entries)
-}
-
 type SendWalletRouteContext = Pick<ApiRouteContext, 'requestId' | 'traceId' | 'correlationId'> & {
   routePath?: string
 }
@@ -85,9 +64,22 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string,
   let transferLogId: string | null = null
   let nonceReservationId: string | null = null
   let keepNonceReservation = false
+  let idempotencyScope: string | null = null
+  let idempotencyKey: string | null = null
+  let idempotencyReserved = false
+  let signingIntentCreated = false
   const routePath = routeContext?.routePath ?? '/api/wallet/send'
   const traceId = routeContext?.traceId ?? routeContext?.correlationId ?? createTraceId()
   const signalContext = extractRequestSignalContext(req)
+  const releaseReservedIdempotencyKey = async () => {
+    if (!idempotencyReserved || !idempotencyScope || !idempotencyKey) return
+
+    await releaseIdempotencyKey({
+      scope: idempotencyScope,
+      key: idempotencyKey,
+    }).catch(() => {})
+    idempotencyReserved = false
+  }
   const trackSignal = async (input: {
     outcome: 'success' | 'failure' | 'blocked'
     statusCode: number
@@ -211,10 +203,14 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string,
       }
     }
 
-    const rpcUrl = requireRpcUrl()
+    const rpcUrl = requireEvmRpcUrl()
     const provider = new JsonRpcProvider(rpcUrl)
 
-    const allowedChains = parseAllowedChains()
+    const configuredAllowedChains = parseWalletAllowedChainIds()
+    if (configuredAllowedChains.length === 0 && isStrictMode && !process.env.WALLET_ALLOWED_CHAIN_IDS?.trim()) {
+      throw new Error('Missing WALLET_ALLOWED_CHAIN_IDS')
+    }
+    const allowedChains = new Set(configuredAllowedChains)
     if (allowedChains.size > 0 && !allowedChains.has(input.chainId)) {
       await trackSignal({
         outcome: 'blocked',
@@ -249,7 +245,8 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string,
     if (!wallet) {
       throw new Error('WALLET_NOT_FOUND')
     }
-    const idempotencyKey = input.idempotencyKey
+    idempotencyKey = input.idempotencyKey
+    idempotencyScope = `wallet.send:${input.walletId}`
     logInfo('wallet-send', 'Wallet send requested', {
       route: routePath,
       requestId: routeContext?.requestId ?? null,
@@ -326,10 +323,11 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string,
     }
 
     await reserveIdempotencyKey({
-      scope: `wallet.send:${input.walletId}`,
-      key: input.idempotencyKey,
+      scope: idempotencyScope,
+      key: idempotencyKey,
       ttlMs: 10 * 60 * 1000,
     })
+    idempotencyReserved = true
 
     const nonceReservation = await reserveWalletNonce({
       walletId: input.walletId,
@@ -416,6 +414,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string,
           await releaseNonceReservation(nonceReservationId).catch(() => {})
           nonceReservationId = null
         }
+        await releaseReservedIdempotencyKey()
 
         return errorJson(403, 'limit_exceeded', 'LIMIT_EXCEEDED')
       }
@@ -462,6 +461,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string,
         await releaseNonceReservation(nonceReservationId).catch(() => {})
         nonceReservationId = null
       }
+      await releaseReservedIdempotencyKey()
 
       return errorJson(
         403,
@@ -514,6 +514,7 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string,
         transaction: unsignedTx,
       }),
     })
+    signingIntentCreated = true
     keepNonceReservation = true
     logInfo('wallet-send', 'Queued wallet signing intent', {
       route: routePath,
@@ -563,6 +564,9 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string,
     const message = getErrorMessage(error, 'Failed to send transaction')
     const isReplay = message === 'IDEMPOTENCY_REPLAY' || message === 'SIGNING_INTENT_REPLAY'
     const isNonceConflict = message === 'NONCE_TOO_LOW' || message === 'NONCE_ALREADY_RESERVED'
+    if (!signingIntentCreated && !isReplay) {
+      await releaseReservedIdempotencyKey()
+    }
     const status = isReplay || isNonceConflict ? 409 : 400
     logError('wallet-send', error, {
       route: routePath,

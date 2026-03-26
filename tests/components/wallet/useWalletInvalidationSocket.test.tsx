@@ -160,4 +160,20 @@ describe('useWalletInvalidationSocket', () => {
       ),
     ).toBe(true)
   })
+
+  it('invalidates all matching transaction queries for the wallet', () => {
+    vi.stubEnv('NEXT_PUBLIC_WALLET_INVALIDATION_WS_URL', 'wss://example.test/ws')
+
+    render(<TestSocketClient walletId="wallet-1" />)
+    sockets[0]?.emitMessage(
+      JSON.stringify({
+        walletId: 'wallet-1',
+        query: 'transactions',
+      }),
+    )
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: walletQueryKeys.transactionsRoot('wallet-1'),
+    })
+  })
 })
