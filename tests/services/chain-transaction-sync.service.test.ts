@@ -20,6 +20,7 @@ const {
   mockMarkWalletSigningIntentFailedByTxHash,
   mockReopenWalletSigningIntentByTxHash,
   mockResolveWalletIdsByAddresses,
+  mockGetEvmProviderForChain,
 } = vi.hoisted(() => ({
   mockProviderGetBlockNumber: vi.fn(),
   mockProviderGetBlock: vi.fn(),
@@ -40,18 +41,17 @@ const {
   mockMarkWalletSigningIntentFailedByTxHash: vi.fn(),
   mockReopenWalletSigningIntentByTxHash: vi.fn(),
   mockResolveWalletIdsByAddresses: vi.fn(),
+  mockGetEvmProviderForChain: vi.fn(),
 }))
 
 vi.mock('ethers', () => ({
-  JsonRpcProvider: class MockJsonRpcProvider {
-    getBlockNumber = mockProviderGetBlockNumber
-    getBlock = mockProviderGetBlock
-    getTransaction = mockProviderGetTransaction
-    getTransactionReceipt = mockProviderGetTransactionReceipt
-  },
   getAddress: (value: string) => value,
   keccak256: () => 'transfer-topic',
   toUtf8Bytes: () => new Uint8Array([1, 2, 3]),
+}))
+
+vi.mock('@/lib/evm-rpc', () => ({
+  getEvmProviderForChain: mockGetEvmProviderForChain,
 }))
 
 vi.mock('@/lib/prisma-crdb', () => ({
@@ -107,8 +107,13 @@ describe('chain-transaction-sync.service', () => {
     vi.clearAllMocks()
     vi.unstubAllEnvs()
 
-    vi.stubEnv('EVM_RPC_URL', 'https://rpc.example.test')
     mockProviderGetBlockNumber.mockResolvedValue(100)
+    mockGetEvmProviderForChain.mockResolvedValue({
+      getBlockNumber: mockProviderGetBlockNumber,
+      getBlock: mockProviderGetBlock,
+      getTransaction: mockProviderGetTransaction,
+      getTransactionReceipt: mockProviderGetTransactionReceipt,
+    })
 
     mockPrismaTransaction.mockImplementation(async (operations: unknown) => {
       if (typeof operations === 'function') {
@@ -295,5 +300,35 @@ describe('chain-transaction-sync.service', () => {
       succeededCount: 1,
       failedCount: 0,
     })
+  })
+
+  it('groups sync work by network id and resolves providers per chain', async () => {
+    mockChainTransactionFindMany.mockResolvedValue([
+      {
+        chainType: 'EVM',
+        networkId: '1',
+        txHash: '0xtx-1',
+        status: 'submitted',
+        blockHash: null,
+        blockHeight: null,
+        createdAt: new Date('2026-03-09T11:00:00.000Z'),
+      },
+      {
+        chainType: 'EVM',
+        networkId: '8453',
+        txHash: '0xtx-8453',
+        status: 'submitted',
+        blockHash: null,
+        blockHeight: null,
+        createdAt: new Date('2026-03-09T11:00:00.000Z'),
+      },
+    ])
+    mockProviderGetTransactionReceipt.mockResolvedValue(null)
+
+    const { syncRecentEvmChainTransactions } = await import('@/services/chain-transaction-sync.service')
+    await syncRecentEvmChainTransactions({ limit: 10 })
+
+    expect(mockGetEvmProviderForChain).toHaveBeenCalledWith(1)
+    expect(mockGetEvmProviderForChain).toHaveBeenCalledWith(8453)
   })
 })

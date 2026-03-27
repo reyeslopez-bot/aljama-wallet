@@ -11,10 +11,10 @@ const {
   mockMarkNonceReservationSubmitted,
   mockMarkNonceReservationFailed,
   mockReleaseNonceReservation,
+  mockGetEvmProviderForChain,
   mockLogError,
   mockLogInfo,
   mockLogWarn,
-  mockProviderCtor,
 } = vi.hoisted(() => ({
   mockSignUnsignedEvmTx: vi.fn(),
   mockDeriveSignedEvmTxHash: vi.fn(),
@@ -26,10 +26,10 @@ const {
   mockMarkNonceReservationSubmitted: vi.fn(),
   mockMarkNonceReservationFailed: vi.fn(),
   mockReleaseNonceReservation: vi.fn(),
+  mockGetEvmProviderForChain: vi.fn(),
   mockLogError: vi.fn(),
   mockLogInfo: vi.fn(),
   mockLogWarn: vi.fn(),
-  mockProviderCtor: vi.fn(),
 }))
 
 vi.mock('@/services/evm-tx.service', () => ({
@@ -63,12 +63,12 @@ vi.mock('@/lib/security/logging', () => ({
   logWarn: mockLogWarn,
 }))
 
+vi.mock('@/lib/evm-rpc', () => ({
+  getEvmProviderForChain: mockGetEvmProviderForChain,
+}))
+
 vi.mock('ethers', () => ({
-  JsonRpcProvider: class MockJsonRpcProvider {
-    constructor(url: string) {
-      mockProviderCtor(url)
-    }
-  },
+  JsonRpcProvider: class MockJsonRpcProvider {},
 }))
 
 describe('signing-intent.worker', () => {
@@ -88,6 +88,7 @@ describe('signing-intent.worker', () => {
       record: { id: 'chain-1' },
       replacedTxHashes: [],
     })
+    mockGetEvmProviderForChain.mockImplementation(async (chainId: number) => ({ chainId }))
     mockMarkReplacedTransferAttempts.mockResolvedValue(undefined)
     mockMarkNonceReservationSubmitted.mockResolvedValue(undefined)
     mockMarkNonceReservationFailed.mockResolvedValue(undefined)
@@ -153,6 +154,7 @@ describe('signing-intent.worker', () => {
         nonce: 7,
       }),
     )
+    expect(mockGetEvmProviderForChain).toHaveBeenCalledWith(8453)
     expect(mockUpdateTransferStatus).toHaveBeenCalledWith('log-1', 'submitted', {
       txHash: '0xtxhash',
       nonce: '7',

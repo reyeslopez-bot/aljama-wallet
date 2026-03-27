@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url'
-import { JsonRpcProvider, type TransactionRequest } from 'ethers'
+import type { JsonRpcProvider, TransactionRequest } from 'ethers'
+import { getEvmProviderForChain } from '@/lib/evm-rpc'
 import { markReplacedTransferAttempts } from '@/services/chain-transaction-sync.service'
 import {
   deriveSignedEvmTxHash,
@@ -61,15 +62,6 @@ function readWorkerConfig(): WalletSigningIntentWorkerConfig {
       'SIGNING_INTENT_WORKER_BATCH_SIZE',
     ),
   }
-}
-
-function requireRpcUrl() {
-  const rpcUrl = process.env.EVM_RPC_URL
-  if (!rpcUrl) throw new Error('Missing EVM_RPC_URL')
-  if (process.env.NODE_ENV === 'production' && !rpcUrl.startsWith('https://')) {
-    throw new Error('EVM_RPC_URL must use https in production')
-  }
-  return rpcUrl
 }
 
 function stringifyTxValue(value: string | number | null | undefined): string | null {
@@ -214,7 +206,6 @@ export async function processWalletSigningIntentQueuePass(
     ...readWorkerConfig(),
     ...(input ?? {}),
   }
-  const provider = new JsonRpcProvider(requireRpcUrl())
 
   let processedCount = 0
   let succeededCount = 0
@@ -230,6 +221,7 @@ export async function processWalletSigningIntentQueuePass(
 
     try {
       payload = intent.payload
+      const provider = await getEvmProviderForChain(payload.chainId)
       const result = await processClaimedSigningIntent(payload, intent.id, intent.traceId, provider)
       txHash = result.txHash
       succeededCount += 1

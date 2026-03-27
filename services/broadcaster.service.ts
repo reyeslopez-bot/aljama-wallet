@@ -1,18 +1,11 @@
-import { JsonRpcProvider } from 'ethers';
+import { getEvmProviderForChain } from '@/lib/evm-rpc';
 import { walletTxSignedV1Schema, walletTopicsV1 } from '@/infra/agentic/kafka';
 import { logError, logInfo, logWarn } from '@/lib/security/logging';
 import { createConsumer, createProducer } from '@/infra/kafka';
 
 const broadcasterGroupId = process.env.KAFKA_BROADCASTER_GROUP_ID ?? 'wallet-broadcaster';
 
-function requireRpcUrl() {
-  const rpcUrl = process.env.EVM_RPC_URL;
-  if (!rpcUrl) throw new Error('Missing EVM_RPC_URL');
-  return rpcUrl;
-}
-
 export async function startBroadcaster() {
-  const provider = new JsonRpcProvider(requireRpcUrl());
   const consumer = createConsumer(broadcasterGroupId);
   const producer = createProducer();
 
@@ -65,6 +58,7 @@ export async function startBroadcaster() {
           walletId: signedEvent.walletId,
         });
 
+        const provider = await getEvmProviderForChain(signedEvent.chainId);
         const txHash = await provider.send('eth_sendRawTransaction', [signedEvent.signedTx]);
         const broadcastEvent = {
           topic: walletTopicsV1.broadcast,

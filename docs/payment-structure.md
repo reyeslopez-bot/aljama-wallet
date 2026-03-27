@@ -54,7 +54,8 @@ Send native-chain funds from a custody wallet using server-side controls.
 4. API broadcasts tx with RPC provider and records transfer metadata.
 
 ### Key config
-- `EVM_RPC_URL`
+- `EVM_RPC_URL` for single-chain setups
+- `EVM_RPC_URLS` for multi-chain setups using `chainId:https://rpc-url` pairs
 - `WALLET_ALLOWED_CHAIN_IDS`
 - `WALLET_DAILY_LIMIT_WEI`
 - Risk config keys from `README.md` table (`RISK_*`).

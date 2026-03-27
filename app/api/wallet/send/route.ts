@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { getAddress, JsonRpcProvider } from 'ethers'
+import { getAddress } from 'ethers'
 import { approveTransfer } from '@/infra/agentic/wallet-policy'
 import { buildUnsignedEvmTx } from '@/services/evm-tx.service'
 import {
@@ -35,7 +35,12 @@ import {
   buildEvmTransactionSigningIntentPayload,
   createWalletSigningIntent,
 } from '@/services/signing-intent.service'
-import { parseWalletAllowedChainIds, requireEvmRpcUrl } from '@/lib/wallet-send-config'
+import { parseWalletAllowedChainIds } from '@/lib/wallet-send-config'
+import {
+  getEvmProviderForChain,
+  isEvmRpcChainMismatchError,
+  isEvmRpcChainUnavailableError,
+} from '@/lib/evm-rpc'
 
 export const dynamic = 'force-dynamic'
 
@@ -203,9 +208,6 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string,
       }
     }
 
-    const rpcUrl = requireEvmRpcUrl()
-    const provider = new JsonRpcProvider(rpcUrl)
-
     const configuredAllowedChains = parseWalletAllowedChainIds()
     if (configuredAllowedChains.length === 0 && isStrictMode && !process.env.WALLET_ALLOWED_CHAIN_IDS?.trim()) {
       throw new Error('Missing WALLET_ALLOWED_CHAIN_IDS')
@@ -220,25 +222,40 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string,
       })
       return errorJson(400, 'chain_denied', 'CHAIN_DENIED')
     }
+    let provider
+    try {
+      provider = await getEvmProviderForChain(input.chainId)
+    } catch (error) {
+      if (isEvmRpcChainUnavailableError(error)) {
+        await trackSignal({
+          outcome: 'blocked',
+          statusCode: 400,
+          userId: session.user.id,
+          details: { reason: 'chain_denied', chainId: input.chainId },
+        })
+        return errorJson(400, 'chain_denied', 'CHAIN_DENIED')
+      }
 
-    const network = await provider.getNetwork()
-    if (Number(network.chainId) !== input.chainId) {
-      await trackSignal({
-        outcome: 'blocked',
-        statusCode: 400,
-        userId: session.user.id,
-        details: {
-          reason: 'chain_mismatch',
-          expectedChainId: input.chainId,
-          rpcChainId: Number(network.chainId),
-        },
-      })
-      return errorJson(
-        400,
-        'chain_mismatch',
-        'CHAIN_MISMATCH',
-        `RPC chain ${network.chainId.toString()} does not match requested ${input.chainId}`,
-      )
+      if (isEvmRpcChainMismatchError(error)) {
+        await trackSignal({
+          outcome: 'blocked',
+          statusCode: 400,
+          userId: session.user.id,
+          details: {
+            reason: 'chain_mismatch',
+            expectedChainId: input.chainId,
+            rpcChainId: error.actualChainId,
+          },
+        })
+        return errorJson(
+          400,
+          'chain_mismatch',
+          'CHAIN_MISMATCH',
+          `RPC chain ${error.actualChainId.toString()} does not match requested ${input.chainId}`,
+        )
+      }
+
+      throw error
     }
 
     const wallet = await getWalletSigningAccount(input.walletId)

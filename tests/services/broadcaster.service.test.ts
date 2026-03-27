@@ -2,17 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { walletTopicsV1 } from '@/infra/agentic/kafka'
 
 const providerSend = vi.fn()
+const getEvmProviderForChain = vi.fn()
 const consumerConnect = vi.fn()
 const consumerSubscribe = vi.fn()
 const consumerRun = vi.fn()
 const producerConnect = vi.fn()
 const producerSend = vi.fn()
-
-vi.mock('ethers', () => ({
-  JsonRpcProvider: class MockJsonRpcProvider {
-    send = providerSend
-  },
-}))
 
 vi.mock('@/infra/kafka', () => ({
   createConsumer: vi.fn(() => ({
@@ -24,6 +19,10 @@ vi.mock('@/infra/kafka', () => ({
     connect: producerConnect,
     send: producerSend,
   })),
+}))
+
+vi.mock('@/lib/evm-rpc', () => ({
+  getEvmProviderForChain,
 }))
 
 const signedEvent = {
@@ -43,7 +42,7 @@ describe('broadcaster.service', () => {
     vi.clearAllMocks()
     vi.unstubAllEnvs()
 
-    vi.stubEnv('EVM_RPC_URL', 'https://rpc.example.test')
+    getEvmProviderForChain.mockResolvedValue({ send: providerSend })
     consumerConnect.mockResolvedValue(undefined)
     consumerSubscribe.mockResolvedValue(undefined)
     producerConnect.mockResolvedValue(undefined)
@@ -68,6 +67,7 @@ describe('broadcaster.service', () => {
     expect(consumerConnect).toHaveBeenCalledTimes(1)
     expect(producerConnect).toHaveBeenCalledTimes(1)
     expect(consumerSubscribe).toHaveBeenCalledWith({ topic: walletTopicsV1.signed })
+    expect(getEvmProviderForChain).toHaveBeenCalledWith(signedEvent.chainId)
     expect(providerSend).toHaveBeenCalledWith('eth_sendRawTransaction', [signedEvent.signedTx])
     expect(producerSend).toHaveBeenCalledWith({
       topic: walletTopicsV1.broadcast,

@@ -1,4 +1,4 @@
-import { JsonRpcProvider, getAddress, keccak256, toUtf8Bytes } from 'ethers'
+import { getAddress, keccak256, toUtf8Bytes, type JsonRpcProvider } from 'ethers'
 import {
   getEvmTransactionFinality,
   normalizeChainTransactionStatus,
@@ -22,6 +22,7 @@ import {
   replaceTransferAttemptsByTxHashes,
   updateTransferAttemptByTxHash,
 } from '@/services/transfer-log.service'
+import { getEvmProviderForChain } from '@/lib/evm-rpc'
 import { resolveWalletIdsByAddresses } from '@/services/wallet.service'
 
 const ERC20_OR_ERC721_TRANSFER_TOPIC = keccak256(toUtf8Bytes('Transfer(address,address,uint256)'))
@@ -29,30 +30,6 @@ const DROP_AFTER_MS = 10 * 60 * 1000
 
 function hasCanonicalInclusionStatus(status: ChainTransactionStatus): boolean {
   return status === 'included' || status === 'confirmed_soft' || status === 'confirmed_final'
-}
-
-const globalForProviders = globalThis as unknown as {
-  evmSyncProvider?: JsonRpcProvider
-}
-
-function getRpcUrl(): string | null {
-  const rpcUrl = process.env.EVM_RPC_URL?.trim()
-  if (!rpcUrl) return null
-  if (process.env.NODE_ENV === 'production' && !rpcUrl.startsWith('https://')) {
-    return null
-  }
-  return rpcUrl
-}
-
-function getSyncProvider(): JsonRpcProvider | null {
-  const rpcUrl = getRpcUrl()
-  if (!rpcUrl) return null
-
-  if (!globalForProviders.evmSyncProvider) {
-    globalForProviders.evmSyncProvider = new JsonRpcProvider(rpcUrl)
-  }
-
-  return globalForProviders.evmSyncProvider
 }
 
 function topicAddress(topic?: string | null): string | null {
@@ -67,6 +44,12 @@ function topicAddress(topic?: string | null): string | null {
 function bigintToString(value: bigint | null | undefined): string | null {
   if (value === null || value === undefined) return null
   return value.toString()
+}
+
+function parseNetworkChainId(networkId: string): number | null {
+  const parsed = Number(networkId)
+  if (!Number.isInteger(parsed) || parsed <= 0) return null
+  return parsed
 }
 
 async function clearIndexedEventData(input: {
@@ -726,27 +709,6 @@ export async function syncRecentEvmChainTransactions(params?: {
   txHash?: string | null
   limit?: number
 }) {
-  const provider = getSyncProvider()
-  if (!provider) {
-    return {
-      processedCount: 0,
-      succeededCount: 0,
-      failedCount: 0,
-    }
-  }
-
-  const currentBlockNumber = await provider.getBlockNumber().catch((error) => {
-    logWarn('chain-tx-sync:block-number', error)
-    return null
-  })
-  if (currentBlockNumber === null) {
-    return {
-      processedCount: 0,
-      succeededCount: 0,
-      failedCount: 0,
-    }
-  }
-
   const rows = await prismaCrdb.chainTransaction.findMany({
     where: {
       chainType: 'EVM',
@@ -772,12 +734,59 @@ export async function syncRecentEvmChainTransactions(params?: {
     take: Math.min(Math.max(params?.limit ?? 20, 1), 50),
   })
 
-  const results = await Promise.allSettled(rows.map((row) => syncRow(provider, row, currentBlockNumber)))
+  const rowsByNetworkId = new Map<string, typeof rows>()
+  for (const row of rows) {
+    const group = rowsByNetworkId.get(row.networkId) ?? []
+    group.push(row)
+    rowsByNetworkId.set(row.networkId, group)
+  }
+
+  let processedCount = 0
+  let succeededCount = 0
+  let failedCount = 0
+
+  for (const [networkId, networkRows] of rowsByNetworkId) {
+    const chainId = parseNetworkChainId(networkId)
+    if (chainId === null) {
+      logWarn('chain-tx-sync:network-id', new Error('Skipping EVM sync rows with invalid network id'), {
+        networkId,
+        rowCount: networkRows.length,
+      })
+      continue
+    }
+
+    let provider: JsonRpcProvider
+    try {
+      provider = await getEvmProviderForChain(chainId)
+    } catch (error) {
+      logWarn('chain-tx-sync:provider', error, {
+        networkId,
+        chainId,
+        rowCount: networkRows.length,
+      })
+      continue
+    }
+
+    const currentBlockNumber = await provider.getBlockNumber().catch((error) => {
+      logWarn('chain-tx-sync:block-number', error, { networkId, chainId })
+      return null
+    })
+    if (currentBlockNumber === null) {
+      continue
+    }
+
+    const results = await Promise.allSettled(
+      networkRows.map((row) => syncRow(provider, row, currentBlockNumber)),
+    )
+    processedCount += networkRows.length
+    succeededCount += results.filter((result) => result.status === 'fulfilled').length
+    failedCount += results.filter((result) => result.status === 'rejected').length
+  }
 
   return {
-    processedCount: rows.length,
-    succeededCount: results.filter((result) => result.status === 'fulfilled').length,
-    failedCount: results.filter((result) => result.status === 'rejected').length,
+    processedCount,
+    succeededCount,
+    failedCount,
   }
 }
 

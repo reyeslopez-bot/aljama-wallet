@@ -1,6 +1,11 @@
-import { JsonRpcProvider, getAddress } from 'ethers'
+import { getAddress } from 'ethers'
 import { z } from 'zod'
 import { encodeCommitPqcBindingCalldata } from '@/lib/contracts/pqc-binding-registry'
+import {
+  getEvmProviderForChain,
+  isEvmRpcChainMismatchError,
+  isEvmRpcChainUnavailableError,
+} from '@/lib/evm-rpc'
 import { buildPqcBindingHashes } from '@/lib/pqc/commitment'
 import { errorJson, okJson } from '@/lib/security/api-response'
 import { withApiRoute } from '@/lib/security/api-route'
@@ -34,17 +39,6 @@ const anchorSchema = z.object({
   idempotencyKey: z.string().uuid(),
   uri: z.string().url().optional(),
 })
-
-function requireRpcUrl() {
-  const rpcUrl = process.env.EVM_RPC_URL
-  if (!rpcUrl) {
-    throw new Error('Missing EVM_RPC_URL')
-  }
-  if (process.env.NODE_ENV === 'production' && !rpcUrl.startsWith('https://')) {
-    throw new Error('EVM_RPC_URL must use https in production')
-  }
-  return rpcUrl
-}
 
 function parseRegistryAddresses(): Map<number, string> {
   const raw = process.env.WALLET_PQC_REGISTRY_ADDRESSES?.trim()
@@ -224,14 +218,22 @@ export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverri
       throw error
     }
 
-    const rpcUrl = requireRpcUrl()
-    const provider = new JsonRpcProvider(rpcUrl)
-    const network = await provider.getNetwork()
-    if (Number(network.chainId) !== input.chainId) {
-      return errorJson(400, 'chain_mismatch', 'CHAIN_MISMATCH', {
-        expectedChainId: input.chainId,
-        rpcChainId: Number(network.chainId),
-      })
+    let provider
+    try {
+      provider = await getEvmProviderForChain(input.chainId)
+    } catch (error) {
+      if (isEvmRpcChainUnavailableError(error)) {
+        return errorJson(400, 'chain_unavailable', 'CHAIN_UNAVAILABLE', {
+          expectedChainId: input.chainId,
+        })
+      }
+      if (isEvmRpcChainMismatchError(error)) {
+        return errorJson(400, 'chain_mismatch', 'CHAIN_MISMATCH', {
+          expectedChainId: input.chainId,
+          rpcChainId: error.actualChainId,
+        })
+      }
+      throw error
     }
 
     const data = encodeCommitPqcBindingCalldata({

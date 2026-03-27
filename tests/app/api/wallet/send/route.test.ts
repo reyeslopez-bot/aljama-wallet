@@ -176,11 +176,14 @@ function buildRequest(
 }
 
 describe('app/api/wallet/send route', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     vi.clearAllMocks()
     vi.stubEnv('EVM_RPC_URL', 'https://rpc.example')
     vi.stubEnv('WALLET_ALLOWED_CHAIN_IDS', '1,8453')
+
+    const { resetEvmRpcState } = await import('@/lib/evm-rpc')
+    resetEvmRpcState()
 
     mockRequireSession.mockResolvedValue({
       user: { id: 'user-1', email: 'user@example.com' },
@@ -355,6 +358,21 @@ describe('app/api/wallet/send route', () => {
 
     expect(res.status).toBe(400)
     expect(body.code).toBe('chain_mismatch')
+  })
+
+  it('resolves the provider from EVM_RPC_URLS for the requested chain', async () => {
+    vi.stubEnv('EVM_RPC_URL', '')
+    vi.stubEnv('EVM_RPC_URLS', '1:https://rpc-one.example,8453:https://rpc-base.example')
+    vi.stubEnv('WALLET_ALLOWED_CHAIN_IDS', '8453')
+    mockProviderGetNetwork.mockResolvedValue({ chainId: 8453n })
+    const { POST } = await import('@/app/api/wallet/send/route')
+
+    const res = await POST(buildRequest({ chainId: 8453 }))
+    const body = await res.json()
+
+    expect(res.status).toBe(202)
+    expect(body.chainId).toBe(8453)
+    expect(mockProviderCtor).toHaveBeenCalledWith('https://rpc-base.example')
   })
 
   it('returns 409 for idempotency replay attempts', async () => {

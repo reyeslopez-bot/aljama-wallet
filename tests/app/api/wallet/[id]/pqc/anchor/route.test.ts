@@ -131,7 +131,7 @@ function buildRequest(body: Record<string, unknown>) {
 }
 
 describe('app/api/wallet/[id]/pqc/anchor route', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     vi.clearAllMocks()
 
@@ -141,6 +141,9 @@ describe('app/api/wallet/[id]/pqc/anchor route', () => {
       '8453:0x000000000000000000000000000000000000bEEF',
     )
     vi.stubEnv('PQC_BINDING_PUBLIC_BASE_URL', 'https://app.example.com')
+
+    const { resetEvmRpcState } = await import('@/lib/evm-rpc')
+    resetEvmRpcState()
 
     mockRequireSession.mockResolvedValue({
       user: { id: 'user-1', email: 'user@example.com' },
