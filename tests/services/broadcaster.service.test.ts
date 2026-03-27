@@ -3,6 +3,7 @@ import { walletTopicsV1 } from '@/infra/agentic/kafka'
 
 const providerSend = vi.fn()
 const getEvmProviderForChain = vi.fn()
+const observeWalletChainRpcIssue = vi.fn()
 const consumerConnect = vi.fn()
 const consumerSubscribe = vi.fn()
 const consumerRun = vi.fn()
@@ -25,6 +26,10 @@ vi.mock('@/lib/evm-rpc', () => ({
   getEvmProviderForChain,
 }))
 
+vi.mock('@/services/wallet-chain-observability.service', () => ({
+  observeWalletChainRpcIssue,
+}))
+
 const signedEvent = {
   topic: walletTopicsV1.signed,
   correlationId: '6c2eb269-3c89-4fe7-b8fe-b6d4ff9c64dc',
@@ -43,6 +48,7 @@ describe('broadcaster.service', () => {
     vi.unstubAllEnvs()
 
     getEvmProviderForChain.mockResolvedValue({ send: providerSend })
+    observeWalletChainRpcIssue.mockResolvedValue(undefined)
     consumerConnect.mockResolvedValue(undefined)
     consumerSubscribe.mockResolvedValue(undefined)
     producerConnect.mockResolvedValue(undefined)
@@ -124,5 +130,32 @@ describe('broadcaster.service', () => {
         name: 'SyntaxError',
       },
     })
+  })
+
+  it('records chain-aware RPC observability when broadcast submission fails', async () => {
+    providerSend.mockRejectedValue(new Error('upstream rpc timeout'))
+    consumerRun.mockImplementation(async ({ eachMessage }: { eachMessage: (payload: { message: { key?: Buffer; value?: Buffer } }) => Promise<void> }) => {
+      await eachMessage({
+        message: {
+          key: Buffer.from(signedEvent.correlationId),
+          value: Buffer.from(JSON.stringify(signedEvent)),
+        },
+      })
+    })
+
+    const { startBroadcaster } = await import('@/services/broadcaster.service')
+
+    await expect(startBroadcaster()).rejects.toThrow('upstream rpc timeout')
+    expect(observeWalletChainRpcIssue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'broadcaster',
+        chainId: signedEvent.chainId,
+        correlationId: signedEvent.correlationId,
+        walletId: signedEvent.walletId,
+        details: expect.objectContaining({
+          operation: 'eth_sendRawTransaction',
+        }),
+      }),
+    )
   })
 })

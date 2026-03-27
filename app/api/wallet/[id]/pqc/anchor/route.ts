@@ -8,7 +8,7 @@ import {
 } from '@/lib/evm-rpc'
 import { buildPqcBindingHashes } from '@/lib/pqc/commitment'
 import { errorJson, okJson } from '@/lib/security/api-response'
-import { withApiRoute } from '@/lib/security/api-route'
+import { type ApiRouteContext, withApiRoute } from '@/lib/security/api-route'
 import { logError } from '@/lib/security/logging'
 import { isAllowedOrigin } from '@/lib/security/origin'
 import { readJsonBody } from '@/lib/security/request-body'
@@ -31,6 +31,7 @@ import {
 import { createWalletPqcAnchorRecord } from '@/services/wallet-pqc-anchor.service'
 import { getWalletSigningAccount, recordChainTransaction, setWalletPqcBindingHash } from '@/services/wallet.service'
 import { userOwnsWallet } from '@/services/wallet-ownership.service'
+import { observeWalletChainRpcIssue } from '@/services/wallet-chain-observability.service'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,7 +93,13 @@ function stringifyTxValue(value: string | bigint | number | null | undefined): s
   return value.toString()
 }
 
-export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverride?: string) {
+type AnchorWalletRouteContext = Pick<ApiRouteContext, 'requestId' | 'traceId' | 'correlationId'>
+
+export async function anchorWalletPqcBindingRequest(
+  req: Request,
+  walletIdOverride?: string,
+  routeContext?: AnchorWalletRouteContext,
+) {
   let nonceReservationId: string | null = null
   let broadcastAttempted = false
   try {
@@ -222,6 +229,16 @@ export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverri
     try {
       provider = await getEvmProviderForChain(input.chainId)
     } catch (error) {
+      await observeWalletChainRpcIssue({
+        scope: 'wallet-pqc-anchor',
+        requestId: routeContext?.requestId ?? null,
+        traceId: routeContext?.traceId ?? null,
+        correlationId: routeContext?.correlationId ?? routeContext?.traceId ?? null,
+        walletId,
+        chainId: input.chainId,
+        error,
+      })
+
       if (isEvmRpcChainUnavailableError(error)) {
         return errorJson(400, 'chain_unavailable', 'CHAIN_UNAVAILABLE', {
           expectedChainId: input.chainId,
@@ -347,11 +364,11 @@ export async function anchorWalletPqcBindingRequest(req: Request, walletIdOverri
 
 async function postWalletPqcAnchor(
   req: Request,
-  _routeContext: { requestId: string; startedAt: number; timeoutMs: number },
+  routeContext: ApiRouteContext,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params
-  return anchorWalletPqcBindingRequest(req, id)
+  return anchorWalletPqcBindingRequest(req, id, routeContext)
 }
 
 export const POST = withApiRoute<[{ params: Promise<{ id: string }> }]>(

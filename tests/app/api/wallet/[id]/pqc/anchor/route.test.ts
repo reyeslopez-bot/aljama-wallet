@@ -23,6 +23,7 @@ const {
   mockProviderCtor,
   mockProviderGetNetwork,
   mockGetAddress,
+  mockObserveWalletChainRpcIssue,
 } = vi.hoisted(() => ({
   mockRequireSession: vi.fn(),
   mockIsAdminEmail: vi.fn(),
@@ -46,6 +47,7 @@ const {
   mockProviderCtor: vi.fn(),
   mockProviderGetNetwork: vi.fn(),
   mockGetAddress: vi.fn(),
+  mockObserveWalletChainRpcIssue: vi.fn(),
 }))
 
 vi.mock('@/lib/security/session', () => ({
@@ -96,6 +98,10 @@ vi.mock('@/services/wallet-pqc-anchor.service', () => ({
 
 vi.mock('@/lib/security/runtime', () => ({
   isStrictMode: false,
+}))
+
+vi.mock('@/services/wallet-chain-observability.service', () => ({
+  observeWalletChainRpcIssue: mockObserveWalletChainRpcIssue,
 }))
 
 vi.mock('ethers', async () => {
@@ -167,6 +173,7 @@ describe('app/api/wallet/[id]/pqc/anchor route', () => {
     mockCreateWalletPqcAnchorRecord.mockResolvedValue({ id: 'anchor-1' })
     mockRecordChainTransaction.mockResolvedValue({ record: { id: 'chain-1' }, replacedTxHashes: [] })
     mockSetWalletPqcBindingHash.mockResolvedValue({ id: 'wallet-1', pqcBindingHash: '0xhash' })
+    mockObserveWalletChainRpcIssue.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -277,6 +284,71 @@ describe('app/api/wallet/[id]/pqc/anchor route', () => {
 
     expect(res.status).toBe(400)
     expect(body.code).toBe('registry_not_configured')
+  })
+
+  it('returns 400 when the configured RPC resolves a different chain', async () => {
+    mockProviderGetNetwork.mockResolvedValue({ chainId: 1n })
+    mockGetWalletSigningAccount.mockResolvedValue({
+      id: 'wallet-1',
+      accountRef: 'EVM:secp256k1:0xabc',
+      chain: 'EVM',
+      address: '0x000000000000000000000000000000000000beef',
+      pubKey: '0x04abcd',
+      keyType: 'secp256k1',
+      signerBackend: 'local',
+      vaultId: 'public',
+      derivationPath: "m/44'/60'/0'/0/0",
+      policy: { requiresSecondFactor: false, requiresPQAttestation: false },
+      pqcBinding: {
+        version: 1,
+        role: 'vault-identity',
+        scheme: 'ml-dsa-65',
+        provider: 'noble',
+        publicKey: 'cHVibGljLWtleQ==',
+        publicKeyFormat: 'raw-base64',
+        subject: {
+          accountRef: 'EVM:secp256k1:0xabc',
+          chain: 'EVM',
+          address: '0xabc',
+          keyType: 'secp256k1',
+          scheme: 'ecdsa',
+          publicKey: '0x04abcd',
+          publicKeyFormat: 'hex',
+        },
+        challenge: {
+          type: 'classical-key-binding',
+          statement: '{"version":1}',
+          statementFormat: 'utf8-json',
+        },
+        proof: {
+          signature: 'c2ln',
+          signatureFormat: 'raw-base64',
+          attestedAt: '2026-03-03T00:00:00.000Z',
+        },
+      },
+      pqcBindingHash: null,
+      createdAt: new Date('2026-03-03T00:00:00Z'),
+    })
+    const { POST } = await import('@/app/api/wallet/[id]/pqc/anchor/route')
+
+    const res = await POST(
+      buildRequest({
+        chainId: 8453,
+        idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      }),
+      buildContext('wallet-1'),
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.code).toBe('chain_mismatch')
+    expect(mockObserveWalletChainRpcIssue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'wallet-pqc-anchor',
+        walletId: 'wallet-1',
+        chainId: 8453,
+      }),
+    )
   })
 
   it('encodes the registry calldata and persists the anchor record', async () => {

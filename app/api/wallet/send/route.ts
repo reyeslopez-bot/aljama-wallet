@@ -41,6 +41,7 @@ import {
   isEvmRpcChainMismatchError,
   isEvmRpcChainUnavailableError,
 } from '@/lib/evm-rpc'
+import { observeWalletChainRpcIssue } from '@/services/wallet-chain-observability.service'
 
 export const dynamic = 'force-dynamic'
 
@@ -226,6 +227,16 @@ export async function sendWalletRequest(req: Request, walletIdOverride?: string,
     try {
       provider = await getEvmProviderForChain(input.chainId)
     } catch (error) {
+      await observeWalletChainRpcIssue({
+        scope: 'wallet-send',
+        requestId: routeContext?.requestId ?? null,
+        traceId,
+        correlationId: routeContext?.correlationId ?? traceId,
+        walletId: input.walletId,
+        chainId: input.chainId,
+        error,
+      })
+
       if (isEvmRpcChainUnavailableError(error)) {
         await trackSignal({
           outcome: 'blocked',

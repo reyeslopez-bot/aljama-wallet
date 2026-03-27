@@ -21,6 +21,8 @@ const {
   mockReopenWalletSigningIntentByTxHash,
   mockResolveWalletIdsByAddresses,
   mockGetEvmProviderForChain,
+  mockObserveWalletChainRpcIssue,
+  mockObserveWalletChainSyncFailures,
 } = vi.hoisted(() => ({
   mockProviderGetBlockNumber: vi.fn(),
   mockProviderGetBlock: vi.fn(),
@@ -42,6 +44,8 @@ const {
   mockReopenWalletSigningIntentByTxHash: vi.fn(),
   mockResolveWalletIdsByAddresses: vi.fn(),
   mockGetEvmProviderForChain: vi.fn(),
+  mockObserveWalletChainRpcIssue: vi.fn(),
+  mockObserveWalletChainSyncFailures: vi.fn(),
 }))
 
 vi.mock('ethers', () => ({
@@ -52,6 +56,11 @@ vi.mock('ethers', () => ({
 
 vi.mock('@/lib/evm-rpc', () => ({
   getEvmProviderForChain: mockGetEvmProviderForChain,
+}))
+
+vi.mock('@/services/wallet-chain-observability.service', () => ({
+  observeWalletChainRpcIssue: mockObserveWalletChainRpcIssue,
+  observeWalletChainSyncFailures: mockObserveWalletChainSyncFailures,
 }))
 
 vi.mock('@/lib/prisma-crdb', () => ({
@@ -158,6 +167,8 @@ describe('chain-transaction-sync.service', () => {
     mockProviderGetTransactionReceipt.mockResolvedValue(null)
     mockProviderGetBlock.mockResolvedValue({ hash: '0xnew-block' })
     mockProviderGetTransaction.mockResolvedValue({ hash: '0xtx' })
+    mockObserveWalletChainRpcIssue.mockResolvedValue(undefined)
+    mockObserveWalletChainSyncFailures.mockResolvedValue(undefined)
   })
 
   it('clears indexed receipt data and marks transactions reorged after a canonical block mismatch', async () => {
@@ -330,5 +341,29 @@ describe('chain-transaction-sync.service', () => {
 
     expect(mockGetEvmProviderForChain).toHaveBeenCalledWith(1)
     expect(mockGetEvmProviderForChain).toHaveBeenCalledWith(8453)
+  })
+
+  it('records chain-specific sync failure observability with sample hashes', async () => {
+    mockChainTransactionUpdate.mockRejectedValue(new Error('write failed'))
+
+    const { syncRecentEvmChainTransactions } = await import('@/services/chain-transaction-sync.service')
+    const result = await syncRecentEvmChainTransactions({ networkId: '11155111', limit: 10 })
+
+    expect(result).toEqual({
+      processedCount: 1,
+      succeededCount: 0,
+      failedCount: 1,
+    })
+    expect(mockObserveWalletChainSyncFailures).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chainId: 11155111,
+        networkId: '11155111',
+        failedCount: 1,
+        details: expect.objectContaining({
+          rowCount: 1,
+          sampleTxHashes: ['0xtx'],
+        }),
+      }),
+    )
   })
 })

@@ -2,6 +2,7 @@ import { getEvmProviderForChain } from '@/lib/evm-rpc';
 import { walletTxSignedV1Schema, walletTopicsV1 } from '@/infra/agentic/kafka';
 import { logError, logInfo, logWarn } from '@/lib/security/logging';
 import { createConsumer, createProducer } from '@/infra/kafka';
+import { observeWalletChainRpcIssue } from '@/services/wallet-chain-observability.service';
 
 const broadcasterGroupId = process.env.KAFKA_BROADCASTER_GROUP_ID ?? 'wallet-broadcaster';
 
@@ -30,6 +31,9 @@ export async function startBroadcaster() {
     eachMessage: async ({ message }) => {
       const messageKey = message.key?.toString('utf8') ?? null;
       const messageBytes = message.value?.byteLength ?? 0;
+      let parsedChainId: number | null = null;
+      let parsedCorrelationId: string | null = null;
+      let parsedWalletId: string | null = null;
 
       if (!message.value) {
         logWarn(
@@ -47,6 +51,9 @@ export async function startBroadcaster() {
       try {
         const payload = JSON.parse(message.value.toString('utf8'));
         const signedEvent = walletTxSignedV1Schema.parse(payload);
+        parsedChainId = signedEvent.chainId;
+        parsedCorrelationId = signedEvent.correlationId;
+        parsedWalletId = signedEvent.walletId;
 
         logInfo('broadcaster:message', 'Broadcasting signed wallet transaction', {
           groupId: broadcasterGroupId,
@@ -58,8 +65,39 @@ export async function startBroadcaster() {
           walletId: signedEvent.walletId,
         });
 
-        const provider = await getEvmProviderForChain(signedEvent.chainId);
-        const txHash = await provider.send('eth_sendRawTransaction', [signedEvent.signedTx]);
+        const provider = await (async () => {
+          try {
+            return await getEvmProviderForChain(signedEvent.chainId);
+          } catch (error) {
+            await observeWalletChainRpcIssue({
+              scope: 'broadcaster',
+              correlationId: signedEvent.correlationId,
+              walletId: signedEvent.walletId,
+              chainId: signedEvent.chainId,
+              error,
+            });
+            throw error;
+          }
+        })();
+
+        const txHash = await (async () => {
+          try {
+            return await provider.send('eth_sendRawTransaction', [signedEvent.signedTx]);
+          } catch (error) {
+            await observeWalletChainRpcIssue({
+              scope: 'broadcaster',
+              correlationId: signedEvent.correlationId,
+              walletId: signedEvent.walletId,
+              chainId: signedEvent.chainId,
+              error,
+              details: {
+                operation: 'eth_sendRawTransaction',
+              },
+            });
+            throw error;
+          }
+        })();
+
         const broadcastEvent = {
           topic: walletTopicsV1.broadcast,
           correlationId: signedEvent.correlationId,
@@ -91,6 +129,9 @@ export async function startBroadcaster() {
           topic: walletTopicsV1.signed,
           messageKey,
           messageBytes,
+          correlationId: parsedCorrelationId,
+          chainId: parsedChainId,
+          walletId: parsedWalletId,
         });
         throw error;
       }

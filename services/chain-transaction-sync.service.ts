@@ -6,6 +6,7 @@ import {
   type ChainTransactionStatus,
 } from '@/lib/chain-transactions'
 import { prismaCrdb } from '@/lib/prisma-crdb'
+import { getErrorMessage } from '@/lib/security/errors'
 import { logWarn } from '@/lib/security/logging'
 import {
   markNonceReservationConfirmedByTxHash,
@@ -24,6 +25,10 @@ import {
 } from '@/services/transfer-log.service'
 import { getEvmProviderForChain } from '@/lib/evm-rpc'
 import { resolveWalletIdsByAddresses } from '@/services/wallet.service'
+import {
+  observeWalletChainRpcIssue,
+  observeWalletChainSyncFailures,
+} from '@/services/wallet-chain-observability.service'
 
 const ERC20_OR_ERC721_TRANSFER_TOPIC = keccak256(toUtf8Bytes('Transfer(address,address,uint256)'))
 const DROP_AFTER_MS = 10 * 60 * 1000
@@ -759,6 +764,16 @@ export async function syncRecentEvmChainTransactions(params?: {
     try {
       provider = await getEvmProviderForChain(chainId)
     } catch (error) {
+      await observeWalletChainRpcIssue({
+        scope: 'chain-tx-sync',
+        chainId,
+        networkId,
+        error,
+        details: {
+          operation: 'resolve_provider',
+          rowCount: networkRows.length,
+        },
+      })
       logWarn('chain-tx-sync:provider', error, {
         networkId,
         chainId,
@@ -767,7 +782,17 @@ export async function syncRecentEvmChainTransactions(params?: {
       continue
     }
 
-    const currentBlockNumber = await provider.getBlockNumber().catch((error) => {
+    const currentBlockNumber = await provider.getBlockNumber().catch(async (error) => {
+      await observeWalletChainRpcIssue({
+        scope: 'chain-tx-sync',
+        chainId,
+        networkId,
+        error,
+        details: {
+          operation: 'getBlockNumber',
+          rowCount: networkRows.length,
+        },
+      })
       logWarn('chain-tx-sync:block-number', error, { networkId, chainId })
       return null
     })
@@ -775,12 +800,44 @@ export async function syncRecentEvmChainTransactions(params?: {
       continue
     }
 
-    const results = await Promise.allSettled(
-      networkRows.map((row) => syncRow(provider, row, currentBlockNumber)),
+    const results = await Promise.all(
+      networkRows.map(async (row) => {
+        try {
+          await syncRow(provider, row, currentBlockNumber)
+          return {
+            ok: true as const,
+            txHash: row.txHash,
+          }
+        } catch (error) {
+          return {
+            ok: false as const,
+            txHash: row.txHash,
+            error,
+          }
+        }
+      }),
     )
     processedCount += networkRows.length
-    succeededCount += results.filter((result) => result.status === 'fulfilled').length
-    failedCount += results.filter((result) => result.status === 'rejected').length
+    const succeededResults = results.filter((result) => result.ok)
+    const failedResults = results.filter(
+      (result): result is { ok: false; txHash: string; error: unknown } => !result.ok,
+    )
+    succeededCount += succeededResults.length
+    failedCount += failedResults.length
+
+    if (failedResults.length > 0) {
+      await observeWalletChainSyncFailures({
+        chainId,
+        networkId,
+        failedCount: failedResults.length,
+        details: {
+          rowCount: networkRows.length,
+          sampleTxHashes: failedResults.slice(0, 5).map((result) => result.txHash),
+          sampleErrors: failedResults.slice(0, 3).map((result) => getErrorMessage(result.error, 'SYNC_FAILED')),
+        },
+        error: failedResults[0]?.error,
+      })
+    }
   }
 
   return {

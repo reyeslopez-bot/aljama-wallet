@@ -32,6 +32,7 @@ const {
   mockBuildEvmTransactionSigningIntentPayload,
   mockReserveWalletNonce,
   mockReleaseNonceReservation,
+  mockObserveWalletChainRpcIssue,
 } = vi.hoisted(() => ({
   mockApproveTransfer: vi.fn(),
   mockBuildUnsignedEvmTx: vi.fn(),
@@ -64,6 +65,7 @@ const {
   mockBuildEvmTransactionSigningIntentPayload: vi.fn(),
   mockReserveWalletNonce: vi.fn(),
   mockReleaseNonceReservation: vi.fn(),
+  mockObserveWalletChainRpcIssue: vi.fn(),
 }))
 
 vi.mock('@/infra/agentic/wallet-policy', () => ({
@@ -135,6 +137,10 @@ vi.mock('@/services/signing-intent.service', () => ({
 vi.mock('@/lib/security/logging', () => ({
   logError: mockLogError,
   logInfo: mockLogInfo,
+}))
+
+vi.mock('@/services/wallet-chain-observability.service', () => ({
+  observeWalletChainRpcIssue: mockObserveWalletChainRpcIssue,
 }))
 
 vi.mock('ethers', () => {
@@ -265,6 +271,7 @@ describe('app/api/wallet/send route', () => {
       nonce: 7,
     })
     mockReleaseNonceReservation.mockResolvedValue(undefined)
+    mockObserveWalletChainRpcIssue.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -358,6 +365,13 @@ describe('app/api/wallet/send route', () => {
 
     expect(res.status).toBe(400)
     expect(body.code).toBe('chain_mismatch')
+    expect(mockObserveWalletChainRpcIssue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'wallet-send',
+        walletId: 'wallet-1',
+        chainId: 8453,
+      }),
+    )
   })
 
   it('resolves the provider from EVM_RPC_URLS for the requested chain', async () => {

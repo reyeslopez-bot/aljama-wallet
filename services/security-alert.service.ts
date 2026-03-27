@@ -143,6 +143,21 @@ const defaultRunbooks: Record<string, { id: string; title: string; slug: string 
     title: 'Investigate stuck included EVM transactions',
     slug: 'wallet-chain-transaction-stuck-included',
   },
+  'wallet.evm_rpc.unavailable': {
+    id: 'RB-WALLET-003',
+    title: 'Investigate unavailable EVM RPC chain configuration',
+    slug: 'wallet-evm-rpc-unavailable',
+  },
+  'wallet.evm_rpc.chain_mismatch': {
+    id: 'RB-WALLET-004',
+    title: 'Investigate mismatched EVM RPC chain configuration',
+    slug: 'wallet-evm-rpc-chain-mismatch',
+  },
+  'wallet.chain_transaction.sync_failures': {
+    id: 'RB-WALLET-005',
+    title: 'Investigate EVM chain transaction sync failures',
+    slug: 'wallet-chain-transaction-sync-failures',
+  },
   'market.snapshot.fallback_mode.active': {
     id: 'RB-OPS-002',
     title: 'Investigate prolonged market snapshot fallback mode',

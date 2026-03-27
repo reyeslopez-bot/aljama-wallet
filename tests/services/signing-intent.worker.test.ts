@@ -15,6 +15,7 @@ const {
   mockLogError,
   mockLogInfo,
   mockLogWarn,
+  mockObserveWalletChainRpcIssue,
 } = vi.hoisted(() => ({
   mockSignUnsignedEvmTx: vi.fn(),
   mockDeriveSignedEvmTxHash: vi.fn(),
@@ -30,6 +31,7 @@ const {
   mockLogError: vi.fn(),
   mockLogInfo: vi.fn(),
   mockLogWarn: vi.fn(),
+  mockObserveWalletChainRpcIssue: vi.fn(),
 }))
 
 vi.mock('@/services/evm-tx.service', () => ({
@@ -67,6 +69,10 @@ vi.mock('@/lib/evm-rpc', () => ({
   getEvmProviderForChain: mockGetEvmProviderForChain,
 }))
 
+vi.mock('@/services/wallet-chain-observability.service', () => ({
+  observeWalletChainRpcIssue: mockObserveWalletChainRpcIssue,
+}))
+
 vi.mock('ethers', () => ({
   JsonRpcProvider: class MockJsonRpcProvider {},
 }))
@@ -94,6 +100,7 @@ describe('signing-intent.worker', () => {
     mockMarkNonceReservationFailed.mockResolvedValue(undefined)
     mockReleaseNonceReservation.mockResolvedValue(undefined)
     mockUpdateTransferStatus.mockResolvedValue(undefined)
+    mockObserveWalletChainRpcIssue.mockResolvedValue(undefined)
   })
 
   it('signs, broadcasts, and records a queued wallet signing intent', async () => {
@@ -253,6 +260,55 @@ describe('signing-intent.worker', () => {
       expect.objectContaining({
         intentId: created.id,
         traceId: '22222222-2222-4222-8222-222222222222',
+      }),
+    )
+  })
+
+  it('observes chain RPC issues when provider resolution fails', async () => {
+    mockGetEvmProviderForChain.mockRejectedValue(new Error('rpc unavailable'))
+
+    const {
+      buildEvmTransactionSigningIntentPayload,
+      createWalletSigningIntent,
+      getWalletSigningIntent,
+    } = await import('@/services/signing-intent.service')
+    const { processWalletSigningIntentQueuePass } = await import('@/services/signing-intent.worker')
+
+    const created = await createWalletSigningIntent({
+      walletId: 'wallet-1',
+      userId: 'user-1',
+      chainId: 8453,
+      idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      correlationId: '22222222-2222-4222-8222-222222222222',
+      transferLogId: 'log-1',
+      payload: buildEvmTransactionSigningIntentPayload({
+        walletId: 'wallet-1',
+        chainId: 8453,
+        nonceReservationId: 'nonce-1',
+        fromAddress: '0x000000000000000000000000000000000000beef',
+        toAddress: '0x000000000000000000000000000000000000dead',
+        amountWei: '1000000000000000',
+        txType: 'transfer',
+        transferLogId: 'log-1',
+        transaction: {
+          to: '0x000000000000000000000000000000000000dead',
+          nonce: 7,
+        },
+      }),
+    })
+
+    await processWalletSigningIntentQueuePass({ batchSize: 5 })
+    const intent = await getWalletSigningIntent(created.id)
+
+    expect(intent?.status).toBe('failed')
+    expect(mockObserveWalletChainRpcIssue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'wallet-signing-intent-worker',
+        walletId: 'wallet-1',
+        chainId: 8453,
+        details: expect.objectContaining({
+          intentId: created.id,
+        }),
       }),
     )
   })

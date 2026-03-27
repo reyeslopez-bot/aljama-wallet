@@ -50,8 +50,9 @@ Send native-chain funds from a custody wallet using server-side controls.
    - Allowed chains + RPC chain match
    - Daily spend/risk policy checks
    - Idempotency key reservation
-3. API signs transaction with server-side decrypted wallet key.
-4. API broadcasts tx with RPC provider and records transfer metadata.
+3. API reserves nonce and builds the unsigned transaction.
+4. API records a transfer attempt and queues a signing intent.
+5. Worker signs and broadcasts the transaction asynchronously, then sync updates final on-chain state.
 
 ### Key config
 - `EVM_RPC_URL` for single-chain setups
@@ -59,6 +60,14 @@ Send native-chain funds from a custody wallet using server-side controls.
 - `WALLET_ALLOWED_CHAIN_IDS`
 - `WALLET_DAILY_LIMIT_WEI`
 - Risk config keys from `README.md` table (`RISK_*`).
+
+### Operational notes
+
+- Multi-chain rollout and monitoring guidance lives in `docs/wallet-multi-chain-ops.md`.
+- Chain-specific observability is emitted through:
+  - structured server logs
+  - telemetry events (`wallet_chain_rpc_issue`, `wallet_chain_sync_failure`, `chain_transaction_sync_pass`)
+  - security alerts for RPC unavailable, chain mismatch, and sync failures
 
 ## Test Strategy
 

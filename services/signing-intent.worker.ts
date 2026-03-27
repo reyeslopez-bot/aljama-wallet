@@ -23,6 +23,7 @@ import { updateTransferStatus } from '@/services/transfer-log.service'
 import { getWalletByChainAddress, recordChainTransaction } from '@/services/wallet.service'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logError, logInfo, logWarn } from '@/lib/security/logging'
+import { observeWalletChainRpcIssue } from '@/services/wallet-chain-observability.service'
 
 type WalletSigningIntentWorkerConfig = {
   intervalMs: number
@@ -221,7 +222,23 @@ export async function processWalletSigningIntentQueuePass(
 
     try {
       payload = intent.payload
-      const provider = await getEvmProviderForChain(payload.chainId)
+      let provider
+      try {
+        provider = await getEvmProviderForChain(payload.chainId)
+      } catch (error) {
+        await observeWalletChainRpcIssue({
+          scope: 'wallet-signing-intent-worker',
+          traceId: intent.traceId,
+          correlationId: intent.traceId,
+          walletId: payload.walletId,
+          chainId: payload.chainId,
+          error,
+          details: {
+            intentId: intent.id,
+          },
+        })
+        throw error
+      }
       const result = await processClaimedSigningIntent(payload, intent.id, intent.traceId, provider)
       txHash = result.txHash
       succeededCount += 1
