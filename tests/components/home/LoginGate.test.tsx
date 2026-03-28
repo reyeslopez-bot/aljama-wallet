@@ -363,6 +363,8 @@ describe('LoginGate', () => {
     const human = createHuman()
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
+      status: 429,
+      headers: new Headers({ 'retry-after': '11' }),
       json: async () => ({ code: 'rate_limited', error: 'RATE_LIMITED' }),
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -375,7 +377,7 @@ describe('LoginGate', () => {
     await human.type(getByPlaceholderText('••••••••'), 'VeryStrongPassphrase1!')
     await human.click(getByRole('button', { name: 'Sign up' }), HUMAN_DELAYS.mediumSettle)
 
-    expect(await findByText('Too many attempts. Wait a minute and try again.')).toBeTruthy()
+    expect(await findByText('Too many attempts. Retry in 11s.')).toBeTruthy()
     expect(mockedSignIn).not.toHaveBeenCalled()
     expect(mocks.push).not.toHaveBeenCalled()
   })
@@ -394,6 +396,33 @@ describe('LoginGate', () => {
     await human.click(getByRole('button', { name: 'Sign up' }), HUMAN_DELAYS.mediumSettle)
 
     expect(await findByText('Registration is temporarily unavailable. Try again.')).toBeTruthy()
+    expect(mockedSignIn).not.toHaveBeenCalled()
+    expect(mocks.push).not.toHaveBeenCalled()
+  })
+
+  it('maps fail-closed backend rate-limit errors to the registration service message', async () => {
+    const human = createHuman()
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      headers: new Headers({ 'retry-after': '12' }),
+      json: async () => ({
+        code: 'rate_limit_backend_unavailable',
+        error: 'RATE_LIMIT_BACKEND_UNAVAILABLE',
+        details: { retryAfter: 12 },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByRole, getByPlaceholderText, findByText } = render(
+      <LoginGate showBackLink={false} initialMode="register" />,
+    )
+
+    await human.type(getByPlaceholderText('wallet_operator'), 'service_user')
+    await human.type(getByPlaceholderText('••••••••'), 'VeryStrongPassphrase1!')
+    await human.click(getByRole('button', { name: 'Sign up' }), HUMAN_DELAYS.mediumSettle)
+
+    expect(await findByText('Registration is temporarily unavailable. Retry in 12s.')).toBeTruthy()
     expect(mockedSignIn).not.toHaveBeenCalled()
     expect(mocks.push).not.toHaveBeenCalled()
   })

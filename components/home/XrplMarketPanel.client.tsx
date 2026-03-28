@@ -8,6 +8,7 @@ import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { useGsapPressable } from '@/hooks/useGsapPressable'
 import { getHomeNowMs } from '@/components/home/homeClock'
+import { parseClientApiError } from '@/lib/security/client-api-error'
 
 type MarketAsset = {
   id: string
@@ -329,8 +330,13 @@ export default function XrplMarketPanel() {
     setState((prev) => ({ ...prev, loading: true, error: null }))
     try {
       const res = await fetch('/api/market-snapshot')
-      if (!res.ok) throw new Error('Market snapshot unavailable')
-      const body = (await res.json()) as MarketSnapshot
+      const body = (await res.json().catch(() => null)) as
+        | MarketSnapshot
+        | { ok: false; error?: string; code?: string; details?: unknown }
+        | null
+      if (!res.ok || !body?.ok) {
+        throw new Error(parseClientApiError(res, body).message)
+      }
       setState((prev) => ({
         ...prev,
         loading: false,

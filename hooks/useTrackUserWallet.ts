@@ -1,5 +1,6 @@
 import { useConnection } from 'wagmi'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { parseClientApiError } from '@/lib/security/client-api-error'
 
 type TrackingStatus = 'idle' | 'pending' | 'success' | 'error'
 
@@ -88,10 +89,7 @@ export function useTrackUserWallet(): TrackUserWalletResult {
 
           if (!response.ok) {
             const errorBody = await response.json().catch(() => null)
-            const message =
-              errorBody?.error?.message ??
-              `Track wallet failed with status ${response.status}`
-            throw new Error(message)
+            throw new Error(parseClientApiError(response, errorBody).message)
           }
 
           lastTrackedSignatureRef.current = signature

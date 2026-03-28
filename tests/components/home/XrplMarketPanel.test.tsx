@@ -158,4 +158,25 @@ describe('XrplMarketPanel', () => {
     expect(Math.min(...coordinates.map((point) => point.y))).toBeGreaterThanOrEqual(clipY)
     expect(Math.max(...coordinates.map((point) => point.y))).toBeLessThanOrEqual(clipY + clipHeight)
   })
+
+  it('normalizes degraded market snapshot errors', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      headers: new Headers({ 'retry-after': '7' }),
+      json: async () => ({
+        ok: false,
+        code: 'rate_limit_backend_unavailable',
+        error: 'RATE_LIMIT_BACKEND_UNAVAILABLE',
+        details: { retryAfter: 7 },
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { findByTestId } = render(<XrplMarketPanel />)
+
+    const alert = await findByTestId('xrpl-market-error')
+    expect(alert.textContent).toBe('Request temporarily unavailable. Try again in 7 seconds.')
+  })
 })

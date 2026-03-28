@@ -203,4 +203,99 @@ describe('WalletWorkspace', () => {
       idempotencyKey: '22222222-2222-4222-8222-222222222222',
     })
   })
+
+  it('shows retry-aware messaging when wallet send is fail-closed by backend protection', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+
+      if (url === '/api/wallet/wallet-123' && (!init?.method || init.method === 'GET')) {
+        return jsonResponse({
+          ok: true,
+          wallet: {
+            walletId: 'wallet-123',
+            address: '0x1111111111111111111111111111111111111111',
+            createdAt: '2026-03-15T08:00:00.000Z',
+            authorities: {
+              transactional: 'cockroachdb',
+              analytics: 'postgres',
+              chain: 'xrpl',
+            },
+            summary: {
+              transactionalTxCount: 3,
+              transferAttemptCount24h: 2,
+              lastTransactionalAt: '2026-03-15T09:00:00.000Z',
+              lastTransferStatus: 'submitted',
+            },
+            reconciliation: {
+              source: 'xrpl',
+              status: 'not_applicable',
+              checkedAt: '2026-03-15T09:05:00.000Z',
+              ledgerIndex: null,
+              ledgerHash: null,
+            },
+            updatedAt: '2026-03-15T09:05:00.000Z',
+          },
+        })
+      }
+
+      if (
+        url.startsWith('/api/wallet/wallet-123/transactions?') &&
+        (!init?.method || init.method === 'GET')
+      ) {
+        return jsonResponse({
+          ok: true,
+          walletId: 'wallet-123',
+          items: [],
+          nextCursor: null,
+        })
+      }
+
+      if (url === '/api/wallet/wallet-123/send' && init?.method === 'POST') {
+        return jsonResponse(
+          {
+            ok: false,
+            code: 'rate_limit_backend_unavailable',
+            error: 'RATE_LIMIT_BACKEND_UNAVAILABLE',
+            details: { retryAfter: 9 },
+          },
+          {
+            status: 503,
+            headers: { 'retry-after': '9' },
+          },
+        )
+      }
+
+      throw new Error(`Unhandled fetch: ${String(init?.method ?? 'GET')} ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('crypto', {
+      randomUUID: () => '33333333-3333-4333-8333-333333333333',
+    })
+
+    const { getByTestId } = renderWorkspace({
+      walletId: 'wallet-123',
+      allowedChainIds: [8453],
+    })
+
+    await waitFor(() => {
+      expect(getByTestId('wallet-workspace-receive-address').textContent).toContain(
+        '0x1111111111111111111111111111111111111111',
+      )
+    })
+
+    fireEvent.change(getByTestId('wallet-workspace-send-destination'), {
+      target: { value: '0x3333333333333333333333333333333333333333' },
+    })
+    fireEvent.change(getByTestId('wallet-workspace-send-amount'), {
+      target: { value: '0.1' },
+    })
+    fireEvent.click(getByTestId('wallet-workspace-send-submit'))
+
+    await waitFor(() => {
+      expect(getByTestId('wallet-workspace-send-error').textContent).toBe(
+        'Request temporarily unavailable. Try again in 9 seconds.',
+      )
+    })
+  })
 })

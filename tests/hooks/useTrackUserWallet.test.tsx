@@ -76,7 +76,14 @@ describe('useTrackUserWallet', () => {
   it('surfaces errors when the request fails', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
-      json: async () => ({ error: { message: 'Nope' } }),
+      status: 429,
+      headers: new Headers({ 'retry-after': '21' }),
+      json: async () => ({
+        ok: false,
+        code: 'rate_limited',
+        error: 'RATE_LIMITED',
+        details: { retryAfter: 21 },
+      }),
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -93,6 +100,6 @@ describe('useTrackUserWallet', () => {
       timeout: 1500,
     })
 
-    expect(result.current.error?.message).toBe('Nope')
+    expect(result.current.error?.message).toBe('Too many attempts. Try again in 21 seconds.')
   })
 })

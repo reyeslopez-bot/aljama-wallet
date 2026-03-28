@@ -2,23 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { walletQueryKeys } from '@/components/wallet/sync/wallet-query-keys'
+import { parseClientApiError } from '@/lib/security/client-api-error'
 import type { WalletSnapshot, WalletTransactionsPage } from '@/types/wallet-api'
-
-type ApiError = {
-  error?: string
-  code?: string
-}
-
-function buildErrorMessage(status: number, body: ApiError | null): string {
-  if (body?.error) return body.error
-  if (body?.code) return body.code
-  return `Request failed (${status})`
-}
 
 async function expectJson<T>(response: Response): Promise<T> {
   const body = (await response.json().catch(() => null)) as T | null
   if (!response.ok) {
-    throw new Error(buildErrorMessage(response.status, body as ApiError | null))
+    throw new Error(parseClientApiError(response, body).message)
   }
   if (!body) {
     throw new Error('Empty response payload')

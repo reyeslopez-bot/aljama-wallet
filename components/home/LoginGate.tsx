@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { replacePathLocale } from "@/i18n/routing"
 import { hasRecognizedDevice } from "@/infra/telemetry/client"
+import { parseClientApiError } from "@/lib/security/client-api-error"
 import { logWarn } from "@/lib/security/logging"
 import { persistProfileImageForUsername } from "@/lib/storage/profileImage"
 
@@ -93,6 +94,37 @@ export default function LoginGate({
     if (hasExplicitMode) return
     setMode(hasRecognizedDevice() ? "login" : "register")
   }, [])
+
+  const formatRegisterApiError = React.useCallback(
+    (apiError: ReturnType<typeof parseClientApiError>, body: { error?: string } | null) => {
+      if (apiError.code === "user_exists" || body?.error === "User already exists") {
+        return t("emailExists")
+      }
+      if (apiError.code === "username_exists") {
+        return t("usernameExists")
+      }
+      if (apiError.code === "rate_limited") {
+        return apiError.retryAfterSeconds
+          ? t("rateLimitedRetryAfter", { seconds: String(apiError.retryAfterSeconds) })
+          : t("rateLimited")
+      }
+      if (apiError.code === "rate_limit_backend_unavailable") {
+        return apiError.retryAfterSeconds
+          ? t("registerServiceUnavailableRetryAfter", {
+              seconds: String(apiError.retryAfterSeconds),
+            })
+          : t("registerServiceUnavailable")
+      }
+      if (apiError.code === "invalid_email") {
+        return t("emailInvalid")
+      }
+      if (apiError.code === "invalid_profile_image") {
+        return t("profileImageInvalid")
+      }
+      return apiError.rawMessage || t("registerFailed")
+    },
+    [t],
+  )
 
   const navigateHome = React.useCallback(
     (method: "push" | "replace", reason: string) => {
@@ -193,24 +225,11 @@ export default function LoginGate({
           }),
         })
 
-        const body = await res.json().catch(() => null)
+        const body = (await res.json().catch(() => null)) as { error?: string; user?: { username?: string } } | null
 
         if (!res.ok) {
-          let message = t("registerFailed")
-          if (body?.code === "user_exists" || body?.error === "User already exists") {
-            message = t("emailExists")
-          } else if (body?.code === "username_exists") {
-            message = t("usernameExists")
-          } else if (body?.code === "rate_limited") {
-            message = t("rateLimited")
-          } else if (body?.code === "invalid_email") {
-            message = t("emailInvalid")
-          } else if (body?.code === "invalid_profile_image") {
-            message = t("profileImageInvalid")
-          } else if (typeof body?.error === "string") {
-            message = body.error
-          }
-          setError(message)
+          const apiError = parseClientApiError(res, body)
+          setError(formatRegisterApiError(apiError, body))
           return
         }
 

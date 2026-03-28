@@ -147,4 +147,24 @@ describe('XrplPanel', () => {
     expect(fetchMock.mock.calls[1]?.[0]).toContain('network=devnet')
     expect(queryByRole('link', { name: 'Open faucet' })).toBeNull()
   })
+
+  it('normalizes rate-limit errors from the XRPL account endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      headers: new Headers({ 'retry-after': '13' }),
+      json: async () => ({
+        ok: false,
+        code: 'rate_limited',
+        error: 'RATE_LIMITED',
+        details: { retryAfter: 13 },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { findByRole } = render(<XrplPanel />)
+
+    const alert = await findByRole('alert')
+    expect(alert.textContent).toBe('Too many attempts. Try again in 13 seconds.')
+  })
 })

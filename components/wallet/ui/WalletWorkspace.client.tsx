@@ -9,6 +9,7 @@ import { useLocale } from 'next-intl'
 import { useManagedWalletSession } from '@/components/wallet/sync/ManagedWalletSessionContext.client'
 import { useWalletSnapshotQuery, useWalletTransactionsQuery } from '@/components/wallet/sync/useWalletQueries'
 import { walletQueryKeys } from '@/components/wallet/sync/wallet-query-keys'
+import { parseClientApiError } from '@/lib/security/client-api-error'
 import type { WalletSendResponse, WalletTransactionItem } from '@/types/wallet-api'
 
 const KNOWN_EVM_CHAINS = [mainnet, sepolia, polygon, base].map((chain) => ({
@@ -71,15 +72,6 @@ function makeIdempotencyKey(): string {
     return crypto.randomUUID()
   }
   return `00000000-0000-4000-8000-${Date.now().toString().padStart(12, '0').slice(-12)}`
-}
-
-function buildFetchError(status: number, body: unknown): string {
-  if (body && typeof body === 'object') {
-    const record = body as Record<string, unknown>
-    if (typeof record.error === 'string' && record.error.trim()) return record.error
-    if (typeof record.code === 'string' && record.code.trim()) return record.code
-  }
-  return `Request failed (${status})`
 }
 
 type WalletWorkspaceProps = {
@@ -197,7 +189,7 @@ export default function WalletWorkspace({ allowedChainIds }: WalletWorkspaceProp
       })
       const body = (await response.json().catch(() => null)) as WalletSendResponse | Record<string, unknown> | null
       if (!response.ok || !body || !(body as { ok?: boolean }).ok) {
-        throw new Error(buildFetchError(response.status, body))
+        throw new Error(parseClientApiError(response, body).message)
       }
 
       setSubmission({ kind: 'success', response: body as WalletSendResponse })

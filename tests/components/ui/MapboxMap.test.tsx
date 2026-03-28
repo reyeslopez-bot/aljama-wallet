@@ -192,4 +192,31 @@ describe('MapboxMap', () => {
     })
     expect(queryByTestId('mapbox-map-refresh')).toBeNull()
   })
+
+  it('surfaces normalized backend retry messaging before falling back to Dubai', async () => {
+    window.localStorage.setItem('aljama.location.consent', 'granted')
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        headers: new Headers({ 'retry-after': '9' }),
+        json: async () => ({
+          ok: false,
+          code: 'rate_limit_backend_unavailable',
+          error: 'RATE_LIMIT_BACKEND_UNAVAILABLE',
+          details: { retryAfter: 9 },
+        }),
+      }),
+    )
+
+    const { getByTestId } = render(<MapboxMap />)
+
+    await waitFor(() => {
+      expect(getByTestId('mapbox-map-status').textContent).toContain(
+        'Request temporarily unavailable. Try again in 9 seconds. Using Dubai fallback.',
+      )
+    })
+  })
 })

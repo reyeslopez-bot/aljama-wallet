@@ -16,6 +16,7 @@ import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useHomeJourneyProgress } from '@/hooks/useHomeJourneyProgress'
 import { useTranslations } from 'next-intl'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
+import { parseClientApiError } from '@/lib/security/client-api-error'
 import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { loadProfileImageForUsername } from '@/lib/storage/profileImage'
@@ -298,11 +299,16 @@ export default function DynamicInfoCard() {
 
       try {
         const res = await fetch('/api/network-location', { method: 'GET', cache: 'no-store' })
-        const body = (await res.json()) as {
-          ok: boolean
-          location?: { timezone?: string | null }
+        const body = (await res.json().catch(() => null)) as
+          | {
+              ok: true
+              location?: { timezone?: string | null }
+            }
+          | { ok: false; error?: string; code?: string; details?: unknown }
+          | null
+        if (!res.ok || !body?.ok) {
+          throw new Error(parseClientApiError(res, body).message)
         }
-        if (!res.ok || !body.ok) return
         const timezone = body.location?.timezone
         if (!cancelled && typeof timezone === 'string' && timezone.trim()) {
           setNetworkTimezone(timezone.trim())

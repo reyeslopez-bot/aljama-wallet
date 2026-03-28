@@ -18,8 +18,20 @@ function resolveMessage(namespace: string, key: string): string {
   return typeof value === 'string' ? value : `${namespace}.${key}`
 }
 
+function formatMessage(template: string, values?: Record<string, unknown>): string {
+  if (!values) return template
+
+  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, token) => {
+    const value = values[token]
+    return value === undefined || value === null ? match : String(value)
+  })
+}
+
 vi.mock('next-intl', () => ({
-  useTranslations: (namespace: string) => (key: string) => resolveMessage(namespace, key),
+  useTranslations:
+    (namespace: string) =>
+    (key: string, values?: Record<string, unknown>) =>
+      formatMessage(resolveMessage(namespace, key), values),
   useLocale: () => 'en',
   NextIntlClientProvider: ({ children }: { children: ReactNode }) => children,
 }))

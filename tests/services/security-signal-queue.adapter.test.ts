@@ -234,6 +234,27 @@ describe('security-signal-queue adapters', () => {
     await adapter.ack(second[0]!)
   })
 
+  it('holds delayed retry messages until their availability window on in-memory adapter', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+
+    const adapter = new InMemoryQueueAdapter()
+
+    await adapter.enqueue(sampleSignal({ source: 'wallet.send.retry' }), {
+      retryCount: 1,
+      delayMs: 1500,
+    })
+
+    expect(await adapter.dequeue(1)).toEqual([])
+
+    vi.setSystemTime(new Date('2026-01-01T00:00:01.500Z'))
+
+    const dequeued = await adapter.dequeue(1)
+    expect(dequeued).toHaveLength(1)
+    expect(dequeued[0]?.signal.source).toBe('wallet.send.retry')
+    expect(dequeued[0]?.retryCount).toBe(1)
+  })
+
   it('supports enqueue -> dequeue -> ack on redis streams adapter', async () => {
     const client = new FakeRedisStreamsClient()
     const adapter = RedisQueueAdapter.fromClient(client)
@@ -276,6 +297,33 @@ describe('security-signal-queue adapters', () => {
     expect(second[0]?.id).toBe(first[0]?.id)
 
     await adapter.ack(second[0]!)
+  })
+
+  it('holds delayed retry messages until their availability window on redis streams adapter', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+
+    const client = new FakeRedisStreamsClient()
+    const adapter = RedisQueueAdapter.fromClient(client, {
+      minIdleMs: 1000,
+      blockMs: 0,
+    })
+
+    await adapter.enqueue(sampleSignal({ source: 'wallet.send.retry' }), {
+      transport: 'api',
+      retryCount: 2,
+      delayMs: 1500,
+    })
+
+    expect(await adapter.dequeue(1)).toEqual([])
+
+    vi.setSystemTime(new Date('2026-01-01T00:00:01.500Z'))
+
+    const dequeued = await adapter.dequeue(1)
+    expect(dequeued).toHaveLength(1)
+    expect(dequeued[0]?.signal.source).toBe('wallet.send.retry')
+    expect(dequeued[0]?.retryCount).toBe(2)
+    expect(dequeued[0]?.transport).toBe('api')
   })
 
   it('falls back to in-memory and marks degraded health when redis backend is unavailable', async () => {

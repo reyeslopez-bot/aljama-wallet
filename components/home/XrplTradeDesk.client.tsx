@@ -7,6 +7,7 @@ import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import { TelemetryContext } from '@/components/telemetry/TelemetryProvider.client'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
+import { parseClientApiError } from '@/lib/security/client-api-error'
 import { buildTraceHeaders, createTraceId } from '@/lib/security/trace'
 import { resolveXrplNetwork } from '@/lib/xrpl-networks'
 import { useGsapPressable } from '@/hooks/useGsapPressable'
@@ -414,8 +415,8 @@ export default function XrplTradeDesk() {
     try {
       const res = await fetch(`/api/xrpl/account-assets?network=${selectedNetworkId}`)
       const body = (await res.json()) as AssetsResponse | { ok: false; error: string }
-      if (!res.ok || !body.ok) {
-        throw new Error(body.ok ? 'Failed to load XRPL assets' : body.error)
+      if (!res.ok || !body || !body.ok) {
+        throw new Error(parseClientApiError(res, body).message)
       }
       setAssets(body.assets)
     } catch (error) {
@@ -446,7 +447,7 @@ export default function XrplTradeDesk() {
       const res = await fetch(`/api/xrpl/nfts?network=${selectedNetworkId}&limit=24`)
       const body = (await res.json()) as NftsResponse | { ok: false; error: string }
       if (!res.ok || !body.ok) {
-        throw new Error(body.ok ? 'Failed to load XRPL NFTs' : body.error)
+        throw new Error(parseClientApiError(res, body).message)
       }
       setNfts(body.nfts)
     } catch (error) {
@@ -495,7 +496,7 @@ export default function XrplTradeDesk() {
       const res = await fetch(`/api/xrpl/trade/swap/quote?${params.toString()}`)
       const body = (await res.json()) as SwapQuoteResponse | { ok: false; error: string }
       if (!res.ok || !body.ok) {
-        throw new Error(body.ok ? 'Failed to load XRPL swap quote' : body.error)
+        throw new Error(parseClientApiError(res, body).message)
       }
 
       setSwapQuote(body.quote)
@@ -565,7 +566,7 @@ export default function XrplTradeDesk() {
       const res = await fetch(`/api/xrpl/orderbook?${params.toString()}`)
       const body = (await res.json()) as OrderbookResponse | { ok: false; error: string }
       if (!res.ok || !body.ok) {
-        throw new Error(body.ok ? 'Failed to load XRPL orderbook' : body.error)
+        throw new Error(parseClientApiError(res, body).message)
       }
       setOffers(body.offers)
     } catch (error) {
@@ -583,7 +584,7 @@ export default function XrplTradeDesk() {
       const res = await fetch(`/api/xrpl/action-history?network=${selectedNetworkId}&limit=25`)
       const body = (await res.json()) as ActionHistoryResponse | { ok: false; error: string }
       if (!res.ok || !body.ok) {
-        throw new Error('Failed to load XRPL action history')
+        throw new Error(parseClientApiError(res, body).message)
       }
       setHistory(body.actions)
     } catch (error) {
@@ -793,9 +794,11 @@ export default function XrplTradeDesk() {
           idempotencyKey: makeIdempotencyKey(),
         }),
       })
-      const body = (await res.json()) as { ok?: boolean; error?: string; tx?: { hash?: string } }
+      const body = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; code?: string; tx?: { hash?: string } }
+        | null
       if (!res.ok || !body.ok) {
-        throw new Error(body.error ?? `Action failed (${res.status})`)
+        throw new Error(parseClientApiError(res, body).message)
       }
       const txHash = typeof body.tx?.hash === 'string' && body.tx.hash.trim() ? body.tx.hash.trim() : null
       const msg = txHash ? `${actionName} submitted (${shortHash(txHash)})` : `${actionName} completed`

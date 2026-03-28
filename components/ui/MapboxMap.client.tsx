@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
 import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
+import { parseClientApiError } from '@/lib/security/client-api-error'
 
 type Coords = {
   lat: number
@@ -136,10 +137,19 @@ export default function MapboxMap() {
   )
 
   const requestNetworkLocation = React.useCallback(async () => {
-    const res = await fetch('/api/network-location', { method: 'GET', cache: 'no-store' })
-    const body = (await res.json()) as NetworkLocationResponse | { ok: false; error?: string }
-    if (!res.ok || !body.ok) {
+    let res: Response
+    try {
+      res = await fetch('/api/network-location', { method: 'GET', cache: 'no-store' })
+    } catch {
       throw new Error('Network location unavailable.')
+    }
+
+    const body = (await res.json().catch(() => null)) as
+      | NetworkLocationResponse
+      | { ok: false; error?: string; code?: string; details?: unknown }
+      | null
+    if (!res.ok || !body?.ok) {
+      throw new Error(parseClientApiError(res, body).message)
     }
 
     const label = await resolvePlaceLabel(body.location.latitude, body.location.longitude, body.location.city)
@@ -162,7 +172,7 @@ export default function MapboxMap() {
 
     try {
       await requestNetworkLocation()
-    } catch {
+    } catch (error) {
       setCoords({
         lat: DEFAULT_CENTER.lat,
         lng: DEFAULT_CENTER.lng,
@@ -171,7 +181,11 @@ export default function MapboxMap() {
       })
       setPlaceLabel(null)
       setStatus('error')
-      setError('Network location unavailable. Using Dubai fallback.')
+      setError(
+        error instanceof Error && error.message.trim()
+          ? `${error.message} Using Dubai fallback.`
+          : 'Network location unavailable. Using Dubai fallback.',
+      )
     }
   }, [locationEnabled, requestNetworkLocation])
 

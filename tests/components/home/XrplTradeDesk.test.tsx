@@ -360,7 +360,7 @@ describe('XrplTradeDesk', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByTestId, getByText } = render(<XrplTradeDesk />)
+    const { getAllByText, getByTestId, getByText } = render(<XrplTradeDesk />)
 
     await waitFor(() => {
       expect(getByText('One swap flow, nothing extra')).toBeTruthy()
@@ -444,6 +444,180 @@ describe('XrplTradeDesk', () => {
     })
 
     expect(fetchMock.mock.calls.some(([input]) => String(input) === '/api/xrpl/issuer/payment')).toBe(true)
+  })
+
+  it('maps retry-aware backend errors and replays the last action with a fresh idempotency key', async () => {
+    unlockTradeDesk()
+
+    const randomUUID = vi
+      .fn()
+      .mockReturnValueOnce('trace-first')
+      .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
+      .mockReturnValueOnce('trace-second')
+      .mockReturnValueOnce('22222222-2222-4222-8222-222222222222')
+    vi.stubGlobal('crypto', { randomUUID })
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method ?? 'GET').toUpperCase()
+
+      if (method === 'POST' && url === '/api/xrpl/trustline/set') {
+        const payload = JSON.parse(String(init?.body ?? '{}'))
+
+        if (payload.idempotencyKey === '11111111-1111-4111-8111-111111111111') {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              code: 'rate_limited',
+              error: 'RATE_LIMITED',
+              details: { retryAfter: 17 },
+            }),
+            {
+              status: 429,
+              headers: {
+                'content-type': 'application/json',
+                'retry-after': '17',
+              },
+            },
+          )
+        }
+
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            tx: { hash: 'RETRY123' },
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        )
+      }
+
+      if (url.startsWith('/api/xrpl/account-assets')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            network: 'testnet',
+            account: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+            assets: [{ assetType: 'xrp', currency: 'XRP', issuer: null, value: '12.1', limit: null }],
+          }),
+        } as Response
+      }
+
+      if (url.startsWith('/api/xrpl/nfts')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            nfts: [],
+          }),
+        } as Response
+      }
+
+      if (url.startsWith('/api/xrpl/trade/swap/quote')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            quote: {
+              sourceAmount: { currency: 'XRP', value: '50' },
+              quotedSourceAmount: { currency: 'XRP', value: '50' },
+              destinationAmount: { currency: 'USD', issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', value: '45.5' },
+              deliverMin: { currency: 'USD', issuer: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', value: '45.2725' },
+              pathCount: 1,
+              alternativeCount: 2,
+              fullReply: true,
+              slippageBps: 50,
+            },
+          }),
+        } as Response
+      }
+
+      if (url.startsWith('/api/xrpl/orderbook')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            offers: [],
+          }),
+        } as Response
+      }
+
+      if (url.startsWith('/api/xrpl/action-history')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            actions: [],
+          }),
+        } as Response
+      }
+
+      return {
+        ok: false,
+        json: async () => ({ ok: false, error: 'not mocked' }),
+      } as Response
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getAllByText, getByTestId, getByText } = render(<XrplTradeDesk />)
+
+    await waitFor(() => {
+      expect(getByText('One swap flow, nothing extra')).toBeTruthy()
+    })
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-expert-toggle'))
+
+    await waitFor(() => {
+      expect(getByTestId('xrpl-trade-desk-advanced-overlay')).toBeTruthy()
+    })
+
+    fireEvent.change(getByTestId('xrpl-trade-desk-trustline-issuer'), {
+      target: { value: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe' },
+    })
+    fireEvent.change(getByTestId('xrpl-trade-desk-trustline-currency'), { target: { value: 'USD' } })
+    fireEvent.change(getByTestId('xrpl-trade-desk-trustline-limit'), { target: { value: '250' } })
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-trustline-submit'))
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) => url === '/api/xrpl/trustline/set' && init?.method === 'POST',
+        ),
+      ).toBe(true)
+      expect(getByTestId('xrpl-trade-desk-log-toggle')).toBeTruthy()
+    })
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-log-toggle'))
+
+    await waitFor(() => {
+      expect(getAllByText('Too many attempts. Try again in 17 seconds.').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(getByTestId('xrpl-trade-desk-retry-last-action'))
+
+    await waitFor(() => {
+      expect(getByTestId('xrpl-trade-desk-action-status').textContent).toContain(
+        'trustline_set_retry submitted',
+      )
+    })
+
+    const postCalls = fetchMock.mock.calls.filter(
+      ([url, init]) => url === '/api/xrpl/trustline/set' && init?.method === 'POST',
+    )
+    expect(postCalls).toHaveLength(2)
+    expect(JSON.parse(String(postCalls[0]?.[1]?.body)).idempotencyKey).toBe(
+      '11111111-1111-4111-8111-111111111111',
+    )
+    expect(JSON.parse(String(postCalls[1]?.[1]?.body)).idempotencyKey).toBe(
+      '22222222-2222-4222-8222-222222222222',
+    )
   })
 
   it('hides the missing quote warning until a manual refresh is attempted', async () => {

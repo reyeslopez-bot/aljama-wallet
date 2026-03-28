@@ -9,6 +9,7 @@ import {
   XRPL_NETWORKS_BY_ID,
   type XrplNetwork,
 } from '@/lib/xrpl-networks'
+import { parseClientApiError } from '@/lib/security/client-api-error'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { useGsapPressable } from '@/hooks/useGsapPressable'
@@ -118,12 +119,13 @@ export function XrplPanel() {
 
     try {
       const res = await fetch(`/api/xrpl/dev-account?network=${selectedNetwork.id}`)
-      const body = (await res.json()) as
+      const body = (await res.json().catch(() => null)) as
         | { ok: true; account: XrplAccount; network: string }
-        | { ok: false; error: string }
+        | { ok: false; error: string; code?: string; details?: unknown }
+        | null
 
-      if (!res.ok || !body.ok) {
-        throw new Error('XRPL account not available for the selected network')
+      if (!res.ok || !body?.ok) {
+        throw new Error(parseClientApiError(res, body).message)
       }
 
       if (requestId !== requestIdRef.current) return
