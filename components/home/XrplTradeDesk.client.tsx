@@ -795,9 +795,10 @@ export default function XrplTradeDesk() {
         }),
       })
       const body = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: string; code?: string; tx?: { hash?: string } }
+        | { ok: true; tx?: { hash?: string } }
+        | { ok?: false; error?: string; code?: string; tx?: { hash?: string } }
         | null
-      if (!res.ok || !body.ok) {
+      if (!res.ok || !body?.ok) {
         throw new Error(parseClientApiError(res, body).message)
       }
       const txHash = typeof body.tx?.hash === 'string' && body.tx.hash.trim() ? body.tx.hash.trim() : null

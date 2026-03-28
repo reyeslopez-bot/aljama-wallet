@@ -360,7 +360,7 @@ describe('XrplTradeDesk', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getAllByText, getByTestId, getByText } = render(<XrplTradeDesk />)
+    const { getByTestId, getByText } = render(<XrplTradeDesk />)
 
     await waitFor(() => {
       expect(getByText('One swap flow, nothing extra')).toBeTruthy()
