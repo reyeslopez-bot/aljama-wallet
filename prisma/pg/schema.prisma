@@ -129,6 +129,31 @@ model Signup {
   @@index([createdAt])
 }
 
+model ContactRequest {
+  id                 String   @id @default(cuid())
+  userId             String?
+  name               String?
+  email              String
+  category           String
+  message            String
+  locale             String?
+  source             String?
+  pagePath           String?
+  status             String   @default("received")
+  requestId          String?
+  traceId            String?
+  confirmationSentAt DateTime?
+  internalNotifiedAt DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([category, createdAt])
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+  @@index([userId, createdAt])
+}
+
 model UserWallet {
   id        String   @id @default(cuid())
   userId    String

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
 import Navbar from './Navbar'
+import SupportDrawer from '@/components/support/SupportDrawer.client'
 
 export default function LayoutClient({ children }: { children: ReactNode }) {
   const { shouldUseLightweightMode } = useAdaptiveExperience()
@@ -26,6 +27,7 @@ export default function LayoutClient({ children }: { children: ReactNode }) {
       />
 
       <Navbar />
+      <SupportDrawer />
 
       <main className="relative z-10 flex-1 px-4 py-12 pt-28 md:px-10">
         <div className="mx-auto max-w-7xl">

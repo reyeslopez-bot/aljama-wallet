@@ -9,6 +9,7 @@ import { BRAND } from '@/constants/brand'
 import { useLocale, useTranslations } from 'next-intl'
 import { signOut, useSession } from 'next-auth/react'
 import { hasRecognizedDevice, onTelemetryConsentChange } from '@/infra/telemetry/client'
+import { openSupportDrawer } from '@/lib/support/contact'
 
 const LANGUAGES = [
   { label: 'English', mobileLabel: 'EN', value: 'en' },
@@ -323,6 +324,21 @@ export default function Navbar() {
                     </Link>
                   </div>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    openSupportDrawer({ source: 'navbar-mobile' })
+                  }}
+                  className={`mt-2 block w-full rounded-xl px-3 py-2 text-left text-sm transition ${
+                    isLight
+                      ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                      : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                  }`}
+                  role="menuitem"
+                >
+                  {t('help')}
+                </button>
                 {!isAuthed && (
                   <Link
                     href={authCtaHref}
@@ -356,6 +372,30 @@ export default function Navbar() {
               </div>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => openSupportDrawer({ source: 'navbar' })}
+            className={`hidden shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition md:inline-flex ${
+              isLight
+                ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
+                : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
+            }`}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              className="h-4 w-4"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M9.4 9.1a2.8 2.8 0 0 1 5.14 1.45c0 1.78-1.7 2.48-2.54 3.25-.38.34-.6.72-.6 1.45" />
+              <circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none" />
+            </svg>
+            {t('help')}
+          </button>
 
           <button
             type="button"

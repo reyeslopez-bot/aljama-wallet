@@ -9,6 +9,7 @@
     "wallet": "Wallet",
     "about": "About",
     "contact": "Contact",
+    "help": "Help",
     "menu": "Menu",
     "active": "Active",
     "language": "Language",
@@ -420,6 +421,71 @@
           "done": "XRPL workspace reached."
         }
       }
+    }
+  },
+  "support": {
+    "title": "Quick answers and support",
+    "subtitle": "Start with a short answer. If you still need help, send a request and we will follow up.",
+    "close": "Close",
+    "categories": {
+      "wallet_setup": "Wallet setup",
+      "account_login": "Account / login",
+      "payments_transfers": "Payments / transfers",
+      "xrpl_trading": "XRPL / trading",
+      "compliance_security": "Compliance / security",
+      "bug_report": "Bug report",
+      "partnership": "Partnership",
+      "other": "Other"
+    },
+    "faq": {
+      "title": "Quick answers",
+      "subtitle": "Pick the closest topic. We keep this short on purpose.",
+      "show": "Open",
+      "hide": "Hide",
+      "walletConnectors": {
+        "question": "How do I create a wallet versus connect one?",
+        "answer": "Use Create Wallet for a new locally generated vault. Use Connect Wallet when you already have a browser wallet or WalletConnect session and want to use that identity here."
+      },
+      "walletRecovery": {
+        "question": "Can support recover my wallet or recovery phrase?",
+        "answer": "No. Recovery phrases and hidden vault passphrases stay under your control. Support can help with product steps, but cannot retrieve lost secrets or reverse a transfer."
+      },
+      "loginAccess": {
+        "question": "I can't sign in or unlock actions. What should I check?",
+        "answer": "Confirm you are using the right account, refresh the session, and verify the required permissions or consent choices are complete. If access still stops, send the exact step where it happens."
+      },
+      "transferStatus": {
+        "question": "Why is my transfer or balance update delayed?",
+        "answer": "On-chain and XRPL actions can take time to broadcast, validate, and reconcile. Wait for the latest state to refresh before retrying. If something seems stuck, include the wallet, network, and approximate time."
+      },
+      "xrplActions": {
+        "question": "Why is an XRPL action unavailable or pending?",
+        "answer": "XRPL actions can pause on network mismatch, missing trustlines, validation lag, or policy checks. Confirm the selected network and account context before retrying."
+      },
+      "complianceRegion": {
+        "question": "Why am I seeing region or compliance guidance?",
+        "answer": "The app uses your selected region and consent choices to tailor compliance guidance and available actions. If something looks wrong, tell us the shown region and the action you expected to use."
+      }
+    },
+    "form": {
+      "title": "Still need help?",
+      "subtitle": "Send a short request. We will log it, show a reference ID, and email confirmation when delivery is available.",
+      "name": "Name",
+      "namePlaceholder": "Optional name",
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "category": "Category",
+      "message": "Message",
+      "messagePlaceholder": "Tell us what happened, what you expected, and which wallet, network, or screen was involved.",
+      "privacyNote": "Do not include recovery phrases, private keys, or other secret material.",
+      "submit": "Send request",
+      "submitting": "Sending…",
+      "errorGeneric": "We could not submit your request. Try again.",
+      "successTitle": "Request received",
+      "referenceLabel": "Reference ID",
+      "replyWindowLabel": "Expected reply window",
+      "confirmationSent": "A confirmation email was sent.",
+      "confirmationPending": "Your request was saved. If confirmation email is available, it will arrive shortly."
     }
   },
   "footer": {
