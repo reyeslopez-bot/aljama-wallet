@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import type { Metadata, Viewport } from 'next'
 import { El_Messiri, Manrope } from 'next/font/google'
 import { getLocale } from 'next-intl/server'
+import AppHydrationMarker from '@/components/system/AppHydrationMarker.client'
 import { defaultLocale, isRtlLocale } from '@/i18n/routing'
 
 export const metadata: Metadata = {
@@ -45,6 +46,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body
         className={`${bodyFont.variable} ${displayFont.variable} dark min-h-screen flex flex-col antialiased text-foreground bg-surface`}
       >
+        <AppHydrationMarker />
         {children}
       </body>
     </html>

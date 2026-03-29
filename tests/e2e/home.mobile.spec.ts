@@ -9,6 +9,7 @@ import {
   expectHomeShellVisible,
   expectNoHorizontalOverflow,
   prepareMockedHome,
+  waitForAppHydration,
 } from './home.helpers'
 
 test.beforeEach(async ({ page }) => {
@@ -107,6 +108,7 @@ test('home load-time checks and wallet-section screenshot', async ({ page }, tes
 test('home layout stays within frame on device projects', async ({ page }, testInfo) => {
   await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
   await expect(page.getByTestId('home-overview-section')).toBeVisible()
+  await waitForAppHydration(page)
 
   const label = testInfo.project.name
   const infoCard = page.getByTestId('dynamic-info-card')
@@ -132,6 +134,7 @@ test('rtl home routes avoid horizontal overflow', async ({ page }, testInfo) => 
   for (const route of RTL_HOME_ROUTES) {
     await page.goto(route, { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('home-overview-section')).toBeVisible()
+    await waitForAppHydration(page)
 
     const localeDir = await page.evaluate(() => document.documentElement.dataset.localeDir)
     expect(localeDir).toBe('rtl')

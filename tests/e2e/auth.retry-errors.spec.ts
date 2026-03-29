@@ -3,6 +3,7 @@ import {
   CONSENT_PROMPT_SESSION_KEY,
   CONSENT_SITE_ENTRY_SESSION_KEY,
 } from '../../infra/consent/constants'
+import { waitForAppHydration } from './home.helpers'
 
 const LOGIN_ROUTE = '/en/login?mode=register'
 const UNAUTHENTICATED_SESSION = { user: null, expires: '2099-01-01T00:00:00.000Z' }
@@ -73,9 +74,11 @@ test('register flow shows localized retry windows for 429 and 503 backend respon
   )
 
   await page.goto(LOGIN_ROUTE, { waitUntil: 'domcontentloaded' })
+  await waitForAppHydration(page)
 
   await page.getByTestId('secure-gate-username-input').fill('retry_user')
   await page.getByTestId('secure-gate-password-input').fill('VeryStrongPassphrase1!')
+  await expect(page.getByTestId('secure-gate-auth-submit')).toBeEnabled()
   await page.getByTestId('secure-gate-auth-submit').click()
 
   await expect(page.getByText('Too many attempts. Retry in 11s.')).toBeVisible()

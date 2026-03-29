@@ -10,6 +10,7 @@ import {
   expectHomeShellVisible,
   expectNoHorizontalOverflow,
   prepareMockedHome,
+  waitForAppHydration,
 } from './home.helpers'
 
 test.describe.configure({ mode: 'serial' })
@@ -128,6 +129,7 @@ test('dynamic info card stays inside the viewport across zoom-equivalent layouts
     await page.setViewportSize(zoomCase.viewport)
     await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('home-overview-section')).toBeVisible()
+    await waitForAppHydration(page)
 
     const infoCard = page.getByTestId('dynamic-info-card')
     const toggleButton = page.getByTestId('dynamic-info-card-expand-button')
@@ -145,6 +147,7 @@ test('dynamic info card remains in frame when text scales up', async ({ page }) 
   await page.setViewportSize({ width: 960, height: 640 })
   await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
   await expect(page.getByTestId('home-overview-section')).toBeVisible()
+  await waitForAppHydration(page)
 
   await page.addStyleTag({
     content: `
@@ -168,6 +171,7 @@ test('dynamic info card remains in frame when text scales up', async ({ page }) 
 test('home keeps unsigned xrpl tools locked while preserving info card keyboard access', async ({ page }) => {
   await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
   await expect(page.getByTestId('home-overview-section')).toBeVisible()
+  await waitForAppHydration(page)
 
   await page.getByTestId('home-xrpl-section').scrollIntoViewIfNeeded()
   await expect(page.getByTestId('home-xrpl-section')).toBeVisible()
@@ -194,6 +198,7 @@ test('rtl home routes avoid horizontal overflow', async ({ page }, testInfo) => 
   for (const route of RTL_HOME_ROUTES) {
     await page.goto(route, { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('home-overview-section')).toBeVisible()
+    await waitForAppHydration(page)
 
     const localeDir = await page.evaluate(() => document.documentElement.dataset.localeDir)
     expect(localeDir).toBe('rtl')

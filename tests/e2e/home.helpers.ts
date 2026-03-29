@@ -285,6 +285,10 @@ export async function prepareMockedHome(page: Page, options: PrepareMockedHomeOp
   )
 }
 
+export async function waitForAppHydration(page: Page) {
+  await page.waitForFunction(() => document.documentElement.dataset.appHydrated === 'true')
+}
+
 export async function expectHomeShellVisible(page: Page) {
   await expect(page.getByTestId('home-overview-section')).toBeVisible()
   await expect(page.getByTestId('home-region-map-section')).toBeVisible()

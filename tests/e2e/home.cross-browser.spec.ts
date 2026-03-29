@@ -3,10 +3,26 @@ import {
   CONSENT_PROMPT_SESSION_KEY,
   CONSENT_SITE_ENTRY_SESSION_KEY,
 } from '../../infra/consent/constants'
+import { waitForAppHydration } from './home.helpers'
 
 const HOME_ROUTE = '/en'
+const HOME_SHELL_TEST_IDS = [
+  'home-overview-section',
+  'home-region-map-section',
+  'home-wallet-section',
+  'home-xrpl-section',
+  'home-trade-desk-section',
+  'mapbox-map',
+  'region-compliance-panel',
+  'create-wallet-panel',
+  'connect-wallet-panel',
+  'xrpl-panel',
+  'xrpl-market-panel',
+  'xrpl-trade-desk',
+] as const
 
 test.beforeEach(async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.addInitScript(
     ({ promptKey, siteEntryKey }) => {
       window.localStorage.setItem('aljama.telemetry.consent', 'denied')
@@ -26,16 +42,11 @@ test('home shell renders in all supported browsers', async ({ page }) => {
 
   const response = await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded', timeout: 120_000 })
   expect(response?.ok()).toBeTruthy()
-  await expect(page.getByTestId('home-overview-section')).toBeVisible({ timeout: 90_000 })
-  await expect(page.getByTestId('home-region-map-section')).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByTestId('home-wallet-section')).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByTestId('home-xrpl-section')).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByTestId('home-trade-desk-section')).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByTestId('mapbox-map')).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByTestId('region-compliance-panel')).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByTestId('create-wallet-panel')).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByTestId('connect-wallet-panel')).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByTestId('xrpl-panel')).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByTestId('xrpl-market-panel')).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByTestId('xrpl-trade-desk')).toBeVisible({ timeout: 45_000 })
+  await waitForAppHydration(page)
+
+  for (const testId of HOME_SHELL_TEST_IDS) {
+    const locator = page.getByTestId(testId)
+    await locator.scrollIntoViewIfNeeded()
+    await expect(locator).toBeVisible({ timeout: testId === 'home-overview-section' ? 90_000 : 45_000 })
+  }
 })
