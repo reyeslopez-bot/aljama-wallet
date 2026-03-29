@@ -243,6 +243,16 @@ export default function SupportDrawer() {
               {submitSuccess && (
                 <div data-testid="support-drawer-success" role="status" className="surface-inner rounded-[1.5rem] border border-jade/35 bg-jade/10 p-4 text-sm text-ivory/78">
                   <p className="font-semibold text-ivory">{t('form.successTitle')}</p>
+                  <div data-testid="support-drawer-delivery-status" className="mt-3 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-jade/25 bg-jade/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-jade">
+                      {t('form.statusReceived')}
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ivory/82">
+                      {submitSuccess.confirmationEmailSent
+                        ? t('form.statusConfirmationSent')
+                        : t('form.statusEmailDelayed')}
+                    </span>
+                  </div>
                   <p className="mt-2 text-sm text-ivory/72">
                     {t('form.referenceLabel')}: {submitSuccess.referenceId}
                   </p>

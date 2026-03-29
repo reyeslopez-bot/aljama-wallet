@@ -443,21 +443,21 @@ export default function HomeMotionScene() {
           .from(
             node,
             {
-              autoAlpha: 0,
-              y: 42,
-              scale: 0.985,
-              clearProps: 'opacity,visibility,transform',
+              opacity: 0.68,
+              y: 28,
+              scale: 0.992,
+              clearProps: 'opacity,transform',
             },
             'enter',
           )
           .from(
             node.querySelectorAll(':scope > *'),
             {
-              autoAlpha: 0,
-              y: 18,
+              opacity: 0.8,
+              y: 14,
               stagger: 0.06,
               duration: 0.7,
-              clearProps: 'opacity,visibility,transform',
+              clearProps: 'opacity,transform',
             },
             'enter+=0.08',
           )

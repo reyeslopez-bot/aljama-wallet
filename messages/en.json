@@ -49,6 +49,10 @@
       "statusLabel": "Connector status",
       "statusValue": "Live",
       "statusDetail": "WalletConnect, injected, and custom flows remain available."
+    },
+    "interactive": {
+      "title": "Preparing interactive controls",
+      "body": "Syncing wallet actions, live panels, and page controls before input opens."
     }
   },
   "actions": {
@@ -481,7 +485,10 @@
       "submit": "Send request",
       "submitting": "Sending…",
       "errorGeneric": "We could not submit your request. Try again.",
-      "successTitle": "Request received",
+      "successTitle": "Message received",
+      "statusReceived": "Message received",
+      "statusConfirmationSent": "Email confirmation sent",
+      "statusEmailDelayed": "Saved, email delayed",
       "referenceLabel": "Reference ID",
       "replyWindowLabel": "Expected reply window",
       "confirmationSent": "A confirmation email was sent.",
@@ -531,6 +538,8 @@
     "title": "Secure Gate",
     "subtitle": "Sign in to continue.",
     "subtitleRegister": "Sign up to continue.",
+    "interactiveTitle": "Preparing secure controls",
+    "interactiveHint": "Attaching sign-in, sign-up, and protected input handling.",
     "identifier": "Username or email",
     "identifierRequired": "Enter your username or email.",
     "username": "Username",
@@ -563,6 +572,7 @@
     "registerServiceUnavailableRetryAfter": "Registration is temporarily unavailable. Retry in {seconds}s.",
     "rateLimited": "Too many attempts. Wait a minute and try again.",
     "rateLimitedRetryAfter": "Too many attempts. Retry in {seconds}s.",
+    "retryInButton": "Retry in {seconds}s",
     "emailInvalid": "Enter a valid email address.",
     "unlockActions": "Sign in to unlock actions.",
     "unlockActionsSignUp": "Sign up to unlock actions.",

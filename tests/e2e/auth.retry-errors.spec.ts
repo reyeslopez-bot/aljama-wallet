@@ -34,11 +34,11 @@ test('register flow shows localized retry windows for 429 and 503 backend respon
             ok: false,
             code: 'rate_limited',
             error: 'RATE_LIMITED',
-            details: { retryAfter: 11 },
+            details: { retryAfter: 2 },
           },
           {
             status: 429,
-            headers: { 'retry-after': '11' },
+            headers: { 'retry-after': '2' },
           },
         ),
       )
@@ -50,11 +50,11 @@ test('register flow shows localized retry windows for 429 and 503 backend respon
           ok: false,
           code: 'rate_limit_backend_unavailable',
           error: 'RATE_LIMIT_BACKEND_UNAVAILABLE',
-          details: { retryAfter: 7 },
+          details: { retryAfter: 1 },
         },
         {
           status: 503,
-          headers: { 'retry-after': '7' },
+          headers: { 'retry-after': '1' },
         },
       ),
     )
@@ -81,9 +81,14 @@ test('register flow shows localized retry windows for 429 and 503 backend respon
   await expect(page.getByTestId('secure-gate-auth-submit')).toBeEnabled()
   await page.getByTestId('secure-gate-auth-submit').click()
 
-  await expect(page.getByText('Too many attempts. Retry in 11s.')).toBeVisible()
+  await expect(page.getByText('Too many attempts. Retry in 2s.')).toBeVisible()
+  await expect(page.getByTestId('secure-gate-auth-submit')).toHaveText('Retry in 2s')
+  await expect(page.getByTestId('secure-gate-auth-submit')).toBeDisabled()
 
+  await expect(page.getByTestId('secure-gate-auth-submit')).toBeEnabled({ timeout: 5_000 })
   await page.getByTestId('secure-gate-auth-submit').click()
 
-  await expect(page.getByText('Registration is temporarily unavailable. Retry in 7s.')).toBeVisible()
+  await expect(page.getByText('Registration is temporarily unavailable. Retry in 1s.')).toBeVisible()
+  await expect(page.getByTestId('secure-gate-auth-submit')).toHaveText('Retry in 1s')
+  await expect(page.getByTestId('secure-gate-auth-submit')).toBeDisabled()
 })

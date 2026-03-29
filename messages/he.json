@@ -49,6 +49,10 @@
       "statusLabel": "סטטוס מחבר",
       "statusValue": "חי",
       "statusDetail": "WalletConnect, injected וזרימות מותאמות זמינים."
+    },
+    "interactive": {
+      "title": "מכינים את הפקדים האינטראקטיביים",
+      "body": "מסנכרנים פעולות ארנק, פאנלים חיים ופקדי עמוד לפני פתיחת הקלט."
     }
   },
   "actions": {
@@ -481,7 +485,10 @@
       "submit": "שליחת פנייה",
       "submitting": "שולח…",
       "errorGeneric": "לא הצלחנו לשלוח את הפנייה. נסו שוב.",
-      "successTitle": "הפנייה התקבלה",
+      "successTitle": "ההודעה התקבלה",
+      "statusReceived": "ההודעה התקבלה",
+      "statusConfirmationSent": "אישור במייל נשלח",
+      "statusEmailDelayed": "נשמר, המייל מתעכב",
       "referenceLabel": "מזהה פנייה",
       "replyWindowLabel": "זמן תגובה צפוי",
       "confirmationSent": "אימייל אישור נשלח.",
@@ -531,6 +538,8 @@
     "title": "שער מאובטח",
     "subtitle": "התחברו כדי להמשיך.",
     "subtitleRegister": "הירשמו כדי להמשיך.",
+    "interactiveTitle": "מכינים את הפקדים המאובטחים",
+    "interactiveHint": "מחברים התחברות, הרשמה וטיפול מוגן בשדות הקלט.",
     "identifier": "שם משתמש או אימייל",
     "identifierRequired": "הזינו שם משתמש או אימייל.",
     "username": "שם משתמש",
@@ -563,6 +572,7 @@
     "registerServiceUnavailableRetryAfter": "שירות ההרשמה אינו זמין כרגע. נסו שוב בעוד {seconds} שניות.",
     "rateLimited": "יותר מדי ניסיונות. נסו שוב בעוד דקה.",
     "rateLimitedRetryAfter": "יותר מדי ניסיונות. נסו שוב בעוד {seconds} שניות.",
+    "retryInButton": "נסו שוב בעוד {seconds} שניות",
     "emailInvalid": "הזן כתובת אימייל תקינה.",
     "unlockActions": "התחברו כדי לפתוח פעולות.",
     "unlockActionsSignUp": "הירשמו כדי לפתוח פעולות.",

@@ -99,6 +99,7 @@ describe('HomeContent', () => {
     expect(getByTestId('mock-client-track-wallet')).toBeTruthy()
     expect(getByTestId('mock-dynamic-info-card')).toBeTruthy()
     expect(getByTestId('mock-home-motion-scene')).toBeTruthy()
+    expect(getByTestId('home-interactive-shell')).toBeTruthy()
     expect(getByTestId('mock-mapbox-map')).toBeTruthy()
     expect(getByTestId('mock-home-action-buttons')).toBeTruthy()
     expect(getByTestId('mock-home-stage-shell')).toBeTruthy()

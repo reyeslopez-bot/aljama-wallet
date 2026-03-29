@@ -49,6 +49,10 @@
       "statusLabel": "حالة الموصل",
       "statusValue": "مباشر",
       "statusDetail": "WalletConnect وInjected والتدفقات المخصصة متاحة."
+    },
+    "interactive": {
+      "title": "جارٍ تجهيز عناصر التحكم التفاعلية",
+      "body": "تتم الآن مزامنة إجراءات المحفظة واللوحات المباشرة وعناصر الصفحة قبل فتح الإدخال."
     }
   },
   "actions": {
@@ -481,7 +485,10 @@
       "submit": "إرسال الطلب",
       "submitting": "جارٍ الإرسال…",
       "errorGeneric": "تعذر إرسال طلبك. حاول مرة أخرى.",
-      "successTitle": "تم استلام الطلب",
+      "successTitle": "تم استلام الرسالة",
+      "statusReceived": "تم استلام الرسالة",
+      "statusConfirmationSent": "تم إرسال تأكيد البريد الإلكتروني",
+      "statusEmailDelayed": "تم الحفظ، البريد متأخر",
       "referenceLabel": "الرقم المرجعي",
       "replyWindowLabel": "وقت الرد المتوقع",
       "confirmationSent": "تم إرسال رسالة تأكيد بالبريد الإلكتروني.",
@@ -531,6 +538,8 @@
     "title": "بوابة آمنة",
     "subtitle": "سجّل الدخول للمتابعة.",
     "subtitleRegister": "أنشئ حسابًا للمتابعة.",
+    "interactiveTitle": "جارٍ تجهيز عناصر التحكم الآمنة",
+    "interactiveHint": "يتم الآن ربط تسجيل الدخول والتسجيل ومعالجة الحقول المحمية.",
     "identifier": "اسم المستخدم أو البريد الإلكتروني",
     "identifierRequired": "أدخل اسم المستخدم أو البريد الإلكتروني.",
     "username": "اسم المستخدم",
@@ -563,6 +572,7 @@
     "registerServiceUnavailableRetryAfter": "خدمة إنشاء الحساب غير متاحة مؤقتًا. أعد المحاولة بعد {seconds} ثوانٍ.",
     "rateLimited": "عدد المحاولات كبير جدًا. انتظر دقيقة ثم حاول مرة أخرى.",
     "rateLimitedRetryAfter": "عدد المحاولات كبير جدًا. أعد المحاولة بعد {seconds} ثوانٍ.",
+    "retryInButton": "أعد المحاولة بعد {seconds} ثوانٍ",
     "emailInvalid": "أدخل بريدًا إلكترونيًا صحيحًا.",
     "unlockActions": "سجّل الدخول لفتح الإجراءات.",
     "unlockActionsSignUp": "أنشئ حسابًا لفتح الإجراءات.",

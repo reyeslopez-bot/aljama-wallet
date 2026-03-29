@@ -286,7 +286,11 @@ export async function prepareMockedHome(page: Page, options: PrepareMockedHomeOp
 }
 
 export async function waitForAppHydration(page: Page) {
-  await page.waitForFunction(() => document.documentElement.dataset.appHydrated === 'true')
+  await page.waitForFunction(
+    () =>
+      document.documentElement.dataset.appHydrated === 'true' &&
+      !document.querySelector('[data-interactive-ready="false"]'),
+  )
 }
 
 export async function expectHomeShellVisible(page: Page) {

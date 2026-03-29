@@ -10,6 +10,7 @@ import { hasRecognizedDevice } from "@/infra/telemetry/client"
 import { parseClientApiError } from "@/lib/security/client-api-error"
 import { logWarn } from "@/lib/security/logging"
 import { persistProfileImageForUsername } from "@/lib/storage/profileImage"
+import InteractiveShell from "@/components/system/InteractiveShell.client"
 
 type Props = {
   title?: string
@@ -55,6 +56,8 @@ export default function LoginGate({
   const [mode, setMode] = React.useState<"login" | "register">(initialMode)
   const [error, setError] = React.useState<string | null>(null)
   const [notice, setNotice] = React.useState<string | null>(null)
+  const [retryDeadlineMs, setRetryDeadlineMs] = React.useState<number | null>(null)
+  const [retryCountdownSeconds, setRetryCountdownSeconds] = React.useState(0)
 
   const isStrongPassword = (value: string) => {
     if (value.length < 12) return false
@@ -74,6 +77,7 @@ export default function LoginGate({
   const isValidUsername = /^[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}$/.test(normalizedUsername)
   const disabled =
     busy ||
+    retryCountdownSeconds > 0 ||
     !password ||
     (mode === "register"
       ? (!normalizedUsername || !isValidUsername || !strongPassword || !isValidRegisterEmail)
@@ -86,6 +90,8 @@ export default function LoginGate({
 
   React.useEffect(() => {
     setMode(initialMode)
+    setRetryDeadlineMs(null)
+    setRetryCountdownSeconds(0)
   }, [initialMode])
 
   React.useEffect(() => {
@@ -94,6 +100,25 @@ export default function LoginGate({
     if (hasExplicitMode) return
     setMode(hasRecognizedDevice() ? "login" : "register")
   }, [])
+
+  React.useEffect(() => {
+    if (!retryDeadlineMs) {
+      setRetryCountdownSeconds(0)
+      return
+    }
+
+    const syncCountdown = () => {
+      const remainingSeconds = Math.max(0, Math.ceil((retryDeadlineMs - Date.now()) / 1000))
+      setRetryCountdownSeconds(remainingSeconds)
+      if (remainingSeconds === 0) {
+        setRetryDeadlineMs(null)
+      }
+    }
+
+    syncCountdown()
+    const intervalId = window.setInterval(syncCountdown, 250)
+    return () => window.clearInterval(intervalId)
+  }, [retryDeadlineMs])
 
   const formatRegisterApiError = React.useCallback(
     (apiError: ReturnType<typeof parseClientApiError>, body: { error?: string } | null) => {
@@ -229,9 +254,14 @@ export default function LoginGate({
 
         if (!res.ok) {
           const apiError = parseClientApiError(res, body)
+          setRetryDeadlineMs(
+            apiError.retryAfterSeconds ? Date.now() + apiError.retryAfterSeconds * 1_000 : null,
+          )
           setError(formatRegisterApiError(apiError, body))
           return
         }
+
+        setRetryDeadlineMs(null)
 
         if (profileImage) {
           const persistedUsername =
@@ -252,10 +282,12 @@ export default function LoginGate({
       })
 
       if (!result || result.error) {
+        setRetryDeadlineMs(null)
         setError(t("loginFailed"))
         return
       }
 
+      setRetryDeadlineMs(null)
       navigateHome("push", "auth_success")
     } catch (error) {
       logWarn("login-gate:submit", error, {
@@ -264,6 +296,7 @@ export default function LoginGate({
         identifier: mode === "register" ? normalizedUsername : normalizedIdentifier,
       })
 
+      setRetryDeadlineMs(null)
       if (mode === "register") {
         setError(t("registerServiceUnavailable"))
       } else {
@@ -280,6 +313,13 @@ export default function LoginGate({
     { label: "AR", value: "ar" },
   ]
   const resolvedSubtitle = subtitle ?? (mode === "register" ? t("subtitleRegister") : t("subtitle"))
+  const submitLabel = busy
+    ? mode === "register"
+      ? t("registering")
+      : t("signingIn")
+    : retryCountdownSeconds > 0
+      ? t("retryInButton", { seconds: String(retryCountdownSeconds) })
+      : buttonText ?? (mode === "register" ? t("register") : t("signIn"))
 
   const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -325,13 +365,22 @@ export default function LoginGate({
   const isInline = variant === "inline"
 
   return (
-    <div
-      data-testid="secure-gate-root"
+    <InteractiveShell
+      rootTestId="secure-gate-root"
+      loadingTestId="secure-gate-interactive-loading"
+      loadingTitle={t("interactiveTitle")}
+      loadingHint={t("interactiveHint")}
       className={
         isInline
           ? "relative flex w-full items-center justify-center overflow-hidden"
           : "relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-black/80 px-6 py-12"
       }
+      overlayClassName={
+        isInline
+          ? "absolute inset-0 z-20 rounded-[2rem] bg-[#071018]/22 backdrop-blur-[2px]"
+          : "absolute inset-0 z-20 bg-black/18 backdrop-blur-[2px]"
+      }
+      panelClassName="ml-auto mt-4 mr-4 max-w-xs rounded-[1.5rem] border border-white/10 bg-[#071018]/92 px-4 py-3 text-left shadow-xl shadow-black/25"
     >
       {!isInline ? (
         <>
@@ -537,11 +586,7 @@ export default function LoginGate({
             className="mt-2 w-full rounded-2xl border border-white/10 bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] px-4 py-3 text-base font-semibold text-ivory shadow-lg shadow-[#c7794a]/30 transition hover:from-[#f6e1b6] hover:to-[#d48755] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={disabled}
           >
-            {busy
-              ? mode === "register"
-                ? t("registering")
-                : t("signingIn")
-              : buttonText ?? (mode === "register" ? t("register") : t("signIn"))}
+            {submitLabel}
           </button>
 
           {mode === "register" && (
@@ -561,6 +606,8 @@ export default function LoginGate({
                 setMode((prev) => (prev === "login" ? "register" : "login"))
                 setError(null)
                 setNotice(null)
+                setRetryDeadlineMs(null)
+                setRetryCountdownSeconds(0)
               }}
               className="font-semibold uppercase tracking-[0.12em] text-saffron transition hover:text-ivory"
             >
@@ -581,6 +628,6 @@ export default function LoginGate({
           )}
         </form>
       </div>
-    </div>
+    </InteractiveShell>
   )
 }

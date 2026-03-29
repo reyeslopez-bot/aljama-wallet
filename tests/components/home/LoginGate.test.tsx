@@ -369,7 +369,7 @@ describe('LoginGate', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByRole, getByPlaceholderText, findByText } = render(
+    const { getByRole, getByPlaceholderText, getByTestId, findByText } = render(
       <LoginGate showBackLink={false} initialMode="register" />,
     )
 
@@ -378,6 +378,8 @@ describe('LoginGate', () => {
     await human.click(getByRole('button', { name: 'Sign up' }), HUMAN_DELAYS.mediumSettle)
 
     expect(await findByText('Too many attempts. Retry in 11s.')).toBeTruthy()
+    expect((getByTestId('secure-gate-auth-submit') as HTMLButtonElement).disabled).toBe(true)
+    expect((getByTestId('secure-gate-auth-submit') as HTMLButtonElement).textContent).toContain('Retry in')
     expect(mockedSignIn).not.toHaveBeenCalled()
     expect(mocks.push).not.toHaveBeenCalled()
   })
@@ -414,7 +416,7 @@ describe('LoginGate', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { getByRole, getByPlaceholderText, findByText } = render(
+    const { getByRole, getByPlaceholderText, getByTestId, findByText } = render(
       <LoginGate showBackLink={false} initialMode="register" />,
     )
 
@@ -423,6 +425,8 @@ describe('LoginGate', () => {
     await human.click(getByRole('button', { name: 'Sign up' }), HUMAN_DELAYS.mediumSettle)
 
     expect(await findByText('Registration is temporarily unavailable. Retry in 12s.')).toBeTruthy()
+    expect((getByTestId('secure-gate-auth-submit') as HTMLButtonElement).disabled).toBe(true)
+    expect((getByTestId('secure-gate-auth-submit') as HTMLButtonElement).textContent).toContain('Retry in')
     expect(mockedSignIn).not.toHaveBeenCalled()
     expect(mocks.push).not.toHaveBeenCalled()
   })

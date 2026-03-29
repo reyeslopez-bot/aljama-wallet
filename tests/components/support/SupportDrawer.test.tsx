@@ -68,11 +68,56 @@ describe('SupportDrawer', () => {
       expect(getByTestId('support-drawer-success')).toBeTruthy()
     })
 
+    expect(getByTestId('support-drawer-delivery-status').textContent).toContain('Message received')
+    expect(getByTestId('support-drawer-delivery-status').textContent).toContain('Email confirmation sent')
+
     expect(fetch).toHaveBeenCalledWith(
       '/api/contact',
       expect.objectContaining({
         method: 'POST',
       }),
     )
+  })
+
+  it('shows delayed email delivery status when confirmation email is unavailable', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            referenceId: 'contact-77',
+            replyWindow: 'within 1 business day',
+            confirmationEmailSent: false,
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      ),
+    )
+
+    const { getByRole, getByLabelText, getByTestId } = render(<SupportDrawer />)
+
+    await act(async () => {
+      openSupportDrawer({ source: 'test-delayed-email' })
+    })
+
+    await waitFor(() => {
+      expect(getByRole('dialog')).toBeTruthy()
+    })
+
+    fireEvent.change(getByLabelText('Message'), {
+      target: { value: 'The confirmation email did not arrive yet.' },
+    })
+
+    fireEvent.submit(getByRole('button', { name: 'Send request' }).closest('form')!)
+
+    await waitFor(() => {
+      expect(getByTestId('support-drawer-success')).toBeTruthy()
+    })
+
+    expect(getByTestId('support-drawer-delivery-status').textContent).toContain('Saved, email delayed')
   })
 })
