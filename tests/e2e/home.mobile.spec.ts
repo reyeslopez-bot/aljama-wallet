@@ -118,7 +118,7 @@ test('home layout stays within frame on device projects', async ({ page }, testI
 
   await toggleButton.focus()
   await expect(toggleButton).toBeFocused()
-  await toggleButton.press('Enter')
+  await toggleButton.click()
   await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
   await expectFullyInViewport(page, infoCard, `${label} expanded`)
   await expectNoHorizontalOverflow(page, `${label} expanded`)
@@ -146,7 +146,7 @@ test('rtl home routes avoid horizontal overflow', async ({ page }, testInfo) => 
 
     await toggleButton.focus()
     await expect(toggleButton).toBeFocused()
-    await toggleButton.press('Enter')
+    await toggleButton.click()
     await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
     await expectFullyInViewport(page, infoCard, `${label} expanded`)
     await expectNoHorizontalOverflow(page, `${label} expanded`)

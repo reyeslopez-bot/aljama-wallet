@@ -18,6 +18,8 @@ type SendEmailPayload = {
   text: string
 }
 
+type SupportEmailProvider = 'resend' | 'gmail' | 'none'
+
 function env(name: string): string {
   return process.env[name]?.trim() ?? ''
 }
@@ -31,8 +33,16 @@ function subjectPrefix(): string {
   return env('SUPPORT_EMAIL_SUBJECT_PREFIX') || 'Aljama Wallet'
 }
 
-function supportFromEmail(): string {
-  return env('SUPPORT_EMAIL_FROM')
+function supportGmailUser(): string {
+  return env('SUPPORT_EMAIL_GMAIL_USER')
+}
+
+function supportGmailAppPassword(): string {
+  return env('SUPPORT_EMAIL_GMAIL_APP_PASSWORD')
+}
+
+function supportFromEmail(provider: SupportEmailProvider = supportEmailProvider()): string {
+  return env('SUPPORT_EMAIL_FROM') || (provider === 'gmail' ? supportGmailUser() : '')
 }
 
 function supportInternalTo(): string {
@@ -47,9 +57,11 @@ function supportSiteUrl(): string {
   return env('NEXT_PUBLIC_SITE_URL') || env('NEXTAUTH_URL') || 'http://localhost:2998'
 }
 
-function supportEmailProvider(): 'resend' | 'none' {
+function supportEmailProvider(): SupportEmailProvider {
   const configured = env('SUPPORT_EMAIL_PROVIDER').toLowerCase()
-  return configured === 'resend' ? 'resend' : 'none'
+  if (configured === 'resend') return 'resend'
+  if (configured === 'gmail') return 'gmail'
+  return 'none'
 }
 
 function asCategory(value: string): ContactCategory {
@@ -111,7 +123,7 @@ function buildInternalEmail(record: ContactRequestRecord): SendEmailPayload {
 
 async function sendEmailViaResend(payload: SendEmailPayload): Promise<boolean> {
   const apiKey = env('SUPPORT_EMAIL_API_KEY')
-  const from = supportFromEmail()
+  const from = supportFromEmail('resend')
   if (!apiKey || !from) return false
 
   const controller = new AbortController()
@@ -147,9 +159,58 @@ async function sendEmailViaResend(payload: SendEmailPayload): Promise<boolean> {
   }
 }
 
+async function sendEmailViaGmail(payload: SendEmailPayload): Promise<boolean> {
+  const user = supportGmailUser()
+  const pass = supportGmailAppPassword()
+  const from = supportFromEmail('gmail')
+  if (!user || !pass || !from) return false
+
+  let transport:
+    | {
+        sendMail: (input: { from: string; to: string; subject: string; text: string }) => Promise<unknown>
+        close?: () => void
+      }
+    | null = null
+
+  try {
+    const nodemailerModule = await import('nodemailer')
+    const createTransport =
+      nodemailerModule.default?.createTransport ?? nodemailerModule.createTransport
+    const timeoutMs = envInt('SUPPORT_EMAIL_TIMEOUT_MS', 4_000)
+
+    const gmailTransport = createTransport({
+      service: 'gmail',
+      auth: {
+        user,
+        pass,
+      },
+      connectionTimeout: timeoutMs,
+      greetingTimeout: timeoutMs,
+      socketTimeout: timeoutMs,
+    })
+    transport = gmailTransport
+
+    await gmailTransport.sendMail({
+      from,
+      to: payload.to,
+      subject: payload.subject,
+      text: payload.text,
+    })
+
+    return true
+  } catch (error) {
+    logError('support:email', error, { to: payload.to, subject: payload.subject, provider: 'gmail' })
+    return false
+  } finally {
+    transport?.close?.()
+  }
+}
+
 async function sendSupportEmail(payload: SendEmailPayload): Promise<boolean> {
-  if (supportEmailProvider() !== 'resend') return false
-  return sendEmailViaResend(payload)
+  const provider = supportEmailProvider()
+  if (provider === 'resend') return sendEmailViaResend(payload)
+  if (provider === 'gmail') return sendEmailViaGmail(payload)
+  return false
 }
 
 async function postSupportWebhook(record: ContactRequestRecord): Promise<boolean> {

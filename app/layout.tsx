@@ -1,7 +1,7 @@
 // app/layout.tsx
 import './globals.css'
 import type { ReactNode } from 'react'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { El_Messiri, Manrope } from 'next/font/google'
 import { getLocale } from 'next-intl/server'
 import { defaultLocale, isRtlLocale } from '@/i18n/routing'
@@ -13,6 +13,9 @@ export const metadata: Metadata = {
       { url: '/favicon-dark.svg', media: '(prefers-color-scheme: dark)' },
     ],
   },
+}
+
+export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#e6cfa3' },
     { media: '(prefers-color-scheme: dark)', color: '#0f1115' },

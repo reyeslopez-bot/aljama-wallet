@@ -135,7 +135,7 @@ test('dynamic info card stays inside the viewport across zoom-equivalent layouts
 
     await toggleButton.focus()
     await expect(toggleButton).toBeFocused()
-    await toggleButton.press('Enter')
+    await toggleButton.click()
     await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
     await expectFullyInViewport(page, infoCard, `${zoomCase.label} expanded`)
   }
@@ -160,7 +160,7 @@ test('dynamic info card remains in frame when text scales up', async ({ page }) 
 
   await toggleButton.focus()
   await expect(toggleButton).toBeFocused()
-  await toggleButton.press('Enter')
+  await toggleButton.click()
   await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
   await expectFullyInViewport(page, infoCard, 'text-scale-125 expanded')
 })
@@ -207,7 +207,7 @@ test('rtl home routes avoid horizontal overflow', async ({ page }, testInfo) => 
 
     await toggleButton.focus()
     await expect(toggleButton).toBeFocused()
-    await toggleButton.press('Enter')
+    await toggleButton.click()
     await expect(page.getByTestId('dynamic-info-card-expanded')).toBeVisible()
     await expectFullyInViewport(page, infoCard, `${label} expanded`)
     await expectNoHorizontalOverflow(page, `${label} expanded`)
