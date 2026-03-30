@@ -2,11 +2,9 @@
 
 // Server Component (NO 'use client')
 import MapboxMap from '@/components/ui/MapboxMap.client'
-import { CreateWalletPanel } from '@/components/home/CreateWalletPanel'
 import HomeActionButtons from '@/components/home/HomeActionButtons.client'
-import { ConnectWalletPanel } from '@/components/home/ConnectWalletPanel.client'
 import HomeMotionScene from '@/components/home/HomeMotionScene.client'
-import HomeStageShell from '@/components/home/HomeStageShell.client'
+import WalletAccessSection from '@/components/home/WalletAccessSection.client'
 import { XrplPanel } from '@/components/home/XrplPanel.client'
 import XrplMarketPanel from '@/components/home/XrplMarketPanel.client'
 import XrplTradeDesk from '@/components/home/XrplTradeDesk.client'
@@ -118,35 +116,6 @@ function RegionAndComplianceSection() {
       <div className={`${SURFACE} panel-glow-jade p-10 md:p-12`}>
         <RegionCompliancePanel />
       </div>
-    </section>
-  )
-}
-
-function WalletAccessSection() {
-  return (
-    <section
-      id="wallet"
-      data-testid="home-wallet-section"
-      data-home-reveal="wallet"
-      data-home-route-stop="wallet"
-      aria-label="Wallet creation and connection"
-      className="scroll-mt-28 space-y-6"
-    >
-      <HomeStageShell>
-        <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)]">
-          <div>
-            <div id="create" className="scroll-mt-28">
-              <CreateWalletPanel />
-            </div>
-          </div>
-
-          <div>
-            <div id="connect" className="scroll-mt-28">
-              <ConnectWalletPanel />
-            </div>
-          </div>
-        </div>
-      </HomeStageShell>
     </section>
   )
 }

@@ -4,6 +4,10 @@ import { render, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import HomeContent from '@/components/home/HomeContent'
 
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(''),
+}))
+
 vi.mock('@/infra/utils/ClientTrackWallet', () => ({
   default: () => <div data-testid="mock-client-track-wallet" />,
 }))

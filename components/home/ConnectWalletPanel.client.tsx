@@ -126,11 +126,11 @@ export function ConnectWalletPanel() {
       data-testid="connect-wallet-panel"
       aria-labelledby={titleId}
       aria-describedby={`${bodyId} ${detailId}`}
-      className="surface-panel panel-glow-lapis relative h-full p-7 sm:p-8"
+      className="surface-panel panel-glow-lapis relative h-full p-5 sm:p-8"
     >
-      <div className="absolute inset-x-8 top-5 ornament-line" />
+      <div className="absolute inset-x-6 top-4 ornament-line sm:inset-x-8 sm:top-5" />
 
-      <header className="relative flex items-center justify-between gap-3">
+      <header className="relative flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('eyebrow')}</p>
           <h2 id={titleId} className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">

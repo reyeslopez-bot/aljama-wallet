@@ -119,6 +119,8 @@ describe('HomeStageShell', () => {
 
     expect(getByTestId('mock-login-gate').getAttribute('data-mode')).toBe('login')
     expect(getByTestId('mock-login-gate').getAttribute('data-variant')).toBe('inline')
+    expect(getByTestId('home-stage-workspace').className).not.toContain('pointer-events-none')
+    expect(getByTestId('home-stage-workspace').className).not.toContain('opacity-60')
   })
 
   it('renders the inline consent gate after authentication when permissions are still unanswered', async () => {
@@ -139,6 +141,8 @@ describe('HomeStageShell', () => {
 
     expect(getByTestId('mock-consent-gate').getAttribute('data-variant')).toBe('inline')
     expect(queryByTestId('mock-login-gate')).toBeNull()
+    expect(getByTestId('home-stage-workspace').className).toContain('pointer-events-none')
+    expect(getByTestId('home-stage-workspace').className).toContain('opacity-60')
   })
 
   it('unlocks the wallet workspace once consent is already answered', async () => {
@@ -163,5 +167,6 @@ describe('HomeStageShell', () => {
 
     expect(queryByTestId('mock-login-gate')).toBeNull()
     expect(queryByTestId('mock-consent-gate')).toBeNull()
+    expect(getByTestId('home-stage-workspace').className).toBe('')
   })
 })

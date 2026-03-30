@@ -95,7 +95,7 @@ export default function HomeStageShell({ children }: HomeStageShellProps) {
       <div
         data-testid="home-stage-workspace"
         data-stage={stage}
-        className={stage === 'wallet-ready' || stage === 'checking' ? '' : 'pointer-events-none opacity-60'}
+        className={stage === 'consent-required' ? 'pointer-events-none opacity-60' : ''}
       >
         {children}
       </div>

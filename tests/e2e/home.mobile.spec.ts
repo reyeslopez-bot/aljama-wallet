@@ -130,6 +130,27 @@ test('home layout stays within frame on device projects', async ({ page }, testI
   await expectNoHorizontalOverflow(page, `${label} wallet-section`)
 })
 
+test('mobile wallet section uses a single-pane shell with mode tabs', async ({ page }) => {
+  await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
+  await expect(page.getByTestId('home-overview-section')).toBeVisible()
+  await waitForAppHydration(page)
+
+  const walletSection = page.getByTestId('home-wallet-section')
+  await walletSection.scrollIntoViewIfNeeded()
+  await expect(walletSection).toBeVisible()
+
+  const mobileShell = page.getByTestId('wallet-access-mobile-shell')
+  await expect(mobileShell).toBeVisible()
+  await expect(page.getByTestId('wallet-access-mobile-create')).toBeVisible()
+  await expect(page.getByTestId('wallet-access-mobile-connect')).toBeHidden()
+
+  await page.getByTestId('wallet-access-tab-connect').click()
+
+  await expect(page).toHaveURL(/#connect$/)
+  await expect(page.getByTestId('wallet-access-mobile-create')).toBeHidden()
+  await expect(page.getByTestId('wallet-access-mobile-connect')).toBeVisible()
+})
+
 test('rtl home routes avoid horizontal overflow', async ({ page }, testInfo) => {
   for (const route of RTL_HOME_ROUTES) {
     await page.goto(route, { waitUntil: 'domcontentloaded' })

@@ -301,8 +301,25 @@ export async function expectHomeShellVisible(page: Page) {
   await expect(page.getByTestId('home-trade-desk-section')).toBeVisible()
   await expect(page.getByTestId('mapbox-map')).toBeVisible()
   await expect(page.getByTestId('region-compliance-panel')).toBeVisible()
-  await expect(page.getByTestId('create-wallet-panel')).toBeVisible()
-  await expect(page.getByTestId('connect-wallet-panel')).toBeVisible()
+  const createWalletPanel = page.getByTestId('create-wallet-panel')
+  const connectWalletPanel = page.getByTestId('connect-wallet-panel')
+  const mobileShell = page.getByTestId('wallet-access-mobile-shell')
+  const desktopShell = page.getByTestId('wallet-access-desktop-shell')
+
+  const [
+    createVisible,
+    connectVisible,
+    mobileShellVisible,
+    desktopShellVisible,
+  ] = await Promise.all([
+    createWalletPanel.isVisible().catch(() => false),
+    connectWalletPanel.isVisible().catch(() => false),
+    mobileShell.isVisible().catch(() => false),
+    desktopShell.isVisible().catch(() => false),
+  ])
+
+  expect(createVisible || connectVisible).toBe(true)
+  expect(mobileShellVisible || desktopShellVisible || (createVisible && connectVisible)).toBe(true)
   await expect(page.getByTestId('xrpl-panel')).toBeVisible()
   await expect(page.getByTestId('xrpl-market-panel')).toBeVisible()
   await expect(page.getByTestId('xrpl-trade-desk')).toBeVisible()

@@ -729,11 +729,11 @@ export function CreateWalletPanel() {
       data-testid="create-wallet-panel"
       aria-labelledby={titleId}
       aria-describedby={`${bodyId} ${engineStateId} ${formHintId}`}
-      className="surface-panel panel-glow-saffron relative p-7 sm:p-8"
+      className="surface-panel panel-glow-saffron relative p-5 sm:p-8"
     >
-      <div className="absolute inset-x-8 top-5 ornament-line" />
+      <div className="absolute inset-x-6 top-4 ornament-line sm:inset-x-8 sm:top-5" />
 
-      <header className="relative flex items-center justify-between gap-3">
+      <header className="relative flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-saffron/70">{t('eyebrow')}</p>
           <h2 id={titleId} className="mt-3 font-display text-2xl font-semibold text-ivory sm:text-3xl">
@@ -778,7 +778,7 @@ export function CreateWalletPanel() {
 
         <div className="space-y-3">
           <div className="surface-inner flex w-full items-center gap-3 px-4 py-3 focus-within:border-saffron/50 focus-within:ring-2 focus-within:ring-saffron/25">
-            <span className="min-w-[7.25rem] shrink-0 text-xs uppercase tracking-[0.2em] text-saffron/70">
+            <span className="min-w-[6rem] shrink-0 text-xs uppercase tracking-[0.2em] text-saffron/70 sm:min-w-[7.25rem]">
               {t('passwordTag')}
             </span>
             <input
@@ -846,7 +846,7 @@ export function CreateWalletPanel() {
               <div className="surface-inner flex w-full items-center gap-3 px-4 py-3 focus-within:border-lapis/50 focus-within:ring-2 focus-within:ring-lapis/25">
                 <span
                   id={mnemonicPassphraseLabelId}
-                  className="min-w-[7.25rem] shrink-0 text-xs uppercase tracking-[0.2em] text-lapis/75"
+                  className="min-w-[6rem] shrink-0 text-xs uppercase tracking-[0.2em] text-lapis/75 sm:min-w-[7.25rem]"
                 >
                   {t('mnemonicPassphraseTag')}
                 </span>
