@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearPgDevFallbackStateForTests } from '@/lib/security/pg-dev-fallback'
 
 const {
   mockUserFindUnique,
@@ -36,6 +37,7 @@ describe('lib/auth/store', () => {
     vi.clearAllMocks()
     vi.unstubAllEnvs()
     clearDevAuthStore()
+    clearPgDevFallbackStateForTests()
 
     mockUserFindUnique.mockResolvedValue(null)
     mockUserFindFirst.mockResolvedValue(null)
@@ -45,6 +47,7 @@ describe('lib/auth/store', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
     clearDevAuthStore()
+    clearPgDevFallbackStateForTests()
   })
 
   it('uses explicit auth mode overrides before implicit environment detection', async () => {
@@ -86,6 +89,43 @@ describe('lib/auth/store', () => {
     expect(foundUser).toEqual(createdUser)
     expect(mockLogWarn).toHaveBeenCalledWith('auth:create', expect.any(Error))
     expect(mockLogWarn).toHaveBeenCalledWith('auth:lookup-identifier', expect.any(Error))
+  })
+
+  it('logs one concise warning and disables PG auth after a schema mismatch in development', async () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    vi.stubEnv('AUTH_MODE', 'pg')
+
+    const schemaError = Object.assign(
+      new Error('The table `public.User` does not exist in the current database.'),
+      { code: 'P2021' },
+    )
+    mockUserFindFirst.mockRejectedValueOnce(schemaError)
+
+    const { createUser, findUserByUsername, usePgAuth } = await import('@/lib/auth/store')
+
+    expect(usePgAuth()).toBe(true)
+    await expect(findUserByUsername('desk_user')).resolves.toBeNull()
+    expect(usePgAuth()).toBe(false)
+
+    const createdUser = await createUser({
+      username: 'Desk_User',
+      email: 'Desk_User@example.com',
+      passwordHash: 'hashed-password',
+    })
+
+    expect(createdUser.id).toMatch(/^dev_/)
+    expect(mockUserCreate).not.toHaveBeenCalled()
+    expect(mockLogWarn).toHaveBeenCalledTimes(1)
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      'auth:pg-schema',
+      expect.objectContaining({
+        message: expect.stringContaining('Postgres auth schema is missing or outdated'),
+      }),
+      expect.objectContaining({
+        code: 'P2021',
+        target: 'public.User',
+      }),
+    )
   })
 
   it('throws instead of falling back when PG writes fail in production', async () => {

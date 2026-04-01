@@ -1,6 +1,8 @@
 import { prismaPg } from '@/lib/prisma-pg'
 import { randomUUID } from 'node:crypto'
 import { logWarn } from '@/lib/security/logging'
+import { disablePgFeatureInDev, isPgFeatureDisabledInDev } from '@/lib/security/pg-dev-fallback'
+import { getPrismaSchemaIssue } from '@/lib/security/prisma-schema'
 
 type StoredUser = {
   id: string
@@ -19,12 +21,17 @@ if (process.env.NODE_ENV !== 'production') {
   globalForAuth.authDevUsersById = devUsersById
 }
 
+const AUTH_PG_FEATURE = 'auth-store'
+
 export function usePgAuth(): boolean {
   const mode = process.env.AUTH_MODE
   if (mode === 'memory') return false
-  if (mode === 'pg') return true
-  if (process.env.NODE_ENV !== 'production') return false
-  return Boolean(process.env.PG_DATABASE_URL ?? process.env.POSTGRES_URL)
+  const pgConfigured =
+    mode === 'pg' ||
+    (process.env.NODE_ENV === 'production' && Boolean(process.env.PG_DATABASE_URL ?? process.env.POSTGRES_URL))
+
+  if (!pgConfigured) return false
+  return !isPgFeatureDisabledInDev(AUTH_PG_FEATURE)
 }
 
 function normalizeEmail(email: string): string {
@@ -33,6 +40,35 @@ function normalizeEmail(email: string): string {
 
 function normalizeUsername(username: string): string {
   return username.trim().toLowerCase()
+}
+
+function handlePgAuthError(scope: string, error: unknown): boolean {
+  if (process.env.NODE_ENV === 'production') {
+    return false
+  }
+
+  const schemaIssue = getPrismaSchemaIssue(error)
+  if (schemaIssue) {
+    const firstFailure = disablePgFeatureInDev(AUTH_PG_FEATURE, schemaIssue.summary)
+    if (firstFailure) {
+      logWarn(
+        'auth:pg-schema',
+        {
+          message:
+            `Postgres auth schema is missing or outdated (${schemaIssue.summary}); ` +
+            'using in-memory auth for this dev server process. Run `pnpm prisma:migrate:deploy:pg` and restart `pnpm dev`.',
+        },
+        {
+          code: schemaIssue.code,
+          target: schemaIssue.target,
+        },
+      )
+    }
+    return true
+  }
+
+  logWarn(scope, error)
+  return true
 }
 
 function findDevUserByEmail(email: string): StoredUser | null {
@@ -69,8 +105,7 @@ export async function findUserByEmail(email: string): Promise<StoredUser | null>
     try {
       return await prismaPg.user.findUnique({ where: { email: normalized } })
     } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        logWarn('auth:lookup', error)
+      if (handlePgAuthError('auth:lookup', error)) {
         return findDevUserByEmail(normalized)
       }
       throw error
@@ -90,8 +125,7 @@ export async function findUserByUsername(username: string): Promise<StoredUser |
         where: { name: normalized },
       })
     } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        logWarn('auth:lookup-username', error)
+      if (handlePgAuthError('auth:lookup-username', error)) {
         return findDevUserByUsername(normalized)
       }
       throw error
@@ -116,8 +150,7 @@ export async function findUserByIdentifier(identifier: string): Promise<StoredUs
         },
       })
     } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        logWarn('auth:lookup-identifier', error)
+      if (handlePgAuthError('auth:lookup-identifier', error)) {
         return findDevUserByEmail(normalized) ?? findDevUserByUsername(normalized)
       }
       throw error
@@ -152,9 +185,7 @@ export async function createUser(params: {
         },
       })
     } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        logWarn('auth:create', error)
-      } else {
+      if (!handlePgAuthError('auth:create', error)) {
         throw error
       }
     }

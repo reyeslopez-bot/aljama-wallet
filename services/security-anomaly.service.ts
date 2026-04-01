@@ -1,8 +1,10 @@
 import crypto from 'node:crypto'
 import { getErrorMessage } from '@/lib/security/errors'
 import { assertNoSensitiveFreeFormFields } from '@/lib/security/event-schema'
+import { disablePgFeatureInDev, clearPgDevFallbackStateForTests, isPgFeatureDisabledInDev } from '@/lib/security/pg-dev-fallback'
 import { prismaPg } from '@/lib/prisma-pg'
 import { logError, logWarn } from '@/lib/security/logging'
+import { getPrismaSchemaIssue } from '@/lib/security/prisma-schema'
 import { createTraceId } from '@/lib/security/trace'
 import type { Prisma } from '@/prisma/generated/pg'
 import { emitSecurityAlert, type SecurityAlertSeverity } from '@/services/security-alert.service'
@@ -268,8 +270,45 @@ function envInt(name: string, fallback: number): number {
   return Math.max(0, Math.floor(parsed))
 }
 
+const SECURITY_FORENSICS_PG_FEATURE = 'security-anomaly-forensics'
+
 function canUsePg() {
-  return Boolean(process.env.PG_DATABASE_URL ?? process.env.POSTGRES_URL)
+  return Boolean(process.env.PG_DATABASE_URL ?? process.env.POSTGRES_URL) &&
+    !isPgFeatureDisabledInDev(SECURITY_FORENSICS_PG_FEATURE)
+}
+
+function handleForensicPgError(
+  scope: string,
+  error: unknown,
+  details?: Record<string, unknown>,
+): boolean {
+  if (process.env.NODE_ENV === 'production') {
+    return false
+  }
+
+  const schemaIssue = getPrismaSchemaIssue(error)
+  if (schemaIssue) {
+    const firstFailure = disablePgFeatureInDev(SECURITY_FORENSICS_PG_FEATURE, schemaIssue.summary)
+    if (firstFailure) {
+      logWarn(
+        'security-anomaly:pg-schema',
+        {
+          message:
+            `Postgres forensic schema is missing or outdated (${schemaIssue.summary}); ` +
+            'using in-memory security signal history for this dev server process. Run `pnpm prisma:migrate:deploy:pg` and restart `pnpm dev`.',
+        },
+        {
+          operation: scope,
+          code: schemaIssue.code,
+          target: schemaIssue.target,
+          ...details,
+        },
+      )
+    }
+    return true
+  }
+
+  return false
 }
 
 function toJson(value: unknown): Prisma.InputJsonValue {
@@ -1041,11 +1080,14 @@ async function persistSignalToForensicStore(signal: SecuritySignalRecord) {
     })
     void runForensicRetentionMaintenance()
   } catch (error) {
-    logError('security-anomaly:forensic-signal-write', error, {
+    const details = {
       signalId: signal.id,
       source: signal.source,
       traceId: signal.traceId ?? null,
-    })
+    }
+    if (!handleForensicPgError('forensic_signal_write', error, details)) {
+      logError('security-anomaly:forensic-signal-write', error, details)
+    }
   }
 }
 
@@ -1073,10 +1115,13 @@ async function persistAnomaliesToForensicStore(anomalies: SecurityAnomalyRecord[
     )
     void runForensicRetentionMaintenance()
   } catch (error) {
-    logError('security-anomaly:forensic-anomaly-write', error, {
+    const details = {
       anomalyCount: anomalies.length,
       ruleIds: anomalies.map((item) => item.ruleId),
-    })
+    }
+    if (!handleForensicPgError('forensic_anomaly_write', error, details)) {
+      logError('security-anomaly:forensic-anomaly-write', error, details)
+    }
   }
 }
 
@@ -1491,7 +1536,9 @@ export async function getRecentSecuritySignalsForensics(limit = 300): Promise<Se
       transport: toSignalTransport(row.transport),
     }))
   } catch (error) {
-    logError('security-anomaly:forensic-signal-read', error)
+    if (!handleForensicPgError('forensic_signal_read', error)) {
+      logError('security-anomaly:forensic-signal-read', error)
+    }
     return getRecentSecuritySignals(max)
   }
 }
@@ -1527,7 +1574,9 @@ export async function getRecentSecurityAnomaliesForensics(limit = 200): Promise<
       detectedAt: row.detectedAt.getTime(),
     }))
   } catch (error) {
-    logError('security-anomaly:forensic-anomaly-read', error)
+    if (!handleForensicPgError('forensic_anomaly_read', error)) {
+      logError('security-anomaly:forensic-anomaly-read', error)
+    }
     return getRecentSecurityAnomalies(max)
   }
 }
@@ -1629,6 +1678,7 @@ export function listSecurityAnomalyRules(): Array<{
 }
 
 export function clearSecurityAnomalyStateForTests() {
+  clearPgDevFallbackStateForTests()
   signalBuffer.splice(0, signalBuffer.length)
   anomalyBuffer.splice(0, anomalyBuffer.length)
   geoByIdentity.clear()
