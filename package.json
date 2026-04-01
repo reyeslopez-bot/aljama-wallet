@@ -27,6 +27,7 @@
     "test:integration:xrpl": "cross-env NODE_ENV=test vitest --run tests/integration/xrpl.live.integration.test.ts",
     "test:integration:infra": "cross-env NODE_ENV=test RUN_INFRA_REDIS_INTEGRATION_TESTS=true vitest --run tests/integration/redis.infrastructure.integration.test.ts",
     "test:load:infra": "cross-env NODE_ENV=test tsx scripts/load/redis-smoke.ts",
+    "test:db:bootstrap": "bash ./scripts/verify-db-bootstrap.sh",
     "test:infra": "pnpm test:integration:infra && pnpm test:load:infra",
     "test:frontend": "pnpm test:frontend:components && pnpm test:e2e",
     "signer:wallet": "tsx services/mcp/wallet-signer.ts",

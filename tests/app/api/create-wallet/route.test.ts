@@ -5,6 +5,9 @@ const mockPersistPreparedWallet = vi.fn()
 const mockDeleteWalletRecord = vi.fn()
 const mockLinkWalletToUser = vi.fn()
 const mockGetServerSession = vi.fn()
+const mockIsAllowedOrigin = vi.fn()
+const mockBuildRateLimitKey = vi.fn()
+const mockRateLimit = vi.fn()
 
 vi.mock('@/services/signer.service', () => ({
   prepareManagedWalletProvisioning: mockPrepareManagedWalletProvisioning,
@@ -22,6 +25,15 @@ vi.mock('next-auth/next', () => ({
   getServerSession: mockGetServerSession,
 }))
 
+vi.mock('@/lib/security/origin', () => ({
+  isAllowedOrigin: mockIsAllowedOrigin,
+}))
+
+vi.mock('@/lib/security/rate-limit', () => ({
+  buildRateLimitKey: mockBuildRateLimitKey,
+  rateLimit: mockRateLimit,
+}))
+
 function buildRequest(body: Record<string, unknown>) {
   return new Request('http://localhost/api/create-wallet', {
     method: 'POST',
@@ -36,6 +48,9 @@ describe('app/api/create-wallet route', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    mockIsAllowedOrigin.mockReturnValue(true)
+    mockBuildRateLimitKey.mockReturnValue('ip:127.0.0.1')
+    mockRateLimit.mockResolvedValue({ ok: true, remaining: 9, resetAt: Date.now() + 60_000 })
     mockGetServerSession.mockResolvedValue({ user: { id: 'user-1', email: 'user@example.com' } })
     mockLinkWalletToUser.mockResolvedValue(undefined)
     mockPrepareManagedWalletProvisioning.mockResolvedValue({
@@ -126,6 +141,28 @@ describe('app/api/create-wallet route', () => {
       address: '0xabc',
       encrypted: 'enc',
       mode: 'session-only',
+    })
+  })
+
+  it('returns 500 when DB write fails in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('NEXTAUTH_SECRET', 'test-nextauth-secret')
+    vi.stubEnv('NEXTAUTH_URL', 'http://localhost:3000')
+    vi.stubEnv('WALLET_ENCRYPTION_KEY_ACTIVE_VERSION', '1')
+    vi.stubEnv('WALLET_ENCRYPTION_KEY_V1', 'ff')
+    vi.stubEnv('WALLET_ENCRYPTION_KEY_FINGERPRINT_V1', 'ff')
+    vi.stubEnv('CRDB_DATABASE_URL', 'postgresql://example')
+
+    mockPersistPreparedWallet.mockRejectedValue(new Error('db down'))
+
+    const { POST } = await import('@/app/api/create-wallet/route')
+    const res = await POST(buildRequest({ password: strongPassphrase }))
+
+    expect(res.status).toBe(500)
+    await expect(res.json()).resolves.toMatchObject({
+      ok: false,
+      code: 'create_wallet_failed',
+      error: 'Failed to create wallet',
     })
   })
 

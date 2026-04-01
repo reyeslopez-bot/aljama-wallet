@@ -120,6 +120,69 @@ jobs:
       - name: Prisma generate (CRDB + PG)
         run: pnpm prisma:generate
 
+      - name: Start temporary bootstrap databases
+        shell: bash
+        run: |
+          docker run -d \
+            --name aljama-ci-pg \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=postgres \
+            -p 55432:5432 \
+            postgres:16
+
+          for attempt in $(seq 1 30); do
+            if docker exec aljama-ci-pg pg_isready -U postgres -d postgres >/dev/null 2>&1; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              docker logs aljama-ci-pg || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+          docker exec aljama-ci-pg psql -U postgres -d postgres -c 'CREATE DATABASE aljama_wallet;'
+
+          docker run -d \
+            --name aljama-ci-crdb \
+            -p 26257:26257 \
+            -p 18080:8080 \
+            cockroachdb/cockroach:v24.1.3 \
+            start-single-node --insecure --listen-addr=0.0.0.0 --sql-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=/cockroach/cockroach-data
+
+          for attempt in $(seq 1 30); do
+            if docker exec aljama-ci-crdb cockroach sql --insecure --host=localhost -e 'SELECT 1' >/dev/null 2>&1; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              docker logs aljama-ci-crdb || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+          docker exec aljama-ci-crdb cockroach sql --insecure --host=localhost -e 'CREATE DATABASE aljama_wallet;'
+
+      - name: Verify database bootstrap contracts
+        env:
+          PG_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:55432/aljama_wallet
+          CRDB_DATABASE_URL: postgresql://root@127.0.0.1:26257/aljama_wallet?sslmode=disable
+        run: pnpm test:db:bootstrap
+
+      - name: Dump bootstrap database logs
+        if: failure()
+        shell: bash
+        run: |
+          docker logs aljama-ci-pg || true
+          docker logs aljama-ci-crdb || true
+
+      - name: Cleanup bootstrap databases
+        if: always()
+        shell: bash
+        run: |
+          docker rm -f aljama-ci-pg aljama-ci-crdb >/dev/null 2>&1 || true
+
       - name: Prisma format (CRDB + PG)
         run: pnpm prisma:format
 

@@ -63,7 +63,9 @@ export const authOptions: NextAuthOptions = {
   secret: nextAuthSecret,
   adapter: usePg ? PrismaAdapter(prismaPg) : undefined,
   session: {
-    strategy: usePg ? 'database' : 'jwt',
+    // CredentialsProvider requires JWT-backed sessions. Keep the adapter for
+    // user storage while avoiding the database-session callback error path.
+    strategy: 'jwt',
   },
   providers: [
     CredentialsProvider({

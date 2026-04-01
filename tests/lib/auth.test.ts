@@ -199,4 +199,13 @@ describe('lib/auth credentials provider', () => {
     expect((fromUser as any)?.user.id).toBe('user-1')
     expect((fromToken as any)?.user.id).toBe('token-user-2')
   })
+
+  it('keeps JWT sessions enabled when PG auth is active', async () => {
+    mockUsePgAuth.mockReturnValue(true)
+
+    const authOptions = await loadAuthOptions()
+
+    expect(authOptions.adapter).toEqual({ name: 'mock-prisma-adapter' })
+    expect(authOptions.session?.strategy).toBe('jwt')
+  })
 })
