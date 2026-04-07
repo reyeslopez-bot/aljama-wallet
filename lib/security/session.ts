@@ -1,5 +1,4 @@
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/security/errors'
 import { logWarn } from '@/lib/security/logging'
 
@@ -13,6 +12,7 @@ function isRecoverableSessionError(error: unknown): boolean {
 
 export async function getSession() {
   try {
+    const { authOptions } = await import('@/lib/auth')
     return await getServerSession(authOptions)
   } catch (error) {
     if (isRecoverableSessionError(error)) {

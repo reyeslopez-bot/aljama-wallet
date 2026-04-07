@@ -8,8 +8,21 @@ const { mockRecordSecuritySignal } = vi.hoisted(() => ({
   mockRecordSecuritySignal: vi.fn(),
 }))
 
+const { mockGetWallets, mockGetDailySummaries } = vi.hoisted(() => ({
+  mockGetWallets: vi.fn<() => Promise<WalletMock[]>>(),
+  mockGetDailySummaries: vi.fn<() => Promise<SummaryMock[]>>(),
+}))
+
 vi.mock('@/services/security-anomaly.service', () => ({
   recordSecuritySignal: mockRecordSecuritySignal,
+}))
+
+vi.mock('@/services/wallet.service', () => ({
+  getWallets: mockGetWallets,
+}))
+
+vi.mock('@/infra/utils/summary.service', () => ({
+  getDailySummaries: mockGetDailySummaries,
 }))
 
 vi.mock('@/lib/security/logging', () => ({
@@ -28,16 +41,8 @@ describe('app/api/test-db route', () => {
     vi.stubEnv('CI', 'false')
     vi.stubEnv('NODE_ENV', 'test')
 
-    vi.mock('@/services/wallet.service', () => ({
-      getWallets: vi.fn<() => Promise<WalletMock[]>>().mockResolvedValue([{ id: 'wallet-1' }]),
-    }))
-
-    // MUST match the import path in route.ts
-    vi.mock('@/infra/utils/summary.service', () => ({
-      getDailySummaries: vi
-        .fn<() => Promise<SummaryMock[]>>()
-        .mockResolvedValue([{ date: '2024-01-01' }]),
-    }))
+    mockGetWallets.mockResolvedValue([{ id: 'wallet-1' }])
+    mockGetDailySummaries.mockResolvedValue([{ date: '2024-01-01' }])
   })
 
   afterEach(() => {
