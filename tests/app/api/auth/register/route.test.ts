@@ -144,7 +144,7 @@ describe('app/api/auth/register route', () => {
     expect(mockCreateUser).not.toHaveBeenCalled()
   })
 
-  it('returns conflict when email already exists', async () => {
+  it('returns a specific email conflict when the email is already in use', async () => {
     mockFindUserByEmail.mockResolvedValue({ id: 'existing-user', email: 'new@example.com' })
     const { POST } = await import('@/app/api/auth/register/route')
 
@@ -158,7 +158,45 @@ describe('app/api/auth/register route', () => {
     const body = await res.json()
 
     expect(res.status).toBe(409)
-    expect(body.code).toBe('user_exists')
+    expect(body.code).toBe('email_exists')
+    expect(body.details).toEqual({ field: 'email' })
+    expect(mockCreateUser).not.toHaveBeenCalled()
+  })
+
+  it('rejects oversized profile images even when the payload is otherwise valid', async () => {
+    const { POST } = await import('@/app/api/auth/register/route')
+    const oversizedPngPayload = 'a'.repeat(1_450_000)
+
+    const res = await POST(
+      buildRequest({
+        username: 'new_user',
+        email: 'new@example.com',
+        password: 'StrongPassphrase1!',
+        image: `data:image/png;base64,${oversizedPngPayload}`,
+      }),
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.code).toBe('profile_image_too_large')
+    expect(mockCreateUser).not.toHaveBeenCalled()
+  })
+
+  it('rejects animated GIF profile images with a specific validation error', async () => {
+    const { POST } = await import('@/app/api/auth/register/route')
+
+    const res = await POST(
+      buildRequest({
+        username: 'new_user',
+        email: 'new@example.com',
+        password: 'StrongPassphrase1!',
+        image: 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBA==',
+      }),
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.code).toBe('profile_image_gif_unsupported')
     expect(mockCreateUser).not.toHaveBeenCalled()
   })
 

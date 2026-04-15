@@ -36,7 +36,6 @@ export default function RegionCompliancePanel() {
   const locale = useLocale()
   const { status: sessionStatus } = useSession()
   const locked = sessionStatus !== 'authenticated'
-  const showUnlockMessage = sessionStatus === 'unauthenticated'
   const [region, setRegion] = useState<string>('us')
   const [saved, setSaved] = useState(false)
   const titleId = 'region-compliance-title'
@@ -184,30 +183,31 @@ export default function RegionCompliancePanel() {
         <p className="text-xs uppercase tracking-[0.16em] text-ivory/60">{t('signupTitle')}</p>
         <p className="mt-2 text-sm text-ivory/70">{t('signupBody')}</p>
         <div className="mt-3">
-          <button
-            data-testid="region-compliance-save-profile"
-            type="button"
-            disabled={locked}
-            aria-describedby={saved ? signupStatusId : undefined}
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.localStorage.setItem(REGION_KEY, region)
-                window.localStorage.setItem(REGION_PROFILE_KEY, 'true')
-              }
-              setSaved(true)
-            }}
-            className="rounded-xl bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] px-4 py-2 text-sm font-semibold text-[#1c120a] shadow-lg shadow-[#c7794a]/30 transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {t('signupButton')}
-          </button>
-        </div>
-        {showUnlockMessage && (
-          <div data-testid="region-compliance-unlock" className="mt-4">
+          {locked ? (
             <UnlockActionsLink
-              className="block text-xs uppercase tracking-[0.18em] text-ivory/50"
+              mode="signup"
+              variant="button"
+              label={tAuth('unlockActionsSignUpButton')}
+              className="min-w-[12rem] bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] text-[#20130b] shadow-lg shadow-[#c7794a]/30 hover:text-[#20130b] focus-visible:text-[#20130b]"
             />
-          </div>
-        )}
+          ) : (
+            <button
+              data-testid="region-compliance-save-profile"
+              type="button"
+              aria-describedby={saved ? signupStatusId : undefined}
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.localStorage.setItem(REGION_KEY, region)
+                  window.localStorage.setItem(REGION_PROFILE_KEY, 'true')
+                }
+                setSaved(true)
+              }}
+              className="rounded-full bg-gradient-to-r from-[#f0d7a0] via-[#dda469] to-[#c7794a] px-4 py-2 text-sm font-semibold text-[#20130b] shadow-lg shadow-[#c7794a]/30 transition hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron/35"
+            >
+              {t('signupButton')}
+            </button>
+          )}
+        </div>
         {saved && (
           <p
             id={signupStatusId}

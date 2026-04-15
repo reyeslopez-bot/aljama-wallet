@@ -93,27 +93,12 @@ describe('LoginGate', () => {
     vi.unstubAllGlobals()
   })
 
-  it('switches locale path when language buttons are clicked', async () => {
-    const human = createHuman()
-    const { getByRole } = render(<LoginGate showBackLink={false} />)
+  it('keeps the secure gate self-contained without a language switcher', () => {
+    const { queryByRole } = render(<LoginGate showBackLink={false} />)
 
-    await human.click(getByRole('button', { name: 'HE' }), HUMAN_DELAYS.mediumSettle)
-    await human.click(getByRole('button', { name: 'AR' }), HUMAN_DELAYS.mediumSettle)
-
-    expect(mocks.push).toHaveBeenNthCalledWith(1, '/he/login')
-    expect(mocks.push).toHaveBeenNthCalledWith(2, '/ar/login')
-  })
-
-  it('preserves the auth mode query when switching locale', async () => {
-    const human = createHuman()
-    mocks.search = 'mode=login'
-    window.history.replaceState({}, '', '/en/login?mode=login')
-
-    const { getByRole } = render(<LoginGate showBackLink={false} initialMode="login" />)
-
-    await human.click(getByRole('button', { name: 'HE' }), HUMAN_DELAYS.mediumSettle)
-
-    expect(mocks.push).toHaveBeenCalledWith('/he/login?mode=login')
+    expect(queryByRole('button', { name: 'EN' })).toBeNull()
+    expect(queryByRole('button', { name: 'HE' })).toBeNull()
+    expect(queryByRole('button', { name: 'AR' })).toBeNull()
   })
 
   it('shows sign-up subtitle in register mode', () => {
@@ -357,6 +342,55 @@ describe('LoginGate', () => {
       username: 'new_operator',
       email: 'newuser@example.com',
     })
+  })
+
+  it('surfaces the email-specific conflict message when registration returns an email collision', async () => {
+    const human = createHuman()
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      headers: new Headers(),
+      json: async () => ({ code: 'email_exists', error: 'Email already exists' }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByRole, getByPlaceholderText, findByText } = render(
+      <LoginGate showBackLink={false} initialMode="register" />,
+    )
+
+    await human.type(getByPlaceholderText('wallet_operator'), 'new_operator')
+    await human.type(getByPlaceholderText('you@company.com'), 'newuser@example.com')
+    await human.type(getByPlaceholderText('••••••••'), 'VeryStrongPassphrase1!')
+    await human.click(getByRole('button', { name: 'Sign up' }), HUMAN_DELAYS.mediumSettle)
+
+    expect(
+      await findByText('This email is already associated with an account. Use a different email or sign in.'),
+    ).toBeTruthy()
+    expect(mockedSignIn).not.toHaveBeenCalled()
+  })
+
+  it('rejects animated GIF profile pictures on the client before submitting', async () => {
+    const human = createHuman()
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getByTestId, getByPlaceholderText, findByText } = render(
+      <LoginGate showBackLink={false} initialMode="register" />,
+    )
+
+    await human.type(getByPlaceholderText('wallet_operator'), 'gif_user')
+    await human.type(getByPlaceholderText('••••••••'), 'VeryStrongPassphrase1!')
+
+    const input = getByTestId('secure-gate-profile-image-input') as HTMLInputElement
+    const file = new File(['gif89a'], 'avatar.gif', { type: 'image/gif' })
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [file],
+    })
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+
+    expect(await findByText('Animated GIFs are not supported for profile pictures.')).toBeTruthy()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('shows a rate-limit message when sign up is throttled', async () => {

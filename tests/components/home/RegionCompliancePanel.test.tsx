@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 
 import { render, fireEvent, waitFor, act } from '@testing-library/react'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { useSession } from 'next-auth/react'
 import RegionCompliancePanel from '@/components/home/RegionCompliancePanel.client'
+
+const mockedUseSession = vi.mocked(useSession)
 
 describe('RegionCompliancePanel', () => {
   beforeEach(() => {
@@ -39,7 +42,10 @@ describe('RegionCompliancePanel', () => {
       value: makeStorage(),
       configurable: true,
     })
-
+    mockedUseSession.mockReturnValue({
+      data: { user: { id: 'test-user', email: 'test@example.com' } },
+      status: 'authenticated',
+    } as any)
   })
 
   it('persists region selection and saves local profile without email capture', async () => {
@@ -83,5 +89,18 @@ describe('RegionCompliancePanel', () => {
 
     const select = getByTestId('region-compliance-select') as HTMLSelectElement
     expect(select.value).toBe('mena')
+  })
+
+  it('routes locked users to the dedicated secure-gate sign-up page', () => {
+    mockedUseSession.mockReturnValue({
+      data: null,
+      status: 'unauthenticated',
+    } as any)
+
+    const { getByRole, queryByTestId } = render(<RegionCompliancePanel />)
+
+    const cta = getByRole('link', { name: 'Sign up to unlock' }) as HTMLAnchorElement
+    expect(cta.getAttribute('href')).toBe('/en/login?mode=register#secure-gate')
+    expect(queryByTestId('region-compliance-save-profile')).toBeNull()
   })
 })

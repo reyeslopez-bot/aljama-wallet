@@ -3,9 +3,8 @@
 import * as React from "react"
 import Image from "next/image"
 import { signIn } from "next-auth/react"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { replacePathLocale } from "@/i18n/routing"
 import { hasRecognizedDevice } from "@/infra/telemetry/client"
 import { parseClientApiError } from "@/lib/security/client-api-error"
 import { logWarn } from "@/lib/security/logging"
@@ -44,7 +43,6 @@ export default function LoginGate({
   const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
 
   const [identifier, setIdentifier] = React.useState("")
   const [username, setUsername] = React.useState("")
@@ -122,7 +120,7 @@ export default function LoginGate({
 
   const formatRegisterApiError = React.useCallback(
     (apiError: ReturnType<typeof parseClientApiError>, body: { error?: string } | null) => {
-      if (apiError.code === "user_exists" || body?.error === "User already exists") {
+      if (apiError.code === "email_exists" || apiError.code === "user_exists" || body?.error === "User already exists") {
         return t("emailExists")
       }
       if (apiError.code === "username_exists") {
@@ -145,6 +143,12 @@ export default function LoginGate({
       }
       if (apiError.code === "invalid_profile_image") {
         return t("profileImageInvalid")
+      }
+      if (apiError.code === "profile_image_gif_unsupported") {
+        return t("profileImageGifUnsupported")
+      }
+      if (apiError.code === "profile_image_too_large") {
+        return t("profileImageTooLarge")
       }
       return apiError.rawMessage || t("registerFailed")
     },
@@ -271,7 +275,6 @@ export default function LoginGate({
           persistProfileImageForUsername(persistedUsername, profileImage)
         }
 
-        setNotice(t("registerSuccess"))
       }
 
       const authIdentifier = mode === "register" ? normalizedUsername : normalizedIdentifier
@@ -307,11 +310,6 @@ export default function LoginGate({
     }
   }
 
-  const LANGUAGES = [
-    { label: "EN", value: "en" },
-    { label: "HE", value: "he" },
-    { label: "AR", value: "ar" },
-  ]
   const resolvedSubtitle = subtitle ?? (mode === "register" ? t("subtitleRegister") : t("subtitle"))
   const submitLabel = busy
     ? mode === "register"
@@ -330,11 +328,21 @@ export default function LoginGate({
 
     if (!file.type.startsWith("image/")) {
       setError(t("profileImageInvalid"))
+      setProfileImage(null)
+      return
+    }
+
+    if (file.type === "image/gif") {
+      setError(t("profileImageGifUnsupported"))
+      setProfileImage(null)
+      event.target.value = ""
       return
     }
 
     if (file.size > 1024 * 1024) {
       setError(t("profileImageTooLarge"))
+      setProfileImage(null)
+      event.target.value = ""
       return
     }
 
@@ -342,6 +350,7 @@ export default function LoginGate({
     reader.onload = () => {
       if (typeof reader.result !== "string") {
         setError(t("profileImageInvalid"))
+        setProfileImage(null)
         return
       }
       setProfileImage(reader.result)
@@ -349,6 +358,7 @@ export default function LoginGate({
     }
     reader.onerror = () => {
       setError(t("profileImageInvalid"))
+      setProfileImage(null)
     }
     reader.readAsDataURL(file)
   }
@@ -390,6 +400,7 @@ export default function LoginGate({
       ) : null}
 
       <div
+        id="secure-gate"
         data-testid="secure-gate-panel"
         className={`surface-panel panel-glow-saffron relative w-full rounded-[2rem] ${
           isInline ? "max-w-3xl p-6 sm:p-8" : "max-w-xl p-8"
@@ -412,26 +423,6 @@ export default function LoginGate({
             </svg>
           </button>
         )}
-        <div className="absolute right-6 top-6 z-10 flex items-center gap-2">
-          {LANGUAGES.map((language) => (
-            <button
-              key={language.value}
-              type="button"
-              onClick={() => {
-                const targetPath = replacePathLocale(pathname, language.value)
-                const query = searchParams.toString()
-                router.push(query ? `${targetPath}?${query}` : targetPath)
-              }}
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-[0.16em] transition ${
-                locale === language.value
-                  ? 'border-saffron/60 bg-saffron/10 text-saffron'
-                  : 'border-white/10 bg-white/5 text-ivory/60 hover:border-white/20'
-              }`}
-            >
-              {language.label}
-            </button>
-          ))}
-        </div>
         <div className="absolute inset-x-10 top-6 ornament-line" />
         <div className="text-center">
           <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5">
@@ -558,7 +549,7 @@ export default function LoginGate({
                 name="secure_gate_profile_image"
                 data-testid="secure-gate-profile-image-input"
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept="image/png,image/jpeg,image/webp"
                 onChange={handleProfileImageChange}
                 className="surface-inner w-full cursor-pointer px-4 py-3 text-sm text-ivory file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ivory hover:file:bg-white/15"
               />

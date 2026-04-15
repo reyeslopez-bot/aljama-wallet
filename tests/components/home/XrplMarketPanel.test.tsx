@@ -3,9 +3,6 @@
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import XrplMarketPanel from '@/components/home/XrplMarketPanel.client'
-import { useSession } from 'next-auth/react'
-
-const mockedUseSession = vi.mocked(useSession)
 
 const snapshot = {
   ok: true as const,
@@ -38,10 +35,6 @@ const snapshot = {
 describe('XrplMarketPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockedUseSession.mockReturnValue({
-      data: { user: { id: 'test-user', email: 'test@example.com' } },
-      status: 'authenticated',
-    } as any)
   })
 
   afterEach(() => {
@@ -88,12 +81,7 @@ describe('XrplMarketPanel', () => {
     })
   })
 
-  it('disables all market action buttons when unauthenticated', async () => {
-    mockedUseSession.mockReturnValue({
-      data: null,
-      status: 'unauthenticated',
-    } as any)
-
+  it('loads and exposes market data even when the user is signed out', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => snapshot,
@@ -103,22 +91,25 @@ describe('XrplMarketPanel', () => {
       fetchMock,
     )
 
-    const { getByTestId, getByText } = render(<XrplMarketPanel />)
+    const { getByTestId, getAllByText, queryByTestId } = render(<XrplMarketPanel />)
 
     await waitFor(() => {
-      expect(getByText('Sign in to unlock XRPL market tools.')).toBeTruthy()
+      expect(getAllByText('Bitcoin').length).toBeGreaterThan(0)
+      expect(getByTestId('xrpl-market-row-xrp')).toBeTruthy()
+      expect(getByTestId('xrpl-market-row-btc')).toBeTruthy()
     })
 
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
     const all = getByTestId('xrpl-market-filter-all') as HTMLButtonElement
     const xrpl = getByTestId('xrpl-market-filter-xrpl') as HTMLButtonElement
     const reference = getByTestId('xrpl-market-filter-reference') as HTMLButtonElement
     const refresh = getByTestId('xrpl-market-refresh') as HTMLButtonElement
 
-    expect(all.disabled).toBe(true)
-    expect(xrpl.disabled).toBe(true)
-    expect(reference.disabled).toBe(true)
-    expect(refresh.disabled).toBe(true)
+    expect(all.disabled).toBe(false)
+    expect(xrpl.disabled).toBe(false)
+    expect(reference.disabled).toBe(false)
+    expect(refresh.disabled).toBe(false)
+    expect(queryByTestId('xrpl-market-unlock')).toBeNull()
   })
 
   it('keeps chart paths inside the clipped plot area', async () => {

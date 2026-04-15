@@ -23,9 +23,9 @@ const surface = (bg: string, tone: ButtonTone) =>
     borderRadius: '9999px',
     boxShadow:
       tone === 'primary'
-        ? '0 16px 36px rgba(12,10,8,0.28), inset 0 0 0 1px rgba(255,255,255,0.6)'
+        ? '0 16px 36px rgba(12,10,8,0.28), inset 0 0 0 1px rgba(255,255,255,0.32)'
         : '0 12px 26px rgba(6,9,14,0.32), inset 0 0 0 1px rgba(255,255,255,0.16)',
-    border: tone === 'primary' ? '1px solid rgba(255,255,255,0.25)' : '1px solid rgba(255,255,255,0.14)',
+    border: tone === 'primary' ? '1px solid rgba(255,255,255,0.38)' : '1px solid rgba(255,255,255,0.14)',
   }) as const
 
 function ActionSurface({ button }: { button: Btn }) {
@@ -45,7 +45,7 @@ function ActionSurface({ button }: { button: Btn }) {
       onBlur={interactions.onBlur}
       className={`flex h-[72px] w-full items-center justify-center rounded-full px-6 text-base font-semibold tracking-wide transition-all md:h-[76px] md:text-[17px] ${
         button.tone === 'primary'
-          ? 'text-[#20140e] drop-shadow-[0_1px_0_rgba(255,255,255,0.26)]'
+          ? 'text-ivory drop-shadow-[0_1px_0_rgba(18,12,8,0.22)]'
           : 'text-ivory'
       }`}
       style={surface(button.bg, button.tone)}

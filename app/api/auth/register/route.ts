@@ -28,15 +28,23 @@ const usernameSchema = z
   .regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/, 'Username must use letters, numbers, dot, underscore, or dash')
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PROFILE_IMAGE_DATA_URL_PATTERN = /^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/
-const MAX_PROFILE_IMAGE_LENGTH = 1_500_000
+const PROFILE_IMAGE_GIF_DATA_URL_PATTERN = /^data:image\/gif;base64,[A-Za-z0-9+/=]+$/
+const PROFILE_IMAGE_DATA_URL_PATTERN = /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/
+const MAX_PROFILE_IMAGE_DATA_URL_LENGTH = 1_500_000
+const MAX_PROFILE_IMAGE_BYTES = 1024 * 1024
 
 const registerSchema = z.object({
   username: usernameSchema,
   email: z.string().max(256).optional().nullable(),
   password: passwordSchema,
-  image: z.string().max(MAX_PROFILE_IMAGE_LENGTH).optional().nullable(),
+  image: z.string().max(MAX_PROFILE_IMAGE_DATA_URL_LENGTH).optional().nullable(),
 })
+
+function estimateDataUrlBytes(dataUrl: string) {
+  const [, payload = ''] = dataUrl.split(',', 2)
+  const paddingLength = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0
+  return Math.max(0, Math.floor((payload.length * 3) / 4) - paddingLength)
+}
 
 async function postAuthRegister(
   req: Request,
@@ -151,6 +159,16 @@ async function postAuthRegister(
       return errorJson(400, 'invalid_email', 'Invalid email address')
     }
 
+    if (image && PROFILE_IMAGE_GIF_DATA_URL_PATTERN.test(image)) {
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 400,
+        principal: email ?? username,
+        details: { reason: 'profile_image_gif_unsupported' },
+      })
+      return errorJson(400, 'profile_image_gif_unsupported', 'Animated GIFs are not supported')
+    }
+
     if (image && !PROFILE_IMAGE_DATA_URL_PATTERN.test(image)) {
       await trackSignal({
         outcome: 'failure',
@@ -159,6 +177,16 @@ async function postAuthRegister(
         details: { reason: 'invalid_profile_image' },
       })
       return errorJson(400, 'invalid_profile_image', 'Invalid profile image payload')
+    }
+
+    if (image && estimateDataUrlBytes(image) > MAX_PROFILE_IMAGE_BYTES) {
+      await trackSignal({
+        outcome: 'failure',
+        statusCode: 400,
+        principal: email ?? username,
+        details: { reason: 'profile_image_too_large' },
+      })
+      return errorJson(400, 'profile_image_too_large', 'Profile image exceeds 1 MB')
     }
 
     const existingByUsername = await findUserByUsername(username)
@@ -179,9 +207,9 @@ async function postAuthRegister(
           outcome: 'failure',
           statusCode: 409,
           principal: email,
-          details: { reason: 'user_exists' },
+          details: { reason: 'email_exists', field: 'email' },
         })
-        return errorJson(409, 'user_exists', 'User already exists')
+        return errorJson(409, 'email_exists', 'Email already exists', { field: 'email' })
       }
     }
 

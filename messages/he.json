@@ -548,8 +548,9 @@
     "email": "אימייל",
     "password": "סיסמה",
     "profileImage": "תמונת פרופיל",
-    "profileImageHint": "אופציונלי. העלו PNG, JPG, WEBP או GIF (עד 1MB).",
+    "profileImageHint": "אופציונלי. העלו PNG, JPG או WEBP (עד 1MB). קבצי GIF מונפשים אינם נתמכים.",
     "profileImageInvalid": "תמונת הפרופיל אינה תקינה.",
+    "profileImageGifUnsupported": "קבצי GIF מונפשים אינם נתמכים כתמונת פרופיל.",
     "profileImageTooLarge": "תמונת הפרופיל גדולה מדי (מקסימום 1MB).",
     "profileImageReady": "תמונת הפרופיל צורפה.",
     "profileImagePreviewAlt": "תצוגה מקדימה של תמונת הפרופיל",
@@ -575,14 +576,16 @@
     "retryInButton": "נסו שוב בעוד {seconds} שניות",
     "emailInvalid": "הזן כתובת אימייל תקינה.",
     "unlockActions": "התחברו כדי לפתוח פעולות.",
+    "unlockActionsSignInButton": "התחברו כדי לפתוח",
     "unlockActionsSignUp": "הירשמו כדי לפתוח פעולות.",
+    "unlockActionsSignUpButton": "הירשמו כדי לפתוח",
     "permissionsGateHint": "בחירת ההרשאות מגדירה רק העדפות פרטיות. כדי להמשיך יש להתחבר או להירשם עם הזמנה.",
     "inviteRequired": "נדרש טוקן הזמנה תקף לצורך הרשמה.",
     "passwordWeak": "הסיסמה חלשה מדי.",
     "passwordRules": "השתמשו ב-12+ תווים עם אותיות גדולות/קטנות, מספר וסמל.",
     "inviteHint": "השתמשו בטוקן הדמו: demo-invite",
-    "emailExists": "כבר קיים חשבון עם המייל הזה.",
-    "usernameExists": "כבר קיים חשבון עם שם המשתמש הזה."
+    "emailExists": "כתובת האימייל הזו כבר משויכת לחשבון. השתמשו באימייל אחר או התחברו.",
+    "usernameExists": "שם המשתמש הזה כבר תפוס. בחרו שם משתמש אחר."
   },
   "common": {
     "optional": "אופציונלי"

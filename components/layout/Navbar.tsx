@@ -238,8 +238,8 @@ export default function Navbar() {
           {BRAND.name}
         </Link>
 
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <div className="hidden items-center md:flex">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <div className="hidden items-center xl:flex">
             {menuItems.map((item, itemIndex) => (
               <div
                 key={`desktop-menu-item-${item.key}`}
@@ -269,7 +269,7 @@ export default function Navbar() {
             ))}
           </div>
 
-          <div className="relative md:hidden" ref={menuRef}>
+          <div className="relative xl:hidden" ref={menuRef}>
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
@@ -376,7 +376,7 @@ export default function Navbar() {
           <button
             type="button"
             onClick={() => openSupportDrawer({ source: 'navbar' })}
-            className={`hidden shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition md:inline-flex ${
+            className={`hidden shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition xl:inline-flex ${
               isLight
                 ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
                 : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
@@ -506,7 +506,7 @@ export default function Navbar() {
           {!isAuthed && (
             <Link
               href={authCtaHref}
-              className={`hidden rounded-full border px-4 py-2 text-sm font-medium transition md:inline-flex ${
+              className={`hidden rounded-full border px-4 py-2 text-sm font-medium transition xl:inline-flex ${
                 isLight
                   ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
                   : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
@@ -517,7 +517,7 @@ export default function Navbar() {
           )}
           {isAuthed && (
             <div
-              className={`hidden max-w-[14rem] items-center rounded-full border px-4 py-2 text-sm font-medium tracking-wide md:inline-flex ${
+              className={`hidden max-w-[14rem] items-center rounded-full border px-4 py-2 text-sm font-medium tracking-wide xl:inline-flex ${
                 isLight
                   ? 'border-[#7fa3c1]/45 bg-white/70 text-[#1f3348]'
                   : 'border-white/15 bg-white/5 text-ivory/85'
@@ -532,7 +532,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => void signOut({ callbackUrl: `/${locale}` })}
-              className={`hidden rounded-full border px-4 py-2 text-sm font-medium transition md:inline-flex ${
+              className={`hidden rounded-full border px-4 py-2 text-sm font-medium transition xl:inline-flex ${
                 isLight
                   ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
                   : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'

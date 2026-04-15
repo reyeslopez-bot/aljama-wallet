@@ -548,8 +548,9 @@
     "email": "البريد الإلكتروني",
     "password": "كلمة المرور",
     "profileImage": "صورة الملف الشخصي",
-    "profileImageHint": "اختياري. ارفع PNG أو JPG أو WEBP أو GIF (حتى 1MB).",
+    "profileImageHint": "اختياري. ارفع PNG أو JPG أو WEBP فقط (حتى 1MB). الصور المتحركة GIF غير مدعومة.",
     "profileImageInvalid": "صورة الملف الشخصي غير صالحة.",
+    "profileImageGifUnsupported": "صور GIF المتحركة غير مدعومة لصورة الملف الشخصي.",
     "profileImageTooLarge": "صورة الملف الشخصي كبيرة جدًا (الحد الأقصى 1MB).",
     "profileImageReady": "تم إرفاق صورة الملف الشخصي.",
     "profileImagePreviewAlt": "معاينة صورة الملف الشخصي",
@@ -575,14 +576,16 @@
     "retryInButton": "أعد المحاولة بعد {seconds} ثوانٍ",
     "emailInvalid": "أدخل بريدًا إلكترونيًا صحيحًا.",
     "unlockActions": "سجّل الدخول لفتح الإجراءات.",
+    "unlockActionsSignInButton": "سجّل الدخول للفتح",
     "unlockActionsSignUp": "أنشئ حسابًا لفتح الإجراءات.",
+    "unlockActionsSignUpButton": "أنشئ حسابًا للفتح",
     "permissionsGateHint": "اختيارات الأذونات تضبط تفضيلات الخصوصية فقط. تابع بتسجيل الدخول أو إنشاء حساب عبر دعوة.",
     "inviteRequired": "يتطلب إنشاء الحساب رمز دعوة صالحًا.",
     "passwordWeak": "كلمة المرور ضعيفة جدًا.",
     "passwordRules": "استخدم 12+ حرفًا مع أحرف كبيرة/صغيرة ورقم ورمز.",
     "inviteHint": "استخدم رمز الدعوة التجريبي: demo-invite",
-    "emailExists": "يوجد حساب بهذا البريد بالفعل.",
-    "usernameExists": "يوجد حساب باسم المستخدم هذا بالفعل."
+    "emailExists": "هذا البريد الإلكتروني مرتبط بالفعل بحساب. استخدم بريدًا آخر أو سجّل الدخول.",
+    "usernameExists": "اسم المستخدم هذا مستخدم بالفعل. اختر اسم مستخدم آخر."
   },
   "common": {
     "optional": "اختياري"

@@ -4,8 +4,6 @@
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type WheelEvent } from 'react'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useLocale, useTranslations } from 'next-intl'
-import { useSession } from 'next-auth/react'
-import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { useGsapPressable } from '@/hooks/useGsapPressable'
 import { getHomeNowMs } from '@/components/home/homeClock'
 import { parseClientApiError } from '@/lib/security/client-api-error'
@@ -292,8 +290,6 @@ export default function XrplMarketPanel() {
   useComponentTelemetry('XrplMarketPanel')
   const t = useTranslations('market')
   const locale = useLocale()
-  const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== 'authenticated'
   const chartClipId = `${XRPL_MARKET_PANEL_ID_PREFIX}-clip`
   const titleId = `${chartClipId}-title`
   const bodyId = `${chartClipId}-body`
@@ -357,18 +353,8 @@ export default function XrplMarketPanel() {
   }, [])
 
   useEffect(() => {
-    if (locked) {
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: null,
-        snapshot: null,
-      }))
-      return
-    }
-
     void loadSnapshot()
-  }, [loadSnapshot, locked])
+  }, [loadSnapshot])
 
   useEffect(() => {
     if (!chartSvgNode) return
@@ -618,7 +604,7 @@ export default function XrplMarketPanel() {
 
   const onChartWheel = useCallback(
     (event: WheelEvent<SVGSVGElement>) => {
-      if (locked || pointCount < 4 || !event.deltaY) return
+      if (pointCount < 4 || !event.deltaY) return
       event.preventDefault()
 
       const rect = event.currentTarget.getBoundingClientRect()
@@ -627,7 +613,7 @@ export default function XrplMarketPanel() {
       const next = indexFromClientX(event.clientX, rect)
       zoomChart(event.deltaY < 0 ? 'in' : 'out', next)
     },
-    [indexFromClientX, locked, pointCount, zoomChart],
+    [indexFromClientX, pointCount, zoomChart],
   )
 
   const hoverPoints = useMemo(() => {
@@ -772,11 +758,10 @@ export default function XrplMarketPanel() {
               type="button"
               onClick={() => setState((prev) => ({ ...prev, view: option.id }))}
               onKeyDown={(event) => handleViewOptionKeyDown(event, index)}
-              disabled={locked}
               role="radio"
               aria-checked={state.view === option.id}
               tabIndex={state.view === option.id ? 0 : -1}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                 state.view === option.id
                   ? 'border-saffron/60 bg-saffron/10 text-saffron'
                   : 'border-white/10 bg-white/5 text-ivory/60 hover:border-white/20'
@@ -793,11 +778,7 @@ export default function XrplMarketPanel() {
         </div>
 
         <div data-testid="xrpl-market-chart-shell" className="surface-inner p-4">
-          {locked ? (
-            <p data-testid="xrpl-market-locked" role="status" aria-live="polite" className="text-sm text-ivory/60">
-              Sign in to unlock XRPL market tools.
-            </p>
-          ) : state.loading ? (
+          {state.loading ? (
             <p data-testid="xrpl-market-loading" role="status" aria-live="polite" className="text-sm text-ivory/60">
               {t('loading')}
             </p>
@@ -831,7 +812,7 @@ export default function XrplMarketPanel() {
                       data-testid="xrpl-market-zoom-in"
                       type="button"
                       onClick={() => zoomChart('in', hoverIndex)}
-                      disabled={locked || !canZoomIn}
+                      disabled={!canZoomIn}
                       className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {t('zoomIn')}
@@ -840,7 +821,7 @@ export default function XrplMarketPanel() {
                       data-testid="xrpl-market-zoom-out"
                       type="button"
                       onClick={() => zoomChart('out', hoverIndex)}
-                      disabled={locked || !canZoomOut}
+                      disabled={!canZoomOut}
                       className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {t('zoomOut')}
@@ -849,7 +830,7 @@ export default function XrplMarketPanel() {
                       data-testid="xrpl-market-reset-zoom"
                       type="button"
                       onClick={resetChartZoom}
-                      disabled={locked || !chartWindow.isZoomed}
+                      disabled={!chartWindow.isZoomed}
                       className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-ivory/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {t('resetZoom')}
@@ -863,31 +844,31 @@ export default function XrplMarketPanel() {
                     data-testid="xrpl-market-chart"
                     viewBox={`0 0 ${chartViewportWidth} ${CHART_HEIGHT}`}
                     className="block h-44 w-full md:h-52"
-                    tabIndex={locked ? -1 : 0}
+                    tabIndex={0}
                     role="group"
                     aria-roledescription="interactive chart"
                     aria-labelledby={chartLabelId}
                     aria-describedby={`${chartInstructionsId} ${chartLiveStatusId}`}
                     onMouseMove={(event) => {
-                      if (locked || pointCount < 2) return
+                      if (pointCount < 2) return
                       const rect = event.currentTarget.getBoundingClientRect()
                       const next = indexFromClientX(event.clientX, rect)
                       if (next === null) return
                       setHoverIndex(next)
                     }}
                     onClick={(event) => {
-                      if (locked || pointCount < 2) return
+                      if (pointCount < 2) return
                       const rect = event.currentTarget.getBoundingClientRect()
                       const next = indexFromClientX(event.clientX, rect)
                       if (next === null) return
                       setHoverIndex(next)
                     }}
                     onFocus={() => {
-                      if (locked || pointCount < 2) return
+                      if (pointCount < 2) return
                       setHoverIndex((prev) => prev ?? chartWindow.start)
                     }}
                     onKeyDown={(event) => {
-                      if (locked || pointCount < 2) return
+                      if (pointCount < 2) return
                       if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
                         event.preventDefault()
                         moveHoverIndex(1)
@@ -1098,7 +1079,6 @@ export default function XrplMarketPanel() {
                         key={`chip-${asset.symbol}`}
                         data-testid={`xrpl-market-series-${asset.symbol.toLowerCase()}`}
                         type="button"
-                        disabled={locked}
                         onClick={() => setFocusSymbol(asset.symbol)}
                         onKeyDown={(event) => handleSeriesOptionKeyDown(event, index)}
                         role="radio"
@@ -1228,20 +1208,11 @@ export default function XrplMarketPanel() {
           onPointerUp={refreshButton.onPointerUp}
           onPointerCancel={refreshButton.onPointerCancel}
           onBlur={refreshButton.onBlur}
-          disabled={locked}
           onClick={() => void loadSnapshot()}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-5 py-3 text-base font-semibold tracking-wide text-ivory shadow-lg shadow-[#b26a49]/30 transition focus:outline-none focus:ring-2 focus:ring-saffron/40 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-5 py-3 text-base font-semibold tracking-wide text-ivory shadow-lg shadow-[#b26a49]/30 transition focus:outline-none focus:ring-2 focus:ring-saffron/40"
         >
           {t('refresh')}
         </button>
-
-        {locked && (
-          <div data-testid="xrpl-market-unlock">
-            <UnlockActionsLink
-              className="text-xs uppercase tracking-[0.18em] text-ivory/50"
-            />
-          </div>
-        )}
       </div>
     </section>
   )

@@ -548,8 +548,9 @@
     "email": "Email",
     "password": "Password",
     "profileImage": "Profile picture",
-    "profileImageHint": "Optional. Upload PNG, JPG, WEBP, or GIF (up to 1 MB).",
+    "profileImageHint": "Optional. Upload PNG, JPG, or WEBP (up to 1 MB). Animated GIFs are not supported.",
     "profileImageInvalid": "Invalid profile image.",
+    "profileImageGifUnsupported": "Animated GIFs are not supported for profile pictures.",
     "profileImageTooLarge": "Profile image is too large (max 1 MB).",
     "profileImageReady": "Profile picture attached.",
     "profileImagePreviewAlt": "Profile picture preview",
@@ -575,14 +576,16 @@
     "retryInButton": "Retry in {seconds}s",
     "emailInvalid": "Enter a valid email address.",
     "unlockActions": "Sign in to unlock actions.",
+    "unlockActionsSignInButton": "Sign in to unlock",
     "unlockActionsSignUp": "Sign up to unlock actions.",
+    "unlockActionsSignUpButton": "Sign up to unlock",
     "permissionsGateHint": "Permissions set privacy preferences only. Continue with sign in or invite-based sign up.",
     "inviteRequired": "A valid invite token is required for sign up.",
     "passwordWeak": "Password is too weak.",
     "passwordRules": "Use 12+ chars with upper/lowercase, number, and symbol.",
     "inviteHint": "Use the demo token: demo-invite",
-    "emailExists": "An account with this email already exists.",
-    "usernameExists": "An account with this username already exists."
+    "emailExists": "This email is already associated with an account. Use a different email or sign in.",
+    "usernameExists": "This username is already taken. Choose a different username."
   },
   "common": {
     "optional": "optional"

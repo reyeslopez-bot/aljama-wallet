@@ -359,7 +359,6 @@ export default function XrplTradeDesk() {
   const actionStatusId = 'xrpl-trade-desk-action-status'
   const actionErrorId = 'xrpl-trade-desk-action-error'
   const networkConfig = useMemo(() => resolveXrplNetwork(selectedNetworkId), [selectedNetworkId])
-  const networkFeeEstimateXrp = networkConfig.isProduction ? '0.0002' : '0.00012'
   const deskLockedMessage = authLocked
     ? 'Sign in to unlock the XRPL trade desk.'
     : 'Create or connect a wallet to unlock the XRPL trade desk.'
@@ -1224,7 +1223,6 @@ export default function XrplTradeDesk() {
               {networkConfig.name}
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-ivory/55">Fee est. ~{networkFeeEstimateXrp} XRP / tx</p>
           {regionBlocked ? (
             <p id={regionPolicyId} className="mt-1 text-xs text-amber-200">
               Trading disabled by region policy.
@@ -1398,10 +1396,6 @@ export default function XrplTradeDesk() {
                       <span className="font-semibold text-ivory">
                         {quickSwapDeliverMin ? `${formatPreviewAmount(quickSwapDeliverMin)} ${quickSwapToCode}` : '--'}
                       </span>
-                    </p>
-                    <p className="mt-1">
-                      Network fee:{' '}
-                      <span className="font-semibold text-ivory">~{networkFeeEstimateXrp} XRP</span>
                     </p>
                     <p className="mt-1 text-xs text-ivory/55">
                       {quickSwapStatusHint}
