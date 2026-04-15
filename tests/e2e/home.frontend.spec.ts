@@ -168,18 +168,24 @@ test('dynamic info card remains in frame when text scales up', async ({ page }) 
   await expectFullyInViewport(page, infoCard, 'text-scale-125 expanded')
 })
 
-test('home keeps unsigned xrpl tools locked while preserving info card keyboard access', async ({ page }) => {
+test('home keeps unsigned trade tools locked while preserving public xrpl market access', async ({ page }) => {
   await page.goto(HOME_ROUTE, { waitUntil: 'domcontentloaded' })
   await expect(page.getByTestId('home-overview-section')).toBeVisible()
   await waitForAppHydration(page)
 
   await page.getByTestId('home-xrpl-section').scrollIntoViewIfNeeded()
   await expect(page.getByTestId('home-xrpl-section')).toBeVisible()
-  await expect(page.getByTestId('xrpl-market-locked')).toBeVisible()
-  await expect(page.getByTestId('xrpl-market-filter-all')).toBeDisabled()
-  await expect(page.getByTestId('xrpl-market-filter-xrpl')).toBeDisabled()
-  await expect(page.getByTestId('xrpl-market-filter-reference')).toBeDisabled()
-  await expect(page.getByTestId('xrpl-market-chart')).toHaveCount(0)
+  await expect(page.getByTestId('xrpl-market-filter-all')).toBeEnabled()
+  await expect(page.getByTestId('xrpl-market-filter-xrpl')).toBeEnabled()
+  await expect(page.getByTestId('xrpl-market-filter-reference')).toBeEnabled()
+  await expect(page.getByTestId('xrpl-market-chart')).toBeVisible()
+  await expect(page.getByTestId('xrpl-market-row-xrp')).toBeVisible()
+  await expect(page.getByTestId('xrpl-market-row-btc')).toBeVisible()
+
+  await page.getByTestId('home-trade-desk-section').scrollIntoViewIfNeeded()
+  await expect(page.getByTestId('home-trade-desk-section')).toBeVisible()
+  await expect(page.getByTestId('xrpl-trade-desk-unlock')).toBeVisible()
+  await expect(page.getByTestId('xrpl-trade-desk-quick-swap-refresh-quote')).toBeDisabled()
 
   const collapsedToggle = page.getByTestId('dynamic-info-card-expand-button')
   await collapsedToggle.focus()

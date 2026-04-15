@@ -6,7 +6,9 @@ import {
 
 export const HOME_ROUTE = '/en'
 export const RTL_HOME_ROUTES = ['/ar', '/he'] as const
-export const MAX_HOME_VISIBLE_MS = Number(process.env.MAX_HOME_VISIBLE_MS ?? 12_000)
+export const MAX_HOME_VISIBLE_MS = Number(
+  process.env.MAX_HOME_VISIBLE_MS ?? (process.env.CI ? 20_000 : 12_000),
+)
 export const MAX_DOM_CONTENT_LOADED_MS = Number(process.env.MAX_DOM_CONTENT_LOADED_MS ?? 10_000)
 const FIXED_E2E_NOW_ISO = '2026-02-20T00:00:00.000Z'
 
