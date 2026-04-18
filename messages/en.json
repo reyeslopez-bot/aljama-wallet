@@ -548,7 +548,7 @@
     "email": "Email",
     "password": "Password",
     "profileImage": "Profile picture",
-    "profileImageHint": "Optional. Upload PNG, JPG, or WEBP (up to 1 MB). Animated GIFs are not supported.",
+    "profileImageHint": "Optional. Upload PNG, JPG, or WEBP. Large images are optimized automatically. Animated GIFs are not supported.",
     "profileImageInvalid": "Invalid profile image.",
     "profileImageGifUnsupported": "Animated GIFs are not supported for profile pictures.",
     "profileImageTooLarge": "Profile image is too large (max 1 MB).",

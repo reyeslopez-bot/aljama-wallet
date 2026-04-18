@@ -393,6 +393,94 @@ describe('LoginGate', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('optimizes oversized profile pictures before registration submit', async () => {
+    const human = createHuman()
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ user: { username: 'large_image_user' } }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    class MockFileReader {
+      result: string | null = null
+      onload: ((event: ProgressEvent<FileReader>) => void) | null = null
+      onerror: ((event: ProgressEvent<FileReader>) => void) | null = null
+
+      readAsDataURL() {
+        this.result = `data:image/png;base64,${'a'.repeat(1_450_000)}`
+        queueMicrotask(() => this.onload?.(new ProgressEvent('load') as ProgressEvent<FileReader>))
+      }
+    }
+
+    class MockImage {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      width = 1600
+      height = 1600
+      naturalWidth = 1600
+      naturalHeight = 1600
+
+      set src(_value: string) {
+        queueMicrotask(() => this.onload?.())
+      }
+    }
+
+    vi.stubGlobal('FileReader', MockFileReader as unknown as typeof FileReader)
+    vi.stubGlobal('Image', MockImage as unknown as typeof Image)
+
+    const originalCreateElement = document.createElement.bind(document)
+    const toDataUrlMock = vi.fn((type?: string, quality?: number) =>
+      quality === 0.9
+        ? `data:${type};base64,${'b'.repeat(1_450_000)}`
+        : `data:${type};base64,${'c'.repeat(1_024)}`,
+    )
+
+    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+      if (tagName === 'canvas') {
+        return {
+          width: 0,
+          height: 0,
+          getContext: () => ({
+            clearRect: vi.fn(),
+            drawImage: vi.fn(),
+          }),
+          toDataURL: toDataUrlMock,
+        } as unknown as HTMLCanvasElement
+      }
+      return originalCreateElement(tagName, options)
+    }) as typeof document.createElement)
+
+    const { getByRole, getByTestId, getByPlaceholderText, findByText } = render(
+      <LoginGate showBackLink={false} initialMode="register" />,
+    )
+
+    await human.type(getByPlaceholderText('wallet_operator'), 'large_image_user')
+    await human.type(getByPlaceholderText('••••••••'), 'VeryStrongPassphrase1!')
+
+    const input = getByTestId('secure-gate-profile-image-input') as HTMLInputElement
+    const file = new File(['oversized-image'], 'avatar.png', { type: 'image/png' })
+    Object.defineProperty(file, 'size', {
+      configurable: true,
+      value: 2 * 1024 * 1024,
+    })
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [file],
+    })
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+
+    expect(await findByText('Profile picture attached.')).toBeTruthy()
+
+    await human.click(getByRole('button', { name: 'Sign up' }), HUMAN_DELAYS.mediumSettle)
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    const registerPayload = JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string)
+    expect(registerPayload.image).toMatch(/^data:image\/webp;base64,/)
+    expect(toDataUrlMock).toHaveBeenCalledWith('image/webp', 0.9)
+    expect(toDataUrlMock).toHaveBeenCalledWith('image/webp', 0.82)
+  })
+
   it('shows a rate-limit message when sign up is throttled', async () => {
     const human = createHuman()
     const fetchMock = vi.fn().mockResolvedValue({

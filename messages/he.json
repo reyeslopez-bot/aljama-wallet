@@ -548,7 +548,7 @@
     "email": "אימייל",
     "password": "סיסמה",
     "profileImage": "תמונת פרופיל",
-    "profileImageHint": "אופציונלי. העלו PNG, JPG או WEBP (עד 1MB). קבצי GIF מונפשים אינם נתמכים.",
+    "profileImageHint": "אופציונלי. העלו PNG, JPG או WEBP. תמונות גדולות יעברו אופטימיזציה אוטומטית. קבצי GIF מונפשים אינם נתמכים.",
     "profileImageInvalid": "תמונת הפרופיל אינה תקינה.",
     "profileImageGifUnsupported": "קבצי GIF מונפשים אינם נתמכים כתמונת פרופיל.",
     "profileImageTooLarge": "תמונת הפרופיל גדולה מדי (מקסימום 1MB).",

@@ -548,7 +548,7 @@
     "email": "البريد الإلكتروني",
     "password": "كلمة المرور",
     "profileImage": "صورة الملف الشخصي",
-    "profileImageHint": "اختياري. ارفع PNG أو JPG أو WEBP فقط (حتى 1MB). الصور المتحركة GIF غير مدعومة.",
+    "profileImageHint": "اختياري. ارفع PNG أو JPG أو WEBP. يتم تحسين الصور الكبيرة تلقائيًا. الصور المتحركة GIF غير مدعومة.",
     "profileImageInvalid": "صورة الملف الشخصي غير صالحة.",
     "profileImageGifUnsupported": "صور GIF المتحركة غير مدعومة لصورة الملف الشخصي.",
     "profileImageTooLarge": "صورة الملف الشخصي كبيرة جدًا (الحد الأقصى 1MB).",

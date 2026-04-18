@@ -25,6 +25,78 @@ type Props = {
   onClose?: () => void
 }
 
+const MAX_PROFILE_IMAGE_BYTES = 1024 * 1024
+const PROFILE_IMAGE_MAX_DIMENSION = 512
+const PROFILE_IMAGE_OUTPUT_TYPE = "image/webp"
+const PROFILE_IMAGE_QUALITY_STEPS = [0.9, 0.82, 0.74, 0.66]
+const PROFILE_IMAGE_SCALE_STEPS = [1, 0.85, 0.7, 0.55]
+
+function estimateDataUrlBytes(dataUrl: string) {
+  const [, payload = ""] = dataUrl.split(",", 2)
+  const paddingLength = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0
+  return Math.max(0, Math.floor((payload.length * 3) / 4) - paddingLength)
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("invalid_profile_image"))
+        return
+      }
+      resolve(reader.result)
+    }
+    reader.onerror = () => reject(new Error("invalid_profile_image"))
+    reader.readAsDataURL(file)
+  })
+}
+
+function loadImageFromSrc(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new window.Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error("invalid_profile_image"))
+    image.src = src
+  })
+}
+
+async function optimizeProfileImage(file: File): Promise<string> {
+  const sourceDataUrl = await readFileAsDataUrl(file)
+  if (estimateDataUrlBytes(sourceDataUrl) <= MAX_PROFILE_IMAGE_BYTES) {
+    return sourceDataUrl
+  }
+
+  const image = await loadImageFromSrc(sourceDataUrl)
+  const sourceWidth = Math.max(1, image.naturalWidth || image.width)
+  const sourceHeight = Math.max(1, image.naturalHeight || image.height)
+  const longestEdge = Math.max(sourceWidth, sourceHeight)
+  const baseScale = Math.min(1, PROFILE_IMAGE_MAX_DIMENSION / longestEdge)
+  const canvas = document.createElement("canvas")
+  const context = canvas.getContext("2d")
+
+  if (!context) {
+    throw new Error("invalid_profile_image")
+  }
+
+  for (const scaleStep of PROFILE_IMAGE_SCALE_STEPS) {
+    const targetScale = Math.min(1, baseScale * scaleStep)
+    canvas.width = Math.max(1, Math.round(sourceWidth * targetScale))
+    canvas.height = Math.max(1, Math.round(sourceHeight * targetScale))
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.drawImage(image, 0, 0, canvas.width, canvas.height)
+
+    for (const quality of PROFILE_IMAGE_QUALITY_STEPS) {
+      const optimizedDataUrl = canvas.toDataURL(PROFILE_IMAGE_OUTPUT_TYPE, quality)
+      if (estimateDataUrlBytes(optimizedDataUrl) <= MAX_PROFILE_IMAGE_BYTES) {
+        return optimizedDataUrl
+      }
+    }
+  }
+
+  throw new Error("profile_image_too_large")
+}
+
 export default function LoginGate({
   title,
   subtitle,
@@ -49,6 +121,7 @@ export default function LoginGate({
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [profileImage, setProfileImage] = React.useState<string | null>(null)
+  const [profileImageBusy, setProfileImageBusy] = React.useState(false)
   const [showPw, setShowPw] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [mode, setMode] = React.useState<"login" | "register">(initialMode)
@@ -56,6 +129,7 @@ export default function LoginGate({
   const [notice, setNotice] = React.useState<string | null>(null)
   const [retryDeadlineMs, setRetryDeadlineMs] = React.useState<number | null>(null)
   const [retryCountdownSeconds, setRetryCountdownSeconds] = React.useState(0)
+  const profileImageSelectionIdRef = React.useRef(0)
 
   const isStrongPassword = (value: string) => {
     if (value.length < 12) return false
@@ -75,6 +149,7 @@ export default function LoginGate({
   const isValidUsername = /^[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}$/.test(normalizedUsername)
   const disabled =
     busy ||
+    profileImageBusy ||
     retryCountdownSeconds > 0 ||
     !password ||
     (mode === "register"
@@ -319,48 +394,57 @@ export default function LoginGate({
       ? t("retryInButton", { seconds: String(retryCountdownSeconds) })
       : buttonText ?? (mode === "register" ? t("register") : t("signIn"))
 
-  const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  const handleProfileImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.target
+    const selectionId = ++profileImageSelectionIdRef.current
+    const file = input.files?.[0]
     if (!file) {
+      setProfileImageBusy(false)
       setProfileImage(null)
       return
     }
 
     if (!file.type.startsWith("image/")) {
+      setProfileImageBusy(false)
       setError(t("profileImageInvalid"))
       setProfileImage(null)
       return
     }
 
     if (file.type === "image/gif") {
+      setProfileImageBusy(false)
       setError(t("profileImageGifUnsupported"))
       setProfileImage(null)
-      event.target.value = ""
+      input.value = ""
       return
     }
 
-    if (file.size > 1024 * 1024) {
-      setError(t("profileImageTooLarge"))
-      setProfileImage(null)
-      event.target.value = ""
-      return
-    }
+    setProfileImageBusy(true)
+    setError(null)
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result !== "string") {
-        setError(t("profileImageInvalid"))
-        setProfileImage(null)
+    try {
+      const nextProfileImage =
+        file.size > MAX_PROFILE_IMAGE_BYTES ? await optimizeProfileImage(file) : await readFileAsDataUrl(file)
+
+      if (profileImageSelectionIdRef.current !== selectionId) {
         return
       }
-      setProfileImage(reader.result)
-      setError(null)
-    }
-    reader.onerror = () => {
-      setError(t("profileImageInvalid"))
+
+      setProfileImage(nextProfileImage)
+    } catch (uploadError) {
+      if (profileImageSelectionIdRef.current !== selectionId) {
+        return
+      }
+
+      const message = uploadError instanceof Error ? uploadError.message : "invalid_profile_image"
+      setError(message === "profile_image_too_large" ? t("profileImageTooLarge") : t("profileImageInvalid"))
       setProfileImage(null)
+      input.value = ""
+    } finally {
+      if (profileImageSelectionIdRef.current === selectionId) {
+        setProfileImageBusy(false)
+      }
     }
-    reader.readAsDataURL(file)
   }
 
   const handleCloseGate = React.useCallback(() => {
