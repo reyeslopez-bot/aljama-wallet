@@ -42,7 +42,7 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
       data-home-route-stop="overview"
       aria-labelledby="home-overview-title"
       aria-describedby="home-overview-subtitle"
-      className={`relative scroll-mt-28 ${SURFACE} panel-glow-saffron overflow-hidden p-8 md:p-10 lg:p-12`}
+      className={`app-scroll-offset relative ${SURFACE} panel-glow-saffron overflow-hidden p-8 md:p-10 lg:p-12`}
     >
       <div data-home-hero-accent className="absolute inset-x-10 top-6 ornament-line" />
       <div
@@ -56,7 +56,7 @@ function HeroOverviewSection({ title, subtitle, statBlocks }: HeroOverviewSectio
 
           <h1
             id="home-overview-title"
-            className="font-display text-4xl font-semibold leading-tight tracking-tight text-ivory sm:text-5xl"
+            className="font-display text-3xl font-semibold leading-tight tracking-tight text-ivory sm:text-4xl lg:text-[3.15rem]"
           >
             {title}
           </h1>
@@ -108,7 +108,7 @@ function RegionAndComplianceSection() {
       data-home-reveal="region"
       data-home-route-stop="region"
       aria-label="Region awareness and compliance"
-      className="grid scroll-mt-28 gap-12 xl:gap-16 lg:grid-cols-2"
+      className="app-scroll-offset grid gap-12 xl:gap-16 lg:grid-cols-2"
     >
       <div className={`${SURFACE} panel-glow-lapis p-10 md:p-12`}>
         <MapboxMap />
@@ -128,7 +128,7 @@ function XrplSection() {
       data-home-reveal="xrpl"
       data-home-route-stop="xrpl"
       aria-label="XRPL network and market"
-      className="grid scroll-mt-28 gap-12 xl:gap-16 lg:grid-cols-2"
+      className="app-scroll-offset grid gap-12 xl:gap-16 lg:grid-cols-2"
     >
       <XrplPanel />
       <XrplMarketPanel />
@@ -144,7 +144,7 @@ function TradeDeskSection() {
       data-home-reveal="trade-desk"
       data-home-route-stop="trade-desk"
       aria-label="XRPL trade desk"
-      className="scroll-mt-28"
+      className="app-scroll-offset"
     >
       <XrplTradeDesk />
     </section>
@@ -153,7 +153,7 @@ function TradeDeskSection() {
 
 function ShareSection({ initialOrigin }: { initialOrigin: string }) {
   return (
-    <section id="share" data-home-reveal="share" data-home-route-stop="share" className="scroll-mt-28">
+    <section id="share" data-home-reveal="share" data-home-route-stop="share" className="app-scroll-offset">
       <ShareDock initialOrigin={initialOrigin} />
     </section>
   )
@@ -204,7 +204,7 @@ export default function HomeContent() {
       loadingTestId="home-interactive-loading"
       loadingTitle={tHome('interactive.title')}
       loadingHint={tHome('interactive.body')}
-      className="relative mx-auto max-w-7xl space-y-14 pb-28 pt-4 md:pt-6 lg:space-y-16"
+      className="relative mx-auto max-w-7xl space-y-14 pb-28 lg:space-y-16"
       overlayClassName="absolute inset-0 z-20 bg-[#071018]/16 backdrop-blur-[1.5px]"
       panelClassName="ml-auto mt-4 mr-4 max-w-sm rounded-[1.5rem] border border-white/10 bg-[#071018]/92 px-4 py-3 text-left shadow-xl shadow-black/25"
     >

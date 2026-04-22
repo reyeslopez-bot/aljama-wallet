@@ -1,11 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useLocale, useTranslations } from "next-intl"
 import { useConnection } from "wagmi"
-import { replacePathLocale } from "@/i18n/routing"
 import { useDynamicInfoStore } from "@/hooks/useDynamicInfoStore"
 import { setLocationConsent, getLocationConsent } from "@/infra/location/client"
 import { getTelemetryConsent, setTelemetryConsent } from "@/infra/telemetry/client"
@@ -18,12 +17,6 @@ import { resolveConsentReturnPath } from "@/infra/consent/routing"
 
 type ConsentPreset = "rejectAll" | "essentialOnly" | "allowAll"
 
-const LANGUAGES = [
-  { label: "EN", value: "en" },
-  { label: "HE", value: "he" },
-  { label: "AR", value: "ar" },
-]
-
 type ConsentEntryGateProps = {
   variant?: "page" | "inline"
 }
@@ -33,7 +26,6 @@ export default function ConsentEntryGate({ variant = "page" }: ConsentEntryGateP
   const tAuth = useTranslations("auth")
   const tInfo = useTranslations("infoCard")
   const locale = useLocale()
-  const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
   const { status: sessionStatus } = useSession()
@@ -144,31 +136,6 @@ export default function ConsentEntryGate({ variant = "page" }: ConsentEntryGateP
           isInline ? "max-w-3xl p-6 sm:p-8" : "max-w-xl p-8"
         }`}
       >
-        <div className="absolute right-6 top-6 z-10 flex items-center gap-2">
-          {LANGUAGES.map((language) => (
-            <button
-              key={language.value}
-              type="button"
-              onClick={() => {
-                const params = new URLSearchParams(searchParams.toString())
-                const next = params.get("next")
-                if (next) {
-                  params.set("next", replacePathLocale(next, language.value))
-                }
-                const targetPath = replacePathLocale(pathname, language.value)
-                const query = params.toString()
-                router.push(query ? `${targetPath}?${query}` : targetPath)
-              }}
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-[0.16em] transition ${
-                locale === language.value
-                  ? "border-saffron/60 bg-saffron/10 text-saffron"
-                  : "border-white/10 bg-white/5 text-ivory/60 hover:border-white/20"
-              }`}
-            >
-              {language.label}
-            </button>
-          ))}
-        </div>
         <div className="absolute inset-x-10 top-6 ornament-line" />
         <div className="text-center">
           <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5">

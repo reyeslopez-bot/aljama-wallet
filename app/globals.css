@@ -201,6 +201,16 @@ html[data-runtime-mode='lightweight'] .animated-mist-bg {
   background-position: 50% 50%;
 }
 
+@layer utilities {
+  .app-navbar-offset {
+    padding-top: calc(var(--app-navbar-height, 7rem) + 1rem);
+  }
+
+  .app-scroll-offset {
+    scroll-margin-top: calc(var(--app-navbar-height, 7rem) + 1rem);
+  }
+}
+
 /* =========================================================
    SURFACE SYSTEM
    ========================================================= */

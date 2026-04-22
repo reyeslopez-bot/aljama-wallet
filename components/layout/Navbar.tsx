@@ -31,11 +31,14 @@ export default function Navbar() {
   const isAuthed = status === 'authenticated'
   const [menuOpen, setMenuOpen] = useState(false)
   const [languageOpen, setLanguageOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
   const [activeMenuKey, setActiveMenuKey] = useState<MenuItemKey | null>(null)
   const [theme, setTheme] = useState<ThemeMode>('dark')
   const [recognizedDevice, setRecognizedDevice] = useState(false)
+  const navRef = useRef<HTMLElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const languageRef = useRef<HTMLDivElement>(null)
+  const accountRef = useRef<HTMLDivElement>(null)
 
   const applyTheme = useCallback((nextTheme: ThemeMode) => {
     setTheme(nextTheme)
@@ -71,6 +74,34 @@ export default function Navbar() {
   }, [applyTheme])
 
   useEffect(() => {
+    if (typeof document === 'undefined' || !navRef.current) return
+
+    const syncHeight = () => {
+      if (!navRef.current) return
+      document.documentElement.style.setProperty('--app-navbar-height', `${navRef.current.offsetHeight}px`)
+    }
+
+    syncHeight()
+    window.addEventListener('resize', syncHeight)
+
+    if (typeof ResizeObserver === 'undefined') {
+      return () => {
+        window.removeEventListener('resize', syncHeight)
+        document.documentElement.style.removeProperty('--app-navbar-height')
+      }
+    }
+
+    const observer = new ResizeObserver(syncHeight)
+    observer.observe(navRef.current)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', syncHeight)
+      document.documentElement.style.removeProperty('--app-navbar-height')
+    }
+  }, [])
+
+  useEffect(() => {
     const handleClick = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false)
@@ -78,12 +109,16 @@ export default function Navbar() {
       if (languageRef.current && !languageRef.current.contains(event.target as Node)) {
         setLanguageOpen(false)
       }
+      if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
+        setAccountOpen(false)
+      }
     }
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setMenuOpen(false)
         setLanguageOpen(false)
+        setAccountOpen(false)
       }
     }
 
@@ -122,6 +157,7 @@ export default function Navbar() {
   useEffect(() => {
     setMenuOpen(false)
     setLanguageOpen(false)
+    setAccountOpen(false)
     if (typeof window === 'undefined') return
     if (walletRoutes && isAuthed) {
       setActiveMenuKey('wallet')
@@ -207,6 +243,7 @@ export default function Navbar() {
 
   return (
     <nav
+      ref={navRef}
       data-app-navbar="true"
       className="
         fixed top-0 left-0 right-0 z-50
@@ -238,8 +275,8 @@ export default function Navbar() {
           {BRAND.name}
         </Link>
 
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
-          <div className="hidden items-center xl:flex">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3 xl:flex-nowrap">
+          <div className="hidden min-w-0 items-center xl:flex">
             {menuItems.map((item, itemIndex) => (
               <div
                 key={`desktop-menu-item-${item.key}`}
@@ -253,7 +290,7 @@ export default function Navbar() {
               >
                 <Link
                   href={item.href}
-                  className={`rounded-full px-4 py-2 text-sm font-medium tracking-wide transition ${
+                  className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium tracking-wide transition ${
                     item.key === activeMenuKey
                       ? isLight
                         ? 'border border-[#7fa3c1]/45 bg-[#7fb0d9]/30 text-[#1e3248]'
@@ -269,279 +306,333 @@ export default function Navbar() {
             ))}
           </div>
 
-          <div className="relative xl:hidden" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => setMenuOpen((open) => !open)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:gap-2 sm:px-4 sm:text-sm ${
-                isLight
-                  ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
-                  : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
-              }`}
-              aria-haspopup="true"
-              aria-expanded={menuOpen}
-              aria-controls="navbar-menu"
-            >
-              {t('menu')}
-              <span className="text-xs opacity-80">{menuOpen ? '▲' : '▼'}</span>
-            </button>
-
-            {menuOpen && (
-              <div
-                id="navbar-menu"
-                className={`absolute right-0 mt-2 w-48 rounded-2xl border p-2 shadow-xl ${
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3 xl:flex-nowrap xl:shrink-0">
+            <div className="relative xl:hidden" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => setMenuOpen((open) => !open)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:gap-2 sm:px-4 sm:text-sm ${
                   isLight
-                    ? 'border-[#7fa3c1]/40 bg-gradient-to-b from-[#f9fcff]/95 via-[#eff5fb]/95 to-[#e7eef7]/92 shadow-[#7fa3c1]/20'
-                    : 'border-white/12 bg-gradient-to-b from-black/95 via-onyx/95 to-black/90'
+                    ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
+                    : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
                 }`}
-                role="menu"
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+                aria-controls="navbar-menu"
               >
-                {menuItems.map((item, itemIndex) => (
-                  <div
-                    key={`mobile-menu-item-${item.key}`}
-                    className={
-                      itemIndex === 0
-                        ? ''
-                        : isLight
-                          ? 'mt-2 border-t border-[#7fa3c1]/30 pt-2'
-                          : 'mt-2 border-t border-white/10 pt-2'
-                    }
-                  >
-                    <Link
-                      href={item.href}
-                      className={`block rounded-xl px-3 py-2 text-sm transition ${
-                        item.key === activeMenuKey
-                          ? isLight
-                            ? 'bg-[#7fb0d9]/30 text-[#1e3248]'
-                            : 'bg-saffron/20 text-ivory'
-                          : isLight
-                            ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
-                            : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
-                      }`}
-                      role="menuitem"
-                    >
-                      {item.label}
-                    </Link>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    openSupportDrawer({ source: 'navbar-mobile' })
-                  }}
-                  className={`mt-2 block w-full rounded-xl px-3 py-2 text-left text-sm transition ${
+                {t('menu')}
+                <span className="text-xs opacity-80">{menuOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {menuOpen && (
+                <div
+                  id="navbar-menu"
+                  className={`absolute right-0 mt-2 w-48 rounded-2xl border p-2 shadow-xl ${
                     isLight
-                      ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
-                      : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                      ? 'border-[#7fa3c1]/40 bg-gradient-to-b from-[#f9fcff]/95 via-[#eff5fb]/95 to-[#e7eef7]/92 shadow-[#7fa3c1]/20'
+                      : 'border-white/12 bg-gradient-to-b from-black/95 via-onyx/95 to-black/90'
                   }`}
-                  role="menuitem"
+                  role="menu"
                 >
-                  {t('help')}
-                </button>
-                {!isAuthed && (
-                  <Link
-                    href={authCtaHref}
-                    className={`block rounded-xl px-3 py-2 text-sm transition ${
-                      isLight
-                        ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
-                        : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
-                    }`}
-                    role="menuitem"
-                  >
-                    {authCtaLabel}
-                  </Link>
-                )}
-                {isAuthed && (
+                  {menuItems.map((item, itemIndex) => (
+                    <div
+                      key={`mobile-menu-item-${item.key}`}
+                      className={
+                        itemIndex === 0
+                          ? ''
+                          : isLight
+                            ? 'mt-2 border-t border-[#7fa3c1]/30 pt-2'
+                            : 'mt-2 border-t border-white/10 pt-2'
+                      }
+                    >
+                      <Link
+                        href={item.href}
+                        className={`block rounded-xl px-3 py-2 text-sm transition ${
+                          item.key === activeMenuKey
+                            ? isLight
+                              ? 'bg-[#7fb0d9]/30 text-[#1e3248]'
+                              : 'bg-saffron/20 text-ivory'
+                            : isLight
+                              ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                              : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                        }`}
+                        role="menuitem"
+                      >
+                        {item.label}
+                      </Link>
+                    </div>
+                  ))}
                   <button
                     type="button"
                     onClick={() => {
                       setMenuOpen(false)
-                      void signOut({ callbackUrl: `/${locale}` })
+                      openSupportDrawer({ source: 'navbar-mobile' })
                     }}
-                    className={`block w-full rounded-xl px-3 py-2 text-left text-sm transition ${
+                    className={`mt-2 block w-full rounded-xl px-3 py-2 text-left text-sm transition ${
                       isLight
                         ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
                         : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
                     }`}
                     role="menuitem"
                   >
-                    {t('signOut')}
+                    {t('help')}
                   </button>
+                  {!isAuthed && (
+                    <Link
+                      href={authCtaHref}
+                      className={`block rounded-xl px-3 py-2 text-sm transition ${
+                        isLight
+                          ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                          : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                      }`}
+                      role="menuitem"
+                    >
+                      {authCtaLabel}
+                    </Link>
+                  )}
+                  {isAuthed && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false)
+                        void signOut({ callbackUrl: `/${locale}` })
+                      }}
+                      className={`block w-full rounded-xl px-3 py-2 text-left text-sm transition ${
+                        isLight
+                          ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                          : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                      }`}
+                      role="menuitem"
+                    >
+                      {t('signOut')}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {!isAuthed && (
+              <button
+                type="button"
+                onClick={() => openSupportDrawer({ source: 'navbar' })}
+                className={`hidden shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition xl:inline-flex ${
+                  isLight
+                    ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
+                    : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
+                }`}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M9.4 9.1a2.8 2.8 0 0 1 5.14 1.45c0 1.78-1.7 2.48-2.54 3.25-.38.34-.6.72-.6 1.45" />
+                  <circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none" />
+                </svg>
+                {t('help')}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => applyTheme(isLight ? 'dark' : 'light')}
+              className={`relative h-10 w-16 shrink-0 overflow-hidden rounded-full border px-1.5 transition focus:outline-none focus:ring-2 sm:w-20 ${
+                isLight
+                  ? 'border-[#7fa3c1]/55 bg-white/80 focus:ring-[#5c8db4]/35'
+                  : 'border-white/15 bg-white/10 focus:ring-saffron/30'
+              }`}
+              role="switch"
+              aria-checked={isLight}
+              aria-label={t('themeToggle')}
+              title={isLight ? t('themeLight') : t('themeDark')}
+            >
+              <span className="sr-only">{t('themeToggle')}</span>
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#f0d7a0]/80 via-[#9abed8]/70 to-[#1b2634]/80"
+              />
+              <span
+                className={`pointer-events-none absolute inset-y-1 left-1 w-6 rounded-full border transition-transform sm:w-8 ${
+                  isLight
+                    ? 'translate-x-0 border-[#f6e0b7]/80 bg-[#fff7e8]/90 shadow-[0_0_20px_rgba(240,215,160,0.45)]'
+                    : 'translate-x-[1.5rem] border-white/30 bg-[#0f1622]/90 shadow-[0_0_20px_rgba(15,22,34,0.45)] sm:translate-x-[2.25rem]'
+                }`}
+              />
+            </button>
+
+            <div className="relative" ref={languageRef}>
+              <button
+                type="button"
+                onClick={() => setLanguageOpen((open) => !open)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:gap-2 sm:px-4 sm:text-sm ${
+                  isLight
+                    ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
+                    : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
+                }`}
+                aria-haspopup="true"
+                aria-expanded={languageOpen}
+                aria-controls="navbar-language"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" />
+                  <path d="M2 12h20" />
+                  <path d="M12 2c2.5 2.7 4 6.1 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.1-4-10s 1.5-7.3 4-10Z" />
+                </svg>
+                <span className="hidden sm:inline">
+                  {currentLanguage?.label ?? t('language')}
+                </span>
+                <span className="sm:hidden">
+                  {currentLanguage?.mobileLabel ?? t('language')}
+                </span>
+                <span className="text-xs opacity-80">{languageOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {languageOpen && (
+                <div
+                  id="navbar-language"
+                  className={`absolute right-0 mt-2 w-44 rounded-2xl border p-2 shadow-xl ${
+                    isLight
+                      ? 'border-[#7fa3c1]/40 bg-gradient-to-b from-[#f9fcff]/95 via-[#eff5fb]/95 to-[#e7eef7]/92 shadow-[#7fa3c1]/20'
+                      : 'border-white/12 bg-gradient-to-b from-black/95 via-onyx/95 to-black/90'
+                  }`}
+                  role="menu"
+                >
+                  {LANGUAGES.map((language) => (
+                    <button
+                      key={language.value}
+                      type="button"
+                      onClick={() => {
+                        setLanguageOpen(false)
+                        const segments = pathname.split('/')
+                        if (segments.length > 1) {
+                          segments[1] = language.value
+                        } else {
+                          segments.push(language.value)
+                        }
+                        const nextPath = segments.join('/') || `/${language.value}`
+                        const hash = typeof window !== 'undefined' ? window.location.hash : ''
+                        router.push(`${nextPath}${hash}`)
+                      }}
+                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
+                        isLight
+                          ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                          : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                      }`}
+                      role="menuitem"
+                    >
+                      <span>{language.label}</span>
+                      {locale === language.value && (
+                        <span className={isLight ? 'text-xs text-[#1d2f45]/70' : 'text-xs text-ivory/70'}>
+                          {t('active')}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {!isAuthed && (
+              <Link
+                href={authCtaHref}
+                className={`hidden rounded-full border px-4 py-2 text-sm font-medium transition xl:inline-flex ${
+                  isLight
+                    ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
+                    : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
+                }`}
+              >
+                {authCtaLabel}
+              </Link>
+            )}
+
+            {isAuthed && (
+              <div className="relative hidden xl:block" ref={accountRef}>
+                <button
+                  type="button"
+                  onClick={() => setAccountOpen((open) => !open)}
+                  className={`flex max-w-[13rem] items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                    isLight
+                      ? 'border-[#7fa3c1]/45 bg-white/70 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
+                      : 'border-white/15 bg-white/5 text-ivory/90 hover:border-saffron/40 hover:bg-white/10'
+                  }`}
+                  title={`${t('signedIn')}: ${accountLabel}`}
+                  aria-label={`${t('signedIn')}: ${accountLabel}`}
+                  aria-haspopup="menu"
+                  aria-expanded={accountOpen}
+                  aria-controls="navbar-account"
+                >
+                  <span className="truncate">{accountLabel}</span>
+                  <span className="shrink-0 text-xs opacity-75">{accountOpen ? '▲' : '▼'}</span>
+                </button>
+
+                {accountOpen && (
+                  <div
+                    id="navbar-account"
+                    className={`absolute right-0 mt-2 w-56 rounded-2xl border p-2 shadow-xl ${
+                      isLight
+                        ? 'border-[#7fa3c1]/40 bg-gradient-to-b from-[#f9fcff]/95 via-[#eff5fb]/95 to-[#e7eef7]/92 shadow-[#7fa3c1]/20'
+                        : 'border-white/12 bg-gradient-to-b from-black/95 via-onyx/95 to-black/90'
+                    }`}
+                    role="menu"
+                  >
+                    <div
+                      className={`rounded-xl px-3 py-2 ${
+                        isLight ? 'bg-[#7fa3c1]/12 text-[#1f3348]' : 'bg-white/5 text-ivory/85'
+                      }`}
+                    >
+                      <p className={`text-[10px] uppercase tracking-[0.14em] ${isLight ? 'text-[#456785]/75' : 'text-ivory/50'}`}>
+                        {t('signedIn')}
+                      </p>
+                      <p className="mt-1 truncate text-sm font-semibold">{accountLabel}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountOpen(false)
+                        openSupportDrawer({ source: 'navbar-account' })
+                      }}
+                      className={`mt-2 block w-full rounded-xl px-3 py-2 text-left text-sm transition ${
+                        isLight
+                          ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                          : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                      }`}
+                      role="menuitem"
+                    >
+                      {t('help')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountOpen(false)
+                        void signOut({ callbackUrl: `/${locale}` })
+                      }}
+                      className={`mt-2 block w-full rounded-xl px-3 py-2 text-left text-sm transition ${
+                        isLight
+                          ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
+                          : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
+                      }`}
+                      role="menuitem"
+                    >
+                      {t('signOut')}
+                    </button>
+                  </div>
                 )}
               </div>
             )}
+
+            {showWallet && <WalletButton />}
           </div>
-
-          <button
-            type="button"
-            onClick={() => openSupportDrawer({ source: 'navbar' })}
-            className={`hidden shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition xl:inline-flex ${
-              isLight
-                ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
-                : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
-            }`}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              className="h-4 w-4"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M9.4 9.1a2.8 2.8 0 0 1 5.14 1.45c0 1.78-1.7 2.48-2.54 3.25-.38.34-.6.72-.6 1.45" />
-              <circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none" />
-            </svg>
-            {t('help')}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => applyTheme(isLight ? 'dark' : 'light')}
-            className={`relative h-10 w-16 shrink-0 overflow-hidden rounded-full border px-1.5 transition focus:outline-none focus:ring-2 sm:w-20 ${
-              isLight
-                ? 'border-[#7fa3c1]/55 bg-white/80 focus:ring-[#5c8db4]/35'
-                : 'border-white/15 bg-white/10 focus:ring-saffron/30'
-            }`}
-            role="switch"
-            aria-checked={isLight}
-            aria-label={t('themeToggle')}
-            title={isLight ? t('themeLight') : t('themeDark')}
-          >
-            <span className="sr-only">{t('themeToggle')}</span>
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#f0d7a0]/80 via-[#9abed8]/70 to-[#1b2634]/80"
-            />
-            <span
-              className={`pointer-events-none absolute inset-y-1 left-1 w-6 rounded-full border transition-transform sm:w-8 ${
-                isLight
-                  ? 'translate-x-0 border-[#f6e0b7]/80 bg-[#fff7e8]/90 shadow-[0_0_20px_rgba(240,215,160,0.45)]'
-                  : 'translate-x-[1.5rem] border-white/30 bg-[#0f1622]/90 shadow-[0_0_20px_rgba(15,22,34,0.45)] sm:translate-x-[2.25rem]'
-              }`}
-            />
-          </button>
-
-          <div className="relative" ref={languageRef}>
-            <button
-              type="button"
-              onClick={() => setLanguageOpen((open) => !open)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:gap-2 sm:px-4 sm:text-sm ${
-                isLight
-                  ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
-                  : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
-              }`}
-              aria-haspopup="true"
-              aria-expanded={languageOpen}
-              aria-controls="navbar-language"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                className="h-4 w-4"
-                aria-hidden="true"
-              >
-                <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" />
-                <path d="M2 12h20" />
-                <path d="M12 2c2.5 2.7 4 6.1 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.1-4-10s 1.5-7.3 4-10Z" />
-              </svg>
-              <span className="hidden sm:inline">
-                {currentLanguage?.label ?? t('language')}
-              </span>
-              <span className="sm:hidden">
-                {currentLanguage?.mobileLabel ?? t('language')}
-              </span>
-              <span className="text-xs opacity-80">{languageOpen ? '▲' : '▼'}</span>
-            </button>
-
-            {languageOpen && (
-              <div
-                id="navbar-language"
-                className={`absolute right-0 mt-2 w-44 rounded-2xl border p-2 shadow-xl ${
-                  isLight
-                    ? 'border-[#7fa3c1]/40 bg-gradient-to-b from-[#f9fcff]/95 via-[#eff5fb]/95 to-[#e7eef7]/92 shadow-[#7fa3c1]/20'
-                    : 'border-white/12 bg-gradient-to-b from-black/95 via-onyx/95 to-black/90'
-                }`}
-                role="menu"
-              >
-                {LANGUAGES.map((language) => (
-                  <button
-                    key={language.value}
-                    type="button"
-                    onClick={() => {
-                      setLanguageOpen(false)
-                      const segments = pathname.split('/')
-                      if (segments.length > 1) {
-                        segments[1] = language.value
-                      } else {
-                        segments.push(language.value)
-                      }
-                      const nextPath = segments.join('/') || `/${language.value}`
-                      const hash = typeof window !== 'undefined' ? window.location.hash : ''
-                      router.push(`${nextPath}${hash}`)
-                    }}
-                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
-                      isLight
-                        ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'
-                        : 'text-ivory/80 hover:bg-white/10 hover:text-ivory'
-                    }`}
-                    role="menuitem"
-                  >
-                    <span>{language.label}</span>
-                    {locale === language.value && (
-                      <span className={isLight ? 'text-xs text-[#1d2f45]/70' : 'text-xs text-ivory/70'}>
-                        {t('active')}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {!isAuthed && (
-            <Link
-              href={authCtaHref}
-              className={`hidden rounded-full border px-4 py-2 text-sm font-medium transition xl:inline-flex ${
-                isLight
-                  ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
-                  : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
-              }`}
-            >
-              {authCtaLabel}
-            </Link>
-          )}
-          {isAuthed && (
-            <div
-              className={`hidden max-w-[14rem] items-center rounded-full border px-4 py-2 text-sm font-medium tracking-wide xl:inline-flex ${
-                isLight
-                  ? 'border-[#7fa3c1]/45 bg-white/70 text-[#1f3348]'
-                  : 'border-white/15 bg-white/5 text-ivory/85'
-              }`}
-              title={`${t('signedIn')}: ${accountLabel}`}
-              aria-label={`${t('signedIn')}: ${accountLabel}`}
-            >
-              <span className="truncate">{accountLabel}</span>
-            </div>
-          )}
-          {isAuthed && (
-            <button
-              type="button"
-              onClick={() => void signOut({ callbackUrl: `/${locale}` })}
-              className={`hidden rounded-full border px-4 py-2 text-sm font-medium transition xl:inline-flex ${
-                isLight
-                  ? 'border-[#7fa3c1]/45 bg-white/65 text-[#1f3348] hover:border-[#5c8db4]/60 hover:bg-white/85'
-                  : 'border-white/15 bg-white/5 text-ivory hover:border-saffron/40 hover:bg-white/10'
-              }`}
-            >
-              {t('signOut')}
-            </button>
-          )}
-          {showWallet && <WalletButton />}
         </div>
       </div>
     </nav>

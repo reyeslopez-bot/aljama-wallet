@@ -180,9 +180,16 @@
   },
   "region": {
     "eyebrow": "Region + Compliance",
-    "title": "Set your operating region.",
-    "body": "Pick a region to tailor disclosure copy and privacy defaults. This is a UI preference only.",
+    "title": "Region and compliance follow your operating location.",
+    "body": "We start from your detected location and lock the profile to that jurisdiction until you intentionally switch regions.",
     "label": "Region",
+    "autoMode": "Detected region",
+    "manualMode": "Manual override",
+    "autoBody": "Location keeps this region and its compliance target in sync until you choose another region.",
+    "manualBody": "You are overriding the detected location. Compliance now follows the region selected here.",
+    "chooseRegion": "Choose another region",
+    "useDetectedRegion": "Use detected region",
+    "detectedRegion": "Detected region",
     "regions": {
       "us": "United States",
       "eu": "European Union",
@@ -206,6 +213,8 @@
       "iso": "ISO 27001 roadmap",
       "isoDetail": "Security management alignment"
     },
+    "primaryTarget": "Primary target",
+    "secondaryTarget": "Supporting",
     "targeted": "Targeted",
     "disclaimer": "Informational only. Not a certification claim.",
     "signupTitle": "Privacy-safe profile",

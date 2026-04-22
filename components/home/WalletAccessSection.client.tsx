@@ -94,7 +94,7 @@ function MobileWalletAccessShell({
         </div>
       </div>
 
-      <div id="create" className="scroll-mt-28" />
+      <div id="create" className="app-scroll-offset" />
       <div
         id="wallet-access-mobile-create-panel"
         data-testid="wallet-access-mobile-create"
@@ -106,7 +106,7 @@ function MobileWalletAccessShell({
         <CreateWalletPanel />
       </div>
 
-      <div id="connect" className="scroll-mt-28" />
+      <div id="connect" className="app-scroll-offset" />
       <div
         id="wallet-access-mobile-connect-panel"
         data-testid="wallet-access-mobile-connect"
@@ -128,13 +128,13 @@ function DesktopWalletAccessShell() {
       className="grid items-start gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)]"
     >
       <div>
-        <div id="create" className="scroll-mt-28">
+        <div id="create" className="app-scroll-offset">
           <CreateWalletPanel />
         </div>
       </div>
 
       <div>
-        <div id="connect" className="scroll-mt-28">
+        <div id="connect" className="app-scroll-offset">
           <ConnectWalletPanel />
         </div>
       </div>
@@ -198,7 +198,7 @@ export default function WalletAccessSection() {
       data-home-reveal="wallet"
       data-home-route-stop="wallet"
       aria-label="Wallet creation and connection"
-      className="scroll-mt-28 space-y-6"
+      className="app-scroll-offset space-y-6"
     >
       <HomeStageShell>
         {isMobileLayout ? (

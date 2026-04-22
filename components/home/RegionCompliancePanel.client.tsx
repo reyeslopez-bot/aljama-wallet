@@ -2,14 +2,26 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useLocale, useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
+import {
+  DETECTED_REGION_KEY,
+  isRegionSelectionMode,
+  isSupportedRegion,
+  REGION_KEY,
+  REGION_PROFILE_KEY,
+  REGION_SELECTION_MODE_KEY,
+  REGION_SYNC_EVENT,
+  resolveComplianceTarget,
+  type RegionSelectionMode,
+  type UiRegion,
+} from '@/lib/region-profile'
 
 type RegionOption = {
-  value: string
+  value: UiRegion
   label: string
   detail: string
 }
@@ -20,28 +32,23 @@ type ComplianceOption = {
   detail: string
 }
 
-const REGION_KEY = 'aljama.region'
-const REGION_PROFILE_KEY = 'aljama.region.profileEnabled'
-const REGION_SYNC_EVENT = 'aljama:region-sync'
-const SUPPORTED_REGIONS = new Set(['us', 'eu', 'mena', 'apac', 'latam'])
-
-function isSupportedRegion(value: string | null): value is string {
-  return Boolean(value && SUPPORTED_REGIONS.has(value))
-}
-
 export default function RegionCompliancePanel() {
   useComponentTelemetry('RegionCompliancePanel')
   const t = useTranslations('region')
   const tAuth = useTranslations('auth')
   const locale = useLocale()
   const { status: sessionStatus } = useSession()
-  const locked = sessionStatus !== 'authenticated'
-  const [region, setRegion] = useState<string>('us')
+  const saveProfileLocked = sessionStatus !== 'authenticated'
+  const [region, setRegion] = useState<UiRegion>('us')
+  const [detectedRegion, setDetectedRegion] = useState<UiRegion>('us')
+  const [selectionMode, setSelectionMode] = useState<RegionSelectionMode>('auto')
   const [saved, setSaved] = useState(false)
+  const selectionModeRef = useRef<RegionSelectionMode>('auto')
   const titleId = 'region-compliance-title'
   const bodyId = 'region-compliance-body'
   const selectHintId = 'region-select-detail'
   const signupStatusId = 'region-signup-status'
+  const complianceTarget = resolveComplianceTarget(region)
 
   const regions: RegionOption[] = [
     { value: 'us', label: t('regions.us'), detail: t('regionDetail.us') },
@@ -60,28 +67,64 @@ export default function RegionCompliancePanel() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const storedRegion = window.localStorage.getItem(REGION_KEY)
-    if (isSupportedRegion(storedRegion)) {
-      setRegion(storedRegion)
+    const syncFromStorage = () => {
+      const storedDetected = window.localStorage.getItem(DETECTED_REGION_KEY)
+      const storedRegion = window.localStorage.getItem(REGION_KEY)
+      const storedSelectionMode = window.localStorage.getItem(REGION_SELECTION_MODE_KEY)
+      const nextDetectedRegion = isSupportedRegion(storedDetected)
+        ? storedDetected
+        : isSupportedRegion(storedRegion)
+          ? storedRegion
+          : 'us'
+      const nextSelectionMode = isRegionSelectionMode(storedSelectionMode) ? storedSelectionMode : 'auto'
+      const nextRegion =
+        nextSelectionMode === 'manual' && isSupportedRegion(storedRegion)
+          ? storedRegion
+          : nextDetectedRegion
+
+      selectionModeRef.current = nextSelectionMode
+      setDetectedRegion(nextDetectedRegion)
+      setSelectionMode(nextSelectionMode)
+      setRegion(nextRegion)
+
+      if (window.localStorage.getItem(DETECTED_REGION_KEY) !== nextDetectedRegion) {
+        window.localStorage.setItem(DETECTED_REGION_KEY, nextDetectedRegion)
+      }
+      if (window.localStorage.getItem(REGION_KEY) !== nextRegion) {
+        window.localStorage.setItem(REGION_KEY, nextRegion)
+      }
+      if (window.localStorage.getItem(REGION_SELECTION_MODE_KEY) !== nextSelectionMode) {
+        window.localStorage.setItem(REGION_SELECTION_MODE_KEY, nextSelectionMode)
+      }
     }
+
+    syncFromStorage()
 
     const handleRegionSync = (event: Event) => {
       const detailRegion = (event as CustomEvent<{ region?: string }>).detail?.region
-      const detailRegionValue = typeof detailRegion === 'string' ? detailRegion : null
-      const nextRegion =
-        isSupportedRegion(detailRegionValue)
-          ? detailRegionValue
-          : window.localStorage.getItem(REGION_KEY)
+      const nextDetectedRegion = typeof detailRegion === 'string' ? detailRegion : null
 
-      if (!isSupportedRegion(nextRegion)) return
-      setRegion(nextRegion)
+      if (!isSupportedRegion(nextDetectedRegion)) return
+
+      window.localStorage.setItem(DETECTED_REGION_KEY, nextDetectedRegion)
+      if (selectionModeRef.current !== 'manual') {
+        window.localStorage.setItem(REGION_KEY, nextDetectedRegion)
+      }
+
+      syncFromStorage()
       setSaved(false)
     }
 
     const handleStorage = (event: StorageEvent) => {
-      if (event.key !== REGION_KEY) return
-      if (!isSupportedRegion(event.newValue)) return
-      setRegion(event.newValue)
+      if (
+        event.key !== REGION_KEY &&
+        event.key !== DETECTED_REGION_KEY &&
+        event.key !== REGION_SELECTION_MODE_KEY
+      ) {
+        return
+      }
+
+      syncFromStorage()
       setSaved(false)
     }
 
@@ -111,19 +154,37 @@ export default function RegionCompliancePanel() {
       </div>
 
       <div data-testid="region-compliance-region-control" className="surface-inner p-4">
-        <label htmlFor="region-select" className="text-xs uppercase tracking-[0.16em] text-ivory/60">
-          {t('label')}
-        </label>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <label htmlFor="region-select" className="text-xs uppercase tracking-[0.16em] text-ivory/60">
+              {t('label')}
+            </label>
+            <p className="mt-2 text-xs text-ivory/50">
+              {selectionMode === 'auto' ? t('autoBody') : t('manualBody')}
+            </p>
+          </div>
+          <span
+            data-testid="region-compliance-mode-badge"
+            className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-ivory/65"
+          >
+            {selectionMode === 'auto' ? t('autoMode') : t('manualMode')}
+          </span>
+        </div>
         <select
           id="region-select"
           data-testid="region-compliance-select"
           value={region}
-          disabled={locked}
+          disabled={selectionMode === 'auto'}
           onChange={(event) => {
             const next = event.target.value
+            if (!isSupportedRegion(next)) return
+
             setRegion(next)
+            setSelectionMode('manual')
+            selectionModeRef.current = 'manual'
             setSaved(false)
             if (typeof window !== 'undefined') {
+              window.localStorage.setItem(REGION_SELECTION_MODE_KEY, 'manual')
               window.localStorage.setItem(REGION_KEY, next)
             }
           }}
@@ -139,6 +200,48 @@ export default function RegionCompliancePanel() {
         <p id={selectHintId} data-testid="region-compliance-region-detail" className="mt-2 text-xs text-ivory/50">
           {regions.find((option) => option.value === region)?.detail}
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {selectionMode === 'auto' ? (
+            <button
+              data-testid="region-compliance-enable-manual"
+              type="button"
+              onClick={() => {
+                setSelectionMode('manual')
+                selectionModeRef.current = 'manual'
+                setSaved(false)
+                if (typeof window !== 'undefined') {
+                  window.localStorage.setItem(REGION_SELECTION_MODE_KEY, 'manual')
+                }
+              }}
+              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ivory/72 transition hover:border-saffron/35 hover:bg-saffron/10 hover:text-ivory"
+            >
+              {t('chooseRegion')}
+            </button>
+          ) : (
+            <button
+              data-testid="region-compliance-reset-auto"
+              type="button"
+              onClick={() => {
+                setSelectionMode('auto')
+                selectionModeRef.current = 'auto'
+                setRegion(detectedRegion)
+                setSaved(false)
+                if (typeof window !== 'undefined') {
+                  window.localStorage.setItem(REGION_SELECTION_MODE_KEY, 'auto')
+                  window.localStorage.setItem(REGION_KEY, detectedRegion)
+                }
+              }}
+              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ivory/72 transition hover:border-saffron/35 hover:bg-saffron/10 hover:text-ivory"
+            >
+              {t('useDetectedRegion')}
+            </button>
+          )}
+          {selectionMode === 'manual' && detectedRegion !== region ? (
+            <span className="text-[11px] text-ivory/45">
+              {t('detectedRegion')}: {regions.find((option) => option.value === detectedRegion)?.label}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div data-testid="region-compliance-list" className="surface-soft p-4 text-sm text-ivory/70">
@@ -148,42 +251,46 @@ export default function RegionCompliancePanel() {
             <div
               key={item.title}
               data-testid={`region-compliance-item-${item.value}`}
-              className="flex items-start justify-between gap-3"
+              className={`rounded-2xl border p-3 ${
+                item.value === complianceTarget
+                  ? 'border-saffron/30 bg-saffron/10'
+                  : 'border-white/8 bg-white/5'
+              }`}
             >
-              <div>
-                <p className="text-sm font-semibold text-ivory">{item.title}</p>
-                <p className="text-xs text-ivory/50">{item.detail}</p>
-              </div>
-              {locked ? (
-                <span
-                  title={tAuth('unlockActions')}
-                  className="cursor-not-allowed rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-ivory/40 opacity-70"
-                >
-                  {t('targeted')}
-                </span>
-              ) : (
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-ivory">{item.title}</p>
+                    <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-ivory/55">
+                      {item.value === complianceTarget ? t('primaryTarget') : t('secondaryTarget')}
+                    </span>
+                  </div>
+                  <p className="text-xs text-ivory/50">{item.detail}</p>
+                </div>
                 <Link
                   data-testid={`region-compliance-link-${item.value}`}
                   href={`/${locale}/compliance?target=${item.value}`}
                   aria-label={`Open ${item.title} details`}
-                  className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-ivory/60 transition hover:border-saffron/30 hover:bg-saffron/10 hover:text-ivory focus:outline-none focus:ring-2 focus:ring-saffron/35"
+                  className={`rounded-full border px-2.5 py-1 text-[11px] transition focus:outline-none focus:ring-2 focus:ring-saffron/35 ${
+                    item.value === complianceTarget
+                      ? 'border-saffron/35 bg-saffron/12 text-ivory hover:bg-saffron/18'
+                      : 'border-white/10 bg-white/5 text-ivory/55 hover:border-white/20 hover:bg-white/10 hover:text-ivory/75'
+                  }`}
                 >
                   {t('targeted')}
                 </Link>
-              )}
+              </div>
             </div>
           ))}
         </div>
-        <p className="mt-3 text-[11px] text-ivory/40">
-          {t('disclaimer')}
-        </p>
+        <p className="mt-3 text-[11px] text-ivory/40">{t('disclaimer')}</p>
       </div>
 
       <div data-testid="region-compliance-signup" className="surface-inner p-4">
         <p className="text-xs uppercase tracking-[0.16em] text-ivory/60">{t('signupTitle')}</p>
         <p className="mt-2 text-sm text-ivory/70">{t('signupBody')}</p>
         <div className="mt-3">
-          {locked ? (
+          {saveProfileLocked ? (
             <UnlockActionsLink
               mode="signup"
               variant="button"

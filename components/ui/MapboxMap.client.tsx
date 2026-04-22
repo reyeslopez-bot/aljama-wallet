@@ -4,6 +4,12 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
 import { getLocationConsent, onLocationConsentChange } from '@/infra/location/client'
+import {
+  DETECTED_REGION_KEY,
+  REGION_KEY,
+  REGION_SELECTION_MODE_KEY,
+  REGION_SYNC_EVENT,
+} from '@/lib/region-profile'
 import { parseClientApiError } from '@/lib/security/client-api-error'
 
 type Coords = {
@@ -40,8 +46,6 @@ type ReverseGeocodeResponse = {
 }
 
 const DEFAULT_CENTER = { lat: 25.204849, lng: 55.270783 } // Dubai fallback
-const REGION_KEY = 'aljama.region'
-const REGION_SYNC_EVENT = 'aljama:region-sync'
 const GOV_SOURCES: Record<RegulatoryRegion, GovSource[]> = {
   uae: [
     { label: 'Dubai Virtual Assets Regulatory Authority (VARA)', href: 'https://www.vara.ae/' },
@@ -322,9 +326,13 @@ export default function MapboxMap() {
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return
-    const previous = window.localStorage.getItem(REGION_KEY)
-    if (previous === uiRegion) return
-    window.localStorage.setItem(REGION_KEY, uiRegion)
+
+    window.localStorage.setItem(DETECTED_REGION_KEY, uiRegion)
+    const selectionMode = window.localStorage.getItem(REGION_SELECTION_MODE_KEY)
+    if (selectionMode !== 'manual') {
+      window.localStorage.setItem(REGION_KEY, uiRegion)
+    }
+
     window.dispatchEvent(
       new CustomEvent(REGION_SYNC_EVENT, {
         detail: { region: uiRegion },

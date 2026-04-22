@@ -29,7 +29,7 @@ export default function LayoutClient({ children }: { children: ReactNode }) {
       <Navbar />
       <SupportDrawer />
 
-      <main className="relative z-10 flex-1 px-4 py-12 pt-28 md:px-10">
+      <main className="app-navbar-offset relative z-10 flex-1 px-4 pb-12 md:px-10">
         <div className="mx-auto max-w-7xl">
           {children}
         </div>

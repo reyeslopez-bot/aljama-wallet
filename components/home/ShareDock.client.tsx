@@ -191,7 +191,7 @@ export default function ShareDock({ initialOrigin }: ShareDockProps) {
       id="share"
       aria-labelledby={headingId}
       aria-describedby={bodyId}
-      className="scroll-mt-28"
+      className="app-scroll-offset"
     >
       <div className="surface-panel panel-glow-lapis relative mx-auto max-w-5xl overflow-hidden p-8 md:p-10">
         <div className="absolute inset-x-8 top-5 ornament-line" />

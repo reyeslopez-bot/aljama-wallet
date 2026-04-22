@@ -53,9 +53,12 @@ describe('RegionCompliancePanel', () => {
       <RegionCompliancePanel />,
     )
 
+    fireEvent.click(getByTestId('region-compliance-enable-manual'))
+
     const select = getByTestId('region-compliance-select') as HTMLSelectElement
     fireEvent.change(select, { target: { value: 'eu' } })
     expect(window.localStorage.getItem('aljama.region')).toBe('eu')
+    expect(window.localStorage.getItem('aljama.region.selectionMode')).toBe('manual')
 
     expect(queryByRole('textbox')).toBeNull()
     fireEvent.click(getByTestId('region-compliance-save-profile'))
@@ -80,6 +83,7 @@ describe('RegionCompliancePanel', () => {
 
     act(() => {
       window.localStorage.setItem('aljama.region', 'mena')
+      window.localStorage.setItem('aljama.region.detected', 'mena')
       window.dispatchEvent(
         new CustomEvent('aljama:region-sync', {
           detail: { region: 'mena' },
@@ -89,6 +93,38 @@ describe('RegionCompliancePanel', () => {
 
     const select = getByTestId('region-compliance-select') as HTMLSelectElement
     expect(select.value).toBe('mena')
+  })
+
+  it('keeps the detected region locked until manual override is enabled', () => {
+    window.localStorage.setItem('aljama.region.detected', 'us')
+
+    const { getByTestId } = render(<RegionCompliancePanel />)
+
+    const select = getByTestId('region-compliance-select') as HTMLSelectElement
+    expect(select.disabled).toBe(true)
+    expect(getByTestId('region-compliance-mode-badge').textContent).toBe('Detected region')
+    expect(getByTestId('region-compliance-item-soc2').textContent).toContain('Primary target')
+  })
+
+  it('does not overwrite a manual region when detected location changes', () => {
+    const { getByTestId } = render(<RegionCompliancePanel />)
+
+    fireEvent.click(getByTestId('region-compliance-enable-manual'))
+
+    const select = getByTestId('region-compliance-select') as HTMLSelectElement
+    fireEvent.change(select, { target: { value: 'eu' } })
+
+    act(() => {
+      window.localStorage.setItem('aljama.region.detected', 'mena')
+      window.dispatchEvent(
+        new CustomEvent('aljama:region-sync', {
+          detail: { region: 'mena' },
+        }),
+      )
+    })
+
+    expect(select.value).toBe('eu')
+    expect(getByTestId('region-compliance-item-gdpr').textContent).toContain('Primary target')
   })
 
   it('routes locked users to the dedicated secure-gate sign-up page', () => {

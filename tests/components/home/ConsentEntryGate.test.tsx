@@ -135,13 +135,12 @@ describe('ConsentEntryGate', () => {
     expect(sessionStorage.getItem(CONSENT_SITE_ENTRY_SESSION_KEY)).toBe('seen')
   })
 
-  it('rewrites the next target when switching locale', async () => {
-    const human = createHuman()
-    const { getByRole } = render(<ConsentEntryGate />)
+  it('keeps the consent surface free of language-switch buttons', () => {
+    const { queryByRole } = render(<ConsentEntryGate />)
 
-    await human.click(getByRole('button', { name: 'HE' }), HUMAN_DELAYS.mediumSettle)
-
-    expect(mocks.push).toHaveBeenCalledWith('/he/consent?next=%2Fhe%2Fcompliance')
+    expect(queryByRole('button', { name: 'EN' })).toBeNull()
+    expect(queryByRole('button', { name: 'HE' })).toBeNull()
+    expect(queryByRole('button', { name: 'AR' })).toBeNull()
   })
 
   it('renders a simple next-steps explainer above the permissions controls', () => {
