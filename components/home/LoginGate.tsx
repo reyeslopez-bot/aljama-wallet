@@ -333,13 +333,16 @@ export default function LoginGate({
 
         if (!res.ok) {
           const apiError = parseClientApiError(res, body)
+          const retryAfterSeconds = apiError.retryAfterSeconds ?? 0
+          setRetryCountdownSeconds(retryAfterSeconds)
           setRetryDeadlineMs(
-            apiError.retryAfterSeconds ? Date.now() + apiError.retryAfterSeconds * 1_000 : null,
+            retryAfterSeconds > 0 ? Date.now() + retryAfterSeconds * 1_000 : null,
           )
           setError(formatRegisterApiError(apiError, body))
           return
         }
 
+        setRetryCountdownSeconds(0)
         setRetryDeadlineMs(null)
 
         if (profileImage) {
@@ -360,11 +363,13 @@ export default function LoginGate({
       })
 
       if (!result || result.error) {
+        setRetryCountdownSeconds(0)
         setRetryDeadlineMs(null)
         setError(t("loginFailed"))
         return
       }
 
+      setRetryCountdownSeconds(0)
       setRetryDeadlineMs(null)
       navigateHome("push", "auth_success")
     } catch (error) {
@@ -374,6 +379,7 @@ export default function LoginGate({
         identifier: mode === "register" ? normalizedUsername : normalizedIdentifier,
       })
 
+      setRetryCountdownSeconds(0)
       setRetryDeadlineMs(null)
       if (mode === "register") {
         setError(t("registerServiceUnavailable"))

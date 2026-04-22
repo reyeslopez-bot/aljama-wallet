@@ -187,7 +187,10 @@
     "manualMode": "Manual override",
     "autoBody": "Location keeps this region and its compliance target in sync until you choose another region.",
     "manualBody": "You are overriding the detected location. Compliance now follows the region selected here.",
-    "chooseRegion": "Choose another region",
+    "seeMoreRegions": "See more regions",
+    "hideOtherRegions": "Hide other regions",
+    "otherRegionsTitle": "Other regions",
+    "otherRegionsBody": "Choose another region only if you want to override the detected location.",
     "useDetectedRegion": "Use detected region",
     "detectedRegion": "Detected region",
     "regions": {

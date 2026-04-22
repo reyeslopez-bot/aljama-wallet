@@ -118,9 +118,11 @@ describe('ConsentEntryGate', () => {
     } as any)
   })
 
-  it('continues to the requested site route after saving consent', async () => {
+  it('defaults to enabling optional services and continues with granted location access', async () => {
     const human = createHuman()
     const { getByTestId } = render(<ConsentEntryGate />)
+
+    expect(getByTestId('consent-gate-optional-services-switch').getAttribute('aria-checked')).toBe('true')
 
     await human.click(getByTestId('consent-gate-continue'), HUMAN_DELAYS.mediumSettle)
 
@@ -128,11 +130,21 @@ describe('ConsentEntryGate', () => {
       expect(mocks.push).toHaveBeenCalledWith('/en/compliance')
     })
 
-    expect(localStorage.getItem('aljama.telemetry.consent')).toBe('denied')
-    expect(localStorage.getItem('aljama.location.consent')).toBe('denied')
-    expect(localStorage.getItem(CONSENT_MODE_KEY)).toBe('essentialOnly')
+    expect(localStorage.getItem('aljama.telemetry.consent')).toBe('granted')
+    expect(localStorage.getItem('aljama.location.consent')).toBe('granted')
+    expect(localStorage.getItem(CONSENT_MODE_KEY)).toBe('allowAll')
     expect(sessionStorage.getItem(CONSENT_PROMPT_SESSION_KEY)).toBe('seen')
     expect(sessionStorage.getItem(CONSENT_SITE_ENTRY_SESSION_KEY)).toBe('seen')
+  })
+
+  it('restores a previously denied preset instead of forcing optional services back on', () => {
+    localStorage.setItem(CONSENT_MODE_KEY, 'essentialOnly')
+    localStorage.setItem('aljama.telemetry.consent', 'denied')
+    localStorage.setItem('aljama.location.consent', 'denied')
+
+    const { getByTestId } = render(<ConsentEntryGate />)
+
+    expect(getByTestId('consent-gate-optional-services-switch').getAttribute('aria-checked')).toBe('false')
   })
 
   it('keeps the consent surface free of language-switch buttons', () => {

@@ -17,6 +17,10 @@ import { resolveConsentReturnPath } from "@/infra/consent/routing"
 
 type ConsentPreset = "rejectAll" | "essentialOnly" | "allowAll"
 
+function isConsentPreset(value: string | null): value is ConsentPreset {
+  return value === "rejectAll" || value === "essentialOnly" || value === "allowAll"
+}
+
 type ConsentEntryGateProps = {
   variant?: "page" | "inline"
 }
@@ -32,14 +36,22 @@ export default function ConsentEntryGate({ variant = "page" }: ConsentEntryGateP
   const { address, isConnected } = useConnection()
   const wallet = useDynamicInfoStore((state) => state.wallet)
 
-  const [consentPreset, setConsentPreset] = React.useState<ConsentPreset>("essentialOnly")
+  const [consentPreset, setConsentPreset] = React.useState<ConsentPreset>("allowAll")
   const [busy, setBusy] = React.useState(false)
 
   React.useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const storedPreset = window.localStorage.getItem(CONSENT_MODE_KEY)
     const telemetryConsent = getTelemetryConsent()
     const locationConsent = getLocationConsent()
 
-    if (telemetryConsent === "granted") {
+    if (isConsentPreset(storedPreset)) {
+      setConsentPreset(storedPreset)
+      return
+    }
+
+    if (telemetryConsent === "granted" && locationConsent === "granted") {
       setConsentPreset("allowAll")
       return
     }
@@ -49,7 +61,7 @@ export default function ConsentEntryGate({ variant = "page" }: ConsentEntryGateP
       return
     }
 
-    setConsentPreset("essentialOnly")
+    setConsentPreset("allowAll")
   }, [])
 
   const applyConsentPreset = React.useCallback((preset: ConsentPreset) => {

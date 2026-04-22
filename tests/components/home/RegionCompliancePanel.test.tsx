@@ -1,11 +1,8 @@
 // @vitest-environment jsdom
 
-import { render, fireEvent, waitFor, act } from '@testing-library/react'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { useSession } from 'next-auth/react'
+import { render, fireEvent, act } from '@testing-library/react'
+import { describe, it, expect, beforeEach } from 'vitest'
 import RegionCompliancePanel from '@/components/home/RegionCompliancePanel.client'
-
-const mockedUseSession = vi.mocked(useSession)
 
 describe('RegionCompliancePanel', () => {
   beforeEach(() => {
@@ -42,40 +39,28 @@ describe('RegionCompliancePanel', () => {
       value: makeStorage(),
       configurable: true,
     })
-    mockedUseSession.mockReturnValue({
-      data: { user: { id: 'test-user', email: 'test@example.com' } },
-      status: 'authenticated',
-    } as any)
   })
 
-  it('persists region selection and saves local profile without email capture', async () => {
+  it('persists region selection without any email capture UI', async () => {
     const { getByTestId, queryByRole } = render(
       <RegionCompliancePanel />,
     )
 
-    fireEvent.click(getByTestId('region-compliance-enable-manual'))
+    fireEvent.click(getByTestId('region-compliance-show-regions'))
 
     const select = getByTestId('region-compliance-select') as HTMLSelectElement
     fireEvent.change(select, { target: { value: 'eu' } })
     expect(window.localStorage.getItem('aljama.region')).toBe('eu')
     expect(window.localStorage.getItem('aljama.region.selectionMode')).toBe('manual')
-
     expect(queryByRole('textbox')).toBeNull()
-    fireEvent.click(getByTestId('region-compliance-save-profile'))
-
-    await waitFor(() => {
-      expect(window.localStorage.getItem('aljama.region.profileEnabled')).toBe('true')
-      expect(getByTestId('region-compliance-save-status')).toBeTruthy()
-    })
+    expect(getByTestId('region-compliance-current-region').textContent).toContain('European Union')
   })
 
-  it('does not show saved message on load unless save was clicked in this session', () => {
-    window.localStorage.setItem('aljama.region', 'us')
-    window.localStorage.setItem('aljama.region.profileEnabled', 'true')
+  it('does not render the removed save-profile area', () => {
+    const { queryByTestId, queryByText } = render(<RegionCompliancePanel />)
 
-    const { queryByTestId } = render(<RegionCompliancePanel />)
-
-    expect(queryByTestId('region-compliance-save-status')).toBeNull()
+    expect(queryByTestId('region-compliance-signup')).toBeNull()
+    expect(queryByText('Privacy-safe profile')).toBeNull()
   })
 
   it('syncs selected region when map jurisdiction updates it', () => {
@@ -91,25 +76,24 @@ describe('RegionCompliancePanel', () => {
       )
     })
 
-    const select = getByTestId('region-compliance-select') as HTMLSelectElement
-    expect(select.value).toBe('mena')
+    expect(getByTestId('region-compliance-current-region').textContent).toContain('MENA')
   })
 
-  it('keeps the detected region locked until manual override is enabled', () => {
+  it('shows the detected region first and hides other regions until requested', () => {
     window.localStorage.setItem('aljama.region.detected', 'us')
 
-    const { getByTestId } = render(<RegionCompliancePanel />)
+    const { getByTestId, queryByTestId } = render(<RegionCompliancePanel />)
 
-    const select = getByTestId('region-compliance-select') as HTMLSelectElement
-    expect(select.disabled).toBe(true)
-    expect(getByTestId('region-compliance-mode-badge').textContent).toBe('Detected region')
+    expect(getByTestId('region-compliance-current-region').textContent).toContain('United States')
+    expect(queryByTestId('region-compliance-region-options')).toBeNull()
+    expect(getByTestId('region-compliance-show-regions').textContent).toBe('See more regions')
     expect(getByTestId('region-compliance-item-soc2').textContent).toContain('Primary target')
   })
 
   it('does not overwrite a manual region when detected location changes', () => {
     const { getByTestId } = render(<RegionCompliancePanel />)
 
-    fireEvent.click(getByTestId('region-compliance-enable-manual'))
+    fireEvent.click(getByTestId('region-compliance-show-regions'))
 
     const select = getByTestId('region-compliance-select') as HTMLSelectElement
     fireEvent.change(select, { target: { value: 'eu' } })
@@ -127,16 +111,25 @@ describe('RegionCompliancePanel', () => {
     expect(getByTestId('region-compliance-item-gdpr').textContent).toContain('Primary target')
   })
 
-  it('routes locked users to the dedicated secure-gate sign-up page', () => {
-    mockedUseSession.mockReturnValue({
-      data: null,
-      status: 'unauthenticated',
-    } as any)
+  it('returns to automatic mode when the detected region is restored', () => {
+    const { getByTestId } = render(<RegionCompliancePanel />)
 
-    const { getByRole, queryByTestId } = render(<RegionCompliancePanel />)
+    fireEvent.click(getByTestId('region-compliance-show-regions'))
 
-    const cta = getByRole('link', { name: 'Sign up to unlock' }) as HTMLAnchorElement
-    expect(cta.getAttribute('href')).toBe('/en/login?mode=register#secure-gate')
-    expect(queryByTestId('region-compliance-save-profile')).toBeNull()
+    const select = getByTestId('region-compliance-select') as HTMLSelectElement
+    fireEvent.change(select, { target: { value: 'eu' } })
+
+    fireEvent.click(getByTestId('region-compliance-reset-auto'))
+
+    expect(window.localStorage.getItem('aljama.region.selectionMode')).toBe('auto')
+    expect(window.localStorage.getItem('aljama.region')).toBe('us')
+    expect(getByTestId('region-compliance-show-regions').textContent).toBe('See more regions')
+  })
+
+  it('keeps the region panel identical without auth-specific prompts', () => {
+    const { queryByRole, queryByTestId } = render(<RegionCompliancePanel />)
+
+    expect(queryByRole('link', { name: 'Sign up to unlock' })).toBeNull()
+    expect(queryByTestId('region-compliance-signup')).toBeNull()
   })
 })
