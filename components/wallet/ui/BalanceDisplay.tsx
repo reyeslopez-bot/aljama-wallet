@@ -1,4 +1,3 @@
-// components/wallet/ui/BalanceDisplay.tsx
 'use client'
 
 import { useBalance, useConnection } from 'wagmi'

@@ -1,4 +1,3 @@
-// app/api/create-wallet/route.ts
 import { NextResponse } from 'next/server'
 import { deleteWalletRecord } from '@/services/wallet.service'
 import { requireSession } from '@/lib/security/session'

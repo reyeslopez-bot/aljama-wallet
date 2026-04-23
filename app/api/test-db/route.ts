@@ -1,7 +1,6 @@
-// app/api/test-db/route.ts
 import { NextResponse } from 'next/server'
 import { getWallets } from '@/services/wallet.service'
-import { getDailySummaries } from '@/infra/utils/summary.service'
+import { getDailySummaries } from '@/services/summary.service'
 import { canBypassDebugRouteTokenCheck, debugRouteDisabledResponse } from '@/lib/security/debug-route'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { isStrictMode } from '@/lib/security/runtime'

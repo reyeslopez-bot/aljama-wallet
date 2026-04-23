@@ -1,4 +1,3 @@
-// app/api/signup/route.ts
 import { z } from 'zod'
 import { upsertSignup } from '@/services/signup.service'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'

@@ -1,4 +1,3 @@
-// components/telemetry/DevReset.client.tsx
 'use client'
 
 import { useEffect } from 'react'

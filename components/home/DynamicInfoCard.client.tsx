@@ -21,12 +21,7 @@ import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { loadProfileImageForUsername } from '@/lib/storage/profileImage'
 import { getHomeNow } from '@/components/home/homeClock'
-
-function formatShortAddress(address: string) {
-  const trimmed = address.trim()
-  if (trimmed.length <= 12) return trimmed
-  return `${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`
-}
+import { formatShortAddress } from '@/lib/format'
 
 function StatusDot({ tone }: { tone: 'ok' | 'warn' | 'bad' | 'idle' }) {
   const cls =

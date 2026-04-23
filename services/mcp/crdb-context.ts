@@ -1,7 +1,5 @@
 // services/mcp/crdb-context.ts
 
-// services/mcp/crdb-context.ts
-
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { z } from 'zod'
 import { ACTIVE_SPEND_CHAIN_TRANSACTION_STATUSES, normalizeChainTransactionType } from '@/lib/chain-transactions'

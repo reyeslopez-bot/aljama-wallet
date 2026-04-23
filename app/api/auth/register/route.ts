@@ -10,6 +10,7 @@ import { logError } from '@/lib/security/logging'
 import { getErrorMessage } from '@/lib/security/errors'
 import { recordSecuritySignal } from '@/services/security-anomaly.service'
 import { extractRequestSignalContext } from '@/lib/security/request-signal'
+import { estimateDataUrlBytes } from '@/lib/dataUrl'
 
 const passwordSchema = z
   .string()
@@ -39,12 +40,6 @@ const registerSchema = z.object({
   password: passwordSchema,
   image: z.string().max(MAX_PROFILE_IMAGE_DATA_URL_LENGTH).optional().nullable(),
 })
-
-function estimateDataUrlBytes(dataUrl: string) {
-  const [, payload = ''] = dataUrl.split(',', 2)
-  const paddingLength = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0
-  return Math.max(0, Math.floor((payload.length * 3) / 4) - paddingLength)
-}
 
 async function postAuthRegister(
   req: Request,

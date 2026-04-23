@@ -21,7 +21,7 @@ vi.mock('@/services/wallet.service', () => ({
   getWallets: mockGetWallets,
 }))
 
-vi.mock('@/infra/utils/summary.service', () => ({
+vi.mock('@/services/summary.service', () => ({
   getDailySummaries: mockGetDailySummaries,
 }))
 

@@ -1,5 +1,7 @@
 import { xrpToDrops } from 'xrpl'
 
+export const DEFAULT_SWAP_SLIPPAGE_BPS = 50
+
 export type XrplAmountInput = {
   currency: string
   value: string

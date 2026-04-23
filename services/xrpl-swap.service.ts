@@ -6,11 +6,16 @@ import {
   type Amount,
   type Path,
 } from 'xrpl'
-import { isXrpCurrency, normalizeCurrency, toXrplAmount, type XrplAmountInput } from '@/lib/xrpl-amount'
+import {
+  DEFAULT_SWAP_SLIPPAGE_BPS,
+  isXrpCurrency,
+  normalizeCurrency,
+  toXrplAmount,
+  type XrplAmountInput,
+} from '@/lib/xrpl-amount'
 import { resolveXrplNetwork, type XrplNetworkId } from '@/lib/xrpl-networks'
 import { getTrustedIssuersForCurrency, type TrustedIssuerPolicySource } from '@/lib/xrpl-trusted-issuers'
 
-const DEFAULT_SWAP_SLIPPAGE_BPS = 50
 const MAX_SWAP_SLIPPAGE_BPS = 5_000
 const PATH_FIND_FULL_REPLY_TIMEOUT_MS = 1_200
 

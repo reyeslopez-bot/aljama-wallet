@@ -1,4 +1,3 @@
-// lib/prisma-crdb.ts
 import { PrismaClient } from "@/prisma/generated/prisma-crdb"
 import { PrismaPg } from "@prisma/adapter-pg"
 

@@ -1,4 +1,3 @@
-// app/api/_debug/env/route.ts
 import { NextResponse } from 'next/server'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { canBypassDebugRouteTokenCheck, debugRouteDisabledResponse } from '@/lib/security/debug-route'

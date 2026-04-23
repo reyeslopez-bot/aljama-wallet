@@ -1,4 +1,3 @@
-// lib/crypto/wallet-crypto.ts
 import crypto from "node:crypto"
 import { isStrictMode } from "@/lib/security/runtime"
 import { loadKeyForVersion } from "@/lib/security/key-provider"

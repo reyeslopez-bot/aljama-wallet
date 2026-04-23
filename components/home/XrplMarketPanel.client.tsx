@@ -1,4 +1,3 @@
-// components/home/XrplMarketPanel.client.tsx
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type WheelEvent } from 'react'

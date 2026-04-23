@@ -1,4 +1,3 @@
-// components/home/HomeActionButtons.client.tsx
 'use client'
 
 import Link from 'next/link'

@@ -1,4 +1,3 @@
-// services/telemetry.service.ts
 import { prismaPg } from '@/lib/prisma-pg'
 import type { Prisma } from '@/prisma/generated/pg'
 import { assertNoSensitiveFreeFormFields } from '@/lib/security/event-schema'

@@ -1,5 +1,3 @@
-// infra/telemetry/client.ts
-
 import { buildTraceHeaders, createTraceId } from '@/lib/security/trace'
 
 export type TelemetryConsent = 'granted' | 'denied' | 'unset'

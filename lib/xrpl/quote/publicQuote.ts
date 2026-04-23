@@ -1,10 +1,14 @@
 import { dropsToXrp, type Client } from 'xrpl'
 import { isXrplAccountNotFoundError } from '@/lib/xrpl-errors'
-import { isXrpCurrency, normalizeCurrency, type XrplAmountInput } from '@/lib/xrpl-amount'
+import {
+  DEFAULT_SWAP_SLIPPAGE_BPS,
+  isXrpCurrency,
+  normalizeCurrency,
+  type XrplAmountInput,
+} from '@/lib/xrpl-amount'
 import { resolveXrplNetwork, type XrplNetworkId } from '@/lib/xrpl-networks'
 import { getTrustedIssuersForCurrency, type TrustedIssuerPolicySource } from '@/lib/xrpl-trusted-issuers'
 
-const DEFAULT_SWAP_SLIPPAGE_BPS = 50
 const MAX_SWAP_SLIPPAGE_BPS = 5_000
 const ORDERBOOK_LIMIT = 50
 const EXTRA_PRECISION = 18

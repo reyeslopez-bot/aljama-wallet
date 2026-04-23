@@ -1,4 +1,3 @@
-// app/api/telemetry/route.ts
 import { z } from 'zod'
 import { recordTelemetryEvent } from '@/services/telemetry.service'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'

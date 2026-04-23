@@ -1,5 +1,3 @@
-// infra/utils/ClientTrackWallet.tsx
-
 'use client'
 
 import { useTrackUserWallet } from '@/hooks/useTrackUserWallet'

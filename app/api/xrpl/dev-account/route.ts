@@ -1,4 +1,3 @@
-// app/api/xrpl/dev-account/route.ts
 import { getDevXrplAccount } from '@/lib/xrpl'
 import { hasValidInternalToken } from '@/lib/security/internal-token'
 import { isStrictMode } from '@/lib/security/runtime'

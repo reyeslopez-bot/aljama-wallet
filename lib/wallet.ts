@@ -1,4 +1,3 @@
-// lib/wallet.ts
 import { HDNodeWallet, Mnemonic, randomBytes } from 'ethers'
 import {
   parseWalletPqcEncryptedMaterial,

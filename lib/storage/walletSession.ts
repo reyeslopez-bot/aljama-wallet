@@ -1,5 +1,3 @@
-// lib/storage/walletSession.ts
-
 const STORAGE_KEY = 'aljama.encryptedWallet'
 const WALLET_ID_KEY = 'aljama.walletId'
 const PATH_LOCKS_KEY = 'aljama.pathLocks'

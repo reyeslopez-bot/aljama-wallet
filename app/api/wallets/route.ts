@@ -1,4 +1,3 @@
-// app/api/wallets/route.ts
 import { NextResponse } from "next/server"
 import { getWallets, getWalletsByIds } from "@/services/wallet.service"
 import { requireSession, isAdminEmail } from "@/lib/security/session"

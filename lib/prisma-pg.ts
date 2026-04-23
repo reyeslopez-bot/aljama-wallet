@@ -1,4 +1,3 @@
-// lib/prisma-pg.ts
 import { PrismaClient } from "@/prisma/generated/pg"
 import { PrismaPg } from "@prisma/adapter-pg"
 

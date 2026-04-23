@@ -67,4 +67,19 @@ export default [
       '@typescript-eslint/*': 'off',
     },
   },
+
+  // 7) Node-runtime scripts under scripts/**
+  {
+    files: ['scripts/**/*.mjs', 'scripts/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        URL: 'readonly',
+        Buffer: 'readonly',
+      },
+    },
+  },
 ]

@@ -9,6 +9,7 @@ import { hasRecognizedDevice } from "@/infra/telemetry/client"
 import { parseClientApiError } from "@/lib/security/client-api-error"
 import { logWarn } from "@/lib/security/logging"
 import { persistProfileImageForUsername } from "@/lib/storage/profileImage"
+import { estimateDataUrlBytes } from "@/lib/dataUrl"
 import InteractiveShell from "@/components/system/InteractiveShell.client"
 
 type Props = {
@@ -30,12 +31,6 @@ const PROFILE_IMAGE_MAX_DIMENSION = 512
 const PROFILE_IMAGE_OUTPUT_TYPE = "image/webp"
 const PROFILE_IMAGE_QUALITY_STEPS = [0.9, 0.82, 0.74, 0.66]
 const PROFILE_IMAGE_SCALE_STEPS = [1, 0.85, 0.7, 0.55]
-
-function estimateDataUrlBytes(dataUrl: string) {
-  const [, payload = ""] = dataUrl.split(",", 2)
-  const paddingLength = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0
-  return Math.max(0, Math.floor((payload.length * 3) / 4) - paddingLength)
-}
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

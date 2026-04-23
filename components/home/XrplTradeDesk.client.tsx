@@ -11,6 +11,26 @@ import { parseClientApiError } from '@/lib/security/client-api-error'
 import { buildTraceHeaders, createTraceId } from '@/lib/security/trace'
 import { resolveXrplNetwork } from '@/lib/xrpl-networks'
 import { useGsapPressable } from '@/hooks/useGsapPressable'
+import { makeIdempotencyKey } from '@/lib/idempotency'
+import { DEFAULT_SWAP_SLIPPAGE_BPS, isXrpCurrency } from '@/lib/xrpl-amount'
+import {
+  explorerTransactionUrl,
+  formatAssetSelection,
+  formatPreviewAmount,
+  isMissingSignerConfig,
+  looksLikeClassicAddress,
+  parseCsv,
+  parsePositiveAmount,
+  shortHash,
+} from '@/lib/xrpl-trade-helpers'
+import {
+  DEFAULT_QUOTE_ISSUER,
+  ISSUED_CURRENCY_OPTIONS,
+  ISSUER_ACCOUNT_FLAG_OPTIONS,
+  ISSUER_HOLDER_REVIEW_STATUS_OPTIONS,
+  ISSUER_POLICY_STATUS_OPTIONS,
+  TRADE_CURRENCY_OPTIONS,
+} from '@/lib/xrpl-trade-constants'
 
 type AssetsResponse = {
   ok: true
@@ -126,104 +146,6 @@ type LastActionRequest = {
   path: string
   payload: Record<string, unknown>
   actionName: string
-}
-
-function makeIdempotencyKey(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `00000000-0000-4000-8000-${Date.now().toString().padStart(12, '0').slice(-12)}`
-}
-
-function parseCsv(value: string | undefined): Set<string> {
-  if (!value) return new Set()
-  return new Set(
-    value
-      .split(',')
-      .map((item) => item.trim().toLowerCase())
-      .filter(Boolean),
-  )
-}
-
-function shortHash(value: string | null | undefined): string {
-  if (!value) return '--'
-  if (value.length <= 18) return value
-  return `${value.slice(0, 8)}...${value.slice(-8)}`
-}
-
-function isMissingSignerConfig(message: string): boolean {
-  return /Missing XRPL signer seed/i.test(message)
-}
-
-type CurrencyOption = {
-  code: string
-  label: string
-}
-
-const TRADE_CURRENCY_OPTIONS: CurrencyOption[] = [
-  { code: 'XRP', label: 'XRP (Ripple)' },
-  { code: 'USD', label: 'USD (US Dollar)' },
-  { code: 'EUR', label: 'EUR (Euro)' },
-  { code: 'AED', label: 'AED (UAE Dirham)' },
-  { code: 'SAR', label: 'SAR (Saudi Riyal)' },
-  { code: 'JPY', label: 'JPY (Japanese Yen)' },
-  { code: 'XAU', label: 'XAU (Gold)' },
-]
-
-const ISSUED_CURRENCY_OPTIONS = TRADE_CURRENCY_OPTIONS.filter((option) => option.code !== 'XRP')
-const DEFAULT_QUOTE_ISSUER =
-  process.env.NEXT_PUBLIC_XRPL_DEFAULT_QUOTE_ISSUER?.trim() || 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe'
-const DEFAULT_SWAP_SLIPPAGE_BPS = 50
-const ISSUER_ACCOUNT_FLAG_OPTIONS = [
-  { value: '', label: 'No flag change' },
-  { value: 'default_ripple', label: 'Default Ripple' },
-  { value: 'require_auth', label: 'Require Auth' },
-  { value: 'disallow_xrp', label: 'Disallow XRP' },
-  { value: 'deposit_auth', label: 'Deposit Auth' },
-] as const
-const ISSUER_POLICY_STATUS_OPTIONS = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'active', label: 'Active' },
-  { value: 'paused', label: 'Paused' },
-  { value: 'archived', label: 'Archived' },
-] as const
-const ISSUER_HOLDER_REVIEW_STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'revoked', label: 'Revoked' },
-] as const
-
-function isXrpCurrency(currency: string): boolean {
-  return currency.trim().toUpperCase() === 'XRP'
-}
-
-function looksLikeClassicAddress(value: string): boolean {
-  return /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(value.trim())
-}
-
-function parsePositiveAmount(value: string): number | null {
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed) || parsed <= 0) return null
-  return parsed
-}
-
-function formatPreviewAmount(value: number): string {
-  if (!Number.isFinite(value)) return '--'
-  const formatted = value.toFixed(6)
-  return formatted.replace(/\.?0+$/, '')
-}
-
-function explorerTransactionUrl(networkId: string, txHash: string): string {
-  const explorerBase = resolveXrplNetwork(networkId).explorerUrl.replace(/\/+$/, '')
-  return `${explorerBase}/transactions/${txHash}`
-}
-
-function formatAssetSelection(currency: string, issuer: string): string {
-  const code = currency.trim().toUpperCase()
-  const normalizedIssuer = issuer.trim()
-  if (isXrpCurrency(code) || !normalizedIssuer) return code
-  return `${code} (${shortHash(normalizedIssuer)})`
 }
 
 export default function XrplTradeDesk() {

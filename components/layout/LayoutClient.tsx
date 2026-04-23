@@ -1,4 +1,3 @@
-// components/layout/LayoutClient.tsx
 'use client'
 
 import type { ReactNode } from 'react'

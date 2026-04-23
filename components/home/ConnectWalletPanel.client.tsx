@@ -8,12 +8,7 @@ import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
 import { useGsapPressable } from '@/hooks/useGsapPressable'
-
-function formatShortAddress(address: string | undefined): string {
-  if (!address) return '—'
-  if (address.length <= 16) return address
-  return `${address.slice(0, 8)}...${address.slice(-6)}`
-}
+import { formatShortAddress } from '@/lib/format'
 
 export function ConnectWalletPanel() {
   useComponentTelemetry('ConnectWalletPanel')

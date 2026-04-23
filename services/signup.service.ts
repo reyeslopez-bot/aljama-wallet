@@ -1,4 +1,3 @@
-// services/signup.service.ts
 import { prismaPg } from '@/lib/prisma-pg'
 
 export type SignupInput = {

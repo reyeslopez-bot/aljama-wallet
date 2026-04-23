@@ -1,4 +1,3 @@
-// components/wallet/ui/WalletDetector.tsx
 'use client'
 
 import { useConnection } from 'wagmi'

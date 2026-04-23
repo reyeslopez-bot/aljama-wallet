@@ -10,6 +10,7 @@ import { useManagedWalletSession } from '@/components/wallet/sync/ManagedWalletS
 import { useWalletSnapshotQuery, useWalletTransactionsQuery } from '@/components/wallet/sync/useWalletQueries'
 import { walletQueryKeys } from '@/components/wallet/sync/wallet-query-keys'
 import { parseClientApiError } from '@/lib/security/client-api-error'
+import { makeIdempotencyKey } from '@/lib/idempotency'
 import type { WalletSendResponse, WalletTransactionItem } from '@/types/wallet-api'
 
 const KNOWN_EVM_CHAINS = [mainnet, sepolia, polygon, base].map((chain) => ({
@@ -65,13 +66,6 @@ function parseAmountToWei(value: string): string | null {
   } catch {
     return null
   }
-}
-
-function makeIdempotencyKey(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `00000000-0000-4000-8000-${Date.now().toString().padStart(12, '0').slice(-12)}`
 }
 
 type WalletWorkspaceProps = {

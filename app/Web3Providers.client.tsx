@@ -1,4 +1,3 @@
-// app/Web3Providers.client.tsx
 "use client"
 
 import type { ReactNode } from "react"

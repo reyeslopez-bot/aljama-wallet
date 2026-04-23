@@ -1,5 +1,3 @@
-// services/mcp/wallet-signer.ts
-
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { z } from 'zod'
 import { Transaction, verifyMessage } from 'ethers'

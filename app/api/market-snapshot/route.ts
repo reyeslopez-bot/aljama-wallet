@@ -1,4 +1,3 @@
-// app/api/market-snapshot/route.ts
 import { NextResponse } from 'next/server'
 import { buildRateLimitKey, rateLimit } from '@/lib/security/rate-limit'
 import { errorJson } from '@/lib/security/api-response'

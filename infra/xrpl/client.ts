@@ -1,4 +1,3 @@
-// infra/xrpl/client.ts
 import { Client, ECDSA, Wallet } from 'xrpl'
 import {
   DEFAULT_XRPL_NETWORK_ID,

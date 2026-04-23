@@ -1,4 +1,3 @@
-// lib/xrpl.ts
 import { getXrplClient, createXrplWalletFromSeed } from '@/infra/xrpl/client'
 import { getErrorMessage } from '@/lib/security/errors'
 import type { XrplKeyType } from '@/lib/signing/types'
