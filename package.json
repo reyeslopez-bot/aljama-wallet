@@ -57,7 +57,7 @@
     "@noble/post-quantum": "^0.6.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "7.8.0",
-    "@scure/base": "1.2.6",
+    "@scure/base": "2.2.0",
     "@tanstack/react-query": "5.96.2",
     "@walletconnect/ethereum-provider": "2.23.9",
     "bcryptjs": "^2.4.3",
