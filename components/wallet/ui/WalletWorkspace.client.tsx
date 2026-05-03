@@ -12,6 +12,8 @@ import { walletQueryKeys } from '@/components/wallet/sync/wallet-query-keys'
 import { parseClientApiError } from '@/lib/security/client-api-error'
 import { makeIdempotencyKey } from '@/lib/idempotency'
 import type { WalletSendResponse, WalletTransactionItem } from '@/types/wallet-api'
+import MoonPayWidget from '@/components/ui/MoonPayWidget.client'
+import { isMoonPayEnabled, type MoonPayMode } from '@/lib/payment/moonpay'
 
 const KNOWN_EVM_CHAINS = [mainnet, sepolia, polygon, base].map((chain) => ({
   id: chain.id,
@@ -89,6 +91,7 @@ export default function WalletWorkspace({ allowedChainIds }: WalletWorkspaceProp
   })
 
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
+  const [moonPayMode, setMoonPayMode] = useState<MoonPayMode | null>(null)
   const [destination, setDestination] = useState('')
   const [amount, setAmount] = useState('')
   const [chainInput, setChainInput] = useState(allowedChainIds[0] ? String(allowedChainIds[0]) : '')
@@ -279,6 +282,47 @@ export default function WalletWorkspace({ allowedChainIds }: WalletWorkspaceProp
               </div>
             ) : null}
           </div>
+
+          {isMoonPayEnabled() && address ? (
+            <div data-testid="wallet-workspace-moonpay-panel" className="surface-panel panel-glow-saffron p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-saffron/75">On / Off Ramp</p>
+                  <h2 className="mt-2 text-xl font-semibold text-ivory">Buy or sell crypto</h2>
+                  <p className="mt-2 text-sm text-ivory/70">
+                    Fund this wallet or cash out directly via MoonPay. No separate account needed.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    data-testid="wallet-workspace-moonpay-buy"
+                    type="button"
+                    onClick={() => setMoonPayMode('buy')}
+                    className="rounded-full border border-saffron/30 bg-gradient-to-r from-[#f3d9aa] via-[#e0ad70] to-[#c67a4a] px-5 py-2.5 text-sm font-semibold text-[#3a1f00] shadow-lg shadow-saffron/20 transition hover:brightness-105"
+                  >
+                    Buy
+                  </button>
+                  <button
+                    data-testid="wallet-workspace-moonpay-sell"
+                    type="button"
+                    onClick={() => setMoonPayMode('sell')}
+                    className="rounded-full border border-white/15 bg-white/10 px-5 py-2.5 text-sm font-semibold text-ivory transition hover:bg-white/15"
+                  >
+                    Sell
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {moonPayMode && address ? (
+            <MoonPayWidget
+              mode={moonPayMode}
+              apiKey={process.env.NEXT_PUBLIC_MOONPAY_API_KEY ?? ''}
+              walletAddress={address}
+              onClose={() => setMoonPayMode(null)}
+            />
+          ) : null}
 
           <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <div className="surface-panel panel-glow-jade p-6">
