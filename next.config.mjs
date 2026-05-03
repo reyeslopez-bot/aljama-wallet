@@ -13,9 +13,10 @@ const nextConfig = {
   output: "standalone",
   turbopack: {
     resolveAlias: {
-      // Mirror the webpack alias above so `next dev --turbopack` also stubs
-      // the `accounts` module that wagmi's tempo connectors import optionally.
-      accounts: ACCOUNTS_STUB,
+      // Turbopack resolveAlias values must be project-relative paths (not
+      // absolute). Mirror the webpack alias so `next dev --turbopack` also
+      // stubs the `accounts` module that wagmi tempo connectors import.
+      accounts: './lib/stubs/accounts-stub.js',
     },
   },
   outputFileTracingIncludes: {
