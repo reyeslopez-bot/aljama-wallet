@@ -210,6 +210,9 @@ jobs:
         env:
           PORT: '3100'
           NEXTAUTH_URL: http://127.0.0.1:3100
+          NEXTAUTH_SECRET: ci-standalone-verify-nextauth-secret-32ch
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
+          COCKROACH_URL: postgresql://ci:ci@127.0.0.1:26257/ci_verify
         run: bash ./scripts/standalone-artifact.sh verify
 
       - name: Prepare standalone runtime artifact
