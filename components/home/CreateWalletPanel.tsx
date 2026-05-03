@@ -25,6 +25,8 @@ import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import { buildOnRampUrl, isUsingDefaultOnRampTemplate } from '@/lib/payment/onramp'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
+import MoonPayWidget from '@/components/ui/MoonPayWidget.client'
+import { isMoonPayEnabled, type MoonPayMode } from '@/lib/payment/moonpay'
 
 type WalletSpaceId = 'main' | 'hidden'
 type UxPhase = 'setup' | 'recovery' | 'provisioning' | 'ready' | 'error'
@@ -292,6 +294,7 @@ export function CreateWalletPanel() {
   const [passphraseCopied, setPassphraseCopied] = useState(false)
   const [mnemonicPassphraseCopied, setMnemonicPassphraseCopied] = useState(false)
   const [mnemonicCopied, setMnemonicCopied] = useState(false)
+  const [moonPayMode, setMoonPayMode] = useState<MoonPayMode | null>(null)
   const [keystoreDownloaded, setKeystoreDownloaded] = useState(false)
   const setCreateWalletStatus = useDynamicInfoStore((s) => s.setCreateWalletStatus)
   const setCreatedWalletAddress = useDynamicInfoStore((s) => s.setCreatedWalletAddress)
@@ -725,6 +728,7 @@ export function CreateWalletPanel() {
   const badgeColor = status === 'success' ? 'bg-jade/20 text-jade' : 'bg-white/5 text-ivory/70'
 
   return (
+    <>
     <section
       data-testid="create-wallet-panel"
       aria-labelledby={titleId}
@@ -1207,7 +1211,17 @@ export function CreateWalletPanel() {
                   >
                     {addressCopied ? t('copiedAddress') : t('copyAddress')}
                   </button>
-                  {onRampUrl ? (
+                  {isMoonPayEnabled() ? (
+                    <button
+                      data-testid="create-wallet-buy-with-card"
+                      type="button"
+                      onClick={() => setMoonPayMode('buy')}
+                      aria-label={t('buyWithCard')}
+                      className="rounded-full border border-saffron/30 bg-saffron/10 px-3 py-1.5 text-xs font-semibold text-saffron transition hover:bg-saffron/20"
+                    >
+                      {t('buyWithCard')}
+                    </button>
+                  ) : onRampUrl ? (
                     <a
                       data-testid="create-wallet-buy-with-card"
                       href={onRampUrl}
@@ -1230,7 +1244,7 @@ export function CreateWalletPanel() {
                     </button>
                   )}
                 </div>
-                {!onRampConfigured && <p className="mt-2 text-[11px] text-ivory/55">{t('buyWithCardDisabled')}</p>}
+                {!isMoonPayEnabled() && !onRampConfigured && <p className="mt-2 text-[11px] text-ivory/55">{t('buyWithCardDisabled')}</p>}
               </div>
 
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4">
@@ -1390,5 +1404,14 @@ export function CreateWalletPanel() {
         )}
       </div>
     </section>
+    {moonPayMode && walletPreview && (
+      <MoonPayWidget
+        mode={moonPayMode}
+        apiKey={process.env.NEXT_PUBLIC_MOONPAY_API_KEY ?? ''}
+        walletAddress={walletPreview.activeAddress}
+        onClose={() => setMoonPayMode(null)}
+      />
+    )}
+  </>
   )
 }
