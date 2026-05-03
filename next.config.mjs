@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 import createNextIntlPlugin from "next-intl/plugin";
 const require = createRequire(import.meta.url);
-const ACCOUNTS_STUB = fileURLToPath(new URL("./lib/stubs/accounts-stub.cjs", import.meta.url));
+const ACCOUNTS_STUB = fileURLToPath(new URL("./lib/stubs/accounts-stub.js", import.meta.url));
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
