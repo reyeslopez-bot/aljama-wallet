@@ -1,15 +1,24 @@
 // next.config.mjs
 
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 import process from "node:process";
 import createNextIntlPlugin from "next-intl/plugin";
 const require = createRequire(import.meta.url);
+const ACCOUNTS_STUB = fileURLToPath(new URL("./lib/stubs/accounts-stub.cjs", import.meta.url));
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  turbopack: {
+    resolveAlias: {
+      // Mirror the webpack alias above so `next dev --turbopack` also stubs
+      // the `accounts` module that wagmi's tempo connectors import optionally.
+      accounts: ACCOUNTS_STUB,
+    },
+  },
   outputFileTracingIncludes: {
     "/*": ["./prisma/generated/**/*"],
   },
@@ -53,6 +62,10 @@ const nextConfig = {
       "@react-native-async-storage/async-storage": false,
       "@metamask/sdk": false,
       "@metamask/connect-evm": false,
+      // wagmi's tempo connectors pull in `accounts` (porto peer dep) via a
+      // dynamic import(). The app does not use tempo; stub it out so webpack
+      // does not fail to resolve it at build time.
+      accounts: ACCOUNTS_STUB,
     };
 
     config.plugins = config.plugins || [];
