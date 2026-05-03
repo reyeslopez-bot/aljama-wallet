@@ -131,6 +131,7 @@ export default defineConfig({
       timeout: 180_000,
       env: {
         NODE_ENV: WEB_SERVER_NODE_ENV,
+        AUTH_MODE: 'memory',
         NEXT_PUBLIC_MAPBOX_TOKEN: '',
         NEXTAUTH_SECRET: WEB_SERVER_NEXTAUTH_SECRET,
         NEXTAUTH_URL: WEB_SERVER_NEXTAUTH_URL,
