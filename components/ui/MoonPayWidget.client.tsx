@@ -22,7 +22,13 @@ export default function MoonPayWidget({ mode, apiKey, walletAddress, currencyCod
   const url = buildMoonPayUrl(mode, apiKey, walletAddress, currencyCode)
 
   const handleMessage = useCallback((event: MessageEvent) => {
-    if (!event.origin.endsWith('moonpay.com')) return
+    let hostname: string
+    try {
+      hostname = new URL(event.origin).hostname
+    } catch {
+      return
+    }
+    if (hostname !== 'moonpay.com' && !hostname.endsWith('.moonpay.com')) return
     try {
       const msg = event.data as MoonPayEvent
       if (msg.type === 'moonpay:close') {
