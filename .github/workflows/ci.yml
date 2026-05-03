@@ -599,8 +599,10 @@ jobs:
           PLAYWRIGHT_REAL_BACKEND: 'true'
           PLAYWRIGHT_NODE_ENV: 'production'
           PLAYWRIGHT_SERVER_COMMAND: cd artifacts/standalone-runtime && HOSTNAME=127.0.0.1 PORT=3000 node server.js
-          NEXTAUTH_SECRET: ci-prodlike-nextauth-secret
+          NEXTAUTH_SECRET: ci-prodlike-nextauth-secret-32chars-ok
           NEXTAUTH_URL: http://127.0.0.1:3000
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+          COCKROACH_URL: postgresql://ci:ci@127.0.0.1:26257/ci_prodlike
           XRPL_RPC_URL: ${{ env.XRPL_RPC_URL }}
           XRPL_DEV_SEED: ${{ secrets.XRPL_DEV_SEED }}
         run: pnpm test:e2e:real-backend
