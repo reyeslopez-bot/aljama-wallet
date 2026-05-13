@@ -1,7 +1,6 @@
 // app/(site)/components/home/HomeContent.tsx
 
 // Server Component (NO 'use client')
-import { Suspense } from 'react'
 import MapboxMap from '@/components/ui/MapboxMap.client'
 import HomeActionButtons from '@/components/home/HomeActionButtons.client'
 import HomeMotionScene from '@/components/home/HomeMotionScene.client'
@@ -220,9 +219,7 @@ export default function HomeContent() {
           statBlocks={statBlocks}
         />
         <RegionAndComplianceSection />
-        <Suspense>
-          <WalletAccessSection />
-        </Suspense>
+        <WalletAccessSection />
         <XrplSection />
         <TradeDeskSection />
         <ShareSection initialOrigin={initialShareOrigin} />
