@@ -14,6 +14,7 @@ export default defineConfig({
   schema: 'schema.prisma',
   migrations: {
     path: 'migrations',
+    seed: 'tsx prisma/seed.ts',
   },
   datasource: {
     url: pgUrl || env('POSTGRES_URL'),
