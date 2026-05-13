@@ -10,6 +10,16 @@ const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  turbopack: {
+    // The wagmi v3 tempoWallet connector lazily imports 'accounts', a
+    // workspace-internal package that is never published to npm.  Alias it to
+    // an empty stub so Turbopack (used by `next dev`) resolves the module
+    // without error.  The app uses only injected() and walletConnect(), so
+    // tempoWallet is never actually invoked at runtime.
+    resolveAlias: {
+      accounts: "./lib/stubs/accounts.js",
+    },
+  },
   outputFileTracingIncludes: {
     "/*": ["./prisma/generated/**/*"],
   },
@@ -53,13 +63,15 @@ const nextConfig = {
       "@react-native-async-storage/async-storage": false,
       "@metamask/sdk": false,
       "@metamask/connect-evm": false,
+      // wagmi v3 tempoWallet workspace-internal package — never published
+      accounts: false,
     };
 
     config.plugins = config.plugins || [];
     config.plugins.push(
       new webpack.IgnorePlugin({
         resourceRegExp:
-          /^pino-pretty$|^@react-native-async-storage\/async-storage$|^@metamask\/sdk$|^@metamask\/connect-evm$/,
+          /^pino-pretty$|^@react-native-async-storage\/async-storage$|^@metamask\/sdk$|^@metamask\/connect-evm$|^accounts$/,
       }),
     );
 
@@ -71,6 +83,7 @@ const nextConfig = {
           "commonjs @react-native-async-storage/async-storage",
         "@metamask/sdk": "commonjs @metamask/sdk",
         "@metamask/connect-evm": "commonjs @metamask/connect-evm",
+        accounts: "commonjs accounts",
       },
     ];
 
