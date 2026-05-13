@@ -1,6 +1,7 @@
 // app/(site)/components/home/HomeContent.tsx
 
 // Server Component (NO 'use client')
+import { Suspense } from 'react'
 import MapboxMap from '@/components/ui/MapboxMap.client'
 import HomeActionButtons from '@/components/home/HomeActionButtons.client'
 import HomeMotionScene from '@/components/home/HomeMotionScene.client'
@@ -199,30 +200,34 @@ export default function HomeContent() {
   ] satisfies HeroStatBlock[]
 
   return (
-    <InteractiveShell
-      rootTestId="home-interactive-shell"
-      loadingTestId="home-interactive-loading"
-      loadingTitle={tHome('interactive.title')}
-      loadingHint={tHome('interactive.body')}
-      className="relative mx-auto max-w-7xl space-y-14 pb-28 lg:space-y-16"
-      overlayClassName="absolute inset-0 z-20 bg-[#071018]/16 backdrop-blur-[1.5px]"
-      panelClassName="ml-auto mt-4 mr-4 max-w-sm rounded-[1.5rem] border border-white/10 bg-[#071018]/92 px-4 py-3 text-left shadow-xl shadow-black/25"
-    >
+    <>
       <ClientTrackWallet />
       <DynamicInfoCard />
-      <HomeMotionScene />
+      <InteractiveShell
+        rootTestId="home-interactive-shell"
+        loadingTestId="home-interactive-loading"
+        loadingTitle={tHome('interactive.title')}
+        loadingHint={tHome('interactive.body')}
+        className="relative mx-auto max-w-7xl space-y-14 pb-28 lg:space-y-16"
+        overlayClassName="absolute inset-0 z-20 bg-[#071018]/16 backdrop-blur-[1.5px]"
+        panelClassName="ml-auto mt-4 mr-4 max-w-sm rounded-[1.5rem] border border-white/10 bg-[#071018]/92 px-4 py-3 text-left shadow-xl shadow-black/25"
+      >
+        <HomeMotionScene />
 
-      <HeroOverviewSection
-        title={tHome('hero.title')}
-        subtitle={tHome('hero.subtitle')}
-        statBlocks={statBlocks}
-      />
-      <RegionAndComplianceSection />
-      <WalletAccessSection />
-      <XrplSection />
-      <TradeDeskSection />
-      <ShareSection initialOrigin={initialShareOrigin} />
-      <FooterCopyright />
-    </InteractiveShell>
+        <HeroOverviewSection
+          title={tHome('hero.title')}
+          subtitle={tHome('hero.subtitle')}
+          statBlocks={statBlocks}
+        />
+        <RegionAndComplianceSection />
+        <Suspense>
+          <WalletAccessSection />
+        </Suspense>
+        <XrplSection />
+        <TradeDeskSection />
+        <ShareSection initialOrigin={initialShareOrigin} />
+        <FooterCopyright />
+      </InteractiveShell>
+    </>
   )
 }
