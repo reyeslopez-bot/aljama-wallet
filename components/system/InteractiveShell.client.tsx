@@ -36,18 +36,30 @@ export default function InteractiveShell({
         ? window.cancelAnimationFrame.bind(window)
         : window.clearTimeout.bind(window)
 
+    let done = false
     let firstFrame = 0
     let secondFrame = 0
+    let fallbackTimer = 0
+
+    const markReady = () => {
+      if (done) return
+      done = true
+      setInteractiveReady(true)
+    }
 
     firstFrame = scheduleFrame(() => {
-      secondFrame = scheduleFrame(() => {
-        setInteractiveReady(true)
-      })
+      secondFrame = scheduleFrame(markReady)
     })
 
+    // Safety net: if RAFs never fire (backgrounded tab, suspended tree, etc.)
+    // ensure the overlay is dismissed within 800 ms.
+    fallbackTimer = window.setTimeout(markReady, 800)
+
     return () => {
+      done = true
       cancelFrame(firstFrame)
       cancelFrame(secondFrame)
+      window.clearTimeout(fallbackTimer)
     }
   }, [])
 
@@ -66,10 +78,12 @@ export default function InteractiveShell({
             overlayClassName ??
             'absolute inset-0 z-20 bg-black/18 backdrop-blur-[2px]'
           }
+          style={{ pointerEvents: 'none' }}
         >
           <div
             role="status"
             aria-live="polite"
+            style={{ pointerEvents: 'auto' }}
             className={
               panelClassName ??
               'ml-auto mt-4 mr-4 max-w-xs rounded-2xl border border-white/10 bg-[#071018]/92 px-4 py-3 text-left shadow-xl shadow-black/25'

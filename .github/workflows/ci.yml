@@ -210,6 +210,9 @@ jobs:
         env:
           PORT: '3100'
           NEXTAUTH_URL: http://127.0.0.1:3100
+          NEXTAUTH_SECRET: ci-standalone-verify-secret-aljama-wallet-2026
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
+          DATABASE_URL_PG: postgresql://ci:ci@127.0.0.1:5432/ci_verify
         run: bash ./scripts/standalone-artifact.sh verify
 
       - name: Prepare standalone runtime artifact
