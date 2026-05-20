@@ -126,10 +126,11 @@ verify_artifact() {
   temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/aljama-standalone-XXXXXX")"
   log_file="$temp_dir/server.log"
 
+  _verify_server_pid=0
   cleanup() {
-    if [ "$server_pid" -ne 0 ] && kill -0 "$server_pid" 2>/dev/null; then
-      kill "$server_pid" 2>/dev/null || true
-      wait "$server_pid" 2>/dev/null || true
+    if [ "${_verify_server_pid:-0}" -ne 0 ] && kill -0 "$_verify_server_pid" 2>/dev/null; then
+      kill "$_verify_server_pid" 2>/dev/null || true
+      wait "$_verify_server_pid" 2>/dev/null || true
     fi
     rm -rf "$temp_dir"
   }
@@ -138,9 +139,9 @@ verify_artifact() {
 
   prepare_artifact "$temp_dir" >/dev/null
   start_server "$temp_dir" "127.0.0.1" "$port" "$nextauth_url" "$log_file" &
-  server_pid=$!
+  _verify_server_pid=$!
 
-  wait_for_server "$verify_url" "$log_file" "$server_pid"
+  wait_for_server "$verify_url" "$log_file" "$_verify_server_pid"
   curl -fsS "$verify_url" | grep -q '"inviteRequired"' || fail "Standalone health response from $verify_url did not include inviteRequired."
   trap - EXIT INT TERM
   cleanup
@@ -148,17 +149,17 @@ verify_artifact() {
 
 run_artifact() {
   local temp_dir
-  local server_pid=0
   local port="${PORT:-3000}"
   local host="${HOSTNAME:-0.0.0.0}"
   local nextauth_url="${NEXTAUTH_URL:-http://127.0.0.1:${port}}"
 
   temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/aljama-standalone-XXXXXX")"
+  _run_server_pid=0
 
   cleanup() {
-    if [ "$server_pid" -ne 0 ] && kill -0 "$server_pid" 2>/dev/null; then
-      kill "$server_pid" 2>/dev/null || true
-      wait "$server_pid" 2>/dev/null || true
+    if [ "${_run_server_pid:-0}" -ne 0 ] && kill -0 "$_run_server_pid" 2>/dev/null; then
+      kill "$_run_server_pid" 2>/dev/null || true
+      wait "$_run_server_pid" 2>/dev/null || true
     fi
     rm -rf "$temp_dir"
   }
@@ -167,9 +168,9 @@ run_artifact() {
 
   prepare_artifact "$temp_dir" >/dev/null
   start_server "$temp_dir" "$host" "$port" "$nextauth_url" &
-  server_pid=$!
+  _run_server_pid=$!
   set +e
-  wait "$server_pid"
+  wait "$_run_server_pid"
   local exit_code=$?
   set -e
   trap - EXIT INT TERM
