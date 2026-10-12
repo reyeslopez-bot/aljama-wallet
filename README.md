@@ -432,14 +432,41 @@ Security alerts support webhook/SIEM/SOAR style downstream delivery via alert si
 5. **Operational observability**
    - Dashboards and SLOs for transfer integrity, XRPL reconciliation, and security alert delivery.
 
-## 8. Development Commands
+## 8. Local Development and Production Smoke Test
 
 ```bash
 pnpm install
-cp .env.example .env
+cp .env.development.example .env.development.local
 pnpm prisma:generate
-pnpm dev
+pnpm dev:local
 ```
+
+The development server uses in-memory auth and listens on port 3000 by default. Open
+`http://localhost:3000`. To use another port, set `PORT` and update `NEXTAUTH_URL`
+in `.env.development.local` to match.
+
+To test a production build locally, start the databases, configure a separate
+production profile, and run the production build and server:
+
+```bash
+./db.sh up
+cp .env.production.example .env.production.local
+NODE_ENV=production pnpm prisma:migrate:deploy:pg
+pnpm prod:local
+```
+
+The local production profile requires real local database services and a
+`NEXTAUTH_SECRET` of at least 32 characters. Replace the example secret before
+running it. `pnpm prod:local` builds the app and then starts `next start` on port
+3000; stop it with Ctrl+C.
+
+Next.js loads `.env.development.local` in development and `.env.production.local`
+for production builds and starts. These files are ignored by Git. Do not commit
+them or put production credentials in `.env.local`; that generic file can be
+loaded as a fallback in both modes. Keep production credentials in the deployment
+environment, not in a local development profile.
+
+## 9. Quality Commands
 
 ```bash
 pnpm lint

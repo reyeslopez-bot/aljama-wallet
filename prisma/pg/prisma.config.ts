@@ -6,6 +6,11 @@ import { defineConfig, env } from 'prisma/config'
 const configDir = path.dirname(fileURLToPath(import.meta.url))
 dotenvConfig({ path: path.resolve(configDir, '../../.env') })
 dotenvConfig({ path: path.resolve(configDir, '../../.env.local'), override: true })
+const envMode = process.env.NODE_ENV || 'development'
+dotenvConfig({
+  path: path.resolve(configDir, `../../.env.${envMode}.local`),
+  override: true,
+})
 dotenvConfig({ path: path.resolve(configDir, '.env'), override: true })
 
 const pgUrl = process.env.PG_DATABASE_URL?.trim() || process.env.POSTGRES_URL?.trim()
