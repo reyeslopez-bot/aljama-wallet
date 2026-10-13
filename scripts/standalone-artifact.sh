@@ -93,25 +93,23 @@ start_server() {
   local log_file="${5:-}"
 
   if [ -n "$log_file" ]; then
-    (
-      cd "$artifact_dir"
+    cd "$artifact_dir"
+    exec env \
       HOSTNAME="$host" \
       PORT="$port" \
       NODE_ENV=production \
       NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-standalone-nextauth-secret}" \
       NEXTAUTH_URL="$nextauth_url" \
       node server.js >"$log_file" 2>&1
-    )
   else
-    (
-      cd "$artifact_dir"
+    cd "$artifact_dir"
+    exec env \
       HOSTNAME="$host" \
       PORT="$port" \
       NODE_ENV=production \
       NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-standalone-nextauth-secret}" \
       NEXTAUTH_URL="$nextauth_url" \
       node server.js
-    )
   fi
 }
 

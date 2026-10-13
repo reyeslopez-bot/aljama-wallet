@@ -475,6 +475,9 @@ pnpm test
 pnpm build
 ```
 
+`pnpm build` clears Next.js's generated Webpack cache before compiling to avoid
+failures caused by stale local build-cache data.
+
 ```bash
 pnpm test:e2e
 pnpm test:frontend

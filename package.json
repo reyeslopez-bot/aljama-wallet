@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:local": "cross-env AUTH_MODE=memory next dev --turbopack",
-    "build": "cross-env NODE_ENV=production pnpm prisma:generate && next build --webpack",
-    "start": "next start",
+    "build": "node scripts/clear-next-webpack-cache.mjs && cross-env NODE_ENV=production pnpm prisma:generate && next build --webpack",
+    "start": "node scripts/prepare-local-standalone.mjs && node --env-file-if-exists=.env --env-file-if-exists=.env.production --env-file-if-exists=.env.local --env-file-if-exists=.env.production.local .next/standalone/server.js",
     "prod:local": "pnpm build && pnpm start",
     "lint": "eslint .",
     "pretypecheck": "pnpm prisma:generate",

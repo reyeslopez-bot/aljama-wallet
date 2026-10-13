@@ -1,12 +1,13 @@
 // next.config.mjs
 
 import { createRequire } from "node:module";
+import { dirname } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import createNextIntlPlugin from "next-intl/plugin";
 const require = createRequire(import.meta.url);
 
-const projectRoot = fileURLToPath(new URL(".", import.meta.url));
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 /** @type {import('next').NextConfig} */
