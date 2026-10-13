@@ -2,13 +2,16 @@
 
 import { createRequire } from "node:module";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import createNextIntlPlugin from "next-intl/plugin";
 const require = createRequire(import.meta.url);
 
+const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  outputFileTracingRoot: projectRoot,
   output: "standalone",
   turbopack: {
     // The wagmi v3 tempoWallet connector lazily imports 'accounts', a

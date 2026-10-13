@@ -9,6 +9,7 @@ export default [
   {
     ignores: [
       'node_modules/**',
+      '.claude/**',
       '.next/**',
       '.cache/**',
       'dist/**',
