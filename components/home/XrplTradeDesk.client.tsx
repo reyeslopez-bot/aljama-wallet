@@ -13,6 +13,10 @@ import { resolveXrplNetwork } from '@/lib/xrpl-networks'
 import { useGsapPressable } from '@/hooks/useGsapPressable'
 import { makeIdempotencyKey } from '@/lib/idempotency'
 import { DEFAULT_SWAP_SLIPPAGE_BPS, isXrpCurrency } from '@/lib/xrpl-amount'
+import XrplQuickSwapForm, { type SwapQuote } from '@/components/home/XrplQuickSwapForm.client'
+import XrplWalletAssetsPanel from '@/components/home/XrplWalletAssetsPanel.client'
+import XrplNftsPanel, { type WalletNft } from '@/components/home/XrplNftsPanel.client'
+import XrplActionHistoryPanel, { type XrplAction } from '@/components/home/XrplActionHistoryPanel.client'
 import {
   explorerTransactionUrl,
   formatAssetSelection,
@@ -47,16 +51,7 @@ type AssetsResponse = {
 
 type NftsResponse = {
   ok: true
-  nfts: Array<{
-    nftokenId: string | null
-    uri: string | null
-    issuer: string | null
-    metadata: {
-      name: string | null
-      image: string | null
-      description: string | null
-    } | null
-  }>
+  nfts: WalletNft[]
 }
 
 type OrderbookResponse = {
@@ -75,60 +70,12 @@ type SwapQuoteResponse = {
   account?: string | null
   accountExists?: boolean
   quoteMode?: 'account' | 'public'
-  quote: {
-    sourceAmount: {
-      currency: string
-      issuer?: string
-      value: string
-    }
-    quotedSourceAmount: {
-      currency: string
-      issuer?: string
-      value: string
-    }
-    destinationAmount: {
-      currency: string
-      issuer?: string
-      value: string
-    }
-    deliverMin: {
-      currency: string
-      issuer?: string
-      value: string
-    }
-    pathCount: number
-    alternativeCount: number
-    fullReply: boolean
-    slippageBps: number
-    sourceSelection?: string
-    destinationSelection?: string
-    liquiditySource?: 'path_find' | 'amm' | 'orderbook' | 'multi_hop'
-    quoteMode?: 'account' | 'public'
-    routeKind?: 'direct' | 'multi_hop'
-    hops?: Array<{
-      from: {
-        currency: string
-        issuer?: string
-      }
-      to: {
-        currency: string
-        issuer?: string
-      }
-      liquiditySource: 'amm' | 'orderbook'
-    }>
-  }
+  quote: SwapQuote
 }
 
 type ActionHistoryResponse = {
   ok: true
-  actions: Array<{
-    id: string
-    action: string
-    status: string
-    txHash: string | null
-    engineResult: string | null
-    updatedAt: string
-  }>
+  actions: XrplAction[]
 }
 
 type ActivityStatus = 'pending' | 'success' | 'failed'
@@ -176,7 +123,6 @@ export default function XrplTradeDesk() {
   const [nftsLoading, setNftsLoading] = useState(true)
   const [nftsError, setNftsError] = useState<string | null>(null)
   const [nftPage, setNftPage] = useState(1)
-  const pageSize = 6
 
   const [offers, setOffers] = useState<OrderbookResponse['offers']>([])
   const [offersLoading, setOffersLoading] = useState(false)
@@ -556,12 +502,6 @@ export default function XrplTradeDesk() {
     if (deskLocked || !showExpertTools) return
     void Promise.all([loadAssets(), loadNfts(), loadHistory()])
   }, [deskLocked, loadAssets, loadHistory, loadNfts, showExpertTools])
-
-  const pagedNfts = useMemo(() => {
-    const start = (nftPage - 1) * pageSize
-    return nfts.slice(start, start + pageSize)
-  }, [nftPage, nfts])
-  const pageCount = Math.max(1, Math.ceil(nfts.length / pageSize))
 
   const quickSwapFromIsXrp = isXrpCurrency(quickSwapForm.fromCurrency)
   const quickSwapToIsXrp = isXrpCurrency(quickSwapForm.toCurrency)
@@ -1211,204 +1151,49 @@ export default function XrplTradeDesk() {
               from the `0x` vault shown in the session card above.
             </div>
 
-            <form
-              data-testid="xrpl-trade-desk-quick-swap-form"
-              className="surface-inner space-y-4 p-5"
-              aria-labelledby="xrpl-trade-desk-quick-swap-title"
-              aria-describedby={regionBlocked ? regionPolicyId : undefined}
+            <XrplQuickSwapForm
+              fromCurrency={quickSwapForm.fromCurrency}
+              fromValue={quickSwapForm.fromValue}
+              toCurrency={quickSwapForm.toCurrency}
+              fromIsXrp={quickSwapFromIsXrp}
+              toIsXrp={quickSwapToIsXrp}
+              fromCode={quickSwapFromCode}
+              toCode={quickSwapToCode}
+              estimatedReceive={quickSwapEstimatedReceive}
+              deliverMin={quickSwapDeliverMin}
+              statusHint={quickSwapStatusHint}
+              routeSummary={quickSwapRouteSummary}
+              quote={swapQuote}
+              validationIssues={quickSwapValidationIssues}
+              submitDisabled={quickSwapSubmitDisabled}
+              deskLocked={deskLocked}
+              regionBlocked={regionBlocked}
+              networkName={networkConfig.name}
+              quoteLoading={swapQuoteLoading}
+              onFromCurrencyChange={(currency) =>
+                setQuickSwapForm((prev) => ({ ...prev, fromCurrency: currency }))
+              }
+              onFromValueChange={(value) =>
+                setQuickSwapForm((prev) => ({ ...prev, fromValue: value }))
+              }
+              onToCurrencyChange={(currency) =>
+                setQuickSwapForm((prev) => ({ ...prev, toCurrency: currency }))
+              }
+              onRefreshQuote={() => void loadSwapQuote({ revealMissingQuote: true })}
               onSubmit={handleQuickSwapSubmit}
-            >
-              <fieldset disabled={deskLocked} className="space-y-4 disabled:opacity-60">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p id="xrpl-trade-desk-quick-swap-title" className="text-xs uppercase tracking-[0.16em] text-ivory/55">
-                    Simple Swap
-                  </p>
-                  <p className="mt-1 text-sm text-ivory/65">
-                    Pick the asset you want to spend, then the asset you want back.
-                  </p>
-                </div>
-                <button
-                  data-testid="xrpl-trade-desk-quick-swap-refresh-quote"
-                  type="button"
-                  onClick={() => void loadSwapQuote({ revealMissingQuote: true })}
-                  disabled={deskLocked || swapQuoteLoading}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
-                >
-                  Refresh quote
-                </button>
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <p className="text-xs uppercase tracking-[0.14em] text-ivory/50">You pay</p>
-                  <select
-                    data-testid="xrpl-trade-desk-quick-swap-from-currency"
-                    value={quickSwapForm.fromCurrency}
-                    onChange={(event) => {
-                      const currency = event.target.value
-                      setQuickSwapForm((prev) => ({
-                        ...prev,
-                        fromCurrency: currency,
-                      }))
-                    }}
-                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-                    aria-label="Quick swap from currency"
-                  >
-                    {TRADE_CURRENCY_OPTIONS.map((option) => (
-                      <option key={`quick-from-${option.code}`} value={option.code} className="bg-black text-ivory">
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[11px] text-ivory/55">
-                    {quickSwapFromIsXrp
-                      ? 'XRP is native, so there is no issuer on the spend side.'
-                      : `We will auto-pick a trusted ${quickSwapFromCode} issuer from the wallet policy.`}
-                  </p>
-                  <input
-                    data-testid="xrpl-trade-desk-quick-swap-from-value"
-                    value={quickSwapForm.fromValue}
-                    onChange={(event) => setQuickSwapForm((prev) => ({ ...prev, fromValue: event.target.value }))}
-                    placeholder="Amount to spend"
-                    aria-label="Quick swap from amount"
-                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-                  />
-                </div>
-
-                <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <p className="text-xs uppercase tracking-[0.14em] text-ivory/50">You receive</p>
-                  <select
-                    data-testid="xrpl-trade-desk-quick-swap-to-currency"
-                    value={quickSwapForm.toCurrency}
-                    onChange={(event) => {
-                      const currency = event.target.value
-                      setQuickSwapForm((prev) => ({
-                        ...prev,
-                        toCurrency: currency,
-                      }))
-                    }}
-                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-ivory"
-                    aria-label="Quick swap to currency"
-                  >
-                    {TRADE_CURRENCY_OPTIONS.map((option) => (
-                      <option key={`quick-to-${option.code}`} value={option.code} className="bg-black text-ivory">
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[11px] text-ivory/55">
-                    {quickSwapToIsXrp
-                      ? 'XRP is native, so there is no issuer on the receive side.'
-                      : `We will auto-pick the best trusted ${quickSwapToCode} route that matches this wallet.`}
-                  </p>
-                  <div
-                    data-testid="xrpl-trade-desk-quick-swap-preview"
-                    className="rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-ivory/75"
-                  >
-                    <p className="text-xs uppercase tracking-[0.14em] text-ivory/50">Preview</p>
-                    <p className="mt-2">
-                      Estimated receive:{' '}
-                      <span className="font-semibold text-ivory">
-                        {quickSwapEstimatedReceive ? `${formatPreviewAmount(quickSwapEstimatedReceive)} ${quickSwapToCode}` : '--'}
-                      </span>
-                    </p>
-                    <p className="mt-1">
-                      Minimum receive:{' '}
-                      <span className="font-semibold text-ivory">
-                        {quickSwapDeliverMin ? `${formatPreviewAmount(quickSwapDeliverMin)} ${quickSwapToCode}` : '--'}
-                      </span>
-                    </p>
-                    <p className="mt-1 text-xs text-ivory/55">
-                      {quickSwapStatusHint}
-                    </p>
-                    {swapQuote ? (
-                      <p className="mt-1 text-xs text-ivory/55">
-                        {swapQuote.quoteMode === 'public' ? 'Quote route' : 'Trusted route'}: {quickSwapRouteSummary}
-                      </p>
-                    ) : null}
-                    <p className="mt-1 text-xs text-ivory/55">
-                      {swapQuote
-                        ? swapQuote.quoteMode === 'public'
-                          ? swapQuote.routeKind === 'multi_hop'
-                            ? `Using public XRPL liquidity across ${swapQuote.hops?.length ?? 0} legs with a ${formatPreviewAmount(swapQuote.slippageBps / 100)}% minimum-receive estimate.`
-                            : `Using public XRPL ${swapQuote.liquiditySource ?? 'liquidity'} data with a ${formatPreviewAmount(swapQuote.slippageBps / 100)}% minimum-receive estimate.`
-                          : `Using XRPL pathfinding with a ${formatPreviewAmount(swapQuote.slippageBps / 100)}% minimum-receive guard.`
-                        : `Quotes on ${networkConfig.name} search public XRPL liquidity first, then wallet-aware routing when available.`}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-ivory/65">
-                Simple swap uses trusted issuer policy behind the scenes. XRP stays native; issued assets such as EUR,
-                USD, JPY, and XAU are resolved automatically from trusted issuers and live liquidity on {networkConfig.name}.
-                Wallet-aware routing improves execution, but public quotes no longer depend on trustlines or funded
-                account state.
-              </div>
-
-              {quickSwapValidationIssues.length > 0 ? (
-                <div data-testid="xrpl-trade-desk-quick-swap-validation" className="rounded-xl border border-red-300/25 bg-red-300/10 p-3 text-xs text-red-200">
-                  <ul className="space-y-1">
-                    {quickSwapValidationIssues.map((issue) => (
-                      <li key={issue}>{issue}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              <div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-ivory/65">
-                Need more than a basic swap? Reveal expert tools only when you are ready.
-              </div>
-
-              <button
-                data-testid="xrpl-trade-desk-quick-swap-submit"
-                type="submit"
-                disabled={quickSwapSubmitDisabled}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#7fb0d9] via-[#5c8db4] to-[#4b7c79] px-5 py-3 text-base font-semibold tracking-wide text-white shadow-lg shadow-[#4b7c79]/30 transition disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Submit simple swap
-              </button>
-              </fieldset>
-            </form>
+            />
 
             {showLaunchContext && !showExpertTools ? (
               <div data-testid="xrpl-trade-desk-launch-context" className="surface-inner space-y-3 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Wallet Balances</p>
-                    <p className="mt-1 text-xs text-ivory/55">Useful context when you need it, hidden by default for launch.</p>
-                  </div>
-                  <button
-                    data-testid="xrpl-trade-desk-assets-refresh"
-                    type="button"
-                    disabled={deskLocked}
-                    onClick={() => void loadAssets()}
-                    aria-label="Refresh wallet balances"
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
-                  >
-                    Refresh
-                  </button>
-                </div>
-                {assetsLoading ? <p className="text-sm text-ivory/60">Loading balances...</p> : null}
-                {assetsError ? <p className="text-sm text-red-300">{assetsError}</p> : null}
-                {!assetsLoading && !assetsError ? (
-                  <div className="space-y-2">
-                    {assets.slice(0, 6).map((asset) => (
-                      <div
-                        key={`${asset.currency}-${asset.issuer ?? 'xrp'}`}
-                        data-testid="xrpl-trade-desk-asset-row"
-                        className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm"
-                      >
-                        <p className="font-semibold text-ivory">
-                          {asset.currency} {asset.assetType === 'issued' && asset.issuer ? `· ${shortHash(asset.issuer)}` : ''}
-                        </p>
-                        <p className="text-ivory/60">{asset.value}</p>
-                      </div>
-                    ))}
-                    {assets.length === 0 ? <p className="text-sm text-ivory/55">No balances found.</p> : null}
-                  </div>
-                ) : null}
+                <XrplWalletAssetsPanel
+                  assets={assets}
+                  loading={assetsLoading}
+                  error={assetsError}
+                  disabled={deskLocked}
+                  visibleLimit={6}
+                  description="Useful context when you need it, hidden by default for launch."
+                  onRefresh={() => void loadAssets()}
+                />
               </div>
             ) : null}
 
@@ -1473,38 +1258,14 @@ export default function XrplTradeDesk() {
 
                 <div className="grid gap-5 lg:grid-cols-2">
                   <div data-testid="xrpl-trade-desk-assets" className="surface-inner space-y-3 p-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Wallet Balances</p>
-                      <button
-                        data-testid="xrpl-trade-desk-assets-refresh"
-                        type="button"
-                        disabled={deskLocked}
-                        onClick={() => void loadAssets()}
-                        aria-label="Refresh wallet balances"
-                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
-                      >
-                        Refresh
-                      </button>
-                    </div>
-                    {assetsLoading ? <p className="text-sm text-ivory/60">Loading balances...</p> : null}
-                    {assetsError ? <p className="text-sm text-red-300">{assetsError}</p> : null}
-                    {!assetsLoading && !assetsError ? (
-                      <div className="space-y-2">
-                        {assets.slice(0, 10).map((asset) => (
-                          <div
-                            key={`${asset.currency}-${asset.issuer ?? 'xrp'}`}
-                            data-testid="xrpl-trade-desk-asset-row"
-                            className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm"
-                          >
-                            <p className="font-semibold text-ivory">
-                              {asset.currency} {asset.assetType === 'issued' && asset.issuer ? `· ${shortHash(asset.issuer)}` : ''}
-                            </p>
-                            <p className="text-ivory/60">{asset.value}</p>
-                          </div>
-                        ))}
-                        {assets.length === 0 ? <p className="text-sm text-ivory/55">No balances found.</p> : null}
-                      </div>
-                    ) : null}
+                    <XrplWalletAssetsPanel
+                      assets={assets}
+                      loading={assetsLoading}
+                      error={assetsError}
+                      disabled={deskLocked}
+                      visibleLimit={10}
+                      onRefresh={() => void loadAssets()}
+                    />
                   </div>
 
                   <div data-testid="xrpl-trade-desk-orderbook" className="surface-inner space-y-3 p-4">
@@ -1600,95 +1361,23 @@ export default function XrplTradeDesk() {
                     ) : null}
                   </div>
 
-                  <div data-testid="xrpl-trade-desk-nfts" className="surface-inner space-y-3 p-4 lg:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Wallet NFTs</p>
-                      <button
-                        data-testid="xrpl-trade-desk-nfts-refresh"
-                        type="button"
-                        disabled={deskLocked}
-                      onClick={() => void loadNfts()}
-                      aria-label="Refresh wallet NFTs"
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
-                    >
-                      Refresh
-                    </button>
-                  </div>
-                  {nftsLoading ? <p className="text-sm text-ivory/60">Loading NFTs...</p> : null}
-                  {nftsError ? <p className="text-sm text-red-300">{nftsError}</p> : null}
-                  {!nftsLoading && !nftsError ? (
-                    <>
-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {pagedNfts.map((nft, index) => (
-                          <div
-                            key={nft.nftokenId ?? `nft-${index}`}
-                            data-testid="xrpl-trade-desk-nft-card"
-                            className="rounded-xl border border-white/10 bg-black/30 p-3"
-                          >
-                            <p className="text-xs text-ivory/50">{shortHash(nft.nftokenId)}</p>
-                            <p className="mt-1 text-sm font-semibold text-ivory">{nft.metadata?.name ?? 'Untitled NFT'}</p>
-                            <p className="mt-1 line-clamp-2 text-xs text-ivory/60">{nft.metadata?.description ?? nft.uri ?? 'No metadata'}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-ivory/70">
-                        <button
-                          type="button"
-                          onClick={() => setNftPage((page) => Math.max(1, page - 1))}
-                          disabled={nftPage <= 1}
-                          aria-label="Previous NFT page"
-                          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 disabled:opacity-50"
-                        >
-                          Prev
-                        </button>
-                        <span>Page {nftPage} / {pageCount}</span>
-                        <button
-                          type="button"
-                          onClick={() => setNftPage((page) => Math.min(pageCount, page + 1))}
-                          disabled={nftPage >= pageCount}
-                          aria-label="Next NFT page"
-                          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 disabled:opacity-50"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
+                  <XrplNftsPanel
+                    nfts={nfts}
+                    loading={nftsLoading}
+                    error={nftsError}
+                    disabled={deskLocked}
+                    page={nftPage}
+                    onPageChange={setNftPage}
+                    onRefresh={() => void loadNfts()}
+                  />
 
-                  <div data-testid="xrpl-trade-desk-history" className="surface-inner space-y-3 p-4 lg:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-[0.16em] text-ivory/55">Recent Ledger Actions</p>
-                    <button
-                      data-testid="xrpl-trade-desk-history-refresh"
-                      type="button"
-                      disabled={deskLocked}
-                      onClick={() => void loadHistory()}
-                      aria-label="Refresh recent ledger actions"
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-ivory/70 disabled:opacity-60"
-                    >
-                      Refresh
-                    </button>
-                  </div>
-                  {historyLoading ? <p className="text-sm text-ivory/60">Loading recent actions...</p> : null}
-                  {historyError ? <p className="text-sm text-red-300">{historyError}</p> : null}
-                  {!historyLoading && !historyError ? (
-                    <div className="space-y-2">
-                      {history.slice(0, 10).map((item) => (
-                        <div
-                          key={item.id}
-                          data-testid="xrpl-trade-desk-history-row"
-                          className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-ivory/75"
-                        >
-                          <p className="font-semibold text-ivory">{item.action} · {item.status}</p>
-                          <p>tx: {shortHash(item.txHash)}</p>
-                          <p>engine: {item.engineResult ?? '--'}</p>
-                        </div>
-                      ))}
-                      {history.length === 0 ? <p className="text-sm text-ivory/55">No actions yet.</p> : null}
-                    </div>
-                  ) : null}
-                </div>
+                  <XrplActionHistoryPanel
+                    actions={history}
+                    loading={historyLoading}
+                    error={historyError}
+                    disabled={deskLocked}
+                    onRefresh={() => void loadHistory()}
+                  />
               </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
