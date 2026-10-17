@@ -264,14 +264,19 @@ export default function DynamicInfoCard() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (isRtlLocale(locale)) {
+      window.localStorage.removeItem(cornerStorageKey)
+      setCorner(defaultCorner)
+      return
+    }
     const stored = window.localStorage.getItem(cornerStorageKey)
     setCorner(isCardCorner(stored) ? stored : defaultCorner)
-  }, [cornerStorageKey, defaultCorner])
+  }, [cornerStorageKey, defaultCorner, locale])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || isRtlLocale(locale)) return
     window.localStorage.setItem(cornerStorageKey, corner)
-  }, [corner, cornerStorageKey])
+  }, [corner, cornerStorageKey, locale])
 
   useEffect(() => {
     const node = cardRef.current

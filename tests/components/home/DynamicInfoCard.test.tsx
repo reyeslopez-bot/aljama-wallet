@@ -91,7 +91,7 @@ describe('DynamicInfoCard', () => {
 
   it.each(['ar', 'he'])('opens on the left by default for %s', async (locale) => {
     vi.mocked(useLocale).mockReturnValue(locale)
-    window.localStorage.setItem('aljama.infoCard.corner', 'bottom-right')
+    window.localStorage.setItem(`aljama.infoCard.corner.${locale}`, 'bottom-right')
 
     const { getByTestId } = render(<DynamicInfoCard />)
 
@@ -100,7 +100,7 @@ describe('DynamicInfoCard', () => {
       expect(card.className).toContain('top-20')
       expect(card.className).toContain('left-4')
       expect(card.className).not.toContain('right-4')
-      expect(window.localStorage.getItem(`aljama.infoCard.corner.${locale}`)).toBe('top-left')
+      expect(window.localStorage.getItem(`aljama.infoCard.corner.${locale}`)).toBeNull()
     })
   })
 
