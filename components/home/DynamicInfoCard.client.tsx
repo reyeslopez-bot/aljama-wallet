@@ -15,7 +15,9 @@ import { useAdaptiveExperience } from '@/hooks/useAdaptiveExperience'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 import { useHomeJourneyProgress } from '@/hooks/useHomeJourneyProgress'
 import { useTranslations } from 'next-intl'
+import { useLocale } from 'next-intl'
 import { useXrplNetworkStore } from '@/infra/state/xrplNetworkStore'
+import { isRtlLocale } from '@/i18n/routing'
 import { parseClientApiError } from '@/lib/security/client-api-error'
 import { XRPL_NETWORKS_BY_ID } from '@/lib/xrpl-networks'
 import UnlockActionsLink from '@/components/ui/UnlockActionsLink.client'
@@ -165,6 +167,7 @@ function isCardCorner(value: string | null): value is CardCorner {
 export default function DynamicInfoCard() {
   const t = useTranslations('infoCard')
   const tCreate = useTranslations('createWallet')
+  const locale = useLocale()
   const { data: session, status: sessionStatus } = useSession()
   const showUnlockMessage = sessionStatus === 'unauthenticated'
   const [hovered, setHovered] = useState(false)
@@ -172,7 +175,9 @@ export default function DynamicInfoCard() {
   const [now, setNow] = useState<Date | null>(null)
   const [networkTimezone, setNetworkTimezone] = useState(DUBAI_TIMEZONE)
   const [isLightTheme, setIsLightTheme] = useState(false)
-  const [corner, setCorner] = useState<CardCorner>('top-right')
+  const defaultCorner: CardCorner = isRtlLocale(locale) ? 'top-left' : 'top-right'
+  const cornerStorageKey = locale === 'en' ? INFO_CARD_CORNER_KEY : `${INFO_CARD_CORNER_KEY}.${locale}`
+  const [corner, setCorner] = useState<CardCorner>(defaultCorner)
   const [isDragging, setIsDragging] = useState(false)
   const [hoverExpansionEnabled, setHoverExpansionEnabled] = useState(false)
   const { hasHydrated, shouldReduceMotion, shouldUseLightweightMode } = useAdaptiveExperience()
@@ -259,16 +264,14 @@ export default function DynamicInfoCard() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const stored = window.localStorage.getItem(INFO_CARD_CORNER_KEY)
-    if (isCardCorner(stored)) {
-      setCorner(stored)
-    }
-  }, [])
+    const stored = window.localStorage.getItem(cornerStorageKey)
+    setCorner(isCardCorner(stored) ? stored : defaultCorner)
+  }, [cornerStorageKey, defaultCorner])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    window.localStorage.setItem(INFO_CARD_CORNER_KEY, corner)
-  }, [corner])
+    window.localStorage.setItem(cornerStorageKey, corner)
+  }, [corner, cornerStorageKey])
 
   useEffect(() => {
     const node = cardRef.current

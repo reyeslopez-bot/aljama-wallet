@@ -32,7 +32,7 @@ vi.mock('next-intl', () => ({
     (namespace: string) =>
     (key: string, values?: Record<string, unknown>) =>
       formatMessage(resolveMessage(namespace, key), values),
-  useLocale: () => 'en',
+  useLocale: vi.fn(() => 'en'),
   NextIntlClientProvider: ({ children }: { children: ReactNode }) => children,
 }))
 

@@ -3,6 +3,7 @@
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useLocale } from 'next-intl'
 import DynamicInfoCard from '@/components/home/DynamicInfoCard.client'
 import { useDynamicInfoStore } from '@/hooks/useDynamicInfoStore'
 
@@ -42,6 +43,7 @@ function rect(left: number, top: number, width = 280, height = 220): DOMRect {
 describe('DynamicInfoCard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(useLocale).mockReturnValue('en')
     resetStore()
     window.location.hash = ''
     const storage = new Map<string, string>()
@@ -84,6 +86,21 @@ describe('DynamicInfoCard', () => {
     await waitFor(() => {
       expect(getByTestId('dynamic-info-card').className).toContain('bottom-4')
       expect(getByTestId('dynamic-info-card').className).toContain('left-4')
+    })
+  })
+
+  it.each(['ar', 'he'])('opens on the left by default for %s', async (locale) => {
+    vi.mocked(useLocale).mockReturnValue(locale)
+    window.localStorage.setItem('aljama.infoCard.corner', 'bottom-right')
+
+    const { getByTestId } = render(<DynamicInfoCard />)
+
+    await waitFor(() => {
+      const card = getByTestId('dynamic-info-card')
+      expect(card.className).toContain('top-20')
+      expect(card.className).toContain('left-4')
+      expect(card.className).not.toContain('right-4')
+      expect(window.localStorage.getItem(`aljama.infoCard.corner.${locale}`)).toBe('top-left')
     })
   })
 

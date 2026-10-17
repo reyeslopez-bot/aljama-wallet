@@ -475,7 +475,7 @@ export default function LoginGate({
           ? "absolute inset-0 z-20 rounded-[2rem] bg-[#071018]/22 backdrop-blur-[2px]"
           : "absolute inset-0 z-20 bg-black/18 backdrop-blur-[2px]"
       }
-      panelClassName="ml-auto mt-4 mr-4 max-w-xs rounded-[1.5rem] border border-white/10 bg-[#071018]/92 px-4 py-3 text-left shadow-xl shadow-black/25"
+      panelClassName="ms-auto me-4 mt-4 max-w-xs rounded-[1.5rem] border border-white/10 bg-[#071018]/92 px-4 py-3 text-start shadow-xl shadow-black/25"
     >
       {!isInline ? (
         <>

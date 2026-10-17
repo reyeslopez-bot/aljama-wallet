@@ -72,13 +72,21 @@ export default function InteractiveShell({
             aria-live="polite"
             className={
               panelClassName ??
-              'ml-auto mt-4 mr-4 max-w-xs rounded-2xl border border-white/10 bg-[#071018]/92 px-4 py-3 text-left shadow-xl shadow-black/25'
+              'ms-auto me-4 mt-4 max-w-xs rounded-2xl border border-white/10 bg-[#071018]/92 px-4 py-3 text-start shadow-xl shadow-black/25'
             }
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-saffron/80">
-              {loadingTitle}
-            </p>
-            <p className="mt-2 text-sm leading-6 text-ivory/72">{loadingHint}</p>
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden="true"
+                className="mt-1 h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/15 border-t-saffron"
+              />
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-saffron/80">
+                  {loadingTitle}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-ivory/72">{loadingHint}</p>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
