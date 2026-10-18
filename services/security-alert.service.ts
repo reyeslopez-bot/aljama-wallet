@@ -1,5 +1,6 @@
 import { prismaPg } from '@/lib/prisma-pg'
 import { logError, logInfo } from '@/lib/security/logging'
+import { asRecord, envInt, normalizeString } from '@/lib/security/normalization'
 import type { Prisma } from '@/prisma/generated/pg'
 import { runForensicRetentionMaintenance } from '@/services/forensic-retention.service'
 import {
@@ -201,14 +202,6 @@ type RedisCommandClient = {
   on?: (event: string, listener: (error: unknown) => void) => void
 }
 
-function envInt(name: string, fallback: number): number {
-  const raw = process.env[name]
-  if (!raw) return fallback
-  const parsed = Number(raw)
-  if (!Number.isFinite(parsed)) return fallback
-  return Math.max(0, Math.floor(parsed))
-}
-
 function envBool(name: string, fallback = false): boolean {
   const raw = process.env[name]
   if (!raw) return fallback
@@ -250,11 +243,6 @@ function redisDedupUrl(): string {
 
 function redisDedupPrefix(): string {
   return process.env.SECURITY_ALERT_REDIS_PREFIX?.trim() || 'security:alerts:dedup'
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
-  return value as Record<string, unknown>
 }
 
 async function loadRedisModule(): Promise<{ createClient: (options: { url: string }) => RedisCommandClient }> {
@@ -351,12 +339,6 @@ function shouldSoar(severity: SecurityAlertSeverity): boolean {
 function nextAlertId(): string {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
   return `alert_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`
-}
-
-function normalizeString(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed ? trimmed : null
 }
 
 function resolveSource(input: SecurityAlertInput): string {

@@ -113,6 +113,52 @@ describe('unlockWallet', () => {
 
     expect(wallet.securityProfile).toEqual(DEFAULT_WALLET_SECURITY_PROFILE)
     expect(wallet.postQuantum).toBeNull()
+    expect(wallet.xrplWallet).toBeNull()
+  })
+
+  it('encrypts XRPL signing material with the local wallet', async () => {
+    const xrplWallet = {
+      address: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+      publicKey: `ED${'1'.repeat(64)}`,
+      privateKey: `ED${'2'.repeat(64)}`,
+    }
+    const encrypted = await encodeWalletToEncrypted(
+      {
+        address: mockAccounts.primary.address,
+        privateKey: mockAccounts.primary.privateKey,
+      },
+      'StrongPassphrase1!',
+      { xrplWallet },
+    )
+
+    const unlocked = await unlockWalletWithSecurityProfile({
+      encrypted,
+      password: 'StrongPassphrase1!',
+    })
+
+    expect(unlocked.xrplWallet).toEqual(xrplWallet)
+  })
+
+  it('rejects malformed XRPL signing material in an encrypted payload', async () => {
+    const encrypted = await encodePayloadToEncrypted(
+      {
+        address: mockAccounts.primary.address,
+        privateKey: mockAccounts.primary.privateKey,
+        xrplWallet: {
+          address: 'rInvalid',
+          publicKey: 'not-a-key',
+          privateKey: 'not-a-key',
+        },
+      },
+      'StrongPassphrase1!',
+    )
+
+    await expect(
+      unlockWalletWithSecurityProfile({
+        encrypted,
+        password: 'StrongPassphrase1!',
+      }),
+    ).rejects.toThrow('Encrypted payload contains invalid XRPL wallet material')
   })
 
   it('falls back to default security profile for legacy payloads', async () => {

@@ -8,8 +8,8 @@ const HARD_CAP = 700
 
 const ALLOWLIST = new Map([
   ['components/home/XrplTradeDesk.client.tsx', 2152],
-  ['components/home/CreateWalletPanel.tsx', 1394],
-  ['components/home/XrplMarketPanel.client.tsx', 1218],
+  ['components/home/CreateWalletPanel.tsx', 1174],
+  ['components/home/XrplMarketPanel.client.tsx', 923],
   ['components/home/DynamicInfoCard.client.tsx', 912],
   ['components/home/LoginGate.tsx', 709],
   ['components/home/HomeMotionScene.client.tsx', 655],

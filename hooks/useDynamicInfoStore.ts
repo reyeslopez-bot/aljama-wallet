@@ -11,6 +11,7 @@ type DynamicUserInfo = {
 
 type DynamicWalletInfo = {
   createdAddress: string | null
+  xrplAddress: string | null
   connectedAddress: string | null
   chainName: string | null
   connectorName: string | null
@@ -38,6 +39,7 @@ type DynamicInfoActions = {
   setConnectWalletStatus: (status: FlowStatus, error?: string | null) => void
   setTrackingStatus: (status: TrackingStatus, error?: string | null) => void
   setCreatedWalletAddress: (address: string | null) => void
+  setCreatedXrplAddress: (address: string | null) => void
   setConnectedWallet: (input: {
     address: string | null
     chainName?: string | null
@@ -52,6 +54,7 @@ export const useDynamicInfoStore = create<DynamicInfoState & DynamicInfoActions>
   user: DEFAULT_USER,
   wallet: {
     createdAddress: null,
+    xrplAddress: null,
     connectedAddress: null,
     chainName: null,
     connectorName: null,
@@ -109,6 +112,11 @@ export const useDynamicInfoStore = create<DynamicInfoState & DynamicInfoActions>
   setCreatedWalletAddress: (address) =>
     set((state) => ({
       wallet: { ...state.wallet, createdAddress: address },
+    })),
+
+  setCreatedXrplAddress: (address) =>
+    set((state) => ({
+      wallet: { ...state.wallet, xrplAddress: address },
     })),
 
   setConnectedWallet: ({ address, chainName = null, connectorName = null }) =>

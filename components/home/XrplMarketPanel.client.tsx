@@ -5,285 +5,30 @@ import { useComponentTelemetry } from '@/infra/telemetry/useComponentTelemetry'
 import { useLocale, useTranslations } from 'next-intl'
 import { useGsapPressable } from '@/hooks/useGsapPressable'
 import { getHomeNowMs } from '@/components/home/homeClock'
-import { parseClientApiError } from '@/lib/security/client-api-error'
-
-type MarketAsset = {
-  id: string
-  symbol: string
-  name: string
-  marketGroup: 'xrpl' | 'reference'
-  network: string
-  priceUsd: number
-  change24h: number
-  series: number[]
-}
-
-type MarketSnapshot = {
-  ok: true
-  source: 'coingecko' | 'fallback'
-  updatedAt: string
-  assets: MarketAsset[]
-}
-
-type AssetPalette = {
-  stroke: string
-  fillStart: string
-  fillEnd: string
-  chipActiveBg: string
-  chipBorder: string
-}
-
-const ASSET_PALETTES: Record<string, AssetPalette> = {
-  XRP: {
-    stroke: '#6d5be2',
-    fillStart: 'rgba(109,91,226,0.5)',
-    fillEnd: 'rgba(109,91,226,0)',
-    chipActiveBg: 'rgba(109,91,226,0.22)',
-    chipBorder: 'rgba(178,167,250,0.8)',
-  },
-  BTC: {
-    stroke: '#f7931a',
-    fillStart: 'rgba(247,147,26,0.45)',
-    fillEnd: 'rgba(247,147,26,0)',
-    chipActiveBg: 'rgba(247,147,26,0.2)',
-    chipBorder: 'rgba(255,195,113,0.85)',
-  },
-  ETH: {
-    stroke: '#627eea',
-    fillStart: 'rgba(98,126,234,0.45)',
-    fillEnd: 'rgba(98,126,234,0)',
-    chipActiveBg: 'rgba(98,126,234,0.22)',
-    chipBorder: 'rgba(162,178,246,0.85)',
-  },
-  USDC: {
-    stroke: '#2775ca',
-    fillStart: 'rgba(39,117,202,0.42)',
-    fillEnd: 'rgba(39,117,202,0)',
-    chipActiveBg: 'rgba(39,117,202,0.22)',
-    chipBorder: 'rgba(120,179,236,0.8)',
-  },
-  EURC: {
-    stroke: '#f4c542',
-    fillStart: 'rgba(244,197,66,0.45)',
-    fillEnd: 'rgba(244,197,66,0)',
-    chipActiveBg: 'rgba(244,197,66,0.24)',
-    chipBorder: 'rgba(255,226,149,0.9)',
-  },
-}
+import {
+  buildAreaPath,
+  buildLinePath,
+  buildPaddedRange,
+  buildTimelineTicks,
+  CHART_HEIGHT,
+  CHART_WIDTH,
+  displayNameForAsset,
+  formatPercentChange,
+  formatUpdatedTimeAgo,
+  formatUsd,
+  getPlotFrame,
+  normalizeSeries,
+  paletteForSymbol,
+  projectValueToChartY,
+  seriesIndexToTimestamp,
+  XRPL_MARKET_PANEL_ID_PREFIX,
+  type TimelineMarker,
+  type ZoomWindow,
+} from '@/components/home/xrpl-market-chart'
+import useMarketSnapshot from '@/components/home/useMarketSnapshot'
+import XrplBuyFlow from '@/components/home/XrplBuyFlow.client'
 
 type ViewOption = 'all' | 'xrpl' | 'reference'
-type TimelineTick = { index: number; timestamp: number }
-type TimelineMarker = TimelineTick & { position: number }
-type ZoomWindow = { start: number; end: number }
-
-const CHART_WIDTH = 100
-const CHART_HEIGHT = 48
-const PLOT_INSET_X = 3
-const PLOT_INSET_Y = 4
-const PLOT_RANGE_PADDING_RATIO = 0.08
-const MIN_PLOT_RANGE_PADDING = 0.015
-const XRPL_MARKET_PANEL_ID_PREFIX = 'xrpl-market-panel'
-
-function paletteForSymbol(symbol: string): AssetPalette {
-  return (
-    ASSET_PALETTES[symbol] ?? {
-      stroke: '#e4e7ec',
-      fillStart: 'rgba(228,231,236,0.25)',
-      fillEnd: 'rgba(228,231,236,0)',
-      chipActiveBg: 'rgba(228,231,236,0.2)',
-      chipBorder: 'rgba(228,231,236,0.7)',
-    }
-  )
-}
-
-function normalizeSeries(series: number[]): number[] {
-  if (series.length === 0) return []
-  const first = series[0] ?? 1
-  const safeFirst = first === 0 ? 1 : first
-  return series.map((value) => value / safeFirst)
-}
-
-function displayNameForAsset(asset: Pick<MarketAsset, 'symbol' | 'name'>) {
-  return asset.symbol === 'XRP' ? 'Ripple' : asset.name
-}
-
-type ChartPoint = {
-  x: number
-  y: number
-}
-
-type PlotFrame = {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-function getPlotFrame(chartWidth: number): PlotFrame {
-  return {
-    x: PLOT_INSET_X,
-    y: PLOT_INSET_Y,
-    width: Math.max(chartWidth - PLOT_INSET_X * 2, 1),
-    height: Math.max(CHART_HEIGHT - PLOT_INSET_Y * 2, 1),
-  }
-}
-
-function buildPaddedRange(values: number[]) {
-  if (values.length === 0) return { min: 0.9, max: 1.1 }
-
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const span = max - min
-  const padding =
-    span > 0
-      ? Math.max(span * PLOT_RANGE_PADDING_RATIO, MIN_PLOT_RANGE_PADDING)
-      : Math.max(Math.abs(max || 1) * PLOT_RANGE_PADDING_RATIO, MIN_PLOT_RANGE_PADDING)
-
-  return { min: min - padding, max: max + padding }
-}
-
-function projectValueToChartY(value: number, min: number, max: number) {
-  const span = max - min || 1
-  const plotHeight = Math.max(CHART_HEIGHT - PLOT_INSET_Y * 2, 1)
-  const normalized = Math.min(Math.max((value - min) / span, 0), 1)
-  return PLOT_INSET_Y + (1 - normalized) * plotHeight
-}
-
-function buildChartPoints(
-  series: number[],
-  min: number,
-  max: number,
-  startIndex: number,
-  endIndex: number,
-  chartWidth: number,
-): ChartPoint[] {
-  if (series.length < 2 || endIndex <= startIndex) return []
-  const safeStart = Math.min(Math.max(startIndex, 0), series.length - 2)
-  const safeEnd = Math.min(Math.max(endIndex, safeStart + 1), series.length - 1)
-  const indexSpan = safeEnd - safeStart
-  const points = series.slice(safeStart, safeEnd + 1)
-  const plotFrame = getPlotFrame(chartWidth)
-  return points.map((value, offset) => {
-    const x = plotFrame.x + (offset / indexSpan) * plotFrame.width
-    const y = projectValueToChartY(value, min, max)
-    return { x, y }
-  })
-}
-
-function buildLinePath(
-  series: number[],
-  min: number,
-  max: number,
-  startIndex: number,
-  endIndex: number,
-  chartWidth: number,
-) {
-  const points = buildChartPoints(series, min, max, startIndex, endIndex, chartWidth)
-  if (points.length < 2) return ''
-  return points
-    .map((point, offset) => `${offset === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-    .join(' ')
-}
-
-function buildAreaPath(
-  series: number[],
-  min: number,
-  max: number,
-  startIndex: number,
-  endIndex: number,
-  chartWidth: number,
-) {
-  const points = buildChartPoints(series, min, max, startIndex, endIndex, chartWidth)
-  if (points.length < 2) return ''
-  const plotFrame = getPlotFrame(chartWidth)
-  const baseY = plotFrame.y + plotFrame.height
-  const head = points
-    .map((point) => `L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-    .join(' ')
-  const first = points[0]
-  const last = points[points.length - 1]
-  return `M ${first.x.toFixed(2)} ${baseY.toFixed(2)} ${head} L ${last.x.toFixed(2)} ${baseY.toFixed(2)} Z`
-}
-
-function formatUsd(value: number, locale: string) {
-  if (!Number.isFinite(value)) return '--'
-  return value.toLocaleString(locale, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: value < 1 ? 4 : 2,
-  })
-}
-
-function formatPercentChange(value: number, locale: string) {
-  if (!Number.isFinite(value)) return '--'
-  const formatted = Math.abs(value).toLocaleString(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-  if (value > 0) return `+${formatted}%`
-  if (value < 0) return `-${formatted}%`
-  return `${formatted}%`
-}
-
-function formatUpdatedTimeAgo(updatedAt: string, locale: string, nowMs: number): string {
-  const updated = new Date(updatedAt).getTime()
-  if (!Number.isFinite(updated)) return ''
-
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-  const diffMs = Math.max(nowMs - updated, 0)
-  const totalMinutes = Math.floor(diffMs / (60 * 1_000)) || 0
-
-  if (totalMinutes < 60) {
-    const minutes = Math.max(totalMinutes, 1)
-    return formatter.format(-minutes, 'minute')
-  }
-
-  if (totalMinutes < 24 * 60) {
-    const hours = Math.max(Math.floor(totalMinutes / 60), 1)
-    return formatter.format(-hours, 'hour')
-  }
-
-  const days = Math.max(Math.floor(totalMinutes / (24 * 60)), 1)
-  return formatter.format(-days, 'day')
-}
-
-function seriesIndexToTimestamp(updatedAt: string | null | undefined, index: number, pointCount: number): number | null {
-  if (!updatedAt || pointCount < 2) return null
-  const end = new Date(updatedAt).getTime()
-  if (!Number.isFinite(end)) return null
-  const start = end - 30 * 24 * 60 * 60 * 1_000
-  const ratio = Math.min(Math.max(index / (pointCount - 1), 0), 1)
-  return Math.round(start + ratio * (end - start))
-}
-
-function buildTimelineTicks(
-  updatedAt: string | null | undefined,
-  pointCount: number,
-  startIndex: number,
-  endIndex: number,
-  targetTickCount: number,
-): TimelineTick[] {
-  if (!updatedAt || pointCount < 2) return []
-  const safeStart = Math.max(startIndex, 0)
-  const safeEnd = Math.min(endIndex, pointCount - 1)
-  const span = safeEnd - safeStart
-  if (span < 1) return []
-  const safeTickCount = Math.min(Math.max(targetTickCount, 2), span + 1)
-  const indexes = Array.from(
-    new Set(
-      Array.from({ length: safeTickCount }, (_, offset) =>
-        Math.round(safeStart + (span * offset) / (safeTickCount - 1)),
-      ),
-    ),
-  )
-  return indexes
-    .map((index) => {
-      const timestamp = seriesIndexToTimestamp(updatedAt, index, pointCount)
-      if (!timestamp) return null
-      return { index, timestamp }
-    })
-    .filter((tick): tick is TimelineTick => tick !== null)
-}
 
 export default function XrplMarketPanel() {
   useComponentTelemetry('XrplMarketPanel')
@@ -301,17 +46,9 @@ export default function XrplMarketPanel() {
   const [chartSvgNode, setChartSvgNode] = useState<SVGSVGElement | null>(null)
   const [chartViewportWidth, setChartViewportWidth] = useState(CHART_WIDTH)
   const [currentTimeMs, setCurrentTimeMs] = useState<number | null>(null)
-  const [state, setState] = useState<{
-    loading: boolean
-    error: string | null
-    snapshot: MarketSnapshot | null
-    view: ViewOption
-  }>({
-    loading: true,
-    error: null,
-    snapshot: null,
-    view: 'all',
-  })
+  const [view, setView] = useState<ViewOption>('all')
+  const { snapshot, loading, error, refreshSnapshot } = useMarketSnapshot()
+  const [tradeAsset, setTradeAsset] = useState<{ symbol: string; name: string } | null>(null)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const [zoomWindow, setZoomWindow] = useState<ZoomWindow | null>(null)
   const [focusSymbol, setFocusSymbol] = useState<string | null>(null)
@@ -321,39 +58,9 @@ export default function XrplMarketPanel() {
     respectReducedMotion: true,
   })
 
-  const loadSnapshot = useCallback(async () => {
-    setState((prev) => ({ ...prev, loading: true, error: null }))
-    try {
-      const res = await fetch('/api/market-snapshot')
-      const body = (await res.json().catch(() => null)) as
-        | MarketSnapshot
-        | { ok: false; error?: string; code?: string; details?: unknown }
-        | null
-      if (!res.ok || !body?.ok) {
-        throw new Error(parseClientApiError(res, body).message)
-      }
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        snapshot: body,
-        error: null,
-      }))
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error ? error.message : 'Market snapshot unavailable',
-      }))
-    }
-  }, [])
-
   useEffect(() => {
     setCurrentTimeMs(getHomeNowMs())
   }, [])
-
-  useEffect(() => {
-    void loadSnapshot()
-  }, [loadSnapshot])
 
   useEffect(() => {
     if (!chartSvgNode) return
@@ -376,10 +83,10 @@ export default function XrplMarketPanel() {
   }, [chartSvgNode])
 
   const visibleAssets = useMemo(() => {
-    if (!state.snapshot) return []
-    if (state.view === 'all') return state.snapshot.assets
-    return state.snapshot.assets.filter((asset) => asset.marketGroup === state.view)
-  }, [state.snapshot, state.view])
+    if (!snapshot) return []
+    if (view === 'all') return snapshot.assets
+    return snapshot.assets.filter((asset) => asset.marketGroup === view)
+  }, [snapshot, view])
 
   const normalizedSeries = useMemo(
     () =>
@@ -465,13 +172,13 @@ export default function XrplMarketPanel() {
   const timelineTicks = useMemo(
     () =>
       buildTimelineTicks(
-        state.snapshot?.updatedAt,
+        snapshot?.updatedAt,
         pointCount,
         chartWindow.start,
         chartWindow.end,
         chartViewportWidth >= 132 ? (chartWindow.isZoomed ? 6 : 5) : chartViewportWidth >= 96 ? 4 : 3,
       ),
-    [chartViewportWidth, chartWindow.end, chartWindow.isZoomed, chartWindow.start, state.snapshot?.updatedAt, pointCount],
+    [chartViewportWidth, chartWindow.end, chartWindow.isZoomed, chartWindow.start, snapshot?.updatedAt, pointCount],
   )
   const timelineMarkers = useMemo<TimelineMarker[]>(() => {
     const span = chartWindow.end - chartWindow.start
@@ -483,9 +190,9 @@ export default function XrplMarketPanel() {
   }, [chartWindow.end, chartWindow.start, timelineTicks])
 
   const hoverSnapshot = useMemo(() => {
-    if (hoverIndex === null || !state.snapshot || pointCount < 2) return null
+    if (hoverIndex === null || !snapshot || pointCount < 2) return null
     if (hoverIndex < chartWindow.start || hoverIndex > chartWindow.end) return null
-    const timestamp = seriesIndexToTimestamp(state.snapshot.updatedAt, hoverIndex, pointCount)
+    const timestamp = seriesIndexToTimestamp(snapshot.updatedAt, hoverIndex, pointCount)
     if (!timestamp) return null
     return {
       timestamp,
@@ -496,15 +203,15 @@ export default function XrplMarketPanel() {
         return { ...asset, pointPrice, explicitName }
       }),
     }
-  }, [chartWindow.end, chartWindow.start, hoverIndex, pointCount, state.snapshot, visibleAssets])
+  }, [chartWindow.end, chartWindow.start, hoverIndex, pointCount, snapshot, visibleAssets])
 
   const displayedRange = useMemo(() => {
-    if (!state.snapshot || pointCount < 2) return null
-    const start = seriesIndexToTimestamp(state.snapshot.updatedAt, chartWindow.start, pointCount)
-    const end = seriesIndexToTimestamp(state.snapshot.updatedAt, chartWindow.end, pointCount)
+    if (!snapshot || pointCount < 2) return null
+    const start = seriesIndexToTimestamp(snapshot.updatedAt, chartWindow.start, pointCount)
+    const end = seriesIndexToTimestamp(snapshot.updatedAt, chartWindow.end, pointCount)
     if (!start || !end) return null
     return { start, end }
-  }, [chartWindow.end, chartWindow.start, pointCount, state.snapshot])
+  }, [chartWindow.end, chartWindow.start, pointCount, snapshot])
 
   const viewOptions = useMemo(
     () =>
@@ -683,7 +390,7 @@ export default function XrplMarketPanel() {
       if (nextIndex === null) return
       event.preventDefault()
       const nextOption = viewOptions[nextIndex]
-      setState((prev) => ({ ...prev, view: nextOption.id }))
+      setView(nextOption.id)
       focusById(viewOptionId(nextOption.id))
     },
     [focusById, viewOptionId, viewOptions],
@@ -737,7 +444,7 @@ export default function XrplMarketPanel() {
           aria-live="polite"
           className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-ivory/70"
         >
-          {state.snapshot?.source === 'fallback' ? t('badgeFallback') : t('badgeLive')}
+          {snapshot?.source === 'fallback' ? t('badgeFallback') : t('badgeLive')}
         </span>
       </header>
 
@@ -755,13 +462,13 @@ export default function XrplMarketPanel() {
               key={option.id}
               data-testid={`xrpl-market-filter-${option.id}`}
               type="button"
-              onClick={() => setState((prev) => ({ ...prev, view: option.id }))}
+              onClick={() => setView(option.id)}
               onKeyDown={(event) => handleViewOptionKeyDown(event, index)}
               role="radio"
-              aria-checked={state.view === option.id}
-              tabIndex={state.view === option.id ? 0 : -1}
+              aria-checked={view === option.id}
+              tabIndex={view === option.id ? 0 : -1}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                state.view === option.id
+                view === option.id
                   ? 'border-saffron/60 bg-saffron/10 text-saffron'
                   : 'border-white/10 bg-white/5 text-ivory/60 hover:border-white/20'
               }`}
@@ -770,19 +477,19 @@ export default function XrplMarketPanel() {
             </button>
           ))}
           <span data-testid="xrpl-market-updated" className="ml-auto text-[11px] text-ivory/40">
-            {state.snapshot?.updatedAt && currentTimeMs !== null
-              ? `${t('updated')} ${formatUpdatedTimeAgo(state.snapshot.updatedAt, locale, currentTimeMs)}`
+            {snapshot?.updatedAt && currentTimeMs !== null
+              ? `${t('updated')} ${formatUpdatedTimeAgo(snapshot.updatedAt, locale, currentTimeMs)}`
               : ''}
           </span>
         </div>
 
         <div data-testid="xrpl-market-chart-shell" className="surface-inner p-4">
-          {state.loading ? (
+          {loading ? (
             <p data-testid="xrpl-market-loading" role="status" aria-live="polite" className="text-sm text-ivory/60">
               {t('loading')}
             </p>
-          ) : state.error ? (
-            <p data-testid="xrpl-market-error" role="alert" className="text-sm text-red-300">{state.error}</p>
+          ) : error ? (
+            <p data-testid="xrpl-market-error" role="alert" className="text-sm text-red-300">{error}</p>
           ) : (
             <div className="space-y-4">
               <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[#181818] p-4 shadow-[0_10px_22px_-12px_rgba(0,0,0,0.65)]">
@@ -1163,6 +870,16 @@ export default function XrplMarketPanel() {
                     <dt className="text-ivory/45">{t('table.network')}</dt>
                     <dd className="text-right text-ivory/70">{asset.network}</dd>
                   </dl>
+                  {asset.marketGroup === 'xrpl' && asset.symbol !== 'XRP' && (
+                    <button
+                      data-testid={`xrpl-market-buy-${asset.symbol.toLowerCase()}`}
+                      type="button"
+                      onClick={() => setTradeAsset({ symbol: asset.symbol, name: asset.name })}
+                      className="mt-3 w-full rounded-lg bg-white/10 px-3 py-2 text-sm font-medium text-ivory"
+                    >
+                      {t('buyAsset', { asset: asset.symbol })}
+                    </button>
+                  )}
                 </article>
               )
             })}
@@ -1175,6 +892,7 @@ export default function XrplMarketPanel() {
                 <th scope="col" className="pb-3 font-medium">{t('table.price')}</th>
                 <th scope="col" className="pb-3 font-medium">{t('table.change')}</th>
                 <th scope="col" className="pb-3 font-medium">{t('table.network')}</th>
+                <th scope="col" className="pb-3 font-medium">{t('table.action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1190,12 +908,41 @@ export default function XrplMarketPanel() {
                     <td className="py-2 pr-3">{formatUsd(asset.priceUsd, locale)}</td>
                     <td className={`py-2 pr-3 ${changeClass}`}>{formatPercentChange(asset.change24h, locale)}</td>
                     <td className="py-2 text-ivory/60">{asset.network}</td>
+                    <td className="py-2 text-right">
+                      {asset.marketGroup === 'xrpl' && asset.symbol !== 'XRP' && (
+                        <button
+                          data-testid={`xrpl-market-buy-${asset.symbol.toLowerCase()}`}
+                          type="button"
+                          onClick={() => setTradeAsset({ symbol: asset.symbol, name: asset.name })}
+                          className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-ivory"
+                        >
+                          {t('buyAsset', { asset: asset.symbol })}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
         </div>
+
+        {tradeAsset && (
+          <div className="space-y-3" id="xrpl-market-buy-panel">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-ivory/55">{t('buyPanelTitle')}</p>
+              <button
+                data-testid="xrpl-market-buy-close"
+                type="button"
+                onClick={() => setTradeAsset(null)}
+                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-ivory/70"
+              >
+                {t('closeBuyPanel')}
+              </button>
+            </div>
+            <XrplBuyFlow asset={tradeAsset} />
+          </div>
+        )}
 
         <button
           ref={refreshButton.ref}
@@ -1207,7 +954,7 @@ export default function XrplMarketPanel() {
           onPointerUp={refreshButton.onPointerUp}
           onPointerCancel={refreshButton.onPointerCancel}
           onBlur={refreshButton.onBlur}
-          onClick={() => void loadSnapshot()}
+          onClick={() => void refreshSnapshot()}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e0bf7f] via-[#cc945f] to-[#b26a49] px-5 py-3 text-base font-semibold tracking-wide text-ivory shadow-lg shadow-[#b26a49]/30 transition focus:outline-none focus:ring-2 focus:ring-saffron/40"
         >
           {t('refresh')}

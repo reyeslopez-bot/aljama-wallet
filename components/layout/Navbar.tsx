@@ -7,6 +7,7 @@ import WalletButton from '@/components/wallet/ui/WalletButton'
 import { BRAND } from '@/constants/brand'
 import { useLocale, useTranslations } from 'next-intl'
 import { signOut, useSession } from 'next-auth/react'
+import { replacePathLocale } from '@/i18n/routing'
 import { hasRecognizedDevice, onTelemetryConsentChange } from '@/infra/telemetry/client'
 import { openSupportDrawer } from '@/lib/support/contact'
 
@@ -234,6 +235,11 @@ export default function Navbar() {
   const authCtaLabel = recognizedDevice ? t('signIn') : t('signUp')
   const authCtaHref = recognizedDevice ? `/${locale}?mode=login#wallet` : `/${locale}?mode=register#wallet`
   const currentLanguage = LANGUAGES.find((lang) => lang.value === locale)
+  const handleLanguageChange = (nextLocale: string) => {
+    setLanguageOpen(false)
+    const currentUrl = `${pathname}${window.location.search}${window.location.hash}`
+    router.push(replacePathLocale(currentUrl, nextLocale))
+  }
   const accountLabel =
     session?.user?.name?.trim() ||
     session?.user?.email?.split('@')[0] ||
@@ -511,18 +517,7 @@ export default function Navbar() {
                     <button
                       key={language.value}
                       type="button"
-                      onClick={() => {
-                        setLanguageOpen(false)
-                        const segments = pathname.split('/')
-                        if (segments.length > 1) {
-                          segments[1] = language.value
-                        } else {
-                          segments.push(language.value)
-                        }
-                        const nextPath = segments.join('/') || `/${language.value}`
-                        const hash = typeof window !== 'undefined' ? window.location.hash : ''
-                        router.push(`${nextPath}${hash}`)
-                      }}
+                      onClick={() => handleLanguageChange(language.value)}
                       className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
                         isLight
                           ? 'text-[#2f4863]/85 hover:bg-[#7fa3c1]/20 hover:text-[#1d2f45]'

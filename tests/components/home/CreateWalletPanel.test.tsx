@@ -61,6 +61,14 @@ vi.mock('@/lib/pqc/deterministic', () => ({
   deriveDeterministicWalletPqcMaterial: mockDeriveDeterministicWalletPqcMaterial,
 }))
 
+vi.mock('@/lib/xrpl/local-wallet', () => ({
+  deriveLocalXrplWallet: () => ({
+    address: 'rLocalXrplWalletAddress1111111111',
+    publicKey: `ED${'1'.repeat(64)}`,
+    privateKey: `ED${'2'.repeat(64)}`,
+  }),
+}))
+
 const mockedUseSession = vi.mocked(useSession)
 const initialState = useDynamicInfoStore.getState()
 

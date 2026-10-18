@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'aljama.encryptedWallet'
 const WALLET_ID_KEY = 'aljama.walletId'
 const PATH_LOCKS_KEY = 'aljama.pathLocks'
+const XRPL_ADDRESS_KEY = 'aljama.xrplAddress'
 
 export function persistEncryptedSession(payload: string) {
   if (typeof window === 'undefined') return
@@ -15,6 +16,17 @@ export function loadEncryptedSession(): string | null {
 export function clearEncryptedSession() {
   if (typeof window === 'undefined') return
   sessionStorage.removeItem(STORAGE_KEY)
+  sessionStorage.removeItem(XRPL_ADDRESS_KEY)
+}
+
+export function persistXrplAddress(address: string) {
+  if (typeof window === 'undefined') return
+  sessionStorage.setItem(XRPL_ADDRESS_KEY, address)
+}
+
+export function loadXrplAddress(): string | null {
+  if (typeof window === 'undefined') return null
+  return sessionStorage.getItem(XRPL_ADDRESS_KEY)
 }
 
 export function persistWalletId(walletId: string) {

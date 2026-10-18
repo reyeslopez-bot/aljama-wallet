@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { getErrorMessage } from '@/lib/security/errors'
 import { assertNoSensitiveFreeFormFields } from '@/lib/security/event-schema'
+import { asRecord, envInt, normalizeString } from '@/lib/security/normalization'
 import { disablePgFeatureInDev, clearPgDevFallbackStateForTests, isPgFeatureDisabledInDev } from '@/lib/security/pg-dev-fallback'
 import { prismaPg } from '@/lib/prisma-pg'
 import { logError, logWarn } from '@/lib/security/logging'
@@ -262,14 +263,6 @@ if (!globalForSecurityAnomalies.securityPluginRules) {
   globalForSecurityAnomalies.securityPluginRules = pluginRules
 }
 
-function envInt(name: string, fallback: number): number {
-  const raw = process.env[name]
-  if (!raw) return fallback
-  const parsed = Number(raw)
-  if (!Number.isFinite(parsed)) return fallback
-  return Math.max(0, Math.floor(parsed))
-}
-
 const SECURITY_FORENSICS_PG_FEATURE = 'security-anomaly-forensics'
 
 function canUsePg() {
@@ -318,12 +311,6 @@ function toJson(value: unknown): Prisma.InputJsonValue {
 function nextId(prefix: 'sig' | 'anomaly'): string {
   if (globalThis.crypto?.randomUUID) return `${prefix}_${globalThis.crypto.randomUUID()}`
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`
-}
-
-function normalizeString(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed ? trimmed : null
 }
 
 function normalizeNumber(value: unknown): number | null {
@@ -406,11 +393,6 @@ function normalizeCoordinate(value: unknown, minimum: number, maximum: number): 
   if (parsed === null) return null
   if (parsed < minimum || parsed > maximum) return null
   return parsed
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
-  return value as Record<string, unknown>
 }
 
 function readFirstValue(record: Record<string, unknown>, keys: string[]): unknown {

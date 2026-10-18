@@ -20,6 +20,16 @@ const snapshot = {
       series: [1, 1.02, 1.01],
     },
     {
+      id: 'eurc',
+      symbol: 'EURC',
+      name: 'EURC',
+      marketGroup: 'xrpl' as const,
+      network: 'XRPL',
+      priceUsd: 1.08,
+      change24h: 0.1,
+      series: [1, 1.001, 1.002],
+    },
+    {
       id: 'btc',
       symbol: 'BTC',
       name: 'Bitcoin',
@@ -110,6 +120,23 @@ describe('XrplMarketPanel', () => {
     expect(reference.disabled).toBe(false)
     expect(refresh.disabled).toBe(false)
     expect(queryByTestId('xrpl-market-unlock')).toBeNull()
+  })
+
+  it('opens a fresh XRPL trade from a supported market asset', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => snapshot,
+    }))
+
+    const { getAllByTestId, getByTestId } = render(<XrplMarketPanel />)
+
+    await waitFor(() => {
+      expect(getAllByTestId('xrpl-market-buy-eurc').length).toBeGreaterThan(0)
+    })
+    fireEvent.click(getAllByTestId('xrpl-market-buy-eurc')[0]!)
+
+    expect(getByTestId('xrpl-buy-flow')).toBeTruthy()
+    expect(getByTestId('xrpl-market-buy-close')).toBeTruthy()
   })
 
   it('keeps chart paths inside the clipped plot area', async () => {

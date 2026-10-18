@@ -39,6 +39,13 @@ export type WalletSecurityProfile = {
 export type UnlockedWalletWithSecurityProfile = UnlockedWallet & {
   securityProfile: WalletSecurityProfile
   postQuantum: WalletPqcEncryptedMaterial | null
+  xrplWallet: EncryptedLocalXrplWallet | null
+}
+
+export type EncryptedLocalXrplWallet = {
+  address: string
+  publicKey: string
+  privateKey: string
 }
 
 const BASE64_PATTERN =
@@ -78,6 +85,7 @@ export const DEFAULT_WALLET_SECURITY_PROFILE: WalletSecurityProfile = {
 export type EncodeWalletToEncryptedOptions = {
   securityProfile?: WalletSecurityProfile
   postQuantum?: WalletPqcEncryptedMaterial | null
+  xrplWallet?: EncryptedLocalXrplWallet | null
 }
 
 export type CreateEncryptedWalletOptions = {
@@ -186,11 +194,39 @@ function parseUnlockedWalletPayload(payload: Record<string, unknown>): UnlockedW
     throw new Error('Encrypted payload missing wallet material')
   }
 
+  const xrplWallet = parseEncryptedLocalXrplWallet(payload.xrplWallet)
+
   return {
     address,
     privateKey,
     securityProfile: resolveWalletSecurityProfile(payload.securityProfile),
     postQuantum: parsePostQuantumPayload(payload.postQuantum),
+    xrplWallet,
+  }
+}
+
+function parseEncryptedLocalXrplWallet(value: unknown): EncryptedLocalXrplWallet | null {
+  if (value === undefined || value === null) return null
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Encrypted payload contains invalid XRPL wallet material')
+  }
+
+  const wallet = value as Record<string, unknown>
+  const isEd25519Key = (key: unknown): key is string =>
+    typeof key === 'string' && /^ED[A-F0-9]{64}$/i.test(key)
+  if (
+    typeof wallet.address !== 'string' ||
+    !wallet.address ||
+    !isEd25519Key(wallet.publicKey) ||
+    !isEd25519Key(wallet.privateKey)
+  ) {
+    throw new Error('Encrypted payload contains invalid XRPL wallet material')
+  }
+
+  return {
+    address: wallet.address,
+    publicKey: wallet.publicKey,
+    privateKey: wallet.privateKey,
   }
 }
 
@@ -565,6 +601,10 @@ export async function encodeWalletToEncrypted(
     address: wallet.address,
     privateKey: wallet.privateKey,
     securityProfile,
+  }
+
+  if (options.xrplWallet) {
+    payload.xrplWallet = options.xrplWallet
   }
 
   if (options.postQuantum) {
