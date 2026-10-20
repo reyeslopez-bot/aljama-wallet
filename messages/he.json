@@ -391,6 +391,14 @@
     "hoverView": "תצוגת ריחוף",
     "expand": "פתיחת פרטים",
     "collapse": "הסתרת פרטים",
+    "cardPosition": "מיקום הכרטיס",
+    "moveToCorner": "העברת הכרטיס אל {corner}",
+    "corners": {
+      "topLeft": "למעלה משמאל",
+      "topRight": "למעלה מימין",
+      "bottomLeft": "למטה משמאל",
+      "bottomRight": "למטה מימין"
+    },
     "status": {
       "creating": "יוצר",
       "syncing": "מסנכרן",

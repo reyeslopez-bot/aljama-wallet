@@ -26,6 +26,7 @@ export default function InteractiveShell({
   const [interactiveReady, setInteractiveReady] = useState(false)
 
   useEffect(() => {
+    let readyTimeout = 0
     const scheduleFrame =
       typeof window.requestAnimationFrame === 'function'
         ? window.requestAnimationFrame.bind(window)
@@ -38,14 +39,20 @@ export default function InteractiveShell({
 
     let firstFrame = 0
     let secondFrame = 0
+    const markInteractive = () => {
+      window.clearTimeout(readyTimeout)
+      setInteractiveReady(true)
+    }
 
+    readyTimeout = window.setTimeout(markInteractive, 1_500)
     firstFrame = scheduleFrame(() => {
       secondFrame = scheduleFrame(() => {
-        setInteractiveReady(true)
+        markInteractive()
       })
     })
 
     return () => {
+      window.clearTimeout(readyTimeout)
       cancelFrame(firstFrame)
       cancelFrame(secondFrame)
     }
@@ -64,7 +71,7 @@ export default function InteractiveShell({
           data-testid={loadingTestId}
           className={
             overlayClassName ??
-            'absolute inset-0 z-20 bg-black/18 backdrop-blur-[2px]'
+            'pointer-events-none absolute inset-0 z-20 bg-black/18 backdrop-blur-[2px]'
           }
         >
           <div

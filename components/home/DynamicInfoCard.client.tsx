@@ -124,6 +124,12 @@ function CopyIcon() {
 type CardCorner = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
 const INFO_CARD_CORNER_KEY = 'aljama.infoCard.corner'
 const CARD_CORNERS: CardCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+const CARD_CORNER_LABELS: Record<CardCorner, string> = {
+  'top-left': 'topLeft',
+  'top-right': 'topRight',
+  'bottom-left': 'bottomLeft',
+  'bottom-right': 'bottomRight',
+}
 const DUBAI_TIMEZONE = 'Asia/Dubai'
 const DUBAI_UTC_LABEL = 'UTC+04:00'
 const DRAG_IGNORE_SELECTOR = 'button, a, input, textarea, select, [role="button"]'
@@ -823,6 +829,43 @@ export default function DynamicInfoCard() {
                     ) : null}
                   </div>
                 ) : null}
+
+                <div className="space-y-2">
+                  <p className="text-[0.625rem] uppercase tracking-[0.16em] text-ivory/55">
+                    {t('cardPosition')}
+                  </p>
+                  <div className="flex items-center gap-2" role="group" aria-label={t('cardPosition')}>
+                    {CARD_CORNERS.map((cardCorner) => {
+                      const label = t(`corners.${CARD_CORNER_LABELS[cardCorner]}`)
+                      return (
+                        <button
+                          key={cardCorner}
+                          type="button"
+                          data-testid={`dynamic-info-card-position-${cardCorner}`}
+                          aria-label={t('moveToCorner', { corner: label })}
+                          aria-pressed={corner === cardCorner}
+                          title={t('moveToCorner', { corner: label })}
+                          onClick={() => setCorner(cardCorner)}
+                          className={`inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs transition ${
+                            corner === cardCorner
+                              ? 'border-saffron/50 bg-saffron/15 text-saffron'
+                              : isLightTheme
+                                ? 'border-[#7fa3c1]/45 bg-white/70 text-[#3a5673]/85 hover:bg-white'
+                                : 'border-white/10 bg-white/5 text-ivory/70 hover:bg-white/10'
+                          }`}
+                        >
+                          {cardCorner === 'top-left'
+                            ? '↖'
+                            : cardCorner === 'top-right'
+                              ? '↗'
+                              : cardCorner === 'bottom-left'
+                                ? '↙'
+                                : '↘'}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
 
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2">

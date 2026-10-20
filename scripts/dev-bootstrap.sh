@@ -23,7 +23,9 @@ fi
 
 prisma_marker="$(cat "$PRISMA_MARKER_FILE" 2>/dev/null || true)"
 if [ "$deps_changed" = true ] || [ ! -f prisma/generated/pg/index.d.ts ] || [ ! -f prisma/generated/prisma-crdb/index.d.ts ] || [ -z "$PRISMA_HASH" ] || [ "$prisma_marker" != "$PRISMA_HASH" ]; then
-  pnpm prisma:generate
+  CRDB_DATABASE_URL="${CRDB_DATABASE_URL:-postgresql://root@127.0.0.1:26257/aljama_wallet?sslmode=disable}" \
+    POSTGRES_URL="${POSTGRES_URL:-postgresql://postgres:postgres@127.0.0.1:5432/aljama_wallet}" \
+    pnpm prisma:generate
   printf '%s\n' "$PRISMA_HASH" >"$PRISMA_MARKER_FILE"
 fi
 

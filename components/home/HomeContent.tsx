@@ -205,8 +205,8 @@ export default function HomeContent() {
       loadingTitle={tHome('interactive.title')}
       loadingHint={tHome('interactive.body')}
       className="relative mx-auto max-w-7xl space-y-14 pb-28 lg:space-y-16"
-      overlayClassName="absolute inset-0 z-20 bg-[#071018]/16 backdrop-blur-[1.5px]"
-      panelClassName="ms-auto me-4 mt-4 max-w-sm rounded-[1.5rem] border border-white/10 bg-[#071018]/92 px-4 py-3 text-start shadow-xl shadow-black/25"
+      overlayClassName="pointer-events-none absolute inset-0 z-20"
+      panelClassName="pointer-events-none fixed bottom-4 left-4 z-40 max-w-sm rounded-[1.5rem] border border-white/10 bg-[#071018]/92 px-4 py-3 text-start shadow-xl shadow-black/25"
     >
       <ClientTrackWallet />
       <DynamicInfoCard />

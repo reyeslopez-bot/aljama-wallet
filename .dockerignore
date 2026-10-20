@@ -9,6 +9,7 @@ Containerfile
 .vscode
 .DS_Store
 *.env
+.env*
 .next
 coverage
 dist

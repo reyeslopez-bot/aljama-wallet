@@ -445,6 +445,36 @@ The development server uses in-memory auth and listens on port 3000 by default. 
 `http://localhost:3000`. To use another port, set `PORT` and update `NEXTAUTH_URL`
 in `.env.development.local` to match.
 
+### Run the development container with Podman
+
+Podman is detected automatically when it is installed. On macOS, start its VM
+once, then build and run the development container from the repository root:
+
+```bash
+podman machine start
+cp .env.development.example .env.local
+./dev.sh --rebuild --attach
+```
+
+The app is available at `http://localhost:2998`. Use `./dev.sh --detach` to run
+it in the background, `./dev.sh --logs-only` to follow its logs, and
+`./dev.sh --stop` to stop it. `./dev.sh --shell` opens a shell in the running
+container. The default development configuration uses in-memory auth; start
+local databases with `./db.sh up` only when you need database-backed features.
+Set `CONTAINER_RUNTIME=podman` before a script command to force Podman when both
+Podman and Docker are installed.
+
+To build and run the production image, set a real `NEXTAUTH_SECRET` (at least 32
+characters) in `.env.local`, then run:
+
+```bash
+./prod.sh
+```
+
+This publishes the app on `http://localhost:2999`. Production features that
+depend on databases or external services also need their corresponding
+production environment values.
+
 To test a production build locally, start the databases, configure a separate
 production profile, and run the production build and server:
 

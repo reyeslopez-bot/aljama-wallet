@@ -123,6 +123,21 @@ describe('DynamicInfoCard', () => {
     })
   })
 
+  it('moves to a selected corner and persists the position', async () => {
+    const { getByTestId } = render(<DynamicInfoCard />)
+
+    fireEvent.click(getByTestId('dynamic-info-card-expand-button'))
+    fireEvent.click(getByTestId('dynamic-info-card-position-bottom-left'))
+
+    await waitFor(() => {
+      const card = getByTestId('dynamic-info-card')
+      expect(card.className).toContain('bottom-4')
+      expect(card.className).toContain('left-4')
+      expect(window.localStorage.getItem('aljama.infoCard.corner')).toBe('bottom-left')
+      expect(getByTestId('dynamic-info-card-position-bottom-left').getAttribute('aria-pressed')).toBe('true')
+    })
+  })
+
   it('supports keyboard activation without double-toggling', async () => {
     const user = userEvent.setup()
     const { getByTestId, queryByTestId } = render(<DynamicInfoCard />)

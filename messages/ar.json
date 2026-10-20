@@ -449,6 +449,14 @@
     "hoverView": "عرض عند المرور",
     "expand": "فتح التفاصيل",
     "collapse": "إخفاء التفاصيل",
+    "cardPosition": "موضع البطاقة",
+    "moveToCorner": "نقل البطاقة إلى {corner}",
+    "corners": {
+      "topLeft": "أعلى اليسار",
+      "topRight": "أعلى اليمين",
+      "bottomLeft": "أسفل اليسار",
+      "bottomRight": "أسفل اليمين"
+    },
     "status": {
       "creating": "جارٍ الإنشاء",
       "syncing": "جارٍ المزامنة",

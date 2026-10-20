@@ -449,6 +449,14 @@
     "hoverView": "Hover view",
     "expand": "Open details",
     "collapse": "Hide details",
+    "cardPosition": "Card position",
+    "moveToCorner": "Move card to {corner}",
+    "corners": {
+      "topLeft": "top left",
+      "topRight": "top right",
+      "bottomLeft": "bottom left",
+      "bottomRight": "bottom right"
+    },
     "status": {
       "creating": "Creating",
       "syncing": "Syncing",

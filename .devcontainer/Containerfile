@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ---------- base ----------
-FROM node:25.4.0 AS base
+FROM node:24 AS base
 WORKDIR /workspace
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
@@ -53,19 +53,25 @@ RUN --mount=type=cache,target=/root/.pnpm-store \
 # 2. Copy source (including prisma/)
 COPY . .
 
-RUN pnpm prisma generate --schema=prisma/crdb/schema.prisma \
-    && pnpm prisma generate --schema=prisma/pg/schema.prisma \
+RUN CRDB_DATABASE_URL="postgresql://root@127.0.0.1:26257/aljama_wallet?sslmode=disable" \
+    POSTGRES_URL="postgresql://postgres:postgres@127.0.0.1:5432/aljama_wallet" \
+    pnpm prisma generate --schema=prisma/crdb/schema.prisma \
+    && CRDB_DATABASE_URL="postgresql://root@127.0.0.1:26257/aljama_wallet?sslmode=disable" \
+    POSTGRES_URL="postgresql://postgres:postgres@127.0.0.1:5432/aljama_wallet" \
+    pnpm prisma generate --schema=prisma/pg/schema.prisma \
     && echo "=== prisma/generated tree ===" \
     && ls -la prisma/generated \
     && echo "=== prisma-crdb files ===" \
     && ls -la prisma/generated/prisma-crdb \
     && test -f prisma/generated/prisma-crdb/index.d.ts
 # 3. Build Next
-RUN pnpm build \
+RUN CRDB_DATABASE_URL="postgresql://root@127.0.0.1:26257/aljama_wallet?sslmode=disable" \
+    POSTGRES_URL="postgresql://postgres:postgres@127.0.0.1:5432/aljama_wallet" \
+    pnpm build \
     && test -f .next/standalone/server.js
 
 # ---------- prod ----------
-FROM node:25.4.0-slim AS prod
+FROM node:24-slim AS prod
 WORKDIR /workspace
 
 ENV NODE_ENV=production \
