@@ -14,6 +14,7 @@ import {
   CONSENT_SITE_ENTRY_SESSION_KEY,
 } from "@/infra/consent/constants"
 import { resolveConsentReturnPath } from "@/infra/consent/routing"
+import { recordConsentChoice } from "@/infra/consent/receipt"
 
 type ConsentPreset = "rejectAll" | "essentialOnly" | "allowAll"
 
@@ -38,6 +39,7 @@ export default function ConsentEntryGate({ variant = "page" }: ConsentEntryGateP
 
   const [consentPreset, setConsentPreset] = React.useState<ConsentPreset>("allowAll")
   const [busy, setBusy] = React.useState(false)
+  const [receiptFailed, setReceiptFailed] = React.useState(false)
 
   React.useEffect(() => {
     if (typeof window === "undefined") return
@@ -120,11 +122,21 @@ export default function ConsentEntryGate({ variant = "page" }: ConsentEntryGateP
     setBusy(true)
     try {
       applyConsentPreset(consentPreset)
+      await recordConsentChoice({
+        telemetryGranted: consentPreset === "allowAll",
+        locationGranted: consentPreset === "allowAll",
+      })
       router.push(nextPath)
+    } catch {
+      setReceiptFailed(true)
     } finally {
       setBusy(false)
     }
   }, [applyConsentPreset, busy, consentPreset, nextPath, router])
+  const handleContinueWithoutEvidence = React.useCallback(() => {
+    applyConsentPreset(consentPreset)
+    router.push(nextPath)
+  }, [applyConsentPreset, consentPreset, nextPath, router])
   const isInline = variant === "inline"
 
   return (
@@ -243,6 +255,11 @@ export default function ConsentEntryGate({ variant = "page" }: ConsentEntryGateP
               <li>{tConsent("locationDetail")}</li>
               <li>{tConsent("telemetryDetail")}</li>
             </ul>
+            {receiptFailed ? (
+              <p role="alert" className="text-xs leading-relaxed text-saffron">
+                {tConsent("evidenceUnavailable")}
+              </p>
+            ) : null}
             <div className="grid gap-2 sm:grid-cols-3">
               {(["rejectAll", "essentialOnly", "allowAll"] as const).map((option) => (
                 <button
@@ -268,8 +285,21 @@ export default function ConsentEntryGate({ variant = "page" }: ConsentEntryGateP
               data-testid="consent-gate-continue"
               className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm font-semibold text-ivory/90 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {busy ? tConsent("acceptAndContinueLoading") : tConsent("acceptAndContinue")}
+              {busy
+                ? tConsent("acceptAndContinueLoading")
+                : receiptFailed
+                  ? tConsent("retryEvidence")
+                  : tConsent("acceptAndContinue")}
             </button>
+            {receiptFailed ? (
+              <button
+                type="button"
+                onClick={handleContinueWithoutEvidence}
+                className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-xs font-semibold text-ivory/70 transition hover:bg-white/10"
+              >
+                {tConsent("continueWithoutEvidence")}
+              </button>
+            ) : null}
           </div>
 
           {showAuthPrompt ? (

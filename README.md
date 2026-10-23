@@ -464,6 +464,10 @@ local databases with `./db.sh up` only when you need database-backed features.
 Set `CONTAINER_RUNTIME=podman` before a script command to force Podman when both
 Podman and Docker are installed.
 
+To reclaim unused Podman images, external build layers, and persistent build
+cache across projects, run `just podman-prune`. It keeps images used by running
+containers and does not remove stopped containers, volumes, or database data.
+
 To build and run the production image, set a real `NEXTAUTH_SECRET` (at least 32
 characters) in `.env.local`, then run:
 

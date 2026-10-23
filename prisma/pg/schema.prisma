@@ -154,6 +154,87 @@ model ContactRequest {
   @@index([userId, createdAt])
 }
 
+model PrivacyRequest {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String
+  description String?
+  status      String    @default("received")
+  resolution  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  events      PrivacyRequestEvent[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([resolvedAt])
+}
+
+model PrivacyRequestEvent {
+  id              String   @id @default(cuid())
+  requestId       String
+  changedByUserId String
+  fromStatus      String?
+  toStatus        String
+  resolution      String?
+  createdAt       DateTime @default(now())
+  request         PrivacyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+}
+
+model ConsentReceipt {
+  id                 String   @id @default(cuid())
+  receiptId          String
+  consentVersion     String
+  telemetryGranted   Boolean
+  locationGranted    Boolean
+  changeType         String
+  previousTelemetry  Boolean?
+  previousLocation   Boolean?
+  createdAt          DateTime @default(now())
+
+  @@index([receiptId, createdAt])
+  @@index([createdAt])
+}
+
+model GovernanceRecord {
+  id                String   @id @default(cuid())
+  framework         String
+  kind              String
+  title             String
+  details           String
+  owner             String?
+  status            String   @default("planned")
+  evidenceUrl       String?
+  dueAt             DateTime?
+  reviewedSubjects  Json?
+  createdByUserId   String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  events            GovernanceRecordEvent[]
+
+  @@index([framework, kind, status])
+  @@index([dueAt, status])
+  @@index([createdAt])
+}
+
+model GovernanceRecordEvent {
+  id            String   @id @default(cuid())
+  recordId      String
+  changedByUserId String
+  action        String
+  fromStatus    String?
+  toStatus      String
+  summary       String
+  createdAt     DateTime @default(now())
+  record        GovernanceRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@index([recordId, createdAt])
+  @@index([changedByUserId, createdAt])
+}
+
 model UserWallet {
   id        String   @id @default(cuid())
   userId    String

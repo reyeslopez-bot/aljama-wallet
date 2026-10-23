@@ -1,0 +1,15 @@
+# Privacy requests
+
+The signed-in privacy center at `/{locale}/privacy` supports account-data export and access, rectification, and erasure request intake. Requests are queued for human review; an erasure request does not automatically remove accounts, wallet keys, financial records, or public blockchain data.
+
+The export includes allowlisted account-linked records stored in PostgreSQL. It intentionally excludes authentication secrets, private keys, signing payloads, anonymous telemetry, and records that cannot be reliably linked to the account. It is not a full data inventory or a legal determination of what must be disclosed.
+
+Privacy requests and their status events are deleted 90 days after resolution. Consent receipts are deleted 90 days after each choice. Run the `worker:privacy-request-retention` process alongside the application; it performs an immediate cleanup pass at startup and repeats every 24 hours by default, deleting at most 500 expired records of each type per pass. Set `PRIVACY_REQUEST_RETENTION_INTERVAL_MS` to change the interval. The worker requires `PG_DATABASE_URL` or `POSTGRES_URL`; its cleanup failures are logged and must be monitored. Configure `AUTH_ADMIN_EMAILS` so authorized staff can review and update requests from the privacy center.
+
+Apply the PostgreSQL migration with `pnpm prisma:migrate:deploy:pg` before enabling the privacy center. The worker launcher loads `.env`, `.env.local`, `.env.{NODE_ENV}.local`, and `prisma/pg/.env`, with later files taking precedence, matching the PostgreSQL Prisma config. The intake and export APIs return a service-unavailable response when persistent PostgreSQL auth storage is not enabled.
+
+If Prisma reports `P3005` because the database is non-empty, stop before retrying migrations or running `migrate reset`. This means the database schema exists without a matching Prisma migration history. Back up the database, check `pnpm exec prisma migrate status --config=prisma/pg/prisma.config.ts`, and compare the live schema with `pnpm exec prisma migrate diff --from-schema prisma/pg/schema.prisma --to-config-datasource --config=prisma/pg/prisma.config.ts --exit-code`. Schema equality alone does not verify historical data backfills or status transformations in earlier migrations; baseline only after those effects have been checked. Never reset a database containing data you need to keep.
+
+Optional-service consent choices are recorded as append-only receipts tied to a random browser identifier, not an authenticated account. They are not included in account exports; records can only be correlated from the browser that holds the identifier. Their approved retention period is 90 days from each recorded choice.
+
+This feature does not itself establish GDPR compliance. The organization still needs to validate identity and scope, assess legal holds and applicable retention duties, complete requests within applicable deadlines, and maintain a broader data inventory and processing/legal-basis records.

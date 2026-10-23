@@ -28,27 +28,31 @@ const ROADMAP: Record<TargetKey, RoadmapTarget> = {
     referenceLinks: [
       { label: 'EU GDPR text (EUR-Lex)', href: 'https://eur-lex.europa.eu/eli/reg/2016/679/oj' },
     ],
-    nextReview: 'Review window: March 2026',
+    nextReview: 'Review window: October 2026',
     checkpoints: [
       {
         title: 'Data inventory and purpose mapping',
-        detail: 'Map personal data flows by region and bind each flow to legal basis and retention period.',
+        detail:
+          'The governance register can track the inventory; processing flows, legal bases, retention schedule, and owner review still need to be completed.',
         status: 'In progress',
       },
       {
         title: 'Consent and preference controls',
-        detail: 'Implement explicit consent capture plus withdrawal flows with immutable event logs.',
-        status: 'Planned',
+        detail:
+          'Optional-service choices and withdrawals append pseudonymous browser receipts with 90-day expiry; notice content and complete processing disclosures still need review.',
+        status: 'In progress',
       },
       {
         title: 'Data subject request workflow',
-        detail: 'Add export, correction, and deletion pipelines with SLA tracking and evidence capture.',
-        status: 'Planned',
+        detail:
+          'Account-linked export and authenticated request intake are available; eligibility review, processing SLAs, and broader data coverage remain in progress.',
+        status: 'In progress',
       },
       {
         title: 'DPIA and risk register process',
-        detail: 'Document high-risk processing cases and maintain mitigation actions in a formal register.',
-        status: 'Queued',
+        detail:
+          'The governance register supports DPIA and risk entries with owners, due dates, evidence links, and status history; assessments must be authored and reviewed.',
+        status: 'In progress',
       },
     ],
   },
@@ -63,27 +67,31 @@ const ROADMAP: Record<TargetKey, RoadmapTarget> = {
         href: 'https://www.aicpa-cima.com/topic/audit-assurance/audit-and-assurance-greater-than-soc-2',
       },
     ],
-    nextReview: 'Review window: April 2026',
+    nextReview: 'Review window: October 2026',
     checkpoints: [
       {
         title: 'Access control hardening',
-        detail: 'Enforce RBAC, least privilege, and periodic access recertification for privileged roles.',
+        detail:
+          'Admin access remains configured by AUTH_ADMIN_EMAILS. The governance register supports reviewing each configured admin; recommendations do not automatically change deployed permissions.',
         status: 'In progress',
       },
       {
         title: 'Change management evidence',
-        detail: 'Link pull request approvals, deployment checks, and rollback plans to tracked release records.',
-        status: 'Planned',
+        detail:
+          'Release evidence can be recorded in the governance register; pull request approval, deployment checks, and rollback evidence still need to be linked by operators.',
+        status: 'In progress',
       },
       {
         title: 'Incident response readiness',
-        detail: 'Run tabletop drills, define severity runbooks, and archive response timelines for audit evidence.',
-        status: 'Planned',
+        detail:
+          'The register supports tabletop exercise and incident evidence entries; runbooks, exercises, and response evidence remain operational work.',
+        status: 'In progress',
       },
       {
         title: 'Vendor risk management',
-        detail: 'Formalize third-party due diligence with annual reassessment and risk acceptance logs.',
-        status: 'Queued',
+        detail:
+          'Vendor assessments and risk acceptance can be tracked in the governance register; due diligence and reassessment must be performed and documented.',
+        status: 'In progress',
       },
     ],
   },
@@ -95,27 +103,31 @@ const ROADMAP: Record<TargetKey, RoadmapTarget> = {
     referenceLinks: [
       { label: 'ISO 27001 standard page', href: 'https://www.iso.org/standard/27001.html' },
     ],
-    nextReview: 'Review window: May 2026',
+    nextReview: 'Review window: October 2026',
     checkpoints: [
       {
         title: 'ISMS scope and context definition',
-        detail: 'Document scope boundaries, interested parties, and applicable control statements.',
+        detail:
+          'The governance register supports scope and context records; boundaries, interested parties, exclusions, and applicability still need owner approval.',
         status: 'In progress',
       },
       {
         title: 'Risk assessment cadence',
-        detail: 'Establish recurring risk scoring, treatment plans, and risk owner accountability.',
-        status: 'Planned',
+        detail:
+          'The register supports risk owners, due dates, treatment status, and evidence links; scoring criteria and review cadence still need approval.',
+        status: 'In progress',
       },
       {
         title: 'Control implementation tracking',
-        detail: 'Track Annex A control implementation status with evidence links and ownership metadata.',
-        status: 'Planned',
+        detail:
+          'The governance register can track Annex A work and change history; applicable controls and supporting evidence have not been independently verified.',
+        status: 'In progress',
       },
       {
         title: 'Internal audit + management review',
-        detail: 'Schedule internal audits and executive reviews with corrective action follow-through.',
-        status: 'Queued',
+        detail:
+          'Audit and management-review entries can be tracked; audits, executive reviews, independence, and corrective-action follow-through remain to be performed.',
+        status: 'In progress',
       },
     ],
   },
@@ -250,12 +262,26 @@ export default async function ComplianceRoadmapPage({
         </div>
 
         <div className="mt-6">
-          <Link
-            href={`/${locale}/#demo`}
-            className="inline-flex rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-ivory/80 transition hover:border-saffron/35 hover:bg-saffron/10 hover:text-ivory"
-          >
-            Back to region and compliance
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/${locale}/#demo`}
+              className="inline-flex rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-ivory/80 transition hover:border-saffron/35 hover:bg-saffron/10 hover:text-ivory"
+            >
+              Back to region and compliance
+            </Link>
+            <Link
+              href={`/${locale}/privacy`}
+              className="inline-flex rounded-xl border border-saffron/35 bg-saffron/10 px-4 py-2 text-sm text-ivory/80 transition hover:bg-saffron/15 hover:text-ivory"
+            >
+              Privacy center
+            </Link>
+            <Link
+              href={`/${locale}/compliance/governance`}
+              className="inline-flex rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-ivory/70 transition hover:border-saffron/25 hover:bg-saffron/10 hover:text-ivory"
+            >
+              Governance register (admin)
+            </Link>
+          </div>
         </div>
       </div>
     </section>

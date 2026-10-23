@@ -33,6 +33,7 @@
     "test:frontend": "pnpm test:frontend:components && pnpm test:e2e",
     "signer:wallet": "tsx services/mcp/wallet-signer.ts",
     "worker:security-alert-delivery": "tsx services/security-alert-delivery.worker.ts",
+    "worker:privacy-request-retention": "tsx scripts/run-privacy-request-retention-worker.ts",
     "worker:chain-sync": "tsx services/chain-transaction-sync.worker.ts",
     "worker:signing-intents": "tsx services/signing-intent.worker.ts",
     "worker:cross-db-reconciliation": "tsx services/cross-db-reconciliation.worker.ts",

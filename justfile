@@ -60,6 +60,9 @@ ps:
 clean:
 	./dev.sh --clean
 
+podman-prune:
+	bash -lc 'set -euo pipefail; source ./scripts/lib/container-common.sh; RUNTIME="$(detect_container_runtime "${CONTAINER_RUNTIME:-podman}")"; ensure_runtime_ready "$RUNTIME"; "$RUNTIME" image prune --all --external --build-cache --force'
+
 preview port=app_port:
 	xdg-open "http://localhost:{{port}}" || open "http://localhost:{{port}}" || echo "Could not auto-open browser."
 

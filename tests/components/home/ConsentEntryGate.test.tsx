@@ -18,6 +18,11 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   pathname: '/en/consent',
   search: 'next=%2Fen%2Fcompliance',
+  recordConsentChoice: vi.fn(),
+}))
+
+vi.mock('@/infra/consent/receipt', () => ({
+  recordConsentChoice: mocks.recordConsentChoice,
 }))
 
 vi.mock('next/navigation', () => ({
@@ -103,6 +108,7 @@ describe('ConsentEntryGate', () => {
     localStorage.clear()
     sessionStorage.clear()
     vi.clearAllMocks()
+    mocks.recordConsentChoice.mockResolvedValue(undefined)
     resetStore()
     mocks.pathname = '/en/consent'
     mocks.search = 'next=%2Fen%2Fcompliance'
@@ -135,6 +141,34 @@ describe('ConsentEntryGate', () => {
     expect(localStorage.getItem(CONSENT_MODE_KEY)).toBe('allowAll')
     expect(sessionStorage.getItem(CONSENT_PROMPT_SESSION_KEY)).toBe('seen')
     expect(sessionStorage.getItem(CONSENT_SITE_ENTRY_SESSION_KEY)).toBe('seen')
+    expect(mocks.recordConsentChoice).toHaveBeenCalledWith({
+      telemetryGranted: true,
+      locationGranted: true,
+    })
+  })
+
+  it('records a denied choice and requires explicit continuation when evidence storage fails', async () => {
+    mocks.recordConsentChoice.mockRejectedValue(new Error('storage unavailable'))
+    const human = createHuman()
+    const { getByTestId, getByRole, getByText } = render(<ConsentEntryGate />)
+
+    await human.click(getByTestId('consent-gate-permission-essentialOnly'), HUMAN_DELAYS.mediumSettle)
+    await human.click(getByTestId('consent-gate-continue'), HUMAN_DELAYS.mediumSettle)
+
+    expect(mocks.recordConsentChoice).toHaveBeenCalledWith({
+      telemetryGranted: false,
+      locationGranted: false,
+    })
+    expect(getByRole('alert').textContent).toContain('could not be saved')
+    expect(getByText('Continue without saved evidence')).toBeTruthy()
+    expect(mocks.push).not.toHaveBeenCalled()
+
+    await human.click(getByTestId('consent-gate-permission-rejectAll'), HUMAN_DELAYS.mediumSettle)
+    await human.click(getByText('Continue without saved evidence'), HUMAN_DELAYS.mediumSettle)
+
+    expect(localStorage.getItem(CONSENT_MODE_KEY)).toBe('rejectAll')
+    expect(localStorage.getItem('aljama.telemetry.consent')).toBe('denied')
+    expect(mocks.push).toHaveBeenCalledWith('/en/compliance')
   })
 
   it('restores a previously denied preset instead of forcing optional services back on', () => {
