@@ -64,6 +64,33 @@ describe('deterministic-key-engine', () => {
     expect(xrpl0.index).toBe(0)
   })
 
+  it('supports alternate change indexes and tolerates transient balance lookup failures', async () => {
+    const vault = new DeterministicVault(
+      { id: 'public', mnemonic: TEST_MNEMONIC },
+      { passphrase: '' },
+    )
+
+    const internal = vault.nextReceiveAddress('ETH', 0, 1)
+    expect(internal.change).toBe(1)
+    expect(internal.index).toBe(0)
+
+    const funded = vault.derive({ chain: 'ETH', account: 0, index: 1, change: 0 })
+    const found = await discoverAccountsAndAddresses({
+      vault,
+      chains: ['ETH'],
+      maxAccounts: 1,
+      maxAddrsPerAccount: 3,
+      getBalance: async (_chain, address) => {
+        if (address === funded.address) return 2n
+        if (address === internal.address) throw new Error('provider timeout')
+        return 0n
+      },
+    })
+
+    expect(found).toHaveLength(1)
+    expect(found[0]?.discovered.some((entry) => entry.address === funded.address)).toBe(true)
+  })
+
   it('enforces hardened-only derivation for ed25519 paths', () => {
     const vault = new DeterministicVault(
       { id: 'public', mnemonic: TEST_MNEMONIC },

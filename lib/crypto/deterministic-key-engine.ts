@@ -447,6 +447,27 @@ export class DeterministicVault {
     })
   }
 
+  private assertValidDerivationPath(chain: Chain, path: string): void {
+    const entry = REGISTRY[chain]
+    const segments = parseDerivationPath(path)
+    if (segments.length === 0) {
+      throw new Error(`Derivation path is empty for chain ${chain}`)
+    }
+
+    const purpose = segments[0]?.index
+    const validPurpose =
+      chain === 'BTC'
+        ? purpose === 44 || purpose === 49 || purpose === 84
+        : purpose === entry.defaultPurpose
+    if (purpose !== undefined && !validPurpose) {
+      throw new Error(`Unexpected derivation purpose ${purpose} for chain ${chain}: ${path}`)
+    }
+
+    if (entry.curve === 'ed25519' && !segments.every((segment) => segment.hardened)) {
+      throw new Error(`ed25519 paths must be hardened: ${path}`)
+    }
+  }
+
   private derivePostQuantumSeedAtPath(
     chain: WalletPqcDerivationChain,
     path: string,
@@ -508,6 +529,8 @@ export class DeterministicVault {
       throw new Error(`Post-quantum derivation is not supported for chain: ${chain}`)
     }
 
+    this.assertValidDerivationPath(chain, path)
+
     const { seed, derivation } = this.derivePostQuantumSeedAtPath(chain, path, hints)
     const keys = ml_dsa65.keygen(seed)
 
@@ -531,6 +554,8 @@ export class DeterministicVault {
     hints?: { account?: number; change?: 0 | 1; index?: number },
   ): DerivedKey {
     const entry = REGISTRY[chain]
+    this.assertValidDerivationPath(chain, path)
+
     const shape = pathToBip44Shape(path)
     const account = hints?.account ?? shape?.account ?? 0
     const change = hints?.change ?? shape?.change ?? 0
@@ -573,11 +598,11 @@ export class DeterministicVault {
     }
   }
 
-  nextReceiveAddress(chain: Chain, account = 0): DerivedKey {
+  nextReceiveAddress(chain: Chain, account = 0, change: 0 | 1 = 0): DerivedKey {
     const entry = REGISTRY[chain]
-    const change: 0 | 1 = entry.path.usesChange ? 0 : 0
-    const index = this.allocateIndex(chain, account, change)
-    return this.derive({ chain, account, change, index })
+    const effectiveChange: 0 | 1 = entry.path.usesChange ? change : 0
+    const index = this.allocateIndex(chain, account, effectiveChange)
+    return this.derive({ chain, account, change: effectiveChange, index })
   }
 }
 
@@ -671,7 +696,13 @@ export async function discoverAccountsAndAddresses(opts: {
           } catch {
             continue
           }
-          const balance = await opts.getBalance(chain, key.address)
+          let balance: bigint
+          try {
+            balance = await opts.getBalance(chain, key.address)
+          } catch {
+            continue
+          }
+
           if (balance > 0n) {
             discovered.push({ path, address: key.address, balance })
           }
