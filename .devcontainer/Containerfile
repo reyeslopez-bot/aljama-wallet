@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ---------- base ----------
-FROM node:24 AS base
+FROM node:26 AS base
 WORKDIR /workspace
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
@@ -71,7 +71,7 @@ RUN CRDB_DATABASE_URL="postgresql://root@127.0.0.1:26257/aljama_wallet?sslmode=d
     && test -f .next/standalone/server.js
 
 # ---------- prod ----------
-FROM node:24-slim AS prod
+FROM node:26-slim AS prod
 WORKDIR /workspace
 
 ENV NODE_ENV=production \
