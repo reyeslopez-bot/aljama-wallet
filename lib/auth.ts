@@ -3,7 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { verifyPassword } from '@/lib/auth/password'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prismaPg } from '@/lib/prisma-pg'
-import { findUserByIdentifier, usePgAuth } from '@/lib/auth/store'
+import { findUserByIdentifier, recordSuccessfulLogin, usePgAuth } from '@/lib/auth/store'
 import { logError, logWarn } from '@/lib/security/logging'
 import { rateLimit } from '@/lib/security/rate-limit'
 import { isStrictMode } from '@/lib/security/runtime'
@@ -102,6 +102,8 @@ export const authOptions: NextAuthOptions = {
 
         const ok = await verifyPassword(password, user.passwordHash)
         if (!ok) return null
+
+        await recordSuccessfulLogin(user.id)
 
         return {
           id: user.id,

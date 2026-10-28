@@ -166,6 +166,14 @@ export default function PrivacyCenter() {
         >
           {t('reviewConsent')}
         </Link>
+        {isAdmin ? (
+          <Link
+            href={`/${locale}/admin/users`}
+            className="inline-flex rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-ivory/80 transition hover:border-saffron/35 hover:bg-saffron/10"
+          >
+            {t('manageUsers')}
+          </Link>
+        ) : null}
         {sessionStatus === 'unauthenticated' ? (
           <Link
             href={`/${locale}/login`}

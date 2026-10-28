@@ -38,6 +38,7 @@ model User {
   wallets       UserWallet[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+  lastLoginAt   DateTime?
 }
 
 model Account {

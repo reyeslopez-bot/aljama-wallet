@@ -578,6 +578,7 @@
     "title": "Privacy center",
     "intro": "Export account-linked data or submit and track an access, correction, or erasure request. Sign in is required.",
     "reviewConsent": "Review optional-service consent",
+    "manageUsers": "View user registrations",
     "signIn": "Sign in to manage privacy requests",
     "exportTitle": "Download account data",
     "exportDescription": "Download the account-linked profile, wallet membership, contact, transaction, signing-status, and privacy-request records available in the configured database.",
@@ -632,6 +633,22 @@
     "exportFailed": "Could not create the data export.",
     "limitation": "The export includes records linked to your account in the configured PostgreSQL database. Anonymous telemetry and browser-linked consent receipts are not included in the account export. Consent history is available only in the browser holding its receipt ID, and receipts are retained for up to 90 days. Credentials, private keys, and signing payloads are excluded. Privacy requests and status history are retained for up to 90 days after resolution.",
     "backToCompliance": "Back to compliance roadmap"
+  },
+  "userAdmin": {
+    "eyebrow": "Administration",
+    "title": "Registered users",
+    "intro": "View account registration details and the most recent successful sign-in. Passwords and authentication secrets are never shown.",
+    "username": "Username",
+    "email": "Email",
+    "registered": "Registered",
+    "lastLogin": "Last successful login",
+    "accountId": "Account ID",
+    "loading": "Loading users…",
+    "loadMore": "Load more",
+    "loadFailed": "Could not load registered users.",
+    "empty": "No registered users found.",
+    "never": "No successful login recorded",
+    "unavailable": "Not available"
   },
   "footer": {
     "privacy": "Privacy",

@@ -5,11 +5,13 @@ const {
   mockUserFindUnique,
   mockUserFindFirst,
   mockUserCreate,
+  mockUserUpdate,
   mockLogWarn,
 } = vi.hoisted(() => ({
   mockUserFindUnique: vi.fn(),
   mockUserFindFirst: vi.fn(),
   mockUserCreate: vi.fn(),
+  mockUserUpdate: vi.fn(),
   mockLogWarn: vi.fn(),
 }))
 
@@ -19,6 +21,7 @@ vi.mock('@/lib/prisma-pg', () => ({
       findUnique: mockUserFindUnique,
       findFirst: mockUserFindFirst,
       create: mockUserCreate,
+      update: mockUserUpdate,
     },
   },
 }))
@@ -42,6 +45,7 @@ describe('lib/auth/store', () => {
     mockUserFindUnique.mockResolvedValue(null)
     mockUserFindFirst.mockResolvedValue(null)
     mockUserCreate.mockResolvedValue(null)
+    mockUserUpdate.mockResolvedValue({ id: 'user-1' })
   })
 
   afterEach(() => {
@@ -146,5 +150,31 @@ describe('lib/auth/store', () => {
     ).rejects.toThrow('pg down')
 
     expect(mockLogWarn).not.toHaveBeenCalled()
+  })
+
+  it('records a successful login in persistent user storage', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('AUTH_MODE', 'pg')
+
+    const { recordSuccessfulLogin } = await import('@/lib/auth/store')
+    await recordSuccessfulLogin('user-1')
+
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { lastLoginAt: expect.any(Date) },
+      select: { id: true },
+    })
+  })
+
+  it('records a successful login in the in-memory development store', async () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    vi.stubEnv('AUTH_MODE', 'memory')
+
+    const { createUser, recordSuccessfulLogin } = await import('@/lib/auth/store')
+    const user = await createUser({ username: 'desk_user', passwordHash: 'hashed-password' })
+    await recordSuccessfulLogin(user.id)
+
+    expect(user.lastLoginAt).toBeInstanceOf(Date)
+    expect(mockUserUpdate).not.toHaveBeenCalled()
   })
 })

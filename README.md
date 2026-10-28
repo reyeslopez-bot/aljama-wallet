@@ -1,10 +1,10 @@
 # Aljama Wallet
 
-Aljama Wallet is a Next.js application for encrypted custody, EVM transaction controls, XRPL operations, telemetry, and security-signal detection.
+Aljama Wallet is an application for encrypted custody, EVM transaction controls, XRPL operations, telemetry, and security-signal detection.
 
 ## 1. System Topology
 
-- **Frontend**: Next.js App Router under `app/[locale]`, client components under `components/*`, state hooks in `hooks/*`.
+- **Frontend**: Localized pages under `app/[locale]`, client components under `components/*`, state hooks in `hooks/*`.
 - **API layer**: Route handlers under `app/api/*` with validation and standardized error/response helpers in `lib/security/*`.
 - **Data**:
   - **CockroachDB (OLTP)** via `prisma/crdb/schema.prisma` for wallet state and chain/XRPL records.
@@ -494,11 +494,11 @@ The local production profile requires real local database services and a
 running it. `pnpm prod:local` builds the app and then starts `next start` on port
 3000; stop it with Ctrl+C.
 
-Next.js loads `.env.development.local` in development and `.env.production.local`
-for production builds and starts. These files are ignored by Git. Do not commit
-them or put production credentials in `.env.local`; that generic file can be
-loaded as a fallback in both modes. Keep production credentials in the deployment
-environment, not in a local development profile.
+The application loads `.env.development.local` in development and
+`.env.production.local` for production builds and starts. These files are ignored
+by Git. Do not commit them or put production credentials in `.env.local`; that
+generic file can be loaded as a fallback in both modes. Keep production
+credentials in the deployment environment, not in a local development profile.
 
 ## 9. Quality Commands
 
@@ -509,7 +509,7 @@ pnpm test
 pnpm build
 ```
 
-`pnpm build` clears Next.js's generated Webpack cache before compiling to avoid
+`pnpm build` clears the generated Webpack cache before compiling to avoid
 failures caused by stale local build-cache data.
 
 ```bash

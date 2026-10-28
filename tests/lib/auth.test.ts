@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockVerifyPassword,
   mockFindUserByIdentifier,
+  mockRecordSuccessfulLogin,
   mockUsePgAuth,
   mockRateLimit,
 } = vi.hoisted(() => ({
   mockVerifyPassword: vi.fn(),
   mockFindUserByIdentifier: vi.fn(),
+  mockRecordSuccessfulLogin: vi.fn(),
   mockUsePgAuth: vi.fn(),
   mockRateLimit: vi.fn(),
 }))
@@ -18,6 +20,7 @@ vi.mock('@/lib/auth/password', () => ({
 
 vi.mock('@/lib/auth/store', () => ({
   findUserByIdentifier: mockFindUserByIdentifier,
+  recordSuccessfulLogin: mockRecordSuccessfulLogin,
   usePgAuth: mockUsePgAuth,
 }))
 
@@ -64,6 +67,7 @@ describe('lib/auth credentials provider', () => {
     mockUsePgAuth.mockReturnValue(false)
     mockRateLimit.mockResolvedValue({ ok: true, remaining: 7, resetAt: Date.now() + 60_000 })
     mockFindUserByIdentifier.mockResolvedValue(null)
+    mockRecordSuccessfulLogin.mockResolvedValue(undefined)
     mockVerifyPassword.mockResolvedValue(false)
   })
 
@@ -144,6 +148,7 @@ describe('lib/auth credentials provider', () => {
     ).resolves.toBeNull()
 
     expect(mockVerifyPassword).toHaveBeenCalledWith('WrongPassword123!', 'stored-hash')
+    expect(mockRecordSuccessfulLogin).not.toHaveBeenCalled()
   })
 
   it('returns the normalized user payload when credentials are valid', async () => {
@@ -175,6 +180,7 @@ describe('lib/auth credentials provider', () => {
       email: 'user@example.com',
       name: 'Desk User',
     })
+    expect(mockRecordSuccessfulLogin).toHaveBeenCalledWith('user-1')
   })
 
   it('hydrates the session user id from the user object or token subject', async () => {

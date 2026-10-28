@@ -10,6 +10,7 @@ type StoredUser = {
   passwordHash: string
   name?: string | null
   image?: string | null
+  lastLoginAt?: Date | null
 }
 
 const globalForAuth = globalThis as unknown as {
@@ -208,4 +209,23 @@ export async function createUser(params: {
   }
   devUsersById.set(id, user)
   return user
+}
+
+export async function recordSuccessfulLogin(userId: string): Promise<void> {
+  if (usePgAuth()) {
+    try {
+      await prismaPg.user.update({
+        where: { id: userId },
+        data: { lastLoginAt: new Date() },
+        select: { id: true },
+      })
+      return
+    } catch (error) {
+      if (handlePgAuthError('auth:login-last-login', error)) return
+      throw error
+    }
+  }
+
+  const user = devUsersById.get(userId)
+  if (user) user.lastLoginAt = new Date()
 }
